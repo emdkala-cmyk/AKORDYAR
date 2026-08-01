@@ -171,3 +171,211 @@
 .arr-crossfade-bar label { font-size: 0.75rem; color: var(--text-secondary); white-space: nowrap; }
 .arr-crossfade-bar input[type="range"] { width: 80px; height: 3px; }
 .arr-crossfade-bar .cf-val { font-size: 0.7rem; font-family: 'JetBrains Mono', monospace; color: var(--accent-cyan-glow); min-width: 28px; }
+
+/* ===== Arranger Manager Section (پلی‌لیست‌های ذخیره‌شده) ===== */
+.arr-manager-section {
+  flex-shrink: 0;
+  max-height: 260px;
+  overflow-y: auto;
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: 12px;
+  margin-bottom: 12px;
+}
+.arr-manager-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  padding: 0 4px;
+}
+.arr-manager-header h4 {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.arr-manager-header .arr-count-badge {
+  background: var(--accent-teal);
+  color: #000;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 10px;
+  margin-inline-start: 6px;
+}
+.arr-manager-toolbar {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+.arr-manager-toolbar button {
+  padding: 6px 12px;
+  font-size: 0.8rem;
+  background: #1F2736;
+  border: 1px solid var(--ctrl-border);
+  color: var(--text-primary);
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: 0.15s;
+}
+.arr-manager-toolbar button:hover { background: #2D3748; }
+.arr-manager-toolbar button.arr-btn-new {
+  background: var(--accent-teal);
+  color: #000;
+  border-color: var(--accent-teal);
+  font-weight: 700;
+}
+.arr-manager-toolbar button.arr-btn-new:hover { background: #4FD1C5; }
+.arr-manager-toolbar button.arr-btn-import {
+  background: #9F7AEA;
+  color: #fff;
+  border-color: #9F7AEA;
+  font-weight: 700;
+}
+.arr-manager-toolbar button.arr-btn-import:hover { background: #B388FF; }
+
+/* ─── کارت پلی‌لیست در منیجر ─── */
+.arr-card {
+  position: relative;
+  background: rgba(255,255,255,.03);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  gap: 10px;
+}
+.arr-card:hover {
+  background: var(--hover-bg);
+  border-color: rgba(255,255,255,0.15);
+  transform: translateY(-1px);
+}
+.arr-card .meta {
+  flex: 1;
+  min-width: 0;
+}
+.arr-card .meta b {
+  font-size: 14px;
+  color: var(--text-primary);
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.arr-card .meta span {
+  color: var(--text-secondary);
+  font-size: 11px;
+  display: block;
+  margin-top: 3px;
+}
+.arr-card .arr-card-badges {
+  display: flex;
+  gap: 4px;
+  margin-top: 4px;
+  flex-wrap: wrap;
+}
+.arr-card .arr-badge {
+  font-size: 0.65rem;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(255,255,255,0.06);
+  color: var(--text-secondary);
+}
+.arr-card .arr-badge.badge-crossfade {
+  background: rgba(63, 184, 175, 0.15);
+  color: var(--accent-teal);
+}
+.arr-card .arr-badge.badge-pause {
+  background: rgba(255, 159, 67, 0.15);
+  color: #FF9F43;
+}
+.arr-card .acts {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.arr-card .acts button {
+  padding: 5px 10px;
+  font-size: 11px;
+  background: #1F2736;
+  border: 1px solid var(--ctrl-border);
+  color: var(--text-primary);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: 0.15s;
+}
+.arr-card .acts button:hover { background: #2D3748; }
+.arr-card .acts button.act-export {
+  background: rgba(159, 122, 234, 0.15);
+  color: #B388FF;
+  border-color: rgba(159, 122, 234, 0.3);
+}
+.arr-card .acts button.act-export:hover {
+  background: #9F7AEA;
+  color: #fff;
+}
+.arr-card .acts button.act-del {
+  background: rgba(245, 101, 101, 0.1);
+  color: #FC8181;
+  border-color: rgba(245, 101, 101, 0.2);
+}
+.arr-card .acts button.act-del:hover {
+  background: #F56565;
+  color: #fff;
+}
+.arr-card-active {
+  border-color: var(--accent-teal) !important;
+  background: rgba(63, 184, 175, 0.08) !important;
+  box-shadow: 0 0 12px rgba(63, 184, 175, 0.15);
+}
+
+/* ─── نوار ابزار اصلی ادیتور ─── */
+.arr-main-toolbar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.arr-name-input {
+  flex: 1;
+  min-width: 180px;
+  background: #0D1017;
+  border: 1px solid var(--border-subtle);
+  padding: 8px 12px;
+  border-radius: 8px;
+  color: white;
+  font-size: 0.95rem;
+  font-weight: 600;
+  transition: 0.15s;
+}
+.arr-name-input:focus {
+  outline: none;
+  border-color: var(--accent-teal);
+  box-shadow: 0 0 0 2px rgba(63, 184, 175, 0.15);
+}
+
+/* ─── پیام خالی بودن لیست ─── */
+.arr-empty-state {
+  text-align: center;
+  padding: 30px 20px;
+  color: var(--text-secondary);
+}
+.arr-empty-state .arr-empty-icon {
+  font-size: 2.5rem;
+  margin-bottom: 8px;
+  opacity: 0.5;
+}
+.arr-empty-state .arr-empty-text {
+  font-size: 0.9rem;
+  margin-bottom: 16px;
+}

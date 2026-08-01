@@ -756,26 +756,28 @@
 
   <!-- Arranger Modal -->
   <div class="modal-overlay" id="arrangerModal">
-    <div class="chord-editor" style="width:900px;max-height:85vh;display:flex;flex-direction:column;">
+    <div class="chord-editor" style="width:980px;max-height:88vh;display:flex;flex-direction:column;">
       <div class="arr-drag-handle" id="arrModalDragHandle">
         <h3 style="margin:0;" data-i18n="arrangerTitle">🎼 ارنجر ترک</h3>
         <button class="ctrl-btn" onclick="closeArrangerModal()" data-i18n="close">بستن</button>
       </div>
-      <!-- لیست ارنجرها (همیشه نمایش) -->
-      <div id="arrManager" style="flex:1;overflow-y:auto;max-height:70vh;"></div>
-      <!-- ادیتور (وقتی ارنجر انتخاب شده) -->
-      <div id="arrEditor" style="display:none;flex:1;overflow-y:auto;max-height:70vh;">
+
+      <!-- ─── بخش بالا: لیست پلی‌لیست‌های ذخیره‌شده ─── -->
+      <div id="arrManager" class="arr-manager-section"></div>
+
+      <!-- ─── بخش پایین: ادیتور پلی‌لیست انتخاب‌شده ─── -->
+      <div id="arrEditor" style="display:none;flex:1;overflow-y:auto;min-height:0;">
         <div class="arr-tabs" id="arrTabs">
           <button class="arr-tab active" data-tab="editor" onclick="switchArrTab('editor')">📝 ادیتور</button>
           <button class="arr-tab" data-tab="songs" onclick="switchArrTab('songs')">🎵 ترانه‌ها</button>
         </div>
         <div id="arrTabEditor">
-          <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center;flex-wrap:wrap;">
-            <input id="arrName" data-i18n-placeholder="arrangerName" placeholder="نام ارنجر" style="flex:1;min-width:150px;background:#0D1017;border:1px solid var(--border-subtle);padding:8px;border-radius:8px;color:white;font-size:0.9rem;">
-            <button class="ctrl-btn active-blue" onclick="saveArrName()">💾 <span data-i18n="saveName">ذخیره نام</span></button>
-            <button class="ctrl-btn" style="background:#48BB78;border-color:#48BB78;color:#fff;font-weight:700;" onclick="saveArrangerFull()">💾 ذخیره کامل</button>
-            <button class="ctrl-btn" style="background:var(--accent-neon-pink);border-color:var(--accent-neon-pink);color:#fff;" onclick="openPerfMode()">🎤 <span data-i18n="perform">اجرا</span></button>
-            <button class="ctrl-btn" onclick="closeArrEditor()">✕ <span data-i18n="closeEditor">بستن ادیتور</span></button>
+          <!-- نوار ابزار اصلی: اسم + ذخیره + اجرا + اکسپورت -->
+          <div class="arr-main-toolbar">
+            <input id="arrName" data-i18n-placeholder="arrangerName" placeholder="نام پلی‌لیست" class="arr-name-input">
+            <button class="ctrl-btn active-blue" onclick="saveCurrentArranger()" title="ذخیره پلی‌لیست فعلی">💾 <span data-i18n="save">ذخیره</span></button>
+            <button class="ctrl-btn" style="background:#9F7AEA;border-color:#9F7AEA;color:#fff;font-weight:700;" onclick="exportCurrentArranger()" title="خروجی به فایل JSON">📤 <span data-i18n="export">اکسپورت</span></button>
+            <button class="ctrl-btn" style="background:var(--accent-neon-pink);border-color:var(--accent-neon-pink);color:#fff;" onclick="openPerfMode()" title="شروع اجرای زنده">🎤 <span data-i18n="perform">اجرا</span></button>
           </div>
           <div style="margin-bottom:10px;">
             <input type="text" id="arrSearchInput" placeholder="🔍 جستجوی آهنگ..." oninput="arrFilterSongs()" style="width:100%;background:#0D1017;border:1px solid var(--border-subtle);padding:8px 12px;border-radius:8px;color:white;font-size:0.9rem;direction:rtl;">
