@@ -6,7 +6,9 @@
   "author": "Akordyar",
   "license": "MIT",
   "scripts": {
-    "start": "node server.js",
+    "start": "electron .",
+    "start:web": "node server.js",
+    "server": "node server.js",
     "test": "node parser-test.js",
     "electron": "electron .",
     "electron:dev": "electron . --dev",

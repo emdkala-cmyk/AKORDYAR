@@ -760,8 +760,21 @@ app.post('/api/save-to-folder', async (req, res) => {
 
 if (!module.exports.__listening) {
   const server = app.listen(PORT, () => {
-    console.log(`Server running at http://localhost:${PORT}`);
-    console.log(`Open http://localhost:${PORT}/Akordyar.html to use the app`);
+    const url = `http://localhost:${PORT}/Akordyar.html`;
+    console.log(`\x1b[36m[Akordyar]\x1b[0m Server running at http://localhost:${PORT}`);
+    console.log(`\x1b[36m[Akordyar]\x1b[0m Open ${url} to use the app`);
+
+    // در حالت وب (نه Electron)، مرورگر رو خودکار باز کن
+    const isElectron = !!(process.versions && process.versions.electron);
+    if (!isElectron) {
+      try {
+        const { openBrowser } = require('./browser-opener.js');
+        // 500ms صبر کن تا سرور مطمئن بشه آماده‌ست
+        setTimeout(() => openBrowser(url), 500);
+      } catch (e) {
+        // اگر browser-opener.js وجود نداشت، بی‌خیال
+      }
+    }
   });
   module.exports.__listening = true;
   module.exports.__server = server;

@@ -1,3 +1,14 @@
+/**
+ * electron-main.js — نسخه اصلاح‌شده
+ *
+ * تغییرات کلیدی:
+ * 1. لاگ‌گذاری واضح‌تر برای دیباگ
+ * 2. هندل بهتر خطاها در startServerInProcess
+ * 3. باز کردن DevTools در حالت --dev
+ * 4. مدیریت بهتر خطای پورت اشغال‌شده
+ * 5. پاک‌سازی منابع هنگام خروج
+ */
+
 const { app, BrowserWindow, shell, ipcMain, dialog } = require('electron');
 const path = require('path');
 const http = require('http');
@@ -8,46 +19,69 @@ const SERVER_PORT = 3000;
 const SERVER_URL = `http://localhost:${SERVER_PORT}/Akordyar.html`;
 
 let mainWindow = null;
+let serverModule = null;
+
+// ============================================
+// Utility: colored console log
+// ============================================
+function log(tag, msg) {
+  console.log(`\x1b[36m[Akordyar]\x1b[0m \x1b[90m[${tag}]\x1b[0m ${msg}`);
+}
+
+function logError(tag, msg) {
+  console.error(`\x1b[36m[Akordyar]\x1b[0m \x1b[31m[${tag}]\x1b[0m ${msg}`);
+}
+
+// ============================================
+// Check if port is already in use (server might be running externally)
+// ============================================
+function isServerAlreadyRunning() {
+  return new Promise((resolve) => {
+    const req = http.get(SERVER_URL, (res) => {
+      res.resume();
+      resolve(res.statusCode === 200);
+    });
+    req.on('error', () => resolve(false));
+    req.setTimeout(1500, () => {
+      req.destroy();
+      resolve(false);
+    });
+  });
+}
 
 // ============================================
 // Audio File Management Handlers
 // ============================================
 
-// IPC Handler: Read Audio File from Hard Drive
 ipcMain.handle('audio:read-file', async (event, filePath) => {
   try {
     const dataBuffer = await fssync.readFile(filePath);
-    return dataBuffer.buffer; // Return ArrayBuffer
+    return dataBuffer.buffer;
   } catch (error) {
-    console.error('[Akordyar] Error reading audio file:', error);
+    logError('Audio', `Error reading audio file: ${error.message}`);
     throw error;
   }
 });
 
-// IPC Handler: Copy File to Project Audio Directory
 ipcMain.handle('audio:copy-to-project', async (event, sourcePath, projectAudioDir) => {
   try {
     const safeFileName = path.basename(sourcePath).replace(/[^a-zA-Z0-9._-]/g, '_');
     const destPath = path.join(projectAudioDir, safeFileName);
-    
-    // Ensure audio directory exists
+
     await fs.mkdir(projectAudioDir, { recursive: true });
-    
-    // Copy file
     await fssync.copyFile(sourcePath, destPath);
-    
+
     return {
       success: true,
       destinationPath: destPath,
       fileName: safeFileName
     };
   } catch (error) {
-    console.error('[Akordyar] Error copying audio file:', error);
+    logError('Audio', `Error copying audio file: ${error.message}`);
     throw error;
   }
 });
 
-// IPC Handler: Delete File
 ipcMain.handle('audio:delete-file', async (event, filePath) => {
   try {
     if (fssync.existsSync(filePath)) {
@@ -56,24 +90,22 @@ ipcMain.handle('audio:delete-file', async (event, filePath) => {
     }
     return { success: false, reason: 'File not found' };
   } catch (error) {
-    console.error('[Akordyar] Error deleting audio file:', error);
+    logError('Audio', `Error deleting audio file: ${error.message}`);
     throw error;
   }
 });
 
-// IPC Handler: Resolve Relative Path to Absolute Path
 ipcMain.handle('audio:resolve-path', async (event, projectFilePath, relativePath) => {
   try {
     const projectDir = path.dirname(projectFilePath);
     const absolutePath = path.resolve(projectDir, relativePath);
     return absolutePath;
   } catch (error) {
-    console.error('[Akordyar] Error resolving path:', error);
+    logError('Path', `Error resolving path: ${error.message}`);
     throw error;
   }
 });
 
-// IPC Handler: Show Message Box (for Copy/Link dialog)
 ipcMain.handle('dialog:show-message-box', async (event, options) => {
   try {
     const result = await dialog.showMessageBox(mainWindow, {
@@ -86,97 +118,83 @@ ipcMain.handle('dialog:show-message-box', async (event, options) => {
     });
     return result.response;
   } catch (error) {
-    console.error('[Akordyar] Error showing message box:', error);
+    logError('Dialog', `Error showing message box: ${error.message}`);
     throw error;
   }
 });
 
-// IPC Handler: Save Project and Copy Audio Files
 ipcMain.handle('project:save-with-audio', async (event, projectData, projectFilePath) => {
   try {
     const projectDir = path.dirname(projectFilePath);
     const audioDir = path.join(projectDir, 'Audio');
-    
-    // Create Audio directory if it doesn't exist
+
     if (!fssync.existsSync(audioDir)) {
       fssync.mkdirSync(audioDir, { recursive: true });
     }
 
-    // Process clips to copy audio files and update paths
     const processedClips = projectData.clips.map(clip => {
       if (clip.fileName && clip._filePath) {
-        // Determine source path (could be absolute or relative to current working dir)
         let sourcePath = clip._filePath;
         if (!path.isAbsolute(sourcePath)) {
-           sourcePath = path.resolve(process.cwd(), sourcePath);
+          sourcePath = path.resolve(process.cwd(), sourcePath);
         }
 
-        // Sanitize filename for target
         const safeFileName = path.basename(clip.fileName).replace(/[^a-zA-Z0-9._-]/g, '_');
         const targetPath = path.join(audioDir, safeFileName);
-        
-        // Copy file to Audio folder if source exists
+
         if (fssync.existsSync(sourcePath)) {
-            fssync.copyFileSync(sourcePath, targetPath);
+          fssync.copyFileSync(sourcePath, targetPath);
         }
-        
-        // Update relative path to be relative to project file
+
         const newRelativePath = path.relative(projectDir, targetPath);
-        
-        // Return clip with only essential metadata (remove runtime objects)
+
         return {
           ...clip,
-          _filePath: undefined, // Remove absolute path
-          bufferKey: undefined, // Remove buffer key
-          audioBuffer: undefined, // Remove buffer object
-          fileName: safeFileName, // Use sanitized name
-          relativePath: newRelativePath // Store relative path
+          _filePath: undefined,
+          bufferKey: undefined,
+          audioBuffer: undefined,
+          fileName: safeFileName,
+          relativePath: newRelativePath
         };
       }
-      // For clips without file info, just clean up runtime props
       const { bufferKey, audioBuffer, _filePath, ...cleanClip } = clip;
       return cleanClip;
     });
 
-    // Update project data with processed clips
     const finalProjectData = {
       ...projectData,
       clips: processedClips
     };
 
-    // Write project file
     await fs.writeFile(projectFilePath, JSON.stringify(finalProjectData, null, 2));
-    
+
     return projectFilePath;
   } catch (error) {
-    console.error('[Akordyar] Error saving project with audio:', error);
+    logError('Project', `Error saving project with audio: ${error.message}`);
     throw error;
   }
 });
 
-// IPC Handler: Load Project File
 ipcMain.handle('project:load-file', async (event, filePath) => {
   try {
     const content = await fs.readFile(filePath, 'utf8');
     const projectData = JSON.parse(content);
     return projectData;
   } catch (error) {
-    console.error('[Akordyar] Error loading project file:', error);
+    logError('Project', `Error loading project file: ${error.message}`);
     throw error;
   }
 });
 
-// IPC Handler: Check File Exists
 ipcMain.handle('fs:check-exists', async (event, filePath) => {
   try {
     return fssync.existsSync(filePath);
   } catch (error) {
-    console.error('[Akordyar] Error checking file existence:', error);
+    logError('FS', `Error checking file existence: ${error.message}`);
     return false;
   }
 });
 
-// IPC Handler: Open File Dialog
 ipcMain.handle('dialog:open-file', async () => {
   const result = await dialog.showOpenDialog(mainWindow, {
     filters: [
@@ -184,27 +202,29 @@ ipcMain.handle('dialog:open-file', async () => {
     ],
     properties: ['openFile']
   });
-  
+
   if (!result.canceled && result.filePaths.length > 0) {
     return result.filePaths[0];
   }
   return null;
 });
 
-// IPC Handler: Save File Dialog
 ipcMain.handle('dialog:save-file', async () => {
   const result = await dialog.showSaveDialog(mainWindow, {
     filters: [
       { name: 'Project Files', extensions: ['akr', 'json'] }
     ]
   });
-  
+
   if (!result.canceled && result.filePath) {
     return result.filePath;
   }
   return null;
 });
 
+// ============================================
+// Wait for Express server to be ready
+// ============================================
 function waitForServer(maxAttempts = 60) {
   return new Promise((resolve) => {
     let attempts = 0;
@@ -212,9 +232,15 @@ function waitForServer(maxAttempts = 60) {
       attempts++;
       const req = http.get(SERVER_URL, (res) => {
         res.resume();
-        if (res.statusCode === 200) resolve(true);
-        else if (attempts < maxAttempts) setTimeout(tryConnect, 250);
-        else resolve(false);
+        if (res.statusCode === 200) {
+          log('Server', `Connected after ${attempts} attempt(s)`);
+          resolve(true);
+        } else if (attempts < maxAttempts) {
+          setTimeout(tryConnect, 250);
+        } else {
+          logError('Server', `Server returned status ${res.statusCode} after ${maxAttempts} attempts`);
+          resolve(false);
+        }
       });
       req.on('error', () => {
         if (attempts < maxAttempts) setTimeout(tryConnect, 250);
@@ -230,25 +256,41 @@ function waitForServer(maxAttempts = 60) {
   });
 }
 
+// ============================================
+// Start Express server in-process
+// ============================================
 async function startServerInProcess() {
   try {
     const serverPath = app.isPackaged
       ? path.join(process.resourcesPath, 'app', 'server.js')
       : path.join(__dirname, 'server.js');
-    if (!fs.existsSync(serverPath)) {
-      console.error('[Akordyar] server.js not found at:', serverPath);
+
+    if (!fssync.existsSync(serverPath)) {
+      logError('Server', `server.js not found at: ${serverPath}`);
       return false;
     }
+
+    log('Server', `Loading server from: ${serverPath}`);
     process.chdir(path.dirname(serverPath));
-    require(serverPath);
+
+    // require کردن سرور — خودش روی PORT گوش می‌ده
+    serverModule = require(serverPath);
+    log('Server', 'Server module loaded successfully');
+
     return true;
   } catch (e) {
-    console.error('[Akordyar] Server start error:', e);
+    logError('Server', `Server start error: ${e.message}`);
+    if (e.stack) console.error(e.stack);
     return false;
   }
 }
 
+// ============================================
+// Create main BrowserWindow
+// ============================================
 function createWindow() {
+  const isDev = process.argv.includes('--dev');
+
   mainWindow = new BrowserWindow({
     width: 1440,
     height: 900,
@@ -264,6 +306,7 @@ function createWindow() {
     }
   });
 
+  // باز کردن لینک‌های خارجی در مرورگر پیش‌فرض
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith('http://') || url.startsWith('https://')) {
       shell.openExternal(url);
@@ -272,15 +315,70 @@ function createWindow() {
     return { action: 'allow' };
   });
 
+  log('Window', `Loading URL: ${SERVER_URL}`);
   mainWindow.loadURL(SERVER_URL);
+
+  if (isDev) {
+    mainWindow.webContents.openDevTools({ mode: 'detach' });
+  }
+
   mainWindow.on('closed', () => { mainWindow = null; });
+
+  // نمایش خطاهای صفحه
+  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
+    logError('Window', `Failed to load: ${errorDescription} (${errorCode})`);
+    if (errorCode === -3) {
+      // ABORTED — معمولاً ناشی از reload
+      return;
+    }
+    // تلاش مجدد بعد از 1 ثانیه
+    setTimeout(() => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        log('Window', 'Retrying load...');
+        mainWindow.loadURL(SERVER_URL);
+      }
+    }, 1000);
+  });
 }
 
+// ============================================
+// App lifecycle
+// ============================================
 app.whenReady().then(async () => {
-  console.log('[Akordyar] Starting server...');
-  await startServerInProcess();
-  await waitForServer();
+  log('App', 'Akordyar is starting...');
+
+  // اگر سرور از قبل داره اجرا می‌شه (مثلاً کاربر npm run server زده)،
+  // دوباره استارتش نزن
+  const alreadyRunning = await isServerAlreadyRunning();
+  if (alreadyRunning) {
+    log('Server', 'Server already running externally — skipping internal start');
+  } else {
+    log('Server', 'Starting internal Express server...');
+    const started = await startServerInProcess();
+    if (!started) {
+      logError('Server', 'Failed to start server. Aborting.');
+      dialog.showErrorBox(
+        'Akordyar — خطای راه‌اندازی',
+        'سرور Express راه‌اندازی نشد. لطفاً لاگ‌های کنسول را بررسی کنید.\n\n' +
+        'اگر پورت ۳۰۰۰ اشغال است، آن را آزاد کنید.'
+      );
+      app.quit();
+      return;
+    }
+    log('Server', 'Waiting for server to accept connections...');
+    const ok = await waitForServer();
+    if (!ok) {
+      logError('Server', 'Server did not respond in time');
+      dialog.showErrorBox(
+        'Akordyar — خطای اتصال',
+        'سرور روی پورت ۳۰۰۰ پاسخ نداد.\n' +
+        'ممکن است پورت اشغال باشد یا خطای دیگری رخ داده باشد.'
+      );
+    }
+  }
+
   createWindow();
+
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
@@ -288,4 +386,16 @@ app.whenReady().then(async () => {
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
+});
+
+app.on('before-quit', () => {
+  log('App', 'Shutting down...');
+  if (serverModule && serverModule.__server) {
+    try {
+      serverModule.__server.close();
+      log('Server', 'HTTP server closed');
+    } catch (e) {
+      // ignore
+    }
+  }
 });
