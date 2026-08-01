@@ -1,0 +1,173 @@
+/**
+ * arranger.css — Arranger side panel + Performance right panel + setlist
+ */
+
+/* ===== Arranger Tabs ===== */
+.arr-tabs { display: flex; gap: 4px; margin-bottom: 12px; border-bottom: 1px solid var(--border-subtle); padding-bottom: 8px; }
+.arr-tab { padding: 8px 16px; border: 1px solid var(--border-subtle); border-radius: 8px 8px 0 0; background: rgba(255,255,255,0.03); color: var(--text-secondary); font-size: 0.85rem; font-weight: 700; cursor: pointer; transition: all 0.2s; border-bottom: none; }
+.arr-tab:hover { background: rgba(255,255,255,0.06); color: var(--text-primary); }
+.arr-tab.active { background: var(--accent-teal); color: #000; border-color: var(--accent-teal); }
+
+/* ===== Arranger Songs Tab ===== */
+.arr-song-card { background: rgba(255,255,255,0.04); border: 1px solid var(--border-subtle); border-radius: 10px; padding: 12px; margin-bottom: 8px; transition: all 0.2s; }
+.arr-song-card:hover { background: var(--hover-bg); border-color: var(--accent-teal); }
+.arr-song-card .song-title { font-size: 0.95rem; font-weight: 700; color: var(--text-primary); margin-bottom: 4px; }
+.arr-song-card .song-meta { font-size: 0.75rem; color: var(--text-secondary); display: flex; gap: 12px; flex-wrap: wrap; }
+.arr-song-card .song-meta span { display: flex; align-items: center; gap: 4px; }
+.arr-song-card .song-num { background: var(--accent-teal); color: #000; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 700; flex-shrink: 0; }
+.arr-song-card .song-header { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+
+/* ===== Arranger Modal ===== */
+.arr-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.arr-col { background: rgba(255,255,255,.02); border: 1px solid var(--border-subtle); border-radius: 12px; padding: 12px; min-height: 200px; max-height: 45vh; overflow-y: auto; }
+.arr-col h4 { font-size: 12px; color: var(--text-secondary); margin-bottom: 8px; }
+.arr-item { background: rgba(255,255,255,.04); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 8px 10px; margin-bottom: 6px; display: flex; align-items: center; gap: 8px; cursor: grab; transition: background 0.15s; }
+.arr-item:hover { background: var(--hover-bg); }
+.arr-item:active { cursor: grabbing; }
+.arr-item.dragover { outline: 2px dashed var(--accent-teal); }
+.arr-item .ai-title { flex: 1; font-size: 13px; color: var(--text-primary); }
+.arr-item .ai-title small { color: var(--text-secondary); display: block; font-size: 11px; }
+.arr-item button { padding: 2px 6px; font-size: 12px; background: #1F2736; border: 1px solid var(--ctrl-border); color: var(--text-primary); border-radius: 4px; cursor: pointer; }
+.arr-item button:hover { background: #2D3748; }
+.arr-card { background: rgba(255,255,255,.03); border: 1px solid var(--border-subtle); border-radius: 10px; padding: 14px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: all 0.2s; }
+.arr-card:hover { background: var(--hover-bg); border-color: rgba(255,255,255,0.15); }
+.arr-card .meta b { font-size: 15px; color: var(--text-primary); }
+.arr-card .meta span { color: var(--text-secondary); font-size: 12px; display: block; margin-top: 3px; }
+.arr-card .acts { display: flex; gap: 6px; }
+.arr-card .acts button { padding: 6px 12px; font-size: 12px; background: #1F2736; border: 1px solid var(--ctrl-border); color: var(--text-primary); border-radius: 6px; cursor: pointer; }
+.arr-card .acts button:hover { background: #2D3748; }
+.arr-card-active { border-color: var(--accent-teal) !important; background: rgba(63, 184, 175, 0.08) !important; box-shadow: 0 0 12px rgba(63, 184, 175, 0.15); }
+@media (max-width: 640px) { .arr-cols { grid-template-columns: 1fr; } }
+
+/* ===== Arranger Enhanced: Per-song controls ===== */
+.arr-item .ai-meta { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.arr-item .ai-meta .ai-title { font-size: 13px; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.arr-item .ai-meta small { color: var(--text-secondary); display: block; font-size: 11px; }
+.arr-item .ai-ctrls { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+.arr-item .ai-ctrls input[type="number"] { width: 42px; height: 22px; background: #0D1017; border: 1px solid var(--ctrl-border); border-radius: 3px; color: var(--accent-cyan-glow); font-size: 11px; font-family: 'JetBrains Mono', monospace; text-align: center; padding: 0 2px; }
+.arr-item .ai-ctrls .ai-trans-btn { width: 20px; height: 20px; border-radius: 3px; border: 1px solid var(--border-subtle); background: transparent; color: var(--text-secondary); font-size: 0.7rem; font-weight: 900; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: 0.15s; }
+.arr-item .ai-ctrls .ai-trans-btn:hover { background: var(--hover-bg); color: var(--accent-cyan-glow); border-color: var(--accent-teal); }
+.arr-item .ai-ctrls .ai-trans-val { font-size: 0.6rem; font-family: 'JetBrains Mono', monospace; color: var(--accent-cyan-glow); min-width: 18px; text-align: center; font-weight: 700; }
+.arr-item .ai-ctrls .ai-notes-btn { width: 20px; height: 20px; border-radius: 3px; border: 1px solid var(--border-subtle); background: transparent; color: var(--text-secondary); font-size: 0.7rem; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+.arr-item .ai-ctrls .ai-notes-btn:hover { color: var(--accent-neon-pink); border-color: var(--accent-neon-pink); }
+.arr-item .ai-ctrls .ai-notes-btn.has-notes { color: var(--accent-neon-pink); border-color: var(--accent-neon-pink); background: rgba(255,46,147,0.1); }
+.arr-item.ai-playing { border-color: var(--accent-teal); background: rgba(63,184,175,0.08); animation: arr-now-playing 2s ease-in-out infinite; }
+@keyframes arr-now-playing { 0%,100% { box-shadow: 0 0 0 0 rgba(63,184,175,0); } 50% { box-shadow: 0 0 12px rgba(63,184,175,0.3); } }
+.arr-item.ai-next { border-color: rgba(255,46,147,0.4); background: rgba(255,46,147,0.05); }
+.arr-item.ai-done { opacity: 0.4; }
+.arr-item.ai-done .ai-title { text-decoration: line-through; }
+
+/* ===== Setlist Toolbar ===== */
+.arr-setlist-toolbar { display: flex; gap: 6px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
+.arr-setlist-toolbar button { padding: 4px 10px; font-size: 11px; background: #1F2736; border: 1px solid var(--ctrl-border); color: var(--text-primary); border-radius: 6px; cursor: pointer; font-weight: 700; transition: 0.15s; }
+.arr-setlist-toolbar button:hover { background: #2D3748; border-color: var(--accent-teal); }
+.arr-setlist-toolbar .arr-stl-active { background: var(--accent-teal); color: #000; border-color: var(--accent-teal); }
+.arr-setlist-toolbar .arr-stl-danger { border-color: var(--accent-neon-pink); color: var(--accent-neon-pink); }
+.arr-setlist-toolbar .arr-stl-danger:hover { background: rgba(255,46,147,0.15); }
+
+/* ===== Auto Import Progress Bar ===== */
+.auto-progress-wrap { margin-top: 10px; display: none; }
+.auto-progress-wrap.show { display: block; }
+.auto-progress-bar-outer { width: 100%; height: 10px; background: #1a1d27; border-radius: 5px; overflow: hidden; border: 1px solid var(--border-subtle); }
+.auto-progress-bar-inner { height: 100%; background: linear-gradient(90deg, var(--accent-teal), var(--accent-cyan-glow)); border-radius: 5px; transition: width 0.3s ease; width: 0%; }
+.auto-progress-info { display: flex; justify-content: space-between; align-items: center; margin-top: 6px; font-size: 0.78rem; color: var(--text-secondary); }
+.auto-progress-info .apc-pct { font-family: 'JetBrains Mono', monospace; font-weight: 700; color: var(--accent-cyan-glow); }
+.auto-progress-detail { margin-top: 6px; font-size: 0.75rem; color: var(--text-secondary); line-height: 1.7; white-space: pre-wrap; }
+.auto-progress-detail .apd-ok { color: #48BB78; }
+.auto-progress-detail .apd-fail { color: #e24f5b; }
+.auto-progress-detail .apd-dup { color: #D69E2E; }
+.auto-progress-detail .apd-pending { color: var(--text-secondary); }
+
+/* ===== Song Note Overlay ===== */
+.arr-song-note-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; z-index: 8000; }
+.arr-song-note-overlay.show { display: flex; }
+.arr-song-note-panel { background: var(--panel-bg); border: 1px solid var(--accent-neon-pink); border-radius: 12px; width: 420px; padding: 20px; box-shadow: 0 0 40px rgba(0,0,0,0.8); }
+.arr-song-note-panel h4 { margin: 0 0 12px; color: var(--accent-neon-pink); font-size: 0.95rem; }
+.arr-song-note-panel textarea { width: 100%; height: 120px; background: #0D1017; border: 1px solid var(--border-subtle); border-radius: 8px; color: white; padding: 10px; font-size: 0.9rem; resize: vertical; direction: rtl; }
+.arr-song-note-panel .note-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+.arr-song-note-panel .note-actions button { padding: 6px 14px; border-radius: 6px; border: 1px solid var(--ctrl-border); background: #1F2736; color: var(--text-primary); font-size: 0.85rem; font-weight: 700; cursor: pointer; }
+.arr-song-note-panel .note-actions button.btn-save { background: var(--accent-neon-pink); border-color: var(--accent-neon-pink); color: #fff; }
+
+/* ===== Performance Panel (Right side, draggable) ===== */
+.arr-perf-panel {
+  position: fixed;
+  top: 80px;
+  right: 256px;
+  width: 320px;
+  max-height: calc(100vh - 100px);
+  background: linear-gradient(135deg, #0F131E, #161B26);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 16px;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.6), 0 0 1px rgba(0,242,254,0.3);
+  z-index: 9500;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  backdrop-filter: blur(20px);
+}
+.arr-perf-panel .arr-perf-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: rgba(255,255,255,0.04);
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  cursor: move;
+  user-select: none;
+}
+.arr-perf-panel .arr-perf-panel-header .perf-title { font-size: 0.9rem; font-weight: 900; color: var(--accent-cyan-glow); }
+.arr-perf-panel .arr-perf-panel-header .perf-controls { display: flex; gap: 6px; }
+.arr-perf-panel .arr-perf-panel-header .perf-controls button {
+  width: 30px; height: 30px; border-radius: 8px;
+  border: 1px solid var(--ctrl-border); background: #1F2736;
+  color: var(--text-primary); font-size: 0.8rem; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; transition: 0.15s;
+}
+.arr-perf-panel .arr-perf-panel-header .perf-controls button:hover { background: #2D3748; border-color: var(--accent-teal); }
+.arr-perf-panel .arr-perf-panel-header .perf-controls .perf-stop { border-color: var(--accent-neon-pink); color: var(--accent-neon-pink); }
+
+.arr-perf-panel .arr-perf-song-info { text-align: center; padding: 12px 14px 8px; }
+.arr-perf-panel .arr-perf-song-info .perf-song-num { font-size: 0.75rem; color: var(--text-secondary); font-weight: 700; margin-bottom: 4px; }
+.arr-perf-panel .arr-perf-song-info .perf-song-title { font-size: 1.2rem; font-weight: 900; color: var(--text-primary); line-height: 1.4; }
+.arr-perf-panel .arr-perf-song-info .perf-song-artist { font-size: 0.8rem; color: var(--text-secondary); margin-top: 2px; }
+.arr-perf-panel .arr-perf-song-info .perf-song-key { font-size: 0.9rem; color: var(--accent-cyan-glow); font-family: 'JetBrains Mono', monospace; font-weight: 700; margin-top: 4px; }
+
+.arr-perf-panel .arr-perf-setlist { flex: 1; overflow-y: auto; padding: 6px 8px; min-height: 100px; max-height: 300px; }
+.arr-perf-setlist-item { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 8px; margin-bottom: 3px; cursor: pointer; transition: all 0.15s; border: 1px solid transparent; }
+.arr-perf-setlist-item:hover { background: rgba(255,255,255,0.04); }
+.arr-perf-setlist-item.pf-current { background: rgba(63,184,175,0.12); border-color: var(--accent-teal); }
+.arr-perf-setlist-item.pf-next { border-color: rgba(255,46,147,0.3); }
+.arr-perf-setlist-item.pf-done { opacity: 0.35; }
+.arr-perf-setlist-item .pf-num { font-size: 0.7rem; color: var(--text-secondary); font-family: 'JetBrains Mono', monospace; min-width: 18px; text-align: center; font-weight: 700; }
+.arr-perf-setlist-item.pf-current .pf-num { color: var(--accent-teal); }
+.arr-perf-setlist-item .pf-name { flex: 1; font-size: 0.8rem; color: var(--text-primary); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.arr-perf-setlist-item.pf-current .pf-name { color: var(--accent-cyan-glow); }
+.arr-perf-setlist-item .pf-key { font-size: 0.65rem; color: var(--text-secondary); font-family: 'JetBrains Mono', monospace; }
+
+.arr-perf-panel .arr-perf-section-nav { display: flex; gap: 4px; padding: 6px 8px; flex-wrap: wrap; justify-content: center; }
+.arr-perf-panel .arr-perf-section-nav button { padding: 4px 10px; border-radius: 6px; border: 1px solid var(--ctrl-border); background: #1F2736; color: var(--text-primary); font-size: 0.75rem; font-weight: 700; cursor: pointer; transition: 0.15s; }
+.arr-perf-panel .arr-perf-section-nav button:hover { background: var(--accent-teal); color: #000; border-color: var(--accent-teal); }
+.arr-perf-panel .arr-perf-section-nav button.active-sec { background: var(--accent-teal); color: #000; border-color: var(--accent-teal); }
+
+.arr-perf-panel .arr-perf-footer { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 8px 12px; background: rgba(255,255,255,0.03); border-top: 1px solid rgba(255,255,255,0.08); }
+.arr-perf-panel .arr-perf-footer .perf-nav-btn { width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--ctrl-border); background: #1F2736; color: white; font-size: 0.9rem; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+.arr-perf-panel .arr-perf-footer .perf-nav-btn:hover { background: #2D3748; border-color: var(--accent-teal); }
+.arr-perf-panel .arr-perf-footer .perf-nav-btn.play-btn { width: 44px; height: 44px; background: var(--accent-teal); color: #000; border: none; font-size: 1.1rem; }
+.arr-perf-panel .arr-perf-footer .perf-nav-btn.play-btn:hover { background: #4CC9BE; }
+.arr-perf-panel .arr-perf-footer .perf-time { font-family: 'JetBrains Mono', monospace; font-size: 1rem; font-weight: 700; color: var(--accent-cyan-glow); min-width: 70px; text-align: center; }
+.arr-perf-panel .arr-perf-footer .perf-trans-ctrl { display: flex; align-items: center; gap: 4px; }
+.arr-perf-panel .arr-perf-footer .perf-trans-ctrl label { font-size: 0.7rem; color: var(--text-secondary); }
+.arr-perf-panel .arr-perf-footer .perf-trans-ctrl button { width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--ctrl-border); background: #1F2736; color: white; font-size: 0.75rem; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.arr-perf-panel .arr-perf-footer .perf-trans-ctrl button:hover { background: var(--accent-teal); color: #000; }
+.arr-perf-panel .arr-perf-footer .perf-trans-ctrl .perf-trans-val { font-family: 'JetBrains Mono', monospace; font-size: 0.9rem; font-weight: 700; color: var(--accent-cyan-glow); min-width: 24px; text-align: center; }
+
+.arr-perf-note-badge { margin: 4px 8px; background: rgba(255,46,147,0.15); border: 1px solid var(--accent-neon-pink); border-radius: 8px; padding: 6px 10px; font-size: 0.8rem; color: var(--accent-neon-pink); line-height: 1.5; display: none; position: relative; }
+.arr-perf-note-badge.show { display: block; }
+.arr-perf-note-badge .note-close { position: absolute; top: 2px; left: 6px; cursor: pointer; font-size: 0.7rem; opacity: 0.6; }
+.arr-perf-note-badge .note-close:hover { opacity: 1; }
+
+/* ===== Crossfade indicator ===== */
+.arr-crossfade-bar { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
+.arr-crossfade-bar label { font-size: 0.75rem; color: var(--text-secondary); white-space: nowrap; }
+.arr-crossfade-bar input[type="range"] { width: 80px; height: 3px; }
+.arr-crossfade-bar .cf-val { font-size: 0.7rem; font-family: 'JetBrains Mono', monospace; color: var(--accent-cyan-glow); min-width: 28px; }

@@ -1,0 +1,141 @@
+/**
+ * base.css — CSS Variables, reset, body, scrollbars, range inputs
+ * Lines: 8-37 + 772-788 of original 1.html
+ */
+
+/* ===== Local Fonts ===== */
+@font-face {
+  font-family: 'Vazirmatn';
+  src: url('../fonts/Vazirmatn-Thin.woff2') format('woff2');
+  font-weight: 100;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Vazirmatn';
+  src: url('../fonts/Vazirmatn-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Vazirmatn';
+  src: url('../fonts/Vazirmatn-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Vazirmatn';
+  src: url('../fonts/Vazirmatn-Black.woff2') format('woff2');
+  font-weight: 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('../fonts/JetBrainsMono-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('../fonts/JetBrainsMono-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Lalezar';
+  src: url('../fonts/Lalezar-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Rubik';
+  src: url('../fonts/Rubik-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Mada';
+  src: url('../fonts/Mada-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'BArshia';
+  src: url('../fonts/BArshia.woff2') format('woff2');
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'BFarnaz';
+  src: url('../fonts/BFarnaz.woff2') format('woff2');
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'BJadid';
+  src: url('../fonts/BJadidBd.woff2') format('woff2');
+  font-weight: 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'BZar';
+  src: url('../fonts/BZar.woff2') format('woff2');
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'BZar';
+  src: url('../fonts/BZarBd.woff2') format('woff2');
+  font-weight: 700;
+  font-display: swap;
+}
+
+/* ===== CSS Variables ===== */
+:root {
+  --dark-bg: #0F131E;
+  --panel-bg: #161B26;
+  --workspace-bg: #121622;
+  --timeline-bg: #0D1017;
+  --accent-teal: #3FB8AF;
+  --accent-cyan-glow: #00F2FE;
+  --accent-neon-pink: #FF2E93;
+  --text-primary: #E2E8F0;
+  --text-secondary: #718096;
+  --border-subtle: #232B3E;
+  --hover-bg: #1F2736;
+  --font-family: 'Vazirmatn', 'Segoe UI', Tahoma, sans-serif;
+  --ctrl-border: #2D3748;
+  --ctrl-text: #E2E8F0;
+  --ctrl-accent-blue: #3182CE;
+  --lane-h: 64px;
+  --header-w: 240px;
+}
+
+/* ===== Reset ===== */
+* { box-sizing: border-box; font-family: var(--font-family); }
+body { margin: 0; background: var(--dark-bg); color: var(--text-primary); height: 100vh; overflow: hidden; user-select: none; }
+
+/* ===== Modern Scrollbars ===== */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 10px; transition: background 0.2s; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.25); }
+::-webkit-scrollbar-corner { background: transparent; }
+* { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.12) transparent; }
+
+/* ===== Range Inputs ===== */
+input[type="range"] { -webkit-appearance: none; appearance: none; height: 4px; background: #2D3748; border-radius: 2px; outline: none; cursor: pointer; }
+input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: #fff; border: 2px solid var(--accent-teal); cursor: pointer; box-shadow: 0 0 4px rgba(0,0,0,0.3); transition: transform 0.12s; }
+input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+input[type="range"]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: #fff; border: 2px solid var(--accent-teal); cursor: pointer; }
+input[type="range"]::-moz-range-track { height: 4px; background: #2D3748; border-radius: 2px; }
+
+/* ===== Dark Number Inputs ===== */
+input[type="number"] { background: #0D1017 !important; color: white !important; border-color: var(--border-subtle) !important; }
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button { opacity: 1; filter: invert(1) hue-rotate(180deg); height: 28px; }
+input[type="number"]::-moz-spin-button { filter: invert(1) hue-rotate(180deg); }
+
+/* ===== Dark Color Inputs ===== */
+input[type="color"] { background: #0D1017 !important; border: 1px solid var(--border-subtle) !important; border-radius: 4px !important; padding: 2px !important; cursor: pointer; width: 26px !important; height: 26px !important; }
+input[type="color"]::-webkit-color-swatch-wrapper { padding: 1px; }
+input[type="color"]::-webkit-color-swatch { border: none; border-radius: 3px; }

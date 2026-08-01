@@ -1,0 +1,75 @@
+{
+  "name": "akordyar",
+  "version": "1.0.0",
+  "description": "Akordyar — Chord editor & DAW (desktop installable edition)",
+  "main": "electron-main.js",
+  "author": "Akordyar",
+  "license": "MIT",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node parser-test.js",
+    "electron": "electron .",
+    "electron:dev": "electron . --dev",
+    "dist": "electron-builder --win",
+    "dist:portable": "electron-builder --win portable",
+    "dist:all": "electron-builder --win nsis portable",
+    "pack": "electron-builder --win --dir"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "jsdom": "^24.0.0"
+  },
+  "devDependencies": {
+    "electron": "^31.7.7",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.akordyar.app",
+    "productName": "Akordyar",
+    "copyright": "Copyright © 2026 Akordyar",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "electron-main.js",
+      "server.js",
+      "parser-test.js",
+      "Akordyar.html",
+      "package.json",
+      "js/**/*",
+      "styles/**/*",
+      "build/icon.png",
+      "build/icon.ico",
+      "node_modules/express/**/*",
+      "node_modules/jsdom/**/*"
+    ],
+    "asar": false,
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Akordyar",
+      "deleteAppDataOnUninstall": false
+    },
+    "portable": {
+      "artifactName": "Akordyar-Portable-${version}.exe"
+    }
+  },
+  "allowScripts": {
+    "electron@31.7.7": true
+  }
+}

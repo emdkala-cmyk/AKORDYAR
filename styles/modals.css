@@ -1,0 +1,81 @@
+/**
+ * modals.css — All modals (import, shortcut, chord editor, confirm, icon picker)
+ */
+
+/* ===== Import Modal ===== */
+.import-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(8px); display: none; align-items: center; justify-content: center; z-index: 3000; }
+.import-modal.show { display: flex; }
+.import-panel { background: var(--panel-bg); border: 1px solid var(--accent-teal); border-radius: 16px; width: 620px; max-height: 85vh; display: flex; flex-direction: column; box-shadow: 0 0 50px rgba(0,0,0,0.8); }
+.import-panel-header { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--border-subtle); }
+.import-panel-header h3 { margin: 0; color: var(--accent-cyan-glow); font-size: 1rem; }
+.import-panel-header button { background: none; border: none; color: var(--text-secondary); font-size: 1.2rem; cursor: pointer; padding: 4px 8px; border-radius: 6px; }
+.import-panel-header button:hover { color: var(--accent-neon-pink); background: rgba(255,46,147,0.1); }
+.import-panel-body { flex: 1; overflow-y: auto; padding: 16px 20px; }
+.import-panel-body label { display: block; font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 6px; font-weight: bold; }
+.import-panel-body input[type="text"] { width: 100%; background: #0D1017; border: 1px solid var(--border-subtle); padding: 10px; border-radius: 8px; color: white; font-size: 0.9rem; margin-bottom: 14px; direction: ltr; }
+.import-panel-body textarea { width: 100%; height: 200px; background: #0D1017; border: 1px solid var(--border-subtle); padding: 10px; border-radius: 8px; color: white; font-size: 0.85rem; font-family: 'JetBrains Mono', monospace; resize: vertical; direction: ltr; line-height: 1.8; }
+.import-panel-body textarea::placeholder { color: #4A5568; }
+.import-panel-footer { display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; border-top: 1px solid var(--border-subtle); gap: 8px; }
+.import-panel-footer button { padding: 8px 16px; border-radius: 8px; border: 1px solid var(--ctrl-border); background: #1F2736; color: var(--text-primary); font-size: 0.85rem; font-weight: 700; cursor: pointer; transition: 0.15s; }
+.import-panel-footer button:hover { background: #2D3748; }
+.import-panel-footer .btn-primary { background: var(--accent-teal); color: #000; border-color: var(--accent-teal); }
+.import-panel-footer .btn-primary:hover { background: #35a89f; }
+.import-preview { background: #0D1017; border: 1px solid var(--border-subtle); border-radius: 8px; padding: 12px; margin-top: 12px; max-height: 180px; overflow-y: auto; font-size: 0.8rem; color: var(--text-secondary); white-space: pre-wrap; line-height: 1.6; }
+
+/* ===== Shortcut Modal ===== */
+.shortcut-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(8px); display: none; align-items: center; justify-content: center; z-index: 3000; }
+.shortcut-modal.show { display: flex; }
+.shortcut-panel { background: var(--panel-bg); border: 1px solid var(--accent-teal); border-radius: 16px; width: 580px; max-height: 80vh; display: flex; flex-direction: column; box-shadow: 0 0 50px rgba(0,0,0,0.8); }
+.shortcut-panel-header { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--border-subtle); }
+.shortcut-panel-header h3 { margin: 0; color: var(--accent-cyan-glow); font-size: 1rem; }
+.shortcut-panel-header button { background: none; border: none; color: var(--text-secondary); font-size: 1.2rem; cursor: pointer; padding: 4px 8px; border-radius: 6px; }
+.shortcut-panel-header button:hover { color: var(--accent-neon-pink); background: rgba(255,46,147,0.1); }
+.shortcut-list { flex: 1; overflow-y: auto; padding: 12px 20px; }
+.shortcut-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-radius: 8px; margin-bottom: 4px; transition: background 0.15s; }
+.shortcut-item:hover { background: rgba(255,255,255,0.03); }
+.shortcut-label { font-size: 0.88rem; color: var(--text-primary); }
+.shortcut-key { display: flex; gap: 4px; align-items: center; cursor: pointer; padding: 4px 10px; border-radius: 6px; background: rgba(255,255,255,0.04); border: 1px solid var(--border-subtle); transition: all 0.2s; min-width: 80px; justify-content: center; }
+.shortcut-key:hover { border-color: var(--accent-teal); background: rgba(63,184,175,0.08); }
+.shortcut-key.editing { border-color: var(--accent-neon-pink); background: rgba(255,46,147,0.12); animation: sk-pulse 1s infinite; }
+@keyframes sk-pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(255,46,147,0.4); } 50% { box-shadow: 0 0 0 4px rgba(255,46,147,0); } }
+.shortcut-key kbd { font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--accent-cyan-glow); font-weight: 700; white-space: nowrap; }
+.shortcut-panel-footer { display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; border-top: 1px solid var(--border-subtle); }
+.shortcut-panel-footer button { padding: 6px 14px; border-radius: 8px; border: 1px solid var(--ctrl-border); background: #1F2736; color: var(--text-primary); font-size: 0.8rem; font-weight: 700; cursor: pointer; transition: 0.15s; }
+.shortcut-panel-footer button:hover { background: #2D3748; border-color: var(--accent-teal); }
+.shortcut-panel-footer .sk-reset { border-color: var(--accent-neon-pink); color: var(--accent-neon-pink); }
+.shortcut-panel-footer .sk-reset:hover { background: rgba(255,46,147,0.1); }
+
+/* ===== Chord Editor Modal ===== */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: none; align-items: center; justify-content: center; z-index: 2000; }
+.modal-overlay.show { display: flex; }
+.chord-editor { background: var(--panel-bg); border: 1px solid var(--accent-teal); border-radius: 16px; width: 600px; padding: 24px; box-shadow: 0 0 40px rgba(0,0,0,0.8); }
+
+/* Arranger Modal — سمت چپ + قابل درگ */
+#arrangerModal { align-items: flex-start; justify-content: flex-start; padding: 60px 0 0 0; }
+#arrangerModal .chord-editor { position: absolute; left: 16px; top: 70px; width: 560px; max-height: calc(100vh - 90px); display: flex; flex-direction: column; cursor: default; }
+#arrangerModal .chord-editor .arr-drag-handle { cursor: move; user-select: none; padding: 0 0 8px 0; margin-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.08); display: flex; align-items: center; justify-content: space-between; }
+#arrangerModal .chord-editor .arr-drag-handle h3 { margin: 0; text-align: right; flex: 1; }
+.chord-editor h3 { margin: 0 0 20px 0; color: var(--accent-cyan-glow); text-align: center; }
+.chord-cols { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 20px; }
+.chord-col { background: #0D1017; border: 1px solid var(--border-subtle); border-radius: 8px; padding: 10px; height: 200px; overflow-y: auto; }
+.chord-col h4 { margin: 0 0 10px 0; font-size: 0.8rem; color: var(--text-secondary); text-align: center; border-bottom: 1px solid var(--border-subtle); padding-bottom: 5px; }
+.chord-item { padding: 6px; margin-bottom: 4px; font-family: 'JetBrains Mono'; font-size: 0.85rem; text-align: center; cursor: pointer; border-radius: 4px; transition: 0.1s; }
+.chord-item:hover { background: var(--hover-bg); }
+.chord-item.active { background: var(--accent-teal); color: #000; font-weight: bold; }
+.piano-keyboard { height: 100px; background: #111; position: relative; border-radius: 4px; overflow: hidden; display: flex; direction: ltr; }
+.white-key { flex: 1; background: #f0f0f0; border-right: 1px solid #333; position: relative; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 5px; font-size: 0.7rem; color: #333; }
+.white-key.active { background: var(--accent-teal); }
+.black-key { position: absolute; width: 24px; height: 60%; background: #000; z-index: 2; top: 0; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 5px; font-size: 0.6rem; color: #fff; }
+.black-key.active { background: var(--accent-neon-pink); }
+.chord-actions { display: flex; justify-content: space-between; margin-top: 20px; }
+.chord-preview { font-size: 2rem; font-weight: bold; color: #fff; text-align: center; font-family: 'JetBrains Mono'; margin-bottom: 15px; }
+
+/* ===== Icon Picker ===== */
+.icon-picker-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; z-index: 9000; }
+.icon-picker-overlay.show { display: flex; }
+.icon-picker-panel { background: var(--panel-bg); border: 1px solid var(--accent-teal); border-radius: 12px; padding: 16px; width: 320px; max-height: 400px; overflow-y: auto; }
+.icon-picker-panel h4 { margin: 0 0 12px; color: var(--accent-cyan-glow); font-size: 0.9rem; }
+.icon-picker-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; }
+.icon-picker-item { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 6px; cursor: pointer; font-size: 1.2rem; transition: 0.15s; border: 1px solid transparent; }
+.icon-picker-item:hover { background: rgba(63, 184, 175, 0.15); border-color: var(--accent-teal); }
+.icon-picker-item.active { background: rgba(63, 184, 175, 0.25); border-color: var(--accent-teal); }
