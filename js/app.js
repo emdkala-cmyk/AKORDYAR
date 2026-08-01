@@ -2033,11 +2033,21 @@ sels.forEach(c => {
             scroll.scrollLeft = Math.max(0, x - margin);
           }
         }
-        // Early prep: when 10s from end, start building next song state
-        // (افزایش از 3s به 10s برای اطمینان از لود کامل صدا قبل از swap)
+        // ─── Early prep: وقتی ۱۵ ثانیه به انتها مونده، شروع به ساختن state آهنگ بعدی کن ───
+        // این زمان زیاد هست تا مطمئن بشیم حتی برای فایل‌های بزرگ هم کافیه.
         if (arrPerformActive && !_arrNextState && !arrPreparePending) {
           const end = getArrangerEnd();
-          if (end > 0 && DAW.playhead >= end - 10) { arrPreparePending = true; prepareNextArrSong().then(() => { arrPreparePending = false; }); }
+          if (end > 0 && DAW.playhead >= end - 15) {
+            arrPreparePending = true;
+            console.log(`[Arranger] Starting prep at ${DAW.playhead.toFixed(1)}s (end: ${end.toFixed(1)}s)`);
+            prepareNextArrSong()
+              .then(() => { arrPreparePending = false; })
+              .catch((e) => {
+                console.error('[Arranger] Prep failed:', e);
+                arrPreparePending = false;
+                _arrNextState = null;
+              });
+          }
         }
         if (DAW.playhead >= (arrPerformActive ? getArrangerEnd() : getProjectEnd())) {
           // Gapless arranger: hot-swap if next song is ready
@@ -2052,11 +2062,52 @@ sels.forEach(c => {
           if (_arrIsCrossfading) {
             DAW.rafId = requestAnimationFrame(tick); return;
           }
-          // اگر _arrNextState آماده نیست ولی ارنجر فعال هست، fallback به loadArrSong
+          // ─── اگر _arrNextState آماده نیست ولی prep در حال اجراست: صبر کن (وارد حالت pause شو) ───
+          // به‌جای stop، playback رو pause می‌کنیم تا وقتی prep تموم شد، ادامه بدیم
+          if (arrPerformActive && !_arrNextState && arrPreparePending) {
+            console.log('[Arranger] Reached end but prep still running. Entering wait mode...');
+            // playback رو متوقف کن ولی transport رو stop نکن
+            stopAllVoices();
+            DAW.isPlaying = false;
+            // ─── مکانیزم poll مستقل از tick ───
+            // چون tick با DAW.isPlaying=false متوقف می‌شه، یک poll جداگانه می‌سازیم
+            // که وقتی prep تموم شد، hot-swap رو انجام بده
+            if (!_arrWaitPollActive) {
+              _arrWaitPollActive = true;
+              const waitPoll = () => {
+                if (!arrPerformActive) { _arrWaitPollActive = false; return; }
+                if (_arrNextState) {
+                  console.log('[Arranger] Prep finished during wait — hot-swapping now');
+                  _arrWaitPollActive = false;
+                  if (arrPerformData?.crossfade > 0) arrCrossfadeSwap();
+                  else hotSwapToNextSong();
+                } else if (!arrPreparePending) {
+                  // prep تموم شده ولی _arrNextState هنوز null — fallback
+                  console.warn('[Arranger] Prep finished but no next state — fallback to loadArrSong');
+                  _arrWaitPollActive = false;
+                  arrPreparePending = true;
+                  loadArrSong(arrPerformIdx + 1)
+                    .then(() => { arrPreparePending = false; })
+                    .catch((e) => { console.error(e); arrPreparePending = false; });
+                } else {
+                  // هنوز صبر کن
+                  setTimeout(waitPoll, 100);
+                }
+              };
+              setTimeout(waitPoll, 100);
+            }
+            return;
+          }
+          // ─── اگر نه prep در حال اجراست و نه _arrNextState آماده‌ست: fallback به loadArrSong ───
           if (arrPerformActive && !_arrNextState && !arrPreparePending) {
-            console.warn('[Arranger] Next song not ready, falling back to loadArrSong');
+            console.warn('[Arranger] Next song not ready and no prep running — fallback to loadArrSong');
             arrPreparePending = true;
-            loadArrSong(arrPerformIdx + 1).then(() => { arrPreparePending = false; });
+            loadArrSong(arrPerformIdx + 1)
+              .then(() => { arrPreparePending = false; })
+              .catch((e) => {
+                console.error('[Arranger] Fallback loadArrSong failed:', e);
+                arrPreparePending = false;
+              });
             return;
           }
           stopTransport(); return;
@@ -4352,6 +4403,16 @@ let syncTapKeyHandler = null;
     let _arrCrossfadeGain = null;
     let _arrIsCrossfading = false;
 
+    // ─── Background Preload State ───
+    // برای preload همه آهنگ‌های ارنجر در پس‌زمینه
+    let _bgPreloadActive = false;
+    let _bgPreloadedSongIds = new Set(); // آهنگ‌هایی که preload شد
+
+    // ─── Wait Poll State ───
+    // وقتی آهنگ فعلی تموم می‌شه ولی prep آهنگ بعدی هنوز انجام نشده،
+    // این فلگ فعال می‌شه و یک poll مستقل از tick، منتظر اتمام prep می‌مونه
+    let _arrWaitPollActive = false;
+
     async function openPerfMode() {
       if (!editingArr || !editingArr.items.length) { toast(t('emptySetlist')); return; }
       arrPerformData = editingArr;
@@ -4375,6 +4436,12 @@ let syncTapKeyHandler = null;
       await loadArrSong(0);
       renderPerfUI();
       startPerfTimer();
+
+      // ─── Background preload همه آهنگ‌های ارنجر ───
+      // این کار تضمین می‌کنه که وقتی به آهنگ بعدی می‌رسیم، صدا از قبل لود شده.
+      // preload به‌صورت غیرمسدودکننده در پس‌زمینه انجام می‌شه.
+      _startBackgroundPreload();
+
       // باز کردن Player View و Singer View مثل F9
       if (typeof openLyricOnlyPopup === 'function') openLyricOnlyPopup();
       if (typeof openLyricPopup === 'function') setTimeout(openLyricPopup, 300);
@@ -4407,9 +4474,79 @@ let syncTapKeyHandler = null;
       arrPerformActive = false;
       perfModeActive = false;
       _arrNextState = null;
+      _bgPreloadActive = false; // توقف background preload
+      _arrWaitPollActive = false; // توقف wait poll
+      arrPreparePending = false; // reset prep flag
       pauseTransport();
       $('arrPerfOverlay').style.display = 'none';
       stopPerfTimer();
+    }
+
+    /**
+     * _startBackgroundPreload — preload تمام آهنگ‌های ارنجر در پس‌زمینه
+     *
+     * این تابع بلافاصله بعد از openPerfMode صدا زده می‌شه و تمام آهنگ‌های
+     * ست‌لیست رو به‌صورت یکی‌یکی preload می‌کنه. این کار تضمین می‌کنه که
+     * وقتی به آهنگ بعدی می‌رسیم، بافر صوتی از قبل در DAW.bufferCache هست.
+     *
+     * مهم: این تابع غیرمسدودکننده هست و نباید پخش فعلی رو مختل کنه.
+     */
+    function _startBackgroundPreload() {
+      if (_bgPreloadActive) return;
+      if (!arrPerformData || !arrPerformData.items.length) return;
+
+      _bgPreloadActive = true;
+      _bgPreloadedSongIds = new Set();
+
+      const allSongs = edGetAllSongs();
+      const songsToPreload = arrPerformData.items
+        .map(id => allSongs.find(s => s.id === id))
+        .filter(s => s); // فیلتر null ها
+
+      console.log(`[BG Preload] Starting background preload for ${songsToPreload.length} songs`);
+
+      // اجرای preload به‌صورت زنجیره‌ای (یکی‌یکی، نه موازی) برای جلوگیری از overload
+      (async () => {
+        for (let i = 0; i < songsToPreload.length; i++) {
+          if (!_bgPreloadActive) {
+            console.log('[BG Preload] Cancelled');
+            return;
+          }
+          const song = songsToPreload[i];
+          if (_bgPreloadedSongIds.has(song.id)) continue;
+
+          try {
+            // اگه آهنگ فعلی داره پخش می‌شه و نزدیک انتها هست، اولویت با prepareNextArrSong باشه
+            // اینجا فقط preload می‌کنیم اگه bufferCache نداشته باشیم
+            const hasAudioClips = song._dawClips && song._dawClips.some(c => c.type !== 'chord' && c.bufferKey);
+            if (!hasAudioClips) {
+              _bgPreloadedSongIds.add(song.id);
+              continue;
+            }
+
+            // چک کن: آیا همه بافرها از قبل لود شدن؟
+            const allLoaded = song._dawClips.every(c =>
+              c.type === 'chord' || !c.bufferKey || DAW.bufferCache.has(c.bufferKey)
+            );
+            if (allLoaded) {
+              _bgPreloadedSongIds.add(song.id);
+              continue;
+            }
+
+            console.log(`[BG Preload] (${i + 1}/${songsToPreload.length}) Preloading: "${song.title || song.id}"`);
+            await preloadAudioForSong(song);
+            _bgPreloadedSongIds.add(song.id);
+
+            // یک وقفه کوتاه بین هر آهنگ برای اجازه دادن به playback tick
+            await new Promise(r => setTimeout(r, 50));
+          } catch (e) {
+            console.warn(`[BG Preload] Error preloading "${song.title}":`, e);
+            _bgPreloadedSongIds.add(song.id); // علامت‌گذاری به‌عنوان پردازش‌شده برای جلوگیری از loop بی‌نهایت
+          }
+        }
+        console.log('[BG Preload] Complete');
+        _bgPreloadActive = false;
+      })();
     }
 
     function perfTogglePauseMode() {
@@ -4587,47 +4724,74 @@ let syncTapKeyHandler = null;
     }
 
     // Pre-build the next song's full DAW state while current plays
-    async function prepareNextArrSong() {
+    // این تابع حالا با try/catch/finally کامل نوشته شده تا arrPreparePending
+    // هرگز گیر نکنه. اگه خطایی رخ بده، retry می‌کنه.
+    async function prepareNextArrSong(retryCount = 0) {
       const arr = arrPerformData || editingArr;
       const nextIdx = arrPerformIdx + 1;
-      if (!arr || nextIdx >= arr.items.length) { _arrNextState = null; return; }
-      const allSongs = edGetAllSongs();
-      const song = allSongs.find(s => s.id === arr.items[nextIdx]);
-      if (!song) { _arrNextState = null; return; }
-      const songData = JSON.parse(JSON.stringify(song));
-      if (!songData.styles) songData.styles = {};
-      const defaults = { tSize:23,tColor:'#0fa966',tFont:'Vazirmatn',tBold:true,align:'center',cSize:23,cColor:'#e6aa28',cFont:'JetBrains Mono' };
-      Object.keys(defaults).forEach(k => { if (songData.styles[k] === undefined) songData.styles[k] = defaults[k]; });
 
-      // ─── Pre-load کامل صدا برای آهنگ بعدی ───
-      // از preloadAudioForSong استفاده می‌کنیم که مستقل از DAW.clips عمل می‌کنه
-      // و مستقیماً از clips داخل songData استفاده می‌کنه.
-      try {
-        const preloadResult = await preloadAudioForSong(songData);
-        if (preloadResult.missing > 0) {
-          console.warn(`[Arranger Prep] ${preloadResult.missing} audio clip(s) missing for next song:`, preloadResult.missingNames);
-        }
-      } catch(e) { console.warn('[Arranger Prep] preloadAudioForSong error:', e); }
-
-      const tracks = songData._dawTracks ? JSON.parse(JSON.stringify(songData._dawTracks)) : [];
-      let clips = songData._dawClips ? JSON.parse(JSON.stringify(songData._dawClips)) : [];
-      let sections = songData._dawSections ? JSON.parse(JSON.stringify(songData._dawSections)) : [];
-      const oldSec = clips.filter(c => c.type === 'section');
-      if (oldSec.length) { oldSec.forEach(c => { sections.push({ id: c.id, trackId: c.trackId, label: c.name, start: c.start, duration: c.duration, color: c.color }); }); clips = clips.filter(c => c.type !== 'section'); }
-
-      const loopState = songData._dawLoop ? { loopEnabled: !!songData._dawLoop.loopEnabled, loopA: songData._dawLoop.loopA || 0, loopB: songData._dawLoop.loopB || 10 } : { loopEnabled: false, loopA: 0, loopB: 10 };
-      const selEnd = (loopState.loopA < loopState.loopB) ? loopState.loopB : 0;
-
-      // آپدیت sourceDuration و peaks برای کلیپ‌های که لود شدن
-      clips.forEach(c => { if (c.type !== 'chord' && c.bufferKey && DAW.bufferCache.has(c.bufferKey)) { const buffer = DAW.bufferCache.get(c.bufferKey); c.sourceDuration = buffer.duration; c._peaks = peaksFromBuffer(buffer, 2000); } });
-
-      // Apply per-song transpose to tracks
-      const nextSetting = getArrItemSetting(arr, arr.items[nextIdx]);
-      if (nextSetting.transpose) {
-        tracks.forEach(t => { if (t.type === 'audio') t.transpose = (t.transpose || 0) + nextSetting.transpose; });
+      // اگر آهنگ بعدی وجود نداره، _arrNextState رو null کن
+      if (!arr || nextIdx >= arr.items.length) {
+        _arrNextState = null;
+        console.log('[Arranger Prep] No more songs — _arrNextState cleared');
+        return;
       }
 
-      _arrNextState = { song: songData, idx: nextIdx, clips, sections, tracks, edCur: songData, selectionEnd: selEnd, loopState };
+      const allSongs = edGetAllSongs();
+      const song = allSongs.find(s => s.id === arr.items[nextIdx]);
+      if (!song) {
+        _arrNextState = null;
+        console.warn(`[Arranger Prep] Song at index ${nextIdx} not found in archive (id: ${arr.items[nextIdx]})`);
+        return;
+      }
+
+      try {
+        const songData = JSON.parse(JSON.stringify(song));
+        if (!songData.styles) songData.styles = {};
+        const defaults = { tSize:23,tColor:'#0fa966',tFont:'Vazirmatn',tBold:true,align:'center',cSize:23,cColor:'#e6aa28',cFont:'JetBrains Mono' };
+        Object.keys(defaults).forEach(k => { if (songData.styles[k] === undefined) songData.styles[k] = defaults[k]; });
+
+        // ─── Pre-load کامل صدا برای آهنگ بعدی ───
+        const preloadResult = await preloadAudioForSong(songData);
+        if (preloadResult.missing > 0) {
+          console.warn(`[Arranger Prep] ${preloadResult.missing} audio clip(s) missing for "${songData.title}":`, preloadResult.missingNames);
+        } else {
+          console.log(`[Arranger Prep] ✓ Audio ready for "${songData.title}" (loaded: ${preloadResult.loaded})`);
+        }
+
+        const tracks = songData._dawTracks ? JSON.parse(JSON.stringify(songData._dawTracks)) : [];
+        let clips = songData._dawClips ? JSON.parse(JSON.stringify(songData._dawClips)) : [];
+        let sections = songData._dawSections ? JSON.parse(JSON.stringify(songData._dawSections)) : [];
+        const oldSec = clips.filter(c => c.type === 'section');
+        if (oldSec.length) { oldSec.forEach(c => { sections.push({ id: c.id, trackId: c.trackId, label: c.name, start: c.start, duration: c.duration, color: c.color }); }); clips = clips.filter(c => c.type !== 'section'); }
+
+        const loopState = songData._dawLoop ? { loopEnabled: !!songData._dawLoop.loopEnabled, loopA: songData._dawLoop.loopA || 0, loopB: songData._dawLoop.loopB || 10 } : { loopEnabled: false, loopA: 0, loopB: 10 };
+        const selEnd = (loopState.loopA < loopState.loopB) ? loopState.loopB : 0;
+
+        // آپدیت sourceDuration و peaks برای کلیپ‌های که لود شدن
+        clips.forEach(c => { if (c.type !== 'chord' && c.bufferKey && DAW.bufferCache.has(c.bufferKey)) { const buffer = DAW.bufferCache.get(c.bufferKey); c.sourceDuration = buffer.duration; c._peaks = peaksFromBuffer(buffer, 2000); } });
+
+        // Apply per-song transpose to tracks
+        const nextSetting = getArrItemSetting(arr, arr.items[nextIdx]);
+        if (nextSetting.transpose) {
+          tracks.forEach(t => { if (t.type === 'audio') t.transpose = (t.transpose || 0) + nextSetting.transpose; });
+        }
+
+        _arrNextState = { song: songData, idx: nextIdx, clips, sections, tracks, edCur: songData, selectionEnd: selEnd, loopState };
+        console.log(`[Arranger Prep] ✓ _arrNextState ready for song ${nextIdx + 1}: "${songData.title}"`);
+      } catch (e) {
+        console.error(`[Arranger Prep] Error preparing song ${nextIdx + 1} (retry ${retryCount}):`, e);
+        _arrNextState = null;
+
+        // Retry mechanism: حداکثر ۲ بار با وقفه ۱ ثانیه
+        if (retryCount < 2 && arrPerformActive) {
+          console.log(`[Arranger Prep] Retrying in 1s... (attempt ${retryCount + 1}/2)`);
+          await new Promise(r => setTimeout(r, 1000));
+          if (arrPerformActive && arrPerformIdx === nextIdx - 1) {
+            return prepareNextArrSong(retryCount + 1);
+          }
+        }
+      }
     }
 
     // Crossfade between songs — نسخه بهبودیافته با overlap واقعی
@@ -4841,13 +5005,28 @@ document.addEventListener('DOMContentLoaded', () => {
       const arr = arrPerformData || editingArr;
       if (!arr || idx >= arr.items.length) { arrPerformActive = false; _arrNextState = null; toast(t('arrangerFinished')); return; }
       arrPerformIdx = idx;
+
+      // ─── Reset prep state ───
+      // وقتی کاربر دستی آهنگی رو انتخاب می‌کنه، state های prep قبلی رو پاک کن
+      _arrNextState = null;
+      arrPreparePending = false;
+      _arrWaitPollActive = false;
+
       const allSongs = edGetAllSongs();
       const song = allSongs.find(s => s.id === arr.items[idx]);
       if (!song) { await loadArrSong(idx + 1); return; }
 
+      console.log(`[Arranger] loadArrSong(${idx}): "${song.title}"`);
+
       pauseTransport(); stopAllVoices();
       DAW.clips = []; DAW.sections = []; DAW.selectedIds.clear(); DAW.selectedSectionIds = new Set();
-      DAW.bufferCache.clear(); DAW.waveCache.clear();
+
+      // ─── مهم: bufferCache رو پاک نکن! ───
+      // قبلاً اینجا DAW.bufferCache.clear() بود که همه بافرهای preload شده رو پاک می‌کرد.
+      // این باعث می‌شد هر بار که آهنگ لود می‌شه، همه فایل‌ها دوباره از اول لود بشن.
+      // به‌جاش، فقط waveCache (تصاویر waveform) رو پاک می‌کنیم که اون هم بعداً rebuild می‌شه.
+      DAW.waveCache.clear();
+
       DAW.loopEnabled = false; DAW.loopA = 0; DAW.loopB = 10;
       selectionEnd = 0;
       isRecordingChords = false; currentRecordingClipId = null;
@@ -4874,6 +5053,12 @@ document.addEventListener('DOMContentLoaded', () => {
         DAW.tracks.forEach(t => { if (t.type === 'audio') t.transpose = (t.transpose || 0) + setting.transpose; });
       }
 
+      // ─── پاک‌سازی نودهای صوتی قدیمی قبل از ساخت نودهای جدید ───
+      DAW.tracks.forEach(tr => {
+        if (tr._gainNode) { try { tr._gainNode.disconnect(); } catch(_){} tr._gainNode = null; }
+        if (tr._pannerNode) { try { tr._pannerNode.disconnect(); } catch(_){} tr._pannerNode = null; }
+      });
+
       ensureAudioCtx();
       DAW.tracks.forEach(t => { if (t.type === 'audio') { if (t.transpose === undefined) t.transpose = 0; t._pannerNode = DAW.audioCtx.createStereoPanner(); t._gainNode = DAW.audioCtx.createGain(); t._pannerNode.connect(t._gainNode); t._gainNode.connect(DAW.masterGain); updateTrackMix(t.id); } });
 
@@ -4884,6 +5069,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (restoreResult.missing > 0) {
           console.warn(`[Arranger] ${restoreResult.missing} audio clip(s) could not be loaded:`, restoreResult.missingNames);
           toast(`⚠ ${restoreResult.missing} فایل صوتی پیدا نشد — ${restoreResult.missingNames.slice(0, 2).join(', ')}${restoreResult.missingNames.length > 2 ? '...' : ''}`);
+        } else {
+          console.log(`[Arranger] ✓ Audio loaded for "${song.title}" (${restoreResult.loaded} clips)`);
         }
       } catch(e) {
         console.warn('Audio load error:', e);
@@ -4900,7 +5087,18 @@ document.addEventListener('DOMContentLoaded', () => {
       seekTransport(0, false);
       ensureAudioCtx();
       if (arrPerformActive && !DAW.isPlaying && !perfPauseMode) startTransport();
-      if (arrPerformActive && idx + 1 < arr.items.length) prepareNextArrSong();
+      if (arrPerformActive && idx + 1 < arr.items.length) {
+        // ─── شروع prep آهنگ بعدی با delay کوتاه ───
+        // تا playback فعلی شروع بشه و بعد prep شروع شه
+        setTimeout(() => {
+          if (arrPerformActive && arrPerformIdx === idx && !_arrNextState && !arrPreparePending) {
+            arrPreparePending = true;
+            prepareNextArrSong()
+              .then(() => { arrPreparePending = false; })
+              .catch((e) => { console.error('[Arranger] Prep after loadArrSong failed:', e); arrPreparePending = false; });
+          }
+        }, 500);
+      }
 
       // Update perf UI
       if (perfModeActive) renderPerfUI();
