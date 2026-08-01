@@ -966,5 +966,17 @@
       </div>
     </div>
   </div>
+
+  <!-- Custom Prompt Modal (جایگزین window.prompt که در الکترون پشتیبانی نمی‌شه) -->
+  <div class="modal-overlay" id="customPromptModal" style="display:none;">
+    <div class="chord-editor" style="width:420px;max-width:90vw;padding:24px;">
+      <h3 id="customPromptTitle" style="margin:0 0 16px 0;color:var(--text-primary);font-size:1.1rem;">ورودی</h3>
+      <input type="text" id="customPromptInput" style="width:100%;background:#0D1017;border:1px solid var(--border-subtle);padding:10px 14px;border-radius:8px;color:white;font-size:0.95rem;margin-bottom:20px;direction:rtl;" />
+      <div style="display:flex;gap:10px;justify-content:flex-end;">
+        <button id="customPromptCancel" style="padding:8px 20px;border-radius:8px;border:1px solid #4A5568;background:#2D3748;color:#e2e8f0;font-size:0.85rem;font-weight:600;cursor:pointer;">انصراف</button>
+        <button id="customPromptOk" style="padding:8px 24px;border-radius:8px;border:none;background:var(--accent-teal);color:#000;font-size:0.85rem;font-weight:700;cursor:pointer;">تأیید</button>
+      </div>
+    </div>
+  </div>
 </body>
 </html>

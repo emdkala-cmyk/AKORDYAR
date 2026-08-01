@@ -2,9 +2,140 @@ console.log("!!! APP_JS_LOADED_FROM_DISK !!!");
 // ==========================================
 // PART 1: Initialization & Electron Setup
 // ==========================================
-const isElectron = typeof process !== 'undefined' && process.versions && !!process.versions.electron;
-const fs = isElectron ? require('fs') : null;
-const path = isElectron ? require('path') : null;
+// ─── تشخیص صحیح محیط الکترون ───
+// قبلاً از process.versions.electron استفاده می‌شد که با contextIsolation:true
+// در دسترس نیست. حالا از window.electronAPI (که preload.js ست می‌کنه) استفاده می‌کنیم.
+const isElectron = !!(typeof window !== 'undefined' && window.electronAPI && window.electronAPI.isElectron) ||
+                   (typeof process !== 'undefined' && process.versions && !!process.versions.electron);
+// fs و path در renderer با contextIsolation:true در دسترس نیستن.
+// به‌جاش از window.electronAPI استفاده می‌کنیم که IPC handlers رو فراهم می‌کنه.
+const fs = null; // استفاده نمی‌شه — به‌جاش از window.electronAPI.checkFileExists و readAudioFile استفاده می‌کنیم
+const path = null; // استفاده نمی‌شه — به‌جاش از window.electronAPI.resolvePath و getProjectDir استفاده می‌کنیم
+
+if (isElectron) {
+  console.log('[App] Electron mode detected. electronAPI available:', !!window.electronAPI);
+} else {
+  console.log('[App] Browser mode detected.');
+}
+
+// ==========================================
+// PART 2: Audio Import & Hard Drive Auto-Load (GLOBAL FUNCTIONS)
+// ==========================================
+// این توابع در global scope تعریف می‌شن تا از هر جایی قابل دسترسی باشن.
+// قبلاً اشتباهاً داخل یک template literal بودن که باعث می‌شد تعریف نشن.
+
+/**
+ * خواندن مستقیم فایل صوتی از روی هارد بدون پنجره انتخاب فایل (مخصوص نسخه نصبی)
+ *
+ * این تابع از window.electronAPI.readAudioFile استفاده می‌کنه که از طریق IPC
+ * به main process وصل می‌شه. قبلاً از fs.readFileSync استفاده می‌شد که با
+ * contextIsolation:true در دسترس نیست.
+ */
+async function loadAudioFromHardDrive(filePath) {
+  if (!isElectron || !window.electronAPI) {
+    throw new Error("این قابلیت فقط در نسخه نصبی دسکتاپ فعال است.");
+  }
+  if (!window.electronAPI.checkFileExists) {
+    throw new Error("electronAPI.checkFileExists موجود نیست — preload.js رو بررسی کنید");
+  }
+
+  // بررسی وجود فایل از طریق IPC
+  const exists = await window.electronAPI.checkFileExists(filePath);
+  if (!exists) {
+    throw new Error("فایل در آدرس قبلی وجود ندارد: " + filePath);
+  }
+
+  // خواندن فایل از طریق IPC (به‌صورت ArrayBuffer)
+  if (!window.electronAPI.readAudioFile) {
+    throw new Error("electronAPI.readAudioFile موجود نیست — preload.js رو بررسی کنید");
+  }
+  const arrayBuffer = await window.electronAPI.readAudioFile(filePath);
+
+  // دیکود کردن
+  ensureAudioCtx();
+  return await DAW.audioCtx.decodeAudioData(arrayBuffer);
+}
+
+/**
+ * توابع کمکی برای جایگزینی require('path')
+ * (چون require در renderer با contextIsolation:true در دسترس نیست)
+ */
+function pathDirname(filePath) {
+  if (!filePath) return null;
+  // نرمال‌سازی backslash ویندوز به slash
+  const normalized = String(filePath).replace(/\\/g, '/');
+  const lastSlash = normalized.lastIndexOf('/');
+  if (lastSlash < 0) return null;
+  return normalized.substring(0, lastSlash);
+}
+
+function pathJoin(dir, relativePath) {
+  if (!dir) return relativePath;
+  if (!relativePath) return dir;
+  const normalizedDir = String(dir).replace(/[\\/]+$/, '');
+  const normalizedRel = String(relativePath).replace(/^[\\/]+/, '');
+  return normalizedDir + '/' + normalizedRel;
+}
+
+// اطمینان از اینکه توابع در global scope قابل دسترسی هستن
+if (typeof window !== 'undefined') {
+  window.loadAudioFromHardDrive = loadAudioFromHardDrive;
+  window.pathDirname = pathDirname;
+  window.pathJoin = pathJoin;
+}
+
+/**
+ * customPrompt — جایگزین window.prompt که در الکترون پشتیبانی نمی‌شه
+ *
+ * @param {string} message - پیام به کاربر
+ * @param {string} defaultValue - مقدار پیش‌فرض
+ * @returns {Promise<string|null>} - مقدار وارد شده یا null اگه کنسل بشه
+ */
+function customPrompt(message, defaultValue = '') {
+  return new Promise((resolve) => {
+    const modal = document.getElementById('customPromptModal');
+    const titleEl = document.getElementById('customPromptTitle');
+    const inputEl = document.getElementById('customPromptInput');
+    const okBtn = document.getElementById('customPromptOk');
+    const cancelBtn = document.getElementById('customPromptCancel');
+
+    if (!modal || !inputEl || !okBtn || !cancelBtn) {
+      // fallback به window.prompt اگه مودال موجود نبود
+      resolve(window.prompt(message, defaultValue));
+      return;
+    }
+
+    if (titleEl) titleEl.textContent = message;
+    inputEl.value = defaultValue;
+
+    modal.style.display = 'flex';
+    setTimeout(() => { inputEl.focus(); inputEl.select(); }, 50);
+
+    const cleanup = () => {
+      modal.style.display = 'none';
+      okBtn.onclick = null;
+      cancelBtn.onclick = null;
+      inputEl.onkeydown = null;
+    };
+
+    okBtn.onclick = () => {
+      const val = inputEl.value;
+      cleanup();
+      resolve(val);
+    };
+
+    cancelBtn.onclick = () => {
+      cleanup();
+      resolve(null);
+    };
+
+    inputEl.onkeydown = (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); okBtn.click(); }
+      if (e.key === 'Escape') { e.preventDefault(); cancelBtn.click(); }
+    };
+  });
+}
+if (typeof window !== 'undefined') window.customPrompt = customPrompt;
 
 // تشخیص محیط مرورگر/پنجره الکترون
 const isBrowser = typeof window !== 'undefined';
@@ -1663,36 +1794,55 @@ function undo() {
         // ذخیره در کش با کلید clipId
         DAW.bufferCache.set(clipId, buffer);
 
-        const clip = { 
-          id: clipId, 
-          type: 'audio', 
-          trackId, 
-          name: file.name.replace(/\.[^.]+$/, ''), 
-          fileName: file.name, 
-          start: roundMs(DAW.playhead), 
-          duration: buffer.duration, 
-          offset: 0, 
-          sourceDuration: buffer.duration, 
-          color: COLORS[DAW.clips.length % COLORS.length], 
-          _peaks: peaksFromBuffer(buffer, 2000), 
-          waveUrl: null, 
-          _embedded: storageMode 
+        const clip = {
+          id: clipId,
+          type: 'audio',
+          trackId,
+          name: file.name.replace(/\.[^.]+$/, ''),
+          fileName: file.name,
+          start: roundMs(DAW.playhead),
+          duration: buffer.duration,
+          offset: 0,
+          sourceDuration: buffer.duration,
+          color: COLORS[DAW.clips.length % COLORS.length],
+          _peaks: peaksFromBuffer(buffer, 2000),
+          waveUrl: null,
+          _embedded: storageMode,
+          // ─── ذخیره Blob اصلی برای ذخیره حجم (به‌جای Base64) ───
+          // این فایل MP3/WAV اصلی هست که مستقیماً در IndexedDB ذخیره می‌شه
+          _originalBlob: storageMode ? file : null
         };
         // ذخیره مسیر/هندل فایل برای لینک‌شده‌ها
         if (!storageMode) {
           if (isElectron && file.path) {
             clip._filePath = file.path;
-          } else if (window.showOpenFilePicker) {
-            // در مرورگر، سعی کن از showOpenFilePicker هندل بگیر و تو IndexedDB ذخیره کن
-            try {
-              const [handle] = await window.showOpenFilePicker({ types: [{ description: 'Audio', accept: { 'audio/*': ['.mp3','.wav','.ogg','.flac','.m4a','.aac','.wma','.webm'] } }], multiple: false });
-              const verifyFile = await handle.getFile();
-              if (verifyFile.name === file.name && verifyFile.size === file.size) {
-                await saveFileHandle(clipId, handle);
-                console.log('[HANDLE] Saved for auto-reload:', file.name);
+            console.log(`[INPUT] Electron file path saved: ${file.name} → ${file.path}`);
+          } else if (isElectron) {
+            // در الکترون ولی file.path موجود نیست (الکترون 32+)
+            console.warn(`[INPUT] Electron but file.path is missing for: ${file.name}`);
+            if (window.electronAPI && window.electronAPI.getPathForFile) {
+              try {
+                const filePath = await window.electronAPI.getPathForFile(file);
+                if (filePath) {
+                  clip._filePath = filePath;
+                  console.log(`[INPUT] Got path via webUtils: ${file.name} → ${filePath}`);
+                }
+              } catch(_) {}
+            }
+            if (!clip._filePath) {
+              try {
+                await saveAudioBlobToDB(clipId, file, file.name);
+                console.log(`[INPUT] Saved as blob fallback: ${file.name}`);
+              } catch(e) {
+                console.warn('[BLOB] Could not save file blob to IndexedDB:', e);
               }
-            } catch(_pickErr) {
-              console.warn('[HANDLE] Could not get file handle, will ask on reload');
+            }
+          } else {
+            // ─── در مرورگر: فایل رو به‌صورت Blob در IndexedDB ذخیره کن ───
+            try {
+              await saveAudioBlobToDB(clipId, file, file.name);
+            } catch(e) {
+              console.warn('[BLOB] Could not save file blob to IndexedDB:', e);
             }
           }
         }
@@ -3206,24 +3356,8 @@ body.hl-pulse .popup-sync-line.active::before { content: ''; position: absolute;
       // ==========================================
 // PART 2: Audio Import & Hard Drive Auto-Load
 // ==========================================
-
-/**
- * خواندن مستقیم فایل صوتی از روی هارد بدون پنجره انتخاب فایل (مخصوص نسخه نصبی)
- */
-async function loadAudioFromHardDrive(filePath) {
-  if (!isElectron || !fs) {
-    throw new Error("این قابلیت فقط در نسخه نصبی دسکتاپ فعال است.");
-  }
-  if (!fs.existsSync(filePath)) {
-    throw new Error("فایل در آدرس قبلی وجود ندارد.");
-  }
-  const fileBuffer = fs.readFileSync(filePath);
-  const arrayBuffer = fileBuffer.buffer.slice(
-    fileBuffer.byteOffset, 
-    fileBuffer.byteOffset + fileBuffer.byteLength
-  );
-  return await DAW.audioContext.decodeAudioData(arrayBuffer);
-}
+// NOTE: loadAudioFromHardDrive, pathDirname, pathJoin در بالای فایل (global scope) تعریف شدن.
+// اینجا فقط توابع دیگه مرتبط با audio import قرار می‌گیرن.
 
 /**
  * مدیریت افزودن فایل صوتی جدید به پروژه
@@ -3243,7 +3377,8 @@ async function handleAudioImport(file, copyToProject = false) {
   };
 
   const arrayBuffer = await file.arrayBuffer();
-  const audioBuffer = await DAW.audioContext.decodeAudioData(arrayBuffer);
+  ensureAudioCtx();
+  const audioBuffer = await DAW.audioCtx.decodeAudioData(arrayBuffer);
   
   newTrack.clips.push({
     id: 'clip_' + Date.now(),
@@ -3279,7 +3414,7 @@ async function loadProject(projectData, projectFilePath = null) {
   
   // بازیابی اطلاعات پروژه
   DAW.project = projectData.project || {};
-  DAW.projectRoot = projectFilePath ? require('path').dirname(projectFilePath) : null;
+  DAW.projectRoot = projectFilePath ? pathDirname(projectFilePath) : null;
   
   // بازیابی Pool کلیپ‌ها
   if (projectData.pool) {
@@ -3340,21 +3475,23 @@ async function resolveClipAudio(clip, projectFilePath = null) {
   // بررسی حالت‌های مختلف ذخیره‌سازی
   if (clip.storage && clip.storage.mode === 'copy') {
     // حالت کپی: فایل در پوشه پروژه است
-    const projRoot = projectFilePath ? require('path').dirname(projectFilePath) : DAW.projectRoot;
+    const projRoot = projectFilePath ? pathDirname(projectFilePath) : DAW.projectRoot;
     if (!projRoot || !clip.storage.projectPath) {
       throw new Error(`Project root is missing for clip: ${clip.id}`);
     }
-    filePath = await window.electronAPI?.resolveProjectPath?.(projRoot, clip.storage.projectPath) 
-               || require('path').join(projRoot, clip.storage.projectPath);
+    filePath = (window.electronAPI?.resolvePath)
+               ? await window.electronAPI.resolvePath(projRoot, clip.storage.projectPath)
+               : pathJoin(projRoot, clip.storage.projectPath);
   } else if (clip.storage && clip.storage.mode === 'reference') {
     // حالت رفرنس: مسیر خارجی
     filePath = clip.storage.externalPath;
   } else if (clip.relativePath) {
     // حالت جدید: مسیر نسبی
-    const projRoot = projectFilePath ? require('path').dirname(projectFilePath) : DAW.projectRoot;
+    const projRoot = projectFilePath ? pathDirname(projectFilePath) : DAW.projectRoot;
     if (projRoot) {
-      filePath = await window.electronAPI?.resolveProjectPath?.(projRoot, clip.relativePath)
-                 || require('path').join(projRoot, clip.relativePath);
+      filePath = (window.electronAPI?.resolvePath)
+                 ? await window.electronAPI.resolvePath(projRoot, clip.relativePath)
+                 : pathJoin(projRoot, clip.relativePath);
     }
   } else if (clip._filePath) {
     // سازگاری با نسخه قدیمی
@@ -4173,17 +4310,46 @@ let syncTapKeyHandler = null;
       });
     }
 
-    function createNewArranger() {
-      const name = prompt('نام پلی‌لیست جدید:', 'پلی‌لیست ' + (arrangers.length + 1));
-      if (name === null) return;
-      const arr = { id: Date.now(), name: name.trim() || 'پلی‌لیست بدون نام', items: [], crossfade: 0, pauseBetween: false };
-      arrangers.unshift(arr); saveArrangers();
-      editingArr = arr; openArrEditor();
+    async function createNewArranger() {
+      const name = await customPrompt('نام پلی‌لیست جدید:', 'پلی‌لیست ' + (arrangers.length + 1));
+      if (name === null) return; // کاربر کنسل کرد
+      const trimmedName = name.trim() || ('پلی‌لیست ' + (arrangers.length + 1));
+
+      // ─── بررسی نام تکراری ───
+      const existing = arrangers.find(a => a.name === trimmedName);
+      if (existing) {
+        toast(`⚠ پلی‌لیستی با نام «${trimmedName}» وجود دارد. نام دیگری انتخاب کنید.`);
+        return createNewArranger(); // دوباره بپرس
+      }
+
+      const arr = { id: Date.now(), name: trimmedName, items: [], crossfade: 0, pauseBetween: false };
+      arrangers.unshift(arr);
+      saveArrangers();
+      editingArr = arr;
+      renderArrangerManager(); // اول لیست پلی‌لیست‌ها رو refresh کن
+      openArrEditor();          // بعد ادیتور رو باز کن
       toast(`✅ پلی‌لیست «${arr.name}» ساخته شد`);
     }
 
     function openArrEditor() {
-      $('arrEditor').style.display = '';
+      if (!editingArr) return;
+      // ابتدا style های قدیمی رو پاک کن
+      const arrManager = $('arrManager');
+      arrManager.style.maxHeight = '';
+      arrManager.style.borderBottom = '';
+      arrManager.style.paddingBottom = '';
+      arrManager.style.marginBottom = '';
+
+      // ادیتور رو نمایش بده
+      const arrEditor = $('arrEditor');
+      arrEditor.style.display = 'block';
+
+      // اطمینان از اینکه پنجره ارنجر هم نمایش داده شده
+      const modal = $('arrangerModal');
+      if (modal && !modal.classList.contains('show')) {
+        modal.classList.add('show');
+      }
+
       $('arrName').value = editingArr.name || '';
       // Sync crossfade/pause controls
       if (editingArr.crossfade) {
@@ -4200,6 +4366,7 @@ let syncTapKeyHandler = null;
       switchArrTab('editor');
       // Highlight active arranger card
       renderArrangerManager();
+      console.log(`[Arranger] Editor opened for: "${editingArr.name}"`);
     }
 
     function switchArrTab(tab) {
@@ -4251,6 +4418,7 @@ let syncTapKeyHandler = null;
      * saveCurrentArranger — ذخیره پلی‌لیست فعلی
      * نام پلی‌لیست رو از input می‌خونه، در localStorage ذخیره می‌کنه،
      * و لیست پلی‌لیست‌ها رو refresh می‌کنه.
+     * اگر نام تکراری باشه، یک پسوند اضافه می‌کنه.
      */
     function saveCurrentArranger() {
       if (!editingArr) {
@@ -4258,9 +4426,24 @@ let syncTapKeyHandler = null;
         return;
       }
       const nameInput = $('arrName');
-      const newName = nameInput ? nameInput.value.trim() : '';
-      if (newName) editingArr.name = newName;
-      if (!editingArr.name) editingArr.name = 'پلی‌لیست بدون نام';
+      let newName = nameInput ? nameInput.value.trim() : '';
+      if (!newName) newName = 'پلی‌لیست بدون نام';
+
+      // ─── بررسی نام تکراری (به‌جز خود پلی‌لیست فعلی) ───
+      const conflict = arrangers.find(a => a.id !== editingArr.id && a.name === newName);
+      if (conflict) {
+        let suffix = 2;
+        let candidate = newName;
+        while (arrangers.some(a => a.id !== editingArr.id && a.name === candidate)) {
+          candidate = `${newName} (${suffix})`;
+          suffix++;
+        }
+        newName = candidate;
+        if (nameInput) nameInput.value = newName;
+        toast(`⚠ نام تکراری — به «${newName}» تغییر یافت`);
+      }
+
+      editingArr.name = newName;
 
       // ذخیره crossfade فعلی
       const cfRange = $('arrCrossfadeRange');
@@ -4337,6 +4520,7 @@ let syncTapKeyHandler = null;
 
     /**
      * importArrangerFromFile — بارگذاری پلی‌لیست از فایل JSON
+     * اگر پلی‌لیستی با همان نام وجود داشته باشد، یک پسوند اضافه می‌کند.
      */
     async function importArrangerFromFile() {
       const input = document.createElement('input');
@@ -4373,11 +4557,23 @@ let syncTapKeyHandler = null;
             }
           }
 
+          // ─── تعیین نام یکتا برای پلی‌لیست ───
+          let baseName = data.name || file.name.replace(/\.json$/i, '');
+          let finalName = baseName;
+          let suffix = 2;
+          while (arrangers.some(a => a.name === finalName)) {
+            finalName = `${baseName} (${suffix})`;
+            suffix++;
+          }
+          if (finalName !== baseName) {
+            console.log(`[Import] Name conflict — renamed to: ${finalName}`);
+          }
+
           // ساخت پلی‌لیست جدید
           const newId = Date.now();
           const newArr = {
             id: newId,
-            name: data.name || file.name.replace(/\.json$/i, ''),
+            name: finalName,
             items: Array.isArray(data.items) ? data.items : [],
             crossfade: data.crossfade || 0,
             pauseBetween: !!data.pauseBetween,
@@ -4387,8 +4583,8 @@ let syncTapKeyHandler = null;
           arrangers.unshift(newArr);
           saveArrangers();
           editingArr = newArr;
-          openArrEditor();
           renderArrangerManager();
+          openArrEditor();
 
           toast(`✅ پلی‌لیست «${newArr.name}» بارگذاری شد (${newArr.items.length} آهنگ${importedSongsCount > 0 ? `، ${importedSongsCount} آهنگ جدید` : ''})`);
         } catch (e) {
@@ -4414,9 +4610,9 @@ let syncTapKeyHandler = null;
     }
 
     // Auto transpose all songs
-    function arrAutoTranspose() {
+    async function arrAutoTranspose() {
       if (!editingArr) return;
-      const val = prompt('تغییر گام برای همه آهنگ‌ها (مثلاً 2 یا -3):', '0');
+      const val = await customPrompt('تغییر گام برای همه آهنگ‌ها (مثلاً 2 یا -3):', '0');
       if (val === null) return;
       const semi = parseInt(val);
       if (isNaN(semi)) return;
@@ -7796,19 +7992,39 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
               bufferKey,
               _peaks: peaksFromBuffer(buffer, 2000),
               waveUrl: null,
-              _embedded: doCopy
+              _embedded: doCopy,
+              // ─── ذخیره Blob اصلی برای ذخیره حجم (به‌جای Base64) ───
+              _originalBlob: doCopy ? file : null
             };
             // ذخیره مسیر/هندل فایل برای لینک‌شده‌ها
             if (!doCopy) {
               if (isElectron && file.path) {
                 clip._filePath = file.path;
-              } else if (window.showOpenFilePicker) {
+                console.log(`[DROP] Electron file path saved: ${file.name} → ${file.path}`);
+              } else if (isElectron) {
+                // در الکترون ولی file.path موجود نیست (الکترون 32+)
+                console.warn(`[DROP] Electron but file.path is missing for: ${file.name}`);
+                // fallback: استفاده از webUtils.getPathForFile اگه موجود باشه
+                if (window.electronAPI && window.electronAPI.getPathForFile) {
+                  try {
+                    const filePath = await window.electronAPI.getPathForFile(file);
+                    if (filePath) {
+                      clip._filePath = filePath;
+                      console.log(`[DROP] Got path via webUtils: ${file.name} → ${filePath}`);
+                    }
+                  } catch(_) {}
+                }
+                // اگه هنوز مسیر نداریم، فایل رو به‌صورت Blob ذخیره کن
+                if (!clip._filePath) {
+                  try {
+                    await saveAudioBlobToDB(bufferKey, file, file.name);
+                    console.log(`[DROP] Saved as blob fallback: ${file.name}`);
+                  } catch(_) {}
+                }
+              } else {
+                // ─── در مرورگر: فایل درگ‌شده رو به‌صورت Blob در IndexedDB ذخیره کن ───
                 try {
-                  const [handle] = await window.showOpenFilePicker({ types: [{ description: 'Audio', accept: { 'audio/*': ['.mp3','.wav','.ogg','.flac','.m4a','.aac','.wma','.webm'] } }], multiple: false });
-                  const vf = await handle.getFile();
-                  if (vf.name === file.name && vf.size === file.size) {
-                    await saveFileHandle(bufferKey, handle);
-                  }
+                  await saveAudioBlobToDB(bufferKey, file, file.name);
                 } catch(_) {}
               }
             }
@@ -7970,11 +8186,12 @@ function edBlankSong() {
 
       // لود اتوماتیک از مسیر فایل ذخیره‌شده (لینک‌شده‌ها — مثل کیوبیس)
       const missingClips = DAW.clips.filter(c => c.type !== 'chord' && c.bufferKey && !DAW.bufferCache.has(c.bufferKey));
+      console.log(`[Audio Init] ${missingClips.length} clip(s) need audio loading. isElectron=${isElectron}, _audioPaths=${edCur._audioPaths?.length || 0}`);
       if (missingClips.length > 0 && edCur._audioPaths && edCur._audioPaths.length > 0) {
         // اول از filePath (Electron) لود کن
-        if (isElectron && fs) {
+        if (isElectron && window.electronAPI) {
           for (const ap of edCur._audioPaths) {
-            if (!ap.filePath) continue;
+            if (!ap.filePath) { console.warn('[LINK] No filePath for:', ap.fileName); continue; }
             const clip = DAW.clips.find(c => c.type !== 'chord' && c.bufferKey === ap.bufferKey);
             if (!clip || DAW.bufferCache.has(clip.bufferKey)) continue;
             try {
@@ -7985,9 +8202,28 @@ function edBlankSong() {
               clip._peaks = peaksFromBuffer(audioBuffer, 2000);
               clip._filePath = ap.filePath;
               refreshClipWaveImage(clip);
+              console.log('[LINK] ✓ Loaded:', ap.fileName);
             } catch (e) {
               console.warn('[LINK] File not found at path:', ap.filePath, e.message);
             }
+          }
+        }
+
+        // ─── لود از Blob ذخیره‌شده در IndexedDB (بدون سوال از کاربر) ───
+        // این مرحله جدید هست — قبلاً فایل‌های «نه» ذخیره نمی‌شدن و دوباره از کاربر پرسیده می‌شد
+        const stillAfterPathBlob = DAW.clips.filter(c => c.type !== 'chord' && c.bufferKey && !DAW.bufferCache.has(c.bufferKey));
+        if (stillAfterPathBlob.length > 0) {
+          for (const clip of stillAfterPathBlob) {
+            try {
+              const blobRecord = await getAudioBlobFromDB(clip.bufferKey);
+              if (!blobRecord) continue;
+              const { buffer } = await decodeFileToBuffer(blobRecord.blob);
+              DAW.bufferCache.set(clip.bufferKey, buffer);
+              clip.sourceDuration = buffer.duration;
+              clip._peaks = peaksFromBuffer(buffer, 2000);
+              refreshClipWaveImage(clip);
+              console.log('[BLOB] Auto-reloaded:', blobRecord.fileName);
+            } catch(e) { console.warn('[BLOB] Auto-reload failed for', clip.bufferKey, e.message); }
           }
         }
 
@@ -7998,15 +8234,17 @@ function edBlankSong() {
             try {
               const handle = await getFileHandle(clip.bufferKey);
               if (!handle) continue;
-              const perm = await handle.requestPermission({ mode: 'read' });
-              if (perm !== 'granted') continue;
-              const file = await handle.getFile();
-              const { buffer } = await decodeFileToBuffer(file);
-              DAW.bufferCache.set(clip.bufferKey, buffer);
-              clip.sourceDuration = buffer.duration;
-              clip._peaks = peaksFromBuffer(buffer, 2000);
-              refreshClipWaveImage(clip);
-              console.log('[HANDLE] Auto-reloaded:', clip.fileName);
+              if (handle.requestPermission) {
+                const perm = await handle.requestPermission({ mode: 'read' });
+                if (perm !== 'granted') continue;
+                const file = await handle.getFile();
+                const { buffer } = await decodeFileToBuffer(file);
+                DAW.bufferCache.set(clip.bufferKey, buffer);
+                clip.sourceDuration = buffer.duration;
+                clip._peaks = peaksFromBuffer(buffer, 2000);
+                refreshClipWaveImage(clip);
+                console.log('[HANDLE] Auto-reloaded:', clip.fileName);
+              }
             } catch(e) { console.warn('[HANDLE] Auto-reload failed for', clip.bufferKey, e.message); }
           }
         }
@@ -8154,6 +8392,67 @@ function edBlankSong() {
         if (modal) modal.style.display = 'flex';
       });
     }
+
+    /**
+     * saveAudioBlobToDB — ذخیره Blob فایل صوتی در IndexedDB (نه Base64)
+     *
+     * این تابع برای حالتی هست که کاربر «نه» می‌زنه ولی فایل در مرورگر هست.
+     * قبلاً کد showOpenFilePicker رو صدا می‌زد و دوباره از کاربر فایل می‌خواست.
+     * حالا به‌جای اون، همون فایل درگ‌شده رو به‌صورت Blob در IndexedDB ذخیره می‌کنیم.
+     * اینطوری برای لود بعدی، نیازی به سوال از کاربر نیست.
+     *
+     * @param {string} bufferKey - کلید یکتای بافر
+     * @param {File|Blob} file - فایل صوتی
+     * @param {string} fileName - نام فایل
+     */
+    async function saveAudioBlobToDB(bufferKey, file, fileName) {
+      try {
+        const db = await openAudioDB();
+        return new Promise((resolve, reject) => {
+          const tx = db.transaction('fileHandles', 'readwrite');
+          // ذخیره به‌صورت Blob خام (نه Base64) — حجم کمتر و لود سریع‌تر
+          const record = {
+            type: 'blob',
+            blob: file,
+            fileName: fileName,
+            size: file.size,
+            lastModified: file.lastModified || Date.now()
+          };
+          tx.objectStore('fileHandles').put(record, bufferKey);
+          tx.oncomplete = () => {
+            console.log(`[BLOB] Saved to IndexedDB: ${fileName} (${(file.size/1024/1024).toFixed(2)} MB)`);
+            resolve();
+          };
+          tx.onerror = () => reject(tx.error);
+        });
+      } catch(e) {
+        console.warn('[BLOB] Save error:', e);
+      }
+    }
+
+    /**
+     * getAudioBlobFromDB — خواندن Blob فایل صوتی از IndexedDB
+     * @param {string} bufferKey
+     * @returns {Promise<{blob:Blob, fileName:string}|null>}
+     */
+    async function getAudioBlobFromDB(bufferKey) {
+      try {
+        const db = await openAudioDB();
+        return new Promise((resolve, reject) => {
+          const tx = db.transaction('fileHandles', 'readonly');
+          const req = tx.objectStore('fileHandles').get(bufferKey);
+          req.onsuccess = () => {
+            const result = req.result;
+            if (result && result.type === 'blob' && result.blob) {
+              resolve({ blob: result.blob, fileName: result.fileName });
+            } else {
+              resolve(null);
+            }
+          };
+          req.onerror = () => reject(req.error);
+        });
+      } catch(e) { return null; }
+    }
     // Event listeners for modal buttons
     document.addEventListener('DOMContentLoaded', () => {
       const yesBtn = $('audioCopyYes');
@@ -8162,47 +8461,154 @@ function edBlankSong() {
       if (noBtn) noBtn.onclick = () => { const m = $('audioCopyModal'); if (m) m.style.display = 'none'; if (_copyModalResolver) { _copyModalResolver(false); _copyModalResolver = null; } };
     });
 
+    /**
+     * saveAudioBlobsForProject — ذخیره فایل‌های صوتی embedded در IndexedDB
+     *
+     * استراتژی جدید (بهبود حجم):
+     *   1. اگر فایل اصلی (Blob) در _originalBlob ذخیره شده، همون رو مستقیم ذخیره می‌کنیم
+     *      (این حالت بهترین هست چون فایل MP3 اصلی بدون تغییر ذخیره می‌شه)
+     *   2. در غیر این صورت، AudioBuffer رو به WAV encode می‌کنیم و با CompressionStream
+     *      فشرده می‌کنیم (حدود ۵-۱۰ برابر کوچکتر از Float32Array خام)
+     *
+     * قبلاً این تابع Float32Array خام رو به‌صورت JSON ذخیره می‌کرد که بسیار حجیم بود
+     * (یک آهنگ ۳ دقیقه‌ای = ~۱۵۰ مگابایت).
+     */
     async function saveAudioBlobsForProject(projectId) {
       const db = await openAudioDB();
-      return new Promise((resolve, reject) => {
+      return new Promise(async (resolve, reject) => {
         const tx = db.transaction('audioBlobs', 'readwrite');
         const store = tx.objectStore('audioBlobs');
-        // فقط کلیپ‌هایی که _embedded:true دارند ذخیره میشوند (مثل کیوبیس: Copy to Project)
-        const embeddedKeys = new Set();
-        for (const clip of DAW.clips) {
-          if (clip.type !== 'chord' && clip.bufferKey && clip._embedded) {
-            embeddedKeys.add(clip.bufferKey);
-          }
-        }
-        const entries = [...DAW.bufferCache.entries()].filter(([key]) => embeddedKeys.has(key));
+
+        // فقط کلیپ‌هایی که _embedded:true دارند ذخیره میشوند
+        const embeddedClips = DAW.clips.filter(c =>
+          c.type !== 'chord' && c.bufferKey && c._embedded
+        );
+
         // First clear old data for this project
         store.delete(projectId);
-        if (entries.length === 0) { resolve(); return; }
-        // Save new data
-        const allBufs = [];
-        for (const [key, buffer] of entries) {
-          allBufs.push({ key, channels: buffer.numberOfChannels, sampleRate: buffer.sampleRate, length: buffer.length, data: Array.from({length: buffer.numberOfChannels}, (_, i) => buffer.getChannelData(i).slice(0)) });
+
+        if (embeddedClips.length === 0) { resolve(); return; }
+
+        // ─── مرحله 1: ذخیره Blob های اصلی (اگه موجود باشن) ───
+        // این fast path هست — اگه فایل MP3 اصلی رو داریم، همون رو ذخیره می‌کنیم
+        const allBlobs = [];
+        for (const clip of embeddedClips) {
+          const key = clip.bufferKey;
+          const buffer = DAW.bufferCache.get(key);
+          if (!buffer) continue;
+
+          // اگه Blob اصلی ذخیره شده، از اون استفاده کن
+          if (clip._originalBlob) {
+            const blob = clip._originalBlob;
+            allBlobs.push({
+              key,
+              format: 'blob',
+              mimeType: blob.type || 'audio/mpeg',
+              fileName: clip.fileName || clip.name || (key + '.mp3'),
+              size: blob.size,
+              duration: buffer.duration,
+              sampleRate: buffer.sampleRate,
+              channels: buffer.numberOfChannels,
+              blob: blob
+            });
+            console.log(`[Audio Save] Saved original blob: ${clip.fileName} (${(blob.size/1024/1024).toFixed(2)} MB)`);
+          } else {
+            // ─── مرحله 2: encode به WAV و فشرده‌سازی ───
+            try {
+              const wavBytes = audioBufferToWav(buffer);
+              const compressedBlob = await compressBytes(wavBytes);
+              allBlobs.push({
+                key,
+                format: 'wav-deflate',
+                mimeType: 'application/octet-stream',
+                fileName: (clip.fileName || clip.name || key).replace(/\.[^.]+$/, '') + '.wav.deflate',
+                size: compressedBlob.size,
+                duration: buffer.duration,
+                sampleRate: buffer.sampleRate,
+                channels: buffer.numberOfChannels,
+                blob: compressedBlob
+              });
+              console.log(`[Audio Save] Saved WAV+deflate: ${clip.fileName} (raw=${(wavBytes.length/1024/1024).toFixed(2)}MB → compressed=${(compressedBlob.size/1024/1024).toFixed(2)}MB)`);
+            } catch (e) {
+              console.warn(`[Audio Save] Failed to encode ${clip.fileName}:`, e);
+            }
+          }
         }
-        store.put(allBufs, projectId);
+
+        if (allBlobs.length === 0) { resolve(); return; }
+        store.put(allBlobs, projectId);
         tx.oncomplete = () => resolve();
         tx.onerror = () => reject(tx.error);
       });
     }
+
+    /**
+     * compressBytes — فشرده‌سازی Uint8Array با CompressionStream (deflate)
+     */
+    async function compressBytes(uint8Arr) {
+      try {
+        const cs = new CompressionStream('deflate');
+        const writer = cs.writable.getWriter();
+        writer.write(uint8Arr);
+        writer.close();
+        const reader = cs.readable.getReader();
+        const chunks = [];
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          chunks.push(value);
+        }
+        const totalLen = chunks.reduce((s, c) => s + c.length, 0);
+        const result = new Uint8Array(totalLen);
+        let offset = 0;
+        for (const chunk of chunks) { result.set(chunk, offset); offset += chunk.length; }
+        return new Blob([result], { type: 'application/octet-stream' });
+      } catch (e) {
+        // fallback: بدون فشرده‌سازی
+        return new Blob([uint8Arr], { type: 'application/octet-stream' });
+      }
+    }
     async function loadAudioBlobsForProject(projectId) {
       const db = await openAudioDB();
-      return new Promise((resolve, reject) => {
+      return new Promise(async (resolve, reject) => {
         const tx = db.transaction('audioBlobs', 'readonly');
         const store = tx.objectStore('audioBlobs');
         const req = store.get(projectId);
-        req.onsuccess = () => {
+        req.onsuccess = async () => {
           const allBufs = req.result;
           if (!allBufs) { resolve(); return; }
           ensureAudioCtx();
           for (const entry of allBufs) {
-            const chData = Array.isArray(entry.data) ? entry.data : [entry.data];
-            const buf = DAW.audioCtx.createBuffer(chData.length, entry.length, entry.sampleRate);
-            chData.forEach((ch, i) => { if (i < buf.numberOfChannels) buf.getChannelData(i).set(ch); });
-            DAW.bufferCache.set(entry.key, buf);
+            try {
+              let buffer = null;
+
+              if (entry.format === 'blob' && entry.blob) {
+                // ─── فرمت جدید: Blob اصلی (MP3, WAV, etc.) ───
+                const arrayBuffer = await entry.blob.arrayBuffer();
+                buffer = await DAW.audioCtx.decodeAudioData(arrayBuffer);
+                console.log(`[Audio Load] Loaded blob: ${entry.fileName}`);
+              } else if (entry.format === 'wav-deflate' && entry.blob) {
+                // ─── فرمت جدید: WAV فشرده‌شده با deflate ───
+                const compressedBytes = new Uint8Array(await entry.blob.arrayBuffer());
+                const wavBytes = await decompressBytes(compressedBytes);
+                const wavBlob = new Blob([wavBytes], { type: 'audio/wav' });
+                const arrayBuffer = await wavBlob.arrayBuffer();
+                buffer = await DAW.audioCtx.decodeAudioData(arrayBuffer);
+                console.log(`[Audio Load] Loaded WAV+deflate: ${entry.fileName}`);
+              } else if (entry.data) {
+                // ─── فرمت قدیمی: Float32Array ───
+                const chData = Array.isArray(entry.data) ? entry.data : [entry.data];
+                buffer = DAW.audioCtx.createBuffer(chData.length, entry.length, entry.sampleRate);
+                chData.forEach((ch, i) => { if (i < buffer.numberOfChannels) buffer.getChannelData(i).set(ch); });
+                console.log(`[Audio Load] Loaded legacy Float32: ${entry.key}`);
+              }
+
+              if (buffer) {
+                DAW.bufferCache.set(entry.key, buffer);
+              }
+            } catch (e) {
+              console.warn(`[Audio Load] Failed to load ${entry.key}:`, e);
+            }
           }
           resolve();
         };
@@ -8265,7 +8671,7 @@ function edBlankSong() {
       }
 
       // ─── مرحله 2: filePath در Electron ───
-      if (isElectron && fs && edCur._audioPaths) {
+      if (isElectron && window.electronAPI && edCur._audioPaths) {
         for (const ap of edCur._audioPaths) {
           if (!ap.filePath) continue;
           const clip = DAW.clips.find(c =>
@@ -8287,7 +8693,29 @@ function edBlankSong() {
         }
       }
 
-      // ─── مرحله 3: FileHandle ذخیره‌شده در IndexedDB ───
+      // ─── مرحله 3a: Blob ذخیره‌شده در IndexedDB (حالت «نه» در مرورگر) ───
+      missing = DAW.clips.filter(c =>
+        c.type !== 'chord' && c.bufferKey && !DAW.bufferCache.has(c.bufferKey)
+      );
+      if (missing.length > 0) {
+        for (const clip of missing) {
+          try {
+            const blobRecord = await getAudioBlobFromDB(clip.bufferKey);
+            if (!blobRecord) continue;
+            const { buffer } = await decodeFileToBuffer(blobRecord.blob);
+            DAW.bufferCache.set(clip.bufferKey, buffer);
+            clip.sourceDuration = buffer.duration;
+            clip._peaks = peaksFromBuffer(buffer, 2000);
+            refreshClipWaveImage(clip);
+            result.loaded++;
+            console.log('[Audio Restore] Auto-reloaded from Blob:', blobRecord.fileName);
+          } catch (e) {
+            console.warn('[Audio Restore] Blob reload failed for', clip.bufferKey, e.message);
+          }
+        }
+      }
+
+      // ─── مرحله 3b: FileHandle ذخیره‌شده در IndexedDB (مرورگر قدیمی) ───
       missing = DAW.clips.filter(c =>
         c.type !== 'chord' && c.bufferKey && !DAW.bufferCache.has(c.bufferKey)
       );
@@ -8296,18 +8724,20 @@ function edBlankSong() {
           try {
             const handle = await getFileHandle(clip.bufferKey);
             if (!handle) continue;
-            const perm = await handle.requestPermission({ mode: 'read' });
-            if (perm !== 'granted') continue;
-            const file = await handle.getFile();
-            const { buffer } = await decodeFileToBuffer(file);
-            DAW.bufferCache.set(clip.bufferKey, buffer);
-            clip.sourceDuration = buffer.duration;
-            clip._peaks = peaksFromBuffer(buffer, 2000);
-            refreshClipWaveImage(clip);
-            result.loaded++;
-            console.log('[Audio Restore] Auto-reloaded from FileHandle:', clip.fileName);
+            if (handle.requestPermission) {
+              const perm = await handle.requestPermission({ mode: 'read' });
+              if (perm !== 'granted') continue;
+              const file = await handle.getFile();
+              const { buffer } = await decodeFileToBuffer(file);
+              DAW.bufferCache.set(clip.bufferKey, buffer);
+              clip.sourceDuration = buffer.duration;
+              clip._peaks = peaksFromBuffer(buffer, 2000);
+              refreshClipWaveImage(clip);
+              result.loaded++;
+              console.log('[Audio Restore] Auto-reloaded from FileHandle:', clip.fileName);
+            }
           } catch (e) {
-            console.warn('[Audio Restore] Auto-reload failed for', clip.bufferKey, e.message);
+            console.warn('[Audio Restore] FileHandle reload failed for', clip.bufferKey, e.message);
           }
         }
       }
@@ -8465,7 +8895,7 @@ function edBlankSong() {
       let stillMissing = [...clipsByBufferKey.entries()].filter(([k]) => !DAW.bufferCache.has(k));
 
       // ─── مرحله 2: filePath در Electron ───
-      if (stillMissing.length > 0 && isElectron && fs && audioPaths.length > 0) {
+      if (stillMissing.length > 0 && isElectron && window.electronAPI && audioPaths.length > 0) {
         for (const ap of audioPaths) {
           if (!ap.filePath) continue;
           const clip = clipsByBufferKey.get(ap.bufferKey);
@@ -8482,19 +8912,39 @@ function edBlankSong() {
         stillMissing = [...clipsByBufferKey.entries()].filter(([k]) => !DAW.bufferCache.has(k));
       }
 
-      // ─── مرحله 3: FileHandle ذخیره‌شده در IndexedDB ───
+      // ─── مرحله 3a: Blob ذخیره‌شده در IndexedDB (حالت «نه» در مرورگر) ───
+      if (stillMissing.length > 0) {
+        for (const [bufferKey, clip] of stillMissing) {
+          try {
+            const blobRecord = await getAudioBlobFromDB(bufferKey);
+            if (!blobRecord) continue;
+            const { buffer } = await decodeFileToBuffer(blobRecord.blob);
+            DAW.bufferCache.set(bufferKey, buffer);
+            result.loaded++;
+            console.log('[Preload] Auto-reloaded from Blob:', blobRecord.fileName);
+          } catch (e) {
+            console.warn('[Preload] Blob reload failed for', bufferKey, e.message);
+          }
+        }
+        stillMissing = [...clipsByBufferKey.entries()].filter(([k]) => !DAW.bufferCache.has(k));
+      }
+
+      // ─── مرحله 3b: FileHandle ذخیره‌شده در IndexedDB (مرورگر قدیمی) ───
       if (stillMissing.length > 0) {
         for (const [bufferKey, clip] of stillMissing) {
           try {
             const handle = await getFileHandle(bufferKey);
             if (!handle) continue;
-            const perm = await handle.requestPermission({ mode: 'read' });
-            if (perm !== 'granted') continue;
-            const file = await handle.getFile();
-            const { buffer } = await decodeFileToBuffer(file);
-            DAW.bufferCache.set(bufferKey, buffer);
-            result.loaded++;
-            console.log('[Preload] Auto-reloaded from FileHandle:', clip.fileName);
+            // اگر handle یک FileSystemFileHandle هست
+            if (handle.requestPermission) {
+              const perm = await handle.requestPermission({ mode: 'read' });
+              if (perm !== 'granted') continue;
+              const file = await handle.getFile();
+              const { buffer } = await decodeFileToBuffer(file);
+              DAW.bufferCache.set(bufferKey, buffer);
+              result.loaded++;
+              console.log('[Preload] Auto-reloaded from FileHandle:', clip.fileName);
+            }
           } catch (e) {
             console.warn('[Preload] FileHandle reload failed for', bufferKey, e.message);
           }
@@ -8736,7 +9186,7 @@ function edBlankSong() {
         solo: tr.solo, vol: tr.vol, pan: tr.pan, type: tr.type, transpose: tr.transpose || 0, laneHeight: tr.laneHeight || null
       }));
       edCur._dawClips = DAW.clips.map(c => {
-        const cp = { ...c }; delete cp._peaks; delete cp.waveUrl; delete cp._fileHandle;
+        const cp = { ...c }; delete cp._peaks; delete cp.waveUrl; delete cp._fileHandle; delete cp._originalBlob;
         return cp;
       });
       edCur._dawSections = (DAW.sections || []).map(s => ({ ...s }));
@@ -8829,12 +9279,25 @@ function edBlankSong() {
     delete cp._peaks;
     delete cp.waveUrl;
     delete cp._fileHandle; // غیرقابل serialize
+    delete cp._originalBlob; // Blob خام غیرقابل serialize
     return cp;
   });
 
   edCur._dawSections = (DAW.sections || []).map(s => ({ ...s }));
 
   edCur._dawLoop = { loopEnabled: DAW.loopEnabled, loopA: DAW.loopA, loopB: DAW.loopB };
+
+  // ─── ذخیره مسیر فایل‌های صوتی (مهم برای لود مجدد در الکترون) ───
+  edCur._audioPaths = [];
+  for (const clip of DAW.clips) {
+    if (clip.type === 'chord' || !clip.bufferKey) continue;
+    edCur._audioPaths.push({
+      bufferKey: clip.bufferKey,
+      fileName: clip.fileName || clip.name,
+      trackId: clip.trackId,
+      filePath: clip._filePath || null
+    });
+  }
 
   try {
     localStorage.setItem('ed_current_song', JSON.stringify(edCur));
@@ -9109,7 +9572,7 @@ function edBlankSong() {
       const missingAudio = DAW.clips.filter(c => c.type!=='chord'&&c.bufferKey&&!DAW.bufferCache.has(c.bufferKey));
       if (missingAudio.length > 0 && edCur._audioPaths?.length > 0) {
         // اول از filePath (Electron) لود کن
-        if (isElectron && fs) {
+        if (isElectron && window.electronAPI) {
           for (const ap of edCur._audioPaths) {
             if (!ap.filePath) continue;
             const clip = DAW.clips.find(c => c.type!=='chord' && c.bufferKey === ap.bufferKey);
@@ -9177,7 +9640,7 @@ function edBlankSong() {
       edCur.key = $('edKey')?.value || edCur.key || 'C';
       edCur.keyMode = $('edKeyMode')?.value || edCur.keyMode || 'maj';
       edCur._dawTracks = DAW.tracks.map(t => ({ id:t.id,name:t.name,icon:t.icon,muted:t.muted,solo:t.solo,vol:t.vol,pan:t.pan,type:t.type,transpose:t.transpose||0 }));
-      edCur._dawClips = DAW.clips.map(c => { const cp={...c}; delete cp._peaks; delete cp.waveUrl; delete cp._fileHandle; return cp; });
+      edCur._dawClips = DAW.clips.map(c => { const cp={...c}; delete cp._peaks; delete cp.waveUrl; delete cp._fileHandle; delete cp._originalBlob; return cp; });
       edCur._dawSections = (DAW.sections||[]).map(s=>({...s}));
       edCur._dawLoop = { loopEnabled:DAW.loopEnabled, loopA:DAW.loopA, loopB:DAW.loopB };
       if (typeof saveCurrentVersion==='function') saveCurrentVersion();
@@ -10613,7 +11076,7 @@ saveState();
         solo: tr.solo, vol: tr.vol, pan: tr.pan, type: tr.type, transpose: tr.transpose || 0, laneHeight: tr.laneHeight || null
       }));
       edCur._dawClips = DAW.clips.map(c => {
-        const cp = { ...c }; delete cp._peaks; delete cp.waveUrl; delete cp._fileHandle; return cp;
+        const cp = { ...c }; delete cp._peaks; delete cp.waveUrl; delete cp._fileHandle; delete cp._originalBlob; return cp;
       });
       edCur._dawSections = (DAW.sections || []).map(s => ({ ...s }));
       edCur._dawLoop = { loopEnabled: DAW.loopEnabled, loopA: DAW.loopA, loopB: DAW.loopB };
@@ -10870,7 +11333,7 @@ saveState();
               const stillMissing2 = audioClips.filter(c => c.bufferKey && !DAW.bufferCache.has(c.bufferKey));
               if (stillMissing2.length > 0 && edCur._audioPaths && edCur._audioPaths.length > 0) {
                 // اول از filePath (Electron) لود کن
-                if (isElectron && fs) {
+                if (isElectron && window.electronAPI) {
                   for (const ap of edCur._audioPaths) {
                     if (!ap.filePath) continue;
                     const clip = DAW.clips.find(c => c.type !== 'chord' && c.bufferKey === ap.bufferKey);
