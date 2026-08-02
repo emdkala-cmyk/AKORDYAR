@@ -4760,11 +4760,15 @@ let syncTapKeyHandler = null;
       });
     }
 
+    // ===== Arranger Setlist Management =====
+    let _arrDragIndex = null; // Persist drag index across render calls
+
     function renderArrSetlist() {
       const box = $('arrSetlist'); box.innerHTML = '';
       if (!editingArr.items.length) { box.innerHTML = `<div style="padding:14px;color:var(--text-secondary);font-size:13px;">${t('addFromLeft')}</div>`; return; }
       const allSongs = edGetAllSongs();
       const query = ($('arrSearchInput')?.value || '').trim().toLowerCase();
+      
       editingArr.items.forEach((id, i) => {
         const s = allSongs.find(x => x.id === id); if (!s) return;
         // Live filtering
@@ -4804,16 +4808,15 @@ let syncTapKeyHandler = null;
           else return;
           saveArrangers(); renderArrSetlist();
         };
-        let dragI = null;
-        it.addEventListener('dragstart', () => { dragI = i; it.style.opacity = '.4'; });
+        it.addEventListener('dragstart', () => { _arrDragIndex = i; it.style.opacity = '.4'; });
         it.addEventListener('dragover', e => { e.preventDefault(); it.classList.add('dragover'); });
         it.addEventListener('dragleave', () => it.classList.remove('dragover'));
         it.addEventListener('drop', e => {
           e.preventDefault(); it.classList.remove('dragover');
-          if (dragI === null || dragI === i) return;
-          const moved = editingArr.items.splice(dragI, 1)[0];
+          if (_arrDragIndex === null || _arrDragIndex === i) return;
+          const moved = editingArr.items.splice(_arrDragIndex, 1)[0];
           editingArr.items.splice(i, 0, moved);
-          saveArrangers(); renderArrSetlist(); dragI = null;
+          saveArrangers(); renderArrSetlist(); _arrDragIndex = null;
         });
         it.addEventListener('dragend', () => { it.style.opacity = ''; });
         box.appendChild(it);
