@@ -9,7 +9,7 @@
  * 5. پاک‌سازی منابع هنگام خروج
  */
 
-const { app, BrowserWindow, shell, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, shell, ipcMain, dialog, Menu } = require('electron');
 const path = require('path');
 const http = require('http');
 const fsPromises = require('fs').promises;
@@ -20,6 +20,223 @@ const SERVER_URL = `http://localhost:${SERVER_PORT}/Akordyar.html`;
 
 let mainWindow = null;
 let serverModule = null;
+
+// ============================================
+// Create Application Menu
+// ============================================
+function createMenu() {
+  const template = [
+    {
+      label: 'File',
+      submenu: [
+        {
+          label: 'New Song',
+          accelerator: 'CmdOrCtrl+N',
+          click: () => mainWindow.webContents.send('menu-new-song')
+        },
+        {
+          label: 'Open Project',
+          accelerator: 'CmdOrCtrl+O',
+          click: () => mainWindow.webContents.send('menu-open-project')
+        },
+        {
+          label: 'Save',
+          accelerator: 'CmdOrCtrl+S',
+          click: () => mainWindow.webContents.send('menu-save')
+        },
+        {
+          label: 'Save As...',
+          accelerator: 'CmdOrCtrl+Shift+S',
+          click: () => mainWindow.webContents.send('menu-save-as')
+        },
+        { type: 'separator' },
+        {
+          label: 'Export',
+          accelerator: 'CmdOrCtrl+E',
+          click: () => mainWindow.webContents.send('menu-export')
+        },
+        {
+          label: 'Import',
+          accelerator: 'CmdOrCtrl+I',
+          click: () => mainWindow.webContents.send('menu-import')
+        },
+        { type: 'separator' },
+        {
+          label: 'Exit',
+          accelerator: 'Alt+F4',
+          click: () => app.quit()
+        }
+      ]
+    },
+    {
+      label: 'Edit',
+      submenu: [
+        {
+          label: 'Undo',
+          accelerator: 'CmdOrCtrl+Z',
+          role: 'undo'
+        },
+        {
+          label: 'Redo',
+          accelerator: 'CmdOrCtrl+Y',
+          role: 'redo'
+        },
+        { type: 'separator' },
+        {
+          label: 'Cut',
+          accelerator: 'CmdOrCtrl+X',
+          role: 'cut'
+        },
+        {
+          label: 'Copy',
+          accelerator: 'CmdOrCtrl+C',
+          role: 'copy'
+        },
+        {
+          label: 'Paste',
+          accelerator: 'CmdOrCtrl+V',
+          role: 'paste'
+        },
+        {
+          label: 'Select All',
+          accelerator: 'CmdOrCtrl+A',
+          role: 'selectAll'
+        }
+      ]
+    },
+    {
+      label: 'View',
+      submenu: [
+        {
+          label: 'Reload',
+          accelerator: 'CmdOrCtrl+R',
+          click: () => mainWindow.webContents.reload()
+        },
+        {
+          label: 'Toggle Developer Tools',
+          accelerator: 'F12',
+          click: () => mainWindow.webContents.toggleDevTools()
+        },
+        { type: 'separator' },
+        {
+          label: 'Zoom In',
+          accelerator: 'CmdOrCtrl+Plus',
+          role: 'zoomIn'
+        },
+        {
+          label: 'Zoom Out',
+          accelerator: 'CmdOrCtrl+-',
+          role: 'zoomOut'
+        },
+        {
+          label: 'Reset Zoom',
+          accelerator: 'CmdOrCtrl+0',
+          role: 'resetZoom'
+        },
+        { type: 'separator' },
+        {
+          label: 'Toggle Full Screen',
+          accelerator: 'F11',
+          role: 'togglefullscreen'
+        }
+      ]
+    },
+    {
+      label: 'Playback',
+      submenu: [
+        {
+          label: 'Play/Pause',
+          accelerator: 'Space',
+          click: () => mainWindow.webContents.send('menu-play-pause')
+        },
+        {
+          label: 'Stop',
+          accelerator: 'CmdOrCtrl+Backspace',
+          click: () => mainWindow.webContents.send('menu-stop')
+        },
+        { type: 'separator' },
+        {
+          label: 'Go to Start',
+          accelerator: 'Home',
+          click: () => mainWindow.webContents.send('menu-go-to-start')
+        },
+        {
+          label: 'Go to End',
+          accelerator: 'End',
+          click: () => mainWindow.webContents.send('menu-go-to-end')
+        }
+      ]
+    },
+    {
+      label: 'Tools',
+      submenu: [
+        {
+          label: 'Arranger',
+          accelerator: 'CmdOrCtrl+R',
+          click: () => mainWindow.webContents.send('menu-arranger')
+        },
+        {
+          label: 'Archive',
+          accelerator: 'CmdOrCtrl+B',
+          click: () => mainWindow.webContents.send('menu-archive')
+        },
+        {
+          label: 'MIDI Settings',
+          click: () => mainWindow.webContents.send('menu-midi-settings')
+        },
+        { type: 'separator' },
+        {
+          label: 'Preferences',
+          accelerator: 'CmdOrCtrl+,',
+          click: () => mainWindow.webContents.send('menu-preferences')
+        }
+      ]
+    },
+    {
+      label: 'Window',
+      submenu: [
+        {
+          label: 'Minimize',
+          accelerator: 'CmdOrCtrl+M',
+          role: 'minimize'
+        },
+        {
+          label: 'Close',
+          accelerator: 'CmdOrCtrl+W',
+          role: 'close'
+        },
+        { type: 'separator' },
+        {
+          label: 'Bring All to Front',
+          role: 'front'
+        }
+      ]
+    },
+    {
+      label: 'Help',
+      submenu: [
+        {
+          label: 'About Akordyar',
+          click: () => {
+            dialog.showMessageBox(mainWindow, {
+              type: 'info',
+              title: 'About Akordyar',
+              message: 'Akordyar - DAW Timeline Pro',
+              detail: 'Version 1.0.0\nA professional chord and timeline editor.'
+            });
+          }
+        },
+        {
+          label: 'Documentation',
+          click: () => shell.openExternal('https://github.com/your-repo/akordyar/wiki')
+        }
+      ]
+    }
+  ];
+
+  const menu = Menu.buildFromTemplate(template);
+  Menu.setApplicationMenu(menu);
+}
 
 // ============================================
 // Utility: colored console log
@@ -347,6 +564,9 @@ function createWindow() {
 // ============================================
 app.whenReady().then(async () => {
   log('App', 'Akordyar is starting...');
+
+  // ایجاد منوی اصلی برنامه
+  createMenu();
 
   // اگر سرور از قبل داره اجرا می‌شه (مثلاً کاربر npm run server زده)،
   // دوباره استارتش نزن
