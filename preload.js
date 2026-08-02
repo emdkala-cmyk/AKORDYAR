@@ -12,6 +12,64 @@ contextBridge.exposeInMainWorld('electronAPI', {
     isElectron: true,
 
     // ============================================
+    // Menu Event Listeners (دریافت پیام‌ها از Main Process)
+    // ============================================
+    
+    /**
+     * ثبت listener برای پیام‌های منوی اصلی
+     * @param {string} channel - نام کانال پیام
+     * @param {Function} callback - تابعی که هنگام دریافت پیام اجرا می‌شود
+     */
+    onMenuCommand: (channel, callback) => {
+        const validChannels = [
+            'menu-new-song',
+            'menu-open-project',
+            'menu-save',
+            'menu-save-as',
+            'menu-export',
+            'menu-import',
+            'menu-play-pause',
+            'menu-stop',
+            'menu-go-to-start',
+            'menu-go-to-end',
+            'menu-arranger',
+            'menu-archive',
+            'menu-midi-settings',
+            'menu-preferences'
+        ];
+        if (validChannels.includes(channel)) {
+            ipcRenderer.on(channel, callback);
+        }
+    },
+
+    /**
+     * حذف listener برای پیام‌های منو
+     * @param {string} channel - نام کانال پیام
+     * @param {Function} callback - تابعی که باید حذف شود
+     */
+    offMenuCommand: (channel, callback) => {
+        const validChannels = [
+            'menu-new-song',
+            'menu-open-project',
+            'menu-save',
+            'menu-save-as',
+            'menu-export',
+            'menu-import',
+            'menu-play-pause',
+            'menu-stop',
+            'menu-go-to-start',
+            'menu-go-to-end',
+            'menu-arranger',
+            'menu-archive',
+            'menu-midi-settings',
+            'menu-preferences'
+        ];
+        if (validChannels.includes(channel)) {
+            ipcRenderer.removeListener(channel, callback);
+        }
+    },
+
+    // ============================================
     // Audio File Operations
     // ============================================
     
