@@ -5088,13 +5088,107 @@ let syncTapKeyHandler = null;
       const setlistEl = $('perfSetlist');
       if (!setlistEl) return;
       setlistEl.innerHTML = '';
+      
+      let draggedIndex = -1;
+      
       arr.items.forEach((id, i) => {
         const s = allSongs.find(x => x.id === id);
         const st = getArrItemSetting(arr, id);
         const div = document.createElement('div');
         div.className = 'arr-perf-setlist-item' + (i === arrPerformIdx ? ' pf-current' : '') + (i === arrPerformIdx + 1 ? ' pf-next' : '') + (i < arrPerformIdx ? ' pf-done' : '');
+        div.draggable = true;
         div.innerHTML = `<span class="pf-num">${i + 1}</span><span class="pf-name">${s ? (s.title || 'بدون نام') : '—'}</span><span class="pf-key">${s?.key || '—'}${st.transpose ? (st.transpose > 0 ? '+' : '') + st.transpose : ''}</span>`;
+        
+        // Click to jump
         div.onclick = () => perfJumpToSong(i);
+        
+        // Drag events
+        div.addEventListener('dragstart', (e) => {
+          draggedIndex = i;
+          div.classList.add('dragging');
+          e.dataTransfer.effectAllowed = 'move';
+          e.dataTransfer.setData('text/plain', String(i));
+        });
+        
+        div.addEventListener('dragend', () => {
+          draggedIndex = -1;
+          div.classList.remove('dragging');
+          // Remove all drag-over styles
+          Array.from(setlistEl.children).forEach(child => {
+            child.classList.remove('drag-over-top', 'drag-over-bottom');
+            child.style.borderTop = '';
+            child.style.borderBottom = '';
+          });
+        });
+        
+        div.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          if (draggedIndex === -1 || draggedIndex === i) return;
+          
+          const rect = div.getBoundingClientRect();
+          const midpoint = rect.top + rect.height / 2;
+          
+          // Remove old classes
+          Array.from(setlistEl.children).forEach(child => {
+            child.classList.remove('drag-over-top', 'drag-over-bottom');
+            child.style.borderTop = '';
+            child.style.borderBottom = '';
+          });
+          
+          if (e.clientY < midpoint) {
+            div.classList.add('drag-over-top');
+            div.style.borderTop = '2px solid var(--accent-teal)';
+          } else {
+            div.classList.add('drag-over-bottom');
+            div.style.borderBottom = '2px solid var(--accent-teal)';
+          }
+        });
+        
+        div.addEventListener('dragleave', () => {
+          div.classList.remove('drag-over-top', 'drag-over-bottom');
+          div.style.borderTop = '';
+          div.style.borderBottom = '';
+        });
+        
+        div.addEventListener('drop', (e) => {
+          e.preventDefault();
+          if (draggedIndex === -1 || draggedIndex === i) return;
+          
+          const rect = div.getBoundingClientRect();
+          const midpoint = rect.top + rect.height / 2;
+          let dropIndex = i;
+          
+          // Determine insert position
+          if (e.clientY < midpoint) {
+            dropIndex = i;
+          } else {
+            dropIndex = i + 1;
+          }
+          
+          // Adjust if dragging from before the drop position
+          if (draggedIndex < dropIndex) {
+            dropIndex--;
+          }
+          
+          // Reorder the array
+          if (draggedIndex !== dropIndex) {
+            const movedItem = arr.items.splice(draggedIndex, 1)[0];
+            arr.items.splice(dropIndex, 0, movedItem);
+            
+            // Save updated playlist
+            saveArrangers();
+            
+            // Re-render to reflect changes
+            renderPerfPanel();
+          }
+          
+          // Cleanup
+          draggedIndex = -1;
+          div.classList.remove('drag-over-top', 'drag-over-bottom');
+          div.style.borderTop = '';
+          div.style.borderBottom = '';
+        });
+        
         setlistEl.appendChild(div);
       });
 
