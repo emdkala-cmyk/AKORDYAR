@@ -4782,12 +4782,15 @@ let syncTapKeyHandler = null;
         const hasNotes = !!(setting.notes && setting.notes.trim());
         const it = document.createElement('div'); it.className = 'arr-item'; it.draggable = true; it.dataset.i = i;
         it.innerHTML = `
-          <button data-a="up" title="بالا">↑</button>
-          <button data-a="down" title="پایین">↓</button>
-          <span class="ai-meta">
-            <span class="ai-title">${i + 1}. ${s.title || t('untitled')}</span>
+          <div class="arr-item-controls">
+            <button data-a="up" title="بالا">↑</button>
+            <button data-a="down" title="پایین">↓</button>
+            <span class="arr-item-number">${i + 1}</span>
+          </div>
+          <div class="arr-item-info" draggable="true">
+            <span class="ai-title">${s.title || t('untitled')}</span>
             <small>${s.artist || '—'}</small>
-          </span>
+          </div>
           <div class="ai-ctrls">
             <button class="ai-trans-btn" data-a="trans-down" title="بمل">♭</button>
             <span class="ai-trans-val">${transSign}</span>

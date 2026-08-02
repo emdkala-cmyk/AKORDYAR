@@ -25,7 +25,10 @@
 .arr-item:hover { background: var(--hover-bg); }
 .arr-item:active { cursor: grabbing; }
 .arr-item.dragover { outline: 2px dashed var(--accent-teal); }
-.arr-item .ai-title { flex: 1; font-size: 13px; color: var(--text-primary); }
+.arr-item .arr-item-controls { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+.arr-item .arr-item-number { font-size: 11px; font-family: 'JetBrains Mono', monospace; color: var(--accent-cyan-glow); min-width: 16px; text-align: center; font-weight: 700; }
+.arr-item .arr-item-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.arr-item .ai-title { font-size: 13px; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .arr-item .ai-title small { color: var(--text-secondary); display: block; font-size: 11px; }
 .arr-item button { padding: 2px 6px; font-size: 12px; background: #1F2736; border: 1px solid var(--ctrl-border); color: var(--text-primary); border-radius: 4px; cursor: pointer; }
 .arr-item button:hover { background: #2D3748; }
