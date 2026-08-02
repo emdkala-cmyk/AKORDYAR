@@ -774,10 +774,9 @@
         <div id="arrTabEditor">
           <!-- نوار ابزار اصلی: اسم + ذخیره + اجرا + اکسپورت -->
           <div class="arr-main-toolbar">
-            <input id="arrName" data-i18n-placeholder="arrangerName" placeholder="نام پلی‌لیست" class="arr-name-input">
-            <button class="ctrl-btn active-blue" onclick="saveCurrentArranger()" title="ذخیره پلی‌لیست فعلی">💾 <span data-i18n="save">ذخیره</span></button>
-            <button class="ctrl-btn" style="background:#9F7AEA;border-color:#9F7AEA;color:#fff;font-weight:700;" onclick="exportCurrentArranger()" title="خروجی به فایل JSON">📤 <span data-i18n="export">اکسپورت</span></button>
-            <button class="ctrl-btn" style="background:var(--accent-neon-pink);border-color:var(--accent-neon-pink);color:#fff;" onclick="openPerfMode()" title="شروع اجرای زنده">🎤 <span data-i18n="perform">اجرا</span></button>
+            <input id="arrName" data-i18n-placeholder="arrangerName" placeholder="نام پلی‌لیست" class="arr-name-input" onchange="saveCurrentArranger()" oninput="saveCurrentArrangerDebounced()">
+            <button class="ctrl-btn" style="background:#9F7AEA;border-color:#9F7AEA;color:#fff;font-weight:700;" onclick="exportCurrentArranger()" title="خروجی به فایل JSON">📤 <span data-i18n="export">خروجی پلی‌لیست</span></button>
+            <button class="ctrl-btn" style="background:var(--accent-neon-pink);border-color:var(--accent-neon-pink);color:#fff;" onclick="openPerfMode()" title="شروع اجرای زنده">▶ <span data-i18n="perform">اجرا</span></button>
           </div>
           <div style="margin-bottom:10px;">
             <input type="text" id="arrSearchInput" placeholder="🔍 جستجوی آهنگ..." oninput="arrFilterSongs()" style="width:100%;background:#0D1017;border:1px solid var(--border-subtle);padding:8px 12px;border-radius:8px;color:white;font-size:0.9rem;direction:rtl;">

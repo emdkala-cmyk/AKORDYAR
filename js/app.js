@@ -4129,6 +4129,19 @@ let syncTapKeyHandler = null;
     let arrangers = JSON.parse(localStorage.getItem('arrangers_v1') || '[]');
     let editingArr = null;
 
+    // ===== Normalize playlist name for comparison (case-insensitive, whitespace-insensitive) =====
+    const normalizePlaylistName = (name) =>
+      String(name || "")
+        .trim()
+        .replace(/\s+/g, " ")
+        .toLocaleLowerCase("fa-IR");
+
+    // ===== Check if playlist name already exists (excluding optional current id) =====
+    function playlistNameExists(name, excludeId = null) {
+      const normalizedName = normalizePlaylistName(name);
+      return arrangers.some(a => a.id !== excludeId && normalizePlaylistName(a.name) === normalizedName);
+    }
+
     // ===== Arranger Enhanced: Per-song settings =====
     // Each arranger item: { id, transpose: 0, notes: '' }
     // Arranger level: { crossfade: 0, pauseBetween: false }
@@ -4315,14 +4328,21 @@ let syncTapKeyHandler = null;
       if (name === null) return; // کاربر کنسل کرد
       const trimmedName = name.trim() || ('پلی‌لیست ' + (arrangers.length + 1));
 
-      // ─── بررسی نام تکراری ───
-      const existing = arrangers.find(a => a.name === trimmedName);
-      if (existing) {
-        toast(`⚠ پلی‌لیستی با نام «${trimmedName}» وجود دارد. نام دیگری انتخاب کنید.`);
+      // ─── بررسی نام تکراری با مقایسه normalize شده ───
+      if (playlistNameExists(trimmedName)) {
+        toast(`⚠ پلی‌لیستی با نام «${trimmedName}» از قبل وجود دارد. نام دیگری انتخاب کنید.`);
         return createNewArranger(); // دوباره بپرس
       }
 
-      const arr = { id: Date.now(), name: trimmedName, items: [], crossfade: 0, pauseBetween: false };
+      const arr = { 
+        id: 'playlist_' + Date.now(), 
+        name: trimmedName, 
+        items: [], 
+        crossfade: 0, 
+        pauseBetween: false,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
       arrangers.unshift(arr);
       saveArrangers();
       editingArr = arr;
@@ -4418,7 +4438,7 @@ let syncTapKeyHandler = null;
      * saveCurrentArranger — ذخیره پلی‌لیست فعلی
      * نام پلی‌لیست رو از input می‌خونه، در localStorage ذخیره می‌کنه،
      * و لیست پلی‌لیست‌ها رو refresh می‌کنه.
-     * اگر نام تکراری باشه، یک پسوند اضافه می‌کنه.
+     * اگر نام تکراری باشه، خطا میده.
      */
     function saveCurrentArranger() {
       if (!editingArr) {
@@ -4429,21 +4449,14 @@ let syncTapKeyHandler = null;
       let newName = nameInput ? nameInput.value.trim() : '';
       if (!newName) newName = 'پلی‌لیست بدون نام';
 
-      // ─── بررسی نام تکراری (به‌جز خود پلی‌لیست فعلی) ───
-      const conflict = arrangers.find(a => a.id !== editingArr.id && a.name === newName);
-      if (conflict) {
-        let suffix = 2;
-        let candidate = newName;
-        while (arrangers.some(a => a.id !== editingArr.id && a.name === candidate)) {
-          candidate = `${newName} (${suffix})`;
-          suffix++;
-        }
-        newName = candidate;
-        if (nameInput) nameInput.value = newName;
-        toast(`⚠ نام تکراری — به «${newName}» تغییر یافت`);
+      // ─── بررسی نام تکراری با مقایسه normalize شده (به‌جز خود پلی‌لیست فعلی) ───
+      if (playlistNameExists(newName, editingArr.id)) {
+        toast(`⚠ پلی‌لیستی با نام «${newName}» از قبل وجود دارد.`);
+        return;
       }
 
       editingArr.name = newName;
+      editingArr.updatedAt = new Date().toISOString();
 
       // ذخیره crossfade فعلی
       const cfRange = $('arrCrossfadeRange');
@@ -4452,6 +4465,15 @@ let syncTapKeyHandler = null;
       saveArrangers();
       renderArrangerManager();
       toast(`✅ پلی‌لیست «${editingArr.name}» ذخیره شد (${editingArr.items.length} آهنگ)`);
+    }
+
+    // Debounced save for playlist name input
+    let _saveNameDebounceTimer = null;
+    function saveCurrentArrangerDebounced() {
+      if (_saveNameDebounceTimer) clearTimeout(_saveNameDebounceTimer);
+      _saveNameDebounceTimer = setTimeout(() => {
+        saveCurrentArranger();
+      }, 500);
     }
 
     /**
@@ -4520,7 +4542,7 @@ let syncTapKeyHandler = null;
 
     /**
      * importArrangerFromFile — بارگذاری پلی‌لیست از فایل JSON
-     * اگر پلی‌لیستی با همان نام وجود داشته باشد، یک پسوند اضافه می‌کند.
+     * اگر پلی‌لیستی با همان نام وجود داشته باشد، خطا می‌دهد.
      */
     async function importArrangerFromFile() {
       const input = document.createElement('input');
@@ -4537,6 +4559,42 @@ let syncTapKeyHandler = null;
           if (!data || (!data.items && !data.songs)) {
             toast('❌ فایل معتبر نیست — فرمت پلی‌لیست نیست');
             return;
+          }
+
+          // بررسی نسخه فایل
+          const supportedVersions = [1, '1.0', 2, '2.0'];
+          if (data.version && !supportedVersions.includes(data.version)) {
+            toast(`❌ نسخه فایل (${data.version}) پشتیبانی نمی‌شود.`);
+            return;
+          }
+
+          // خواندن و اعتبارسنجی نام پلی‌لیست
+          let baseName = data.name || file.name.replace(/\.json$/i, '');
+          if (!baseName || !baseName.trim()) {
+            toast('❌ نام پلی‌لیست در فایل خالی است.');
+            return;
+          }
+          baseName = baseName.trim();
+
+          // ─── بررسی نام تکراری با مقایسه normalize شده ───
+          if (playlistNameExists(baseName)) {
+            toast(`⚠ پلی‌لیستی با نام «${baseName}» از قبل وجود دارد.\nبرای ورود این فایل، ابتدا نام پلی‌لیست را در فایل خروجی یا در پروژه‌ی مبدا تغییر دهید.`);
+            return;
+          }
+
+          // اعتبارسنجی items
+          if (!Array.isArray(data.items)) {
+            toast('❌ آرایه‌ی items در فایل معتبر نیست.');
+            return;
+          }
+
+          // بررسی songId برای هر آیتم
+          for (let i = 0; i < data.items.length; i++) {
+            const item = data.items[i];
+            if (!item || !item.songId) {
+              toast(`❌ آیتم شماره ${i + 1} فاقد songId معتبر است.`);
+              return;
+            }
           }
 
           // اگر آهنگ‌ها داخل فایل هستن، اول اونا رو به آرشیو اضافه کن
@@ -4557,27 +4615,16 @@ let syncTapKeyHandler = null;
             }
           }
 
-          // ─── تعیین نام یکتا برای پلی‌لیست ───
-          let baseName = data.name || file.name.replace(/\.json$/i, '');
-          let finalName = baseName;
-          let suffix = 2;
-          while (arrangers.some(a => a.name === finalName)) {
-            finalName = `${baseName} (${suffix})`;
-            suffix++;
-          }
-          if (finalName !== baseName) {
-            console.log(`[Import] Name conflict — renamed to: ${finalName}`);
-          }
-
-          // ساخت پلی‌لیست جدید
-          const newId = Date.now();
+          // ساخت پلی‌لیست جدید با ساختار استاندارد
           const newArr = {
-            id: newId,
-            name: finalName,
-            items: Array.isArray(data.items) ? data.items : [],
+            id: 'playlist_' + Date.now(),
+            name: baseName,
+            items: Array.isArray(data.items) ? data.items.map(it => it.songId || it) : [],
             crossfade: data.crossfade || 0,
             pauseBetween: !!data.pauseBetween,
-            _itemSettings: data._itemSettings || {}
+            _itemSettings: data._itemSettings || {},
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
           };
 
           arrangers.unshift(newArr);
