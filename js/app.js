@@ -40,22 +40,41 @@ async function loadAudioFromHardDrive(filePath) {
   }
 
   // بررسی وجود فایل از طریق IPC
-  const exists = await window.electronAPI.checkFileExists(filePath);
+  let exists = false;
+  try {
+    exists = await window.electronAPI.checkFileExists(filePath);
+  } catch (checkError) {
+    console.warn('[Audio Load] Error checking file existence:', checkError.message);
+    exists = false;
+  }
+
   if (!exists) {
-    throw new Error("فایل در آدرس قبلی وجود ندارد: " + filePath);
+    // اگر فایل در مسیر مطلق پیدا نشد، خطای ملایم بده
+    throw new Error("FILE_NOT_FOUND:" + filePath);
   }
 
   // خواندن فایل از طریق IPC (به‌صورت ArrayBuffer)
   if (!window.electronAPI.readAudioFile) {
     throw new Error("electronAPI.readAudioFile موجود نیست — preload.js رو بررسی کنید");
   }
-  const arrayBuffer = await window.electronAPI.readAudioFile(filePath);
+  
+  let arrayBuffer;
+  try {
+    arrayBuffer = await window.electronAPI.readAudioFile(filePath);
+  } catch (readError) {
+    console.error('[Audio Load] Error reading file:', readError.message);
+    throw new Error("READ_ERROR:" + readError.message);
+  }
 
   // دیکود کردن
   ensureAudioCtx();
-  return await DAW.audioCtx.decodeAudioData(arrayBuffer);
+  try {
+    return await DAW.audioCtx.decodeAudioData(arrayBuffer);
+  } catch (decodeError) {
+    console.error('[Audio Load] Error decoding audio:', decodeError.message);
+    throw new Error("DECODE_ERROR:" + decodeError.message);
+  }
 }
-
 /**
  * توابع کمکی برای جایگزینی require('path')
  * (چون require در renderer با contextIsolation:true در دسترس نیست)
@@ -8754,6 +8773,9 @@ function edBlankSong() {
             result.loaded++;
           } catch (e) {
             console.warn('[Audio Restore] File not found at path:', ap.filePath, e.message);
+            // علامت‌گذاری به‌عنوان missing ولی ادامه فرآیند
+            result.missing++; 
+            result.missingNames.push(ap.fileName || ap.bufferKey);
           }
         }
       }
@@ -8972,6 +8994,8 @@ function edBlankSong() {
             result.loaded++;
           } catch (e) {
             console.warn('[Preload] File not found at path:', ap.filePath, e.message);
+            result.missing++;
+            result.missingNames.push(ap.fileName || ap.bufferKey);
           }
         }
         stillMissing = [...clipsByBufferKey.entries()].filter(([k]) => !DAW.bufferCache.has(k));

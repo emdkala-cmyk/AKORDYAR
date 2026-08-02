@@ -12,8 +12,8 @@
 const { app, BrowserWindow, shell, ipcMain, dialog } = require('electron');
 const path = require('path');
 const http = require('http');
-const fs = require('fs').promises;
-const fssync = require('fs');
+const fsPromises = require('fs').promises;
+const fsSync = require('fs');
 
 const SERVER_PORT = 3000;
 const SERVER_URL = `http://localhost:${SERVER_PORT}/Akordyar.html`;
@@ -55,7 +55,8 @@ function isServerAlreadyRunning() {
 
 ipcMain.handle('audio:read-file', async (event, filePath) => {
   try {
-    const dataBuffer = await fssync.readFile(filePath);
+    // استفاده از fs.promises.readFile برای جلوگیری از خطای callback
+    const dataBuffer = await fsPromises.readFile(filePath);
     return dataBuffer.buffer;
   } catch (error) {
     logError('Audio', `Error reading audio file: ${error.message}`);
@@ -68,8 +69,8 @@ ipcMain.handle('audio:copy-to-project', async (event, sourcePath, projectAudioDi
     const safeFileName = path.basename(sourcePath).replace(/[^a-zA-Z0-9._-]/g, '_');
     const destPath = path.join(projectAudioDir, safeFileName);
 
-    await fs.mkdir(projectAudioDir, { recursive: true });
-    await fssync.copyFile(sourcePath, destPath);
+    await fsPromises.mkdir(projectAudioDir, { recursive: true });
+    fsSync.copyFileSync(sourcePath, destPath);
 
     return {
       success: true,
@@ -84,8 +85,8 @@ ipcMain.handle('audio:copy-to-project', async (event, sourcePath, projectAudioDi
 
 ipcMain.handle('audio:delete-file', async (event, filePath) => {
   try {
-    if (fssync.existsSync(filePath)) {
-      await fs.unlink(filePath);
+    if (fsSync.existsSync(filePath)) {
+      await fsPromises.unlink(filePath);
       return { success: true };
     }
     return { success: false, reason: 'File not found' };
@@ -128,8 +129,8 @@ ipcMain.handle('project:save-with-audio', async (event, projectData, projectFile
     const projectDir = path.dirname(projectFilePath);
     const audioDir = path.join(projectDir, 'Audio');
 
-    if (!fssync.existsSync(audioDir)) {
-      fssync.mkdirSync(audioDir, { recursive: true });
+    if (!fsSync.existsSync(audioDir)) {
+      fsSync.mkdirSync(audioDir, { recursive: true });
     }
 
     const processedClips = projectData.clips.map(clip => {
@@ -142,8 +143,8 @@ ipcMain.handle('project:save-with-audio', async (event, projectData, projectFile
         const safeFileName = path.basename(clip.fileName).replace(/[^a-zA-Z0-9._-]/g, '_');
         const targetPath = path.join(audioDir, safeFileName);
 
-        if (fssync.existsSync(sourcePath)) {
-          fssync.copyFileSync(sourcePath, targetPath);
+        if (fsSync.existsSync(sourcePath)) {
+          fsSync.copyFileSync(sourcePath, targetPath);
         }
 
         const newRelativePath = path.relative(projectDir, targetPath);
@@ -166,7 +167,7 @@ ipcMain.handle('project:save-with-audio', async (event, projectData, projectFile
       clips: processedClips
     };
 
-    await fs.writeFile(projectFilePath, JSON.stringify(finalProjectData, null, 2));
+    await fsPromises.writeFile(projectFilePath, JSON.stringify(finalProjectData, null, 2));
 
     return projectFilePath;
   } catch (error) {
@@ -177,7 +178,7 @@ ipcMain.handle('project:save-with-audio', async (event, projectData, projectFile
 
 ipcMain.handle('project:load-file', async (event, filePath) => {
   try {
-    const content = await fs.readFile(filePath, 'utf8');
+    const content = await fsPromises.readFile(filePath, 'utf8');
     const projectData = JSON.parse(content);
     return projectData;
   } catch (error) {
@@ -188,7 +189,7 @@ ipcMain.handle('project:load-file', async (event, filePath) => {
 
 ipcMain.handle('fs:check-exists', async (event, filePath) => {
   try {
-    return fssync.existsSync(filePath);
+    return fsSync.existsSync(filePath);
   } catch (error) {
     logError('FS', `Error checking file existence: ${error.message}`);
     return false;
@@ -265,7 +266,7 @@ async function startServerInProcess() {
       ? path.join(process.resourcesPath, 'app', 'server.js')
       : path.join(__dirname, 'server.js');
 
-    if (!fssync.existsSync(serverPath)) {
+    if (!fsSync.existsSync(serverPath)) {
       logError('Server', `server.js not found at: ${serverPath}`);
       return false;
     }

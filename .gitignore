@@ -1,1 +1,1 @@
-(js/app.js is a source file, so no need to ignore it)
+Nothing should be ignored since the changes only include source files (.js files) without any build artifacts, dependencies, or temporary files.
