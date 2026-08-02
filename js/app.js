@@ -2207,8 +2207,12 @@ sels.forEach(c => {
         if (arrPerformActive && !_arrNextState && !arrPreparePending) {
           const end = getArrangerEnd();
           if (end > 0 && DAW.playhead >= end - 15) {
+            // فقط اگر قبلاً برای این ایندکس prep شروع نشده، لاگ بزن
+            if (_arrPrepStartedForIndex !== arrPerformIdx + 1) {
+              _arrPrepStartedForIndex = arrPerformIdx + 1;
+              console.log(`[Arranger] Starting prep at ${DAW.playhead.toFixed(1)}s (end: ${end.toFixed(1)}s)`);
+            }
             arrPreparePending = true;
-            console.log(`[Arranger] Starting prep at ${DAW.playhead.toFixed(1)}s (end: ${end.toFixed(1)}s)`);
             prepareNextArrSong()
               .then(() => { arrPreparePending = false; })
               .catch((e) => {
@@ -4819,6 +4823,8 @@ let syncTapKeyHandler = null;
     // ===== Performance Mode (Live Dashboard) =====
     let arrPerformIdx = -1, arrPerformActive = false, arrPerformData = null, arrPreparePending = false;
     let _arrNextState = null;
+    let _arrHasLoggedNoNextSong = false; // جلوگیری از تکرار لاگ "No more songs"
+    let _arrPrepStartedForIndex = -1;    // جلوگیری از تکرار لاگ "Starting prep"
     let perfModeActive = false;
     let perfStageMode = false;
     let perfPauseMode = false;
@@ -4903,6 +4909,8 @@ let syncTapKeyHandler = null;
       _bgPreloadActive = false; // توقف background preload
       _arrWaitPollActive = false; // توقف wait poll
       arrPreparePending = false; // reset prep flag
+      _arrHasLoggedNoNextSong = false; // reset no-next-song log flag
+      _arrPrepStartedForIndex = -1;    // reset prep log flag
       pauseTransport();
       $('arrPerfOverlay').style.display = 'none';
       stopPerfTimer();
@@ -5159,7 +5167,11 @@ let syncTapKeyHandler = null;
       // اگر آهنگ بعدی وجود نداره، _arrNextState رو null کن
       if (!arr || nextIdx >= arr.items.length) {
         _arrNextState = null;
-        console.log('[Arranger Prep] No more songs — _arrNextState cleared');
+        // فقط یک‌بار لاگ بزن
+        if (!_arrHasLoggedNoNextSong) {
+          _arrHasLoggedNoNextSong = true;
+          console.log('[Arranger Prep] No more songs — _arrNextState cleared');
+        }
         return;
       }
 
@@ -5350,6 +5362,10 @@ document.addEventListener('DOMContentLoaded', () => {
       _arrNextState = null;
       arrPerformIdx = ns.idx;
 
+      // ─── Reset prep log flags after successful swap ───
+      _arrHasLoggedNoNextSong = false;
+      _arrPrepStartedForIndex = -1;
+
       console.log(`[Arranger] Hot-swapping to song ${ns.idx + 1}: "${ns.song?.title || 'Untitled'}"`);
 
       stopAllVoices();
@@ -5447,6 +5463,8 @@ document.addEventListener('DOMContentLoaded', () => {
       _arrNextState = null;
       arrPreparePending = false;
       _arrWaitPollActive = false;
+      _arrHasLoggedNoNextSong = false; // reset no-next-song log flag
+      _arrPrepStartedForIndex = -1;    // reset prep log flag
 
       const allSongs = edGetAllSongs();
       const song = allSongs.find(s => s.id === arr.items[idx]);
