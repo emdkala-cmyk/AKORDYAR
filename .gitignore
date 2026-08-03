@@ -1,1 +1,3 @@
-(js/app.js is a source file, so no need to ignore it)
+(js/app.js is just a source file modification, no build artifacts, dependencies, or temp files in the changes)
+   release/
+(empty - no output)

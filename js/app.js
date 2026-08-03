@@ -1319,6 +1319,7 @@ function undo() {
             const anchor = { time: t, x: e.clientX, y: e.clientY };
             edPendingAnchor = anchor; edChordIdx = null;
             edOpenChordModal(null);
+            renderClips();
           }
           return;
         }
@@ -4373,6 +4374,20 @@ let syncTapKeyHandler = null;
       }
       // درگ پنل ارنجر
       _setupArrangerModalDrag();
+      // اضافه کردن هندلر کیبورد برای دکمه ESC و فوکوس
+      const arrModal = $('arrangerModal');
+      if (arrModal) {
+        arrModal.focus();
+        if (!arrModal._escHandler) {
+          arrModal._escHandler = (e) => {
+            if (e.key === 'Escape') {
+              e.preventDefault();
+              closeArrangerModal();
+            }
+          };
+          arrModal.addEventListener('keydown', arrModal._escHandler);
+        }
+      }
     }
     function closeArrangerModal() {
       $('arrangerModal').classList.remove('show');
@@ -5965,6 +5980,21 @@ document.addEventListener('DOMContentLoaded', () => {
       $('chordModalTitle').textContent = t('chordEditor');
       $('chordModalConfirmBtn').textContent = t('placeOnTimeline');
       $('chord-modal').classList.add('show'); buildChordEditor();
+      // اضافه کردن هندلر کیبورد برای دکمه ESC
+      const chordModal = $('chord-modal');
+      if (chordModal) {
+        // حذف هندلر قبلی اگر وجود دارد
+        if (chordModal._escHandler) chordModal.removeEventListener('keydown', chordModal._escHandler);
+        chordModal._escHandler = (e) => {
+          if (e.key === 'Escape') {
+            e.preventDefault();
+            closeChordEditor();
+          }
+        };
+        chordModal.addEventListener('keydown', chordModal._escHandler);
+        // فوکوس روی مودال برای اینکه ESC بدون کلیک کار کند
+        chordModal.focus();
+      }
     }
 
     function closeChordEditor() {
@@ -12682,6 +12712,21 @@ if ($('edDoBoth')) {
       $('chordManual').value = edCur.chords[idx]?.name || '';
       $('chord-modal').classList.add('show');
       buildChordEditor();
+      // اضافه کردن هندلر کیبورد برای دکمه ESC
+      const chordModal = $('chord-modal');
+      if (chordModal) {
+        // حذف هندلر قبلی اگر وجود دارد
+        if (chordModal._escHandlerEd) chordModal.removeEventListener('keydown', chordModal._escHandlerEd);
+        chordModal._escHandlerEd = (e) => {
+          if (e.key === 'Escape' && edChordModalMode === 'editor') {
+            e.preventDefault();
+            edCloseChordModal();
+          }
+        };
+        chordModal.addEventListener('keydown', chordModal._escHandlerEd);
+        // فوکوس روی مودال برای اینکه ESC بدون کلیک کار کند
+        chordModal.focus();
+      }
     }
 
     function edCloseChordModal() { $('chord-modal').classList.remove('show'); edPendingAnchor = null; edChordIdx = null; edChordModalMode = null; }

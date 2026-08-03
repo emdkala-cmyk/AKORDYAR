@@ -517,11 +517,12 @@ function createWindow() {
     title: 'Akordyar',
     backgroundColor: '#0d1117',
     webPreferences: {
-      nodeIntegration: false,
-      contextIsolation: true,
-      webSecurity: false,
-      preload: path.join(__dirname, 'preload.js')
+     nodeIntegration: true,
+     contextIsolation: false,
+     webSecurity: false,
+     preload: path.join(__dirname, 'preload.js')
     }
+
   });
 
   // باز کردن لینک‌های خارجی در مرورگر پیش‌فرض
