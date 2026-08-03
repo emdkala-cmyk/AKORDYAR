@@ -78,10 +78,10 @@
 .track-lane.solo-dim-lane { opacity: 0.35; }
 .track-lane.locked-lane { }
 .track-lane.section-lane { background: #0a0e18 !important; }
-.section-tag { position: absolute; top: 6px; height: calc(var(--lane-h) - 12px); border-radius: 7px; border: 1px solid rgba(255,255,255,0.2); display: flex; align-items: center; justify-content: flex-start; font-size: var(--zoom-font, 1rem); font-weight: 800; color: #fff; cursor: pointer; z-index: 3; padding: 0 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; background: rgba(63,184,175,0.25); border-color: var(--accent-teal); box-shadow: 0 2px 8px rgba(0,0,0,0.35); user-select: none; }
+.section-tag { position: absolute; top: 6px; height: calc(var(--lane-h) - 12px); border-radius: 7px; border: 1px solid rgba(255,255,255,0.2); display: flex; align-items: center; justify-content: flex-start; font-size: var(--zoom-font, 1rem); font-weight: 800; color: #fff; cursor: pointer; z-index: 30; padding: 0 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; background: rgba(63,184,175,0.25); border-color: var(--accent-teal); box-shadow: 0 2px 8px rgba(0,0,0,0.35); user-select: none; direction: ltr; text-align: left; }
 .section-tag:hover { filter: brightness(1.2); }
-.section-tag.selected { border-color: #fff; box-shadow: 0 0 0 2px var(--accent-neon-pink), 0 0 16px rgba(255,46,147,0.35); z-index: 4; }
-.section-tag .resize-handle { position: absolute; top: 0; width: 7px; height: 100%; cursor: ew-resize; z-index: 5; }
+.section-tag.selected { border-color: #fff; box-shadow: 0 0 0 2px var(--accent-neon-pink), 0 0 16px rgba(255,46,147,0.35); z-index: 31; }
+.section-tag .resize-handle { position: absolute; top: 0; width: 7px; height: 100%; cursor: ew-resize; z-index: 32; }
 .section-tag .resize-handle.left { left: 0; }
 .section-tag .resize-handle.right { right: 0; }
 @keyframes lock-blink { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
@@ -105,16 +105,18 @@
 .lane-resize-handle.bottom { bottom: -3px; }
 .lane-resize-handle.top { top: -3px; }
 .lane-resize-handle:hover, .lane-resize-handle.active { background: rgba(63,184,175,0.4); }
-.lane-grid { position: absolute; inset: 0; pointer-events: none; opacity: 0.6; background: transparent !important; }
+.lane-grid { position: absolute; inset: 0; pointer-events: none; opacity: 0.6; background: transparent !important; z-index: 1; }
+.empty-lane-hint { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: rgba(113,128,150,0.45); font-size: 0.75rem; pointer-events: auto; z-index: 20; }
+.empty-lane-hint.section-hint { pointer-events: auto; cursor: pointer; background: rgba(63,184,175,0.08); z-index: 21; border: 1px dashed rgba(63,184,175,0.3); }
 
 /* ===== Clips ===== */
-.clip { position: absolute; top: 6px; height: calc(var(--lane-h) - 12px); border-radius: 7px; border: 1px solid rgba(255,255,255,0.2); background: #1a5f5a; box-shadow: 0 2px 8px rgba(0,0,0,0.35); cursor: grab; overflow: hidden; min-width: 4px; z-index: 2; }
+.clip { position: absolute; top: 6px; height: calc(var(--lane-h) - 12px); border-radius: 7px; border: 1px solid rgba(255,255,255,0.2); background: #1a5f5a; box-shadow: 0 2px 8px rgba(0,0,0,0.35); cursor: grab; overflow: hidden; min-width: 4px; z-index: 20; }
 .clip.chord-clip { background: linear-gradient(180deg, #4a2b5e, #2d1b3a); border: 1px solid #9F7AEA; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 800; font-family: 'JetBrains Mono'; font-size: var(--zoom-font, 1rem); }
 .clip:active { cursor: grabbing; }
-.clip.selected { border-color: #fff; box-shadow: 0 0 0 2px var(--accent-neon-pink), 0 0 16px rgba(255,46,147,0.35); z-index: 4; }
+.clip.selected { border-color: #fff; box-shadow: 0 0 0 2px var(--accent-neon-pink), 0 0 16px rgba(255,46,147,0.35); z-index: 21; }
 .clip .clip-wave { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; opacity: 0.95; }
-.clip .clip-title { position: absolute; top: 3px; left: 8px; right: 8px; font-size: 0.68rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,0.85); pointer-events: none; z-index: 2; }
-.clip .resize-handle { position: absolute; top: 0; width: 7px; height: 100%; cursor: ew-resize; z-index: 5; }
+.clip .clip-title { position: absolute; top: 3px; left: 8px; right: 8px; font-size: 0.68rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,0.85); pointer-events: none; z-index: 22; }
+.clip .resize-handle { position: absolute; top: 0; width: 7px; height: 100%; cursor: ew-resize; z-index: 23; }
 .clip .resize-handle.left { left: 0; }
 .clip .resize-handle.right { right: 0; }
 
@@ -159,4 +161,3 @@
 /* ===== Marquee & Cut Guide ===== */
 .marquee { position: absolute; border: 1px solid rgba(0, 242, 254, 0.9); background: rgba(0, 242, 254, 0.12); z-index: 25; pointer-events: none; display: none; }
 .cut-guide { position: absolute; top: 0; bottom: 0; width: 1px; background: rgba(255, 255, 255, 0.55); z-index: 28; pointer-events: none; display: none; box-shadow: 0 0 8px rgba(255,255,255,0.35); }
-.empty-lane-hint { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: rgba(113,128,150,0.45); font-size: 0.75rem; pointer-events: none; }

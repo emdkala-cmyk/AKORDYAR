@@ -1293,17 +1293,49 @@ function undo() {
         if (DAW.selectedSectionIds.size > 0) { DAW.selectedSectionIds.clear(); renderClips(); }
         if (tr.locked) { toast('🔒 ترک قفل است'); return; }
 
-        // Alt+Click on section track: create tag
-        if (e.altKey && tr.type === 'section') {
+        // Alt+Click on section track: create tag with styled modal
+        if (tr.type === 'section' && e.altKey) {
           e.preventDefault(); e.stopPropagation();
           const t = clientToTime(e.clientX);
-          const name = prompt('نام بخش:', 'Verse');
-          if (name && name.trim()) {
-            const sec = { id: uid('c'), trackId: tr.id, label: name.trim(), start: roundMs(t), duration: 4, color: '#3FB8AF' };
-            DAW.sections.push(sec);
-            ensureTimelineFits(sec.start + sec.duration + 5);
-            saveState(); renderClips();
+          // Use customPrompt for a styled modal instead of native prompt
+          customPrompt('نام بخش:', 'ورس').then(name => {
+            if (name && name.trim()) {
+              const sec = { id: uid('c'), trackId: tr.id, label: name.trim(), start: roundMs(t), duration: 4, color: '#3FB8AF' };
+              DAW.sections.push(sec);
+              ensureTimelineFits(sec.start + sec.duration + 5);
+              saveState(); renderClips();
+            }
+          });
+          return;
+        }
+
+        // Alt+Click on chord track: open chord editor
+        if (tr.type === 'chord' && e.altKey) {
+          e.preventDefault(); e.stopPropagation();
+          const t = clientToTime(e.clientX);
+          // Create a temporary anchor at clicked time and open chord modal
+          edCur = DAW.tracks.find(t => t.id === tr.id);
+          if (edCur) {
+            const anchor = { time: t, x: e.clientX, y: e.clientY };
+            edPendingAnchor = anchor; edChordIdx = null;
+            edOpenChordModal(null);
           }
+          return;
+        }
+
+        // Double-click on section track: create tag with styled modal
+        if (tr.type === 'section' && e.detail === 2) {
+          e.preventDefault(); e.stopPropagation();
+          const t = clientToTime(e.clientX);
+          // Use customPrompt for a styled modal instead of native prompt
+          customPrompt('نام بخش:', 'ورس').then(name => {
+            if (name && name.trim()) {
+              const sec = { id: uid('c'), trackId: tr.id, label: name.trim(), start: roundMs(t), duration: 4, color: '#3FB8AF' };
+              DAW.sections.push(sec);
+              ensureTimelineFits(sec.start + sec.duration + 5);
+              saveState(); renderClips();
+            }
+          });
           return;
         }
 
@@ -1323,7 +1355,26 @@ function undo() {
             document.addEventListener('mousemove', onDocMouseMove); document.addEventListener('mouseup', onDocMouseUp);
         });
         const grid = document.createElement('canvas'); grid.className = 'lane-grid'; lane.appendChild(grid);
-        if (!DAW.clips.some(c => c.trackId === tr.id) && !(tr.type === 'section' && (DAW.sections || []).some(s => s.trackId === tr.id))) { const hint = document.createElement('div'); hint.className = 'empty-lane-hint'; hint.textContent = tr.type === 'chord' ? t('clickHint') : (tr.type === 'section' ? 'Alt+Click برای ساخت بخش' : t('loadHint')); lane.appendChild(hint); }
+        if (!DAW.clips.some(c => c.trackId === tr.id) && !(tr.type === 'section' && (DAW.sections || []).some(s => s.trackId === tr.id))) { 
+          const hint = document.createElement('div'); 
+          hint.className = 'empty-lane-hint' + (tr.type === 'section' ? ' section-hint' : ''); 
+          hint.textContent = tr.type === 'chord' ? t('clickHint') : (tr.type === 'section' ? 'دوبار کلیک برای ساخت بخش' : t('loadHint')); 
+          if (tr.type === 'section') {
+            hint.addEventListener('dblclick', (e) => {
+              e.preventDefault(); e.stopPropagation();
+              const t = clientToTime(e.clientX);
+              customPrompt('نام بخش:', 'ورس').then(name => {
+                if (name && name.trim()) {
+                  const sec = { id: uid('c'), trackId: tr.id, label: name.trim(), start: roundMs(t), duration: 4, color: '#3FB8AF' };
+                  DAW.sections.push(sec);
+                  ensureTimelineFits(sec.start + sec.duration + 5);
+                  saveState(); renderClips();
+                }
+              });
+            });
+          }
+          lane.appendChild(hint); 
+        }
         lanes.appendChild(lane); drawLaneGrid(grid);
       });
     }
@@ -1890,10 +1941,32 @@ function undo() {
 }
 
     function deleteSelected() {
-      const ids = [...DAW.selectedIds]; if (!ids.length) { toast(t('nothingSelected')); return; }
+      const clipIds = [...DAW.selectedIds];
+      const sectionIds = [...DAW.selectedSectionIds];
+      
+      if (!clipIds.length && !sectionIds.length) { 
+        toast(t('nothingSelected')); 
+        return; 
+      }
+      
       stopAllVoices();
-      DAW.clips = DAW.clips.filter(c => !DAW.selectedIds.has(c.id)); DAW.selectedIds.clear(); saveState(); renderAll();
-      if (DAW.isPlaying) scheduleAllFromPlayhead(); toast(t('deleted'));
+      
+      // Delete selected clips
+      if (clipIds.length) {
+        DAW.clips = DAW.clips.filter(c => !DAW.selectedIds.has(c.id));
+        DAW.selectedIds.clear();
+      }
+      
+      // Delete selected sections
+      if (sectionIds.length) {
+        DAW.sections = DAW.sections.filter(s => !DAW.selectedSectionIds.has(s.id));
+        DAW.selectedSectionIds.clear();
+      }
+      
+      saveState(); 
+      renderAll();
+      if (DAW.isPlaying) scheduleAllFromPlayhead(); 
+      toast(t('deleted'));
     }
 
     function copySelected() {
