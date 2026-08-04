@@ -295,6 +295,7 @@
 
     <section class="timeline">
       <div class="tl-toolbar">
+        <button class="tl-tool-btn rec-btn" id="recBtn" onclick="toggleRec()" title="ضبط صدا از میکروفن/ورودی (R)">● REC</button>
         <button class="tl-tool-btn" onclick="splitSelectedAtPlayhead()" title="Split (S)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="22"/><polyline points="8 6 12 2 16 6"/><polyline points="8 18 12 22 16 18"/></svg></button>
         <button class="tl-tool-btn" onclick="cutSelected()" title="Cut (Ctrl+X)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg></button>
         <button class="tl-tool-btn" onclick="copySelected()" title="Copy (Ctrl+C)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
@@ -317,6 +318,8 @@
         <div class="color-quick-bar" id="colorQuickBar">
           <!-- quick swatches populated by JS -->
         </div>
+        <button class="tl-tool-btn" id="mixerBtn" onclick="toggleMixer()" title="باز/بستن میکسر صدا">🎛 میکسر</button>
+        <button class="tl-tool-btn" onclick="openSettings()" title="تنظیمات برنامه">⚙️ تنظیمات</button>
         <div class="tl-zoom">
           <span>Zoom</span>
           <input type="range" min="5" max="260" value="70" id="zoom-range" oninput="setZoom(+this.value, null)">
@@ -354,6 +357,57 @@
         </div>
       </div>
     </section>
+
+    <!-- Mixer Window -->
+    <div class="mixer-panel" id="mixerPanel">
+      <div class="mixer-head">
+        <div class="mixer-title">🎛 میکسر صدا</div>
+        <button class="mixer-close" onclick="toggleMixer()" title="بستن">✕</button>
+      </div>
+      <div class="mixer-channels" id="mixerChannels"></div>
+    </div>
+
+    <!-- Settings Window -->
+    <div class="modal-overlay settings-overlay" id="settingsModal" tabindex="-1">
+      <div class="settings-panel mv-window">
+        <div class="settings-head mv-head">
+          <div class="settings-title">⚙️ تنظیمات برنامه</div>
+          <button class="settings-close" onclick="closeSettings()">✕</button>
+        </div>
+        <div class="settings-body">
+          <div class="settings-group">
+            <div class="settings-group-title">🎨 ظاهر (تم)</div>
+            <label class="settings-label">تم</label>
+            <select id="setTheme" onchange="applyTheme(this.value)">
+              <option value="dark">تیره (پیش‌فرض)</option>
+              <option value="midnight">نیمه‌شب</option>
+              <option value="ocean">اقیانوس</option>
+              <option value="sunset">غروب خورشید</option>
+              <option value="forest">جنگل</option>
+            </select>
+            <label class="settings-label">رنگ اصلی (Accent)</label>
+            <input type="color" id="setAccent" value="#3FB8AF" onchange="applyAccent(this.value)">
+          </div>
+          <div class="settings-group">
+            <div class="settings-group-title">🔊 صوت</div>
+            <label class="settings-label">دستگاه خروجی صدا</label>
+            <select id="setOutDevice" onchange="applyOutputDevice(this.value)">
+              <option value="default">پیش‌فرض سیستم</option>
+            </select>
+          </div>
+          <div class="settings-group">
+            <div class="settings-group-title">🎛 عمومی</div>
+            <label class="settings-row"><input type="checkbox" id="setMetronome" onchange="applySettingsToggles()"> مترونوم هنگام پخش</label>
+            <label class="settings-row"><input type="checkbox" id="setReturnToStart" onchange="applySettingsToggles()"> برگشت به ابتدا هنگام Pause (Cubase)</label>
+            <label class="settings-row"><input type="checkbox" id="setSizeLock" onchange="applySettingsToggles()"> قفل اندازه متن و آکورد</label>
+          </div>
+        </div>
+        <div class="settings-foot">
+          <button class="settings-btn" onclick="resetSettings()">بازنشانی</button>
+          <button class="settings-btn primary" onclick="closeSettings()">تأیید</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <input type="file" id="audio-file-input" accept="audio/*,.mp3,.wav,.ogg,.m4a,.flac,.aac">

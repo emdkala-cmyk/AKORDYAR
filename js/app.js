@@ -708,7 +708,9 @@ const requestRenderSyncLyrics = debounce(() => { renderSyncLyrics(); }, 120);
       loopEnabled: false, loopA: 0, loopB: 10,
       // سیستم جدید Pool برای مدیریت فایل‌های صوتی
       pool: {}, // clipId -> clip metadata
-      projectRoot: null
+      projectRoot: null,
+      isRecording: false, recRafId: null, recAnalyser: null, recStream: null, recMediaRecorder: null,
+      recStartTime: 0, recEndTime: 0, recPeaks: [], recLaneId: null
     };
 
     let undoStack = [], undoIndex = -1, isApplyingHistory = false;
@@ -1025,7 +1027,7 @@ function undo() {
         let when = ctxNow, mediaOffset = clip.offset, playDur = clip.duration;
         if (local < 0) when = ctxNow + (-local); else { mediaOffset = clip.offset + local; playDur = clip.duration - local; }
         if (mediaOffset >= buffer.duration - 0.0005) return; playDur = Math.min(playDur, buffer.duration - mediaOffset); if (playDur <= 0.005) return;
-        const gain = ctx.createGain(); gain.gain.value = 1; gain.connect(tr._gainNode);
+        const gain = ctx.createGain(); gain.gain.value = 1; gain.connect(tr._pannerNode);
         const source = ctx.createBufferSource(); source.buffer = buffer; source.connect(gain);
         // Apply transpose via playbackRate
         const semitones = tr.transpose || 0;
@@ -1184,7 +1186,7 @@ function undo() {
             </div>`;
           // Editable track name
           const label = h.querySelector('.t-label');
-          label.addEventListener('blur', () => { tr.name = label.textContent.trim() || tr.name; });
+          label.addEventListener('blur', () => { tr.name = label.textContent.trim() || tr.name; if (typeof renderMixer === 'function' && $('mixerPanel') && $('mixerPanel').classList.contains('show')) renderMixer(); });
           label.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); label.blur(); } });
           label.addEventListener('mousedown', e => e.stopPropagation());
           // Load audio via dedicated button
@@ -2351,7 +2353,7 @@ sels.forEach(c => {
         if (!DAW.isScrubbing) DAW.playhead = DAW.playOriginTime + (performance.now() - DAW.playOriginPerf) / 1000;
 
         // Loop A-B: if playhead reaches B, jump back to A
-        if (DAW.loopEnabled && DAW.playhead >= DAW.loopB) {
+        if (DAW.loopEnabled && !DAW.isRecording && DAW.playhead >= DAW.loopB) {
           const overshoot = DAW.playhead - DAW.loopB;
           DAW.playhead = DAW.loopA + overshoot;
           DAW.playOriginPerf = performance.now();
@@ -2497,6 +2499,7 @@ sels.forEach(c => {
     }
 
     function pauseTransport() {
+      if (DAW.isRecording) endRec();
       DAW.isPlaying = false; DAW.isScrubbing = false; if (DAW.rafId) cancelAnimationFrame(DAW.rafId); DAW.rafId = null; stopAllVoices(); $('play-btn').style.color = 'var(--accent-cyan-glow)'; updatePlayheadUI();
 
       // Auto-stop metronome
@@ -2534,6 +2537,409 @@ sels.forEach(c => {
     }
     function transportToStart() { seekTransport(0); }
     function transportToEnd() { let end = 0; DAW.clips.forEach(c => end = Math.max(end, c.start + c.duration)); seekTransport(end); }
+
+    /* ============================================================
+       RECORDING (mic/input) + MIXER
+       ============================================================ */
+    function ensureRecLane() {
+      let tr = DAW.tracks.find(t => t.id === 'tRec');
+      if (!tr) {
+        ensureAudioCtx();
+        tr = { id: 'tRec', name: 'Rec', icon: '●', type: 'audio', isRec: true, muted: false, solo: false, vol: 0.8, pan: 0, transpose: 0, locked: false };
+        const idx = DAW.tracks.findIndex(t => t.type === 'section');
+        if (idx >= 0) DAW.tracks.splice(idx + 1, 0, tr); else DAW.tracks.push(tr);
+      }
+      if (tr.type === 'audio' && !tr._gainNode) {
+        ensureAudioCtx();
+        tr._pannerNode = DAW.audioCtx.createStereoPanner();
+        tr._gainNode = DAW.audioCtx.createGain();
+        tr._pannerNode.connect(tr._gainNode);
+        tr._gainNode.connect(DAW.masterGain);
+      }
+      if (typeof updateTrackMix === 'function') updateTrackMix(tr.id);
+      return tr;
+    }
+
+    function updateRecUI() {
+      const btn = $('recBtn');
+      if (btn) btn.classList.toggle('rec-on', !!DAW.isRecording);
+      const laneName = document.querySelector('.track-name[data-track-id="tRec"]');
+      if (laneName) laneName.classList.toggle('rec-lane-name', !!DAW.isRecording);
+      const lane = document.querySelector('.track-lane[data-track-id="tRec"]');
+      if (lane) lane.classList.toggle('rec-lane', !!DAW.isRecording);
+    }
+
+    function recMimeType() {
+      if (typeof MediaRecorder === 'undefined') return undefined;
+      const types = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/mp4'];
+      for (const t of types) {
+        try { if (MediaRecorder.isTypeSupported(t)) return t; } catch (_) {}
+      }
+      return undefined;
+    }
+
+    async function startRec() {
+      if (DAW.isRecording) return;
+      if (typeof navigator === 'undefined' || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        toast('ضبط صدا در این محیط پشتیبانی نمی‌شود'); return;
+      }
+      let stream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      } catch (err) {
+        console.error(err);
+        toast('دسترسی به میکروفن/ورودی صوتی رد شد'); return;
+      }
+      try {
+        const ctx = ensureAudioCtx();
+        const recLane = ensureRecLane(); renderAll();
+        const audioSource = ctx.createMediaStreamSource(stream);
+        const analyser = ctx.createAnalyser(); analyser.fftSize = 1024;
+        const dest = ctx.createMediaStreamDestination();
+        audioSource.connect(analyser);
+        analyser.connect(dest);
+
+        const chunks = [];
+        const mrType = recMimeType();
+        const recorder = new MediaRecorder(dest.stream, mrType ? { mimeType: mrType } : undefined);
+        recorder.ondataavailable = (ev) => { if (ev.data && ev.data.size > 0) chunks.push(ev.data); };
+        recorder.onstop = () => {
+          const blob = new Blob(chunks, { type: mrType || recorder.mimeType || 'audio/webm' });
+          finishRec(blob);
+        };
+
+        DAW.isRecording = true;
+        DAW.recLaneId = recLane ? recLane.id : 'tRec';
+        DAW.recStartTime = DAW.playhead;
+        DAW.recEndTime = DAW.playhead;
+        DAW.recPeaks = [];
+        DAW.recAnalyser = analyser;
+        DAW.recStream = stream;
+        DAW.recMediaRecorder = recorder;
+
+        try { recorder.start(250); } catch (e) {
+          console.error(e); toast('خطا در شروع ضبط');
+          DAW.isRecording = false; cleanupRecResources(); return;
+        }
+        renderAll();
+        updateRecUI();
+        if (!DAW.isPlaying) startTransport();
+        toast('● ضبط شروع شد — برای توقف R را بزنید');
+
+        const tickRecWave = () => {
+          if (!DAW.isRecording) { DAW.recRafId = null; return; }
+          try {
+            const data = new Float32Array(DAW.recAnalyser.fftSize);
+            DAW.recAnalyser.getFloatTimeDomainData(data);
+            let max = 0;
+            for (let i = 0; i < data.length; i++) { const a = Math.abs(data[i]); if (a > max) max = a; }
+            DAW.recPeaks.push(max);
+          } catch (_) {}
+          renderLiveRecWave();
+          DAW.recRafId = requestAnimationFrame(tickRecWave);
+        };
+        DAW.recRafId = requestAnimationFrame(tickRecWave);
+      } catch (err) {
+        console.error(err);
+        toast('خطا در راه‌اندازی ضبط');
+        DAW.isRecording = false; cleanupRecResources();
+      }
+    }
+
+    function cleanupRecResources() {
+      if (DAW.recRafId) { cancelAnimationFrame(DAW.recRafId); DAW.recRafId = null; }
+      try { if (DAW.recMediaRecorder && DAW.recMediaRecorder.state !== 'inactive') DAW.recMediaRecorder.stop(); } catch (_) {}
+      try { if (DAW.recStream) DAW.recStream.getTracks().forEach(t => t.stop()); } catch (_) {}
+      DAW.recStream = null; DAW.recMediaRecorder = null; DAW.recAnalyser = null; DAW.recPeaks = [];
+      document.querySelectorAll('.rec-live-clip').forEach(el => el.remove());
+    }
+
+    function endRec() {
+      if (!DAW.isRecording) return;
+      DAW.recEndTime = DAW.playhead;
+      cleanupRecResources(); // رویداد onstop، finishRec را صدا می‌زند
+      DAW.isRecording = false;
+      updateRecUI();
+    }
+
+    function toggleRec() {
+      if (DAW.isRecording) {
+        endRec();
+        if (DAW.isPlaying) pauseTransport();
+      } else {
+        startRec();
+      }
+    }
+
+    function renderLiveRecWave() {
+      const lane = document.querySelector('.track-lane[data-track-id="' + DAW.recLaneId + '"]');
+      if (!lane) return;
+      const dur = Math.max(0.02, DAW.playhead - DAW.recStartTime);
+      const w = Math.min(20000, Math.max(6, Math.floor(timeToX(dur))));
+      let el = document.querySelector('.clip.rec-live-clip');
+      if (!el) {
+        el = document.createElement('div');
+        el.className = 'clip rec-live-clip';
+        el.dataset.rec = '1';
+        el.style.top = '6px';
+        el.style.height = 'calc(var(--lane-h) - 12px)';
+        el.style.pointerEvents = 'none';
+        lane.appendChild(el);
+      }
+      el.style.left = timeToX(DAW.recStartTime) + 'px';
+      el.style.width = w + 'px';
+      el.innerHTML = '<img class="clip-wave" src="' + recWaveDataUrl(DAW.recPeaks, w, 52) + '"><div class="clip-title">● ضبط زنده</div>';
+    }
+
+    function recWaveDataUrl(peaks, w, h) {
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(2, w); canvas.height = Math.max(2, h);
+      const c = canvas.getContext('2d');
+      c.fillStyle = 'rgba(255,120,120,0.9)';
+      const mid = h / 2;
+      for (let i = 0; i < w; i++) {
+        const idx = Math.min(peaks.length - 1, Math.floor((i / w) * peaks.length));
+        const amp = Math.min(1, peaks[idx] || 0);
+        const hh = Math.max(1.5, amp * (h * 0.86));
+        c.fillRect(i, mid - hh / 2, 1, hh);
+      }
+      return canvas.toDataURL('image/png');
+    }
+
+    function finishRec(blob) {
+      const start = DAW.recStartTime || 0;
+      const end = (DAW.recEndTime != null && DAW.recEndTime >= start) ? DAW.recEndTime : DAW.playhead;
+      const dur = Math.max(0.05, end - start);
+      if (!blob || blob.size < 500) { toast('ضبط خالی بود'); return; }
+      (async () => {
+        try {
+          ensureAudioCtx();
+          const { buffer } = await decodeFileToBuffer(blob);
+          const bufferKey = 'rec_' + uid('b') + '_' + Date.now();
+          DAW.bufferCache.set(bufferKey, buffer);
+          const clip = {
+            id: uid('c'), type: 'audio', trackId: DAW.recLaneId || 'tRec',
+            name: 'Recording ' + formatTime(start),
+            start: roundMs(start), duration: roundMs(dur), offset: 0,
+            sourceDuration: buffer.duration,
+            color: '#EF4444', bufferKey,
+            _peaks: peaksFromBuffer(buffer, 2000), waveUrl: null,
+            _embedded: true, _originalBlob: blob
+          };
+          refreshClipWaveImage(clip);
+          DAW.clips.push(clip);
+          DAW.selectedIds = new Set([clip.id]);
+          ensureTimelineFits(clip.start + clip.duration + 5);
+          saveState(); renderAll();
+          try { await saveAudioBlobToDB(bufferKey, blob, 'recording.webm'); } catch (_) {}
+          toast('✓ ضبط ذخیره شد');
+        } catch (err) {
+          console.error(err);
+          toast('خطا در ذخیره‌ی ضبط');
+        }
+      })();
+    }
+
+    /* ===== MIXER ===== */
+    let _mixerPos = null;
+    function toggleMixer() {
+      const p = $('mixerPanel'); if (!p) return;
+      initMixerDrag();
+      const show = !p.classList.contains('show');
+      p.classList.toggle('show', show);
+      if (show) { if (_mixerPos) { p.style.transform = 'none'; p.style.left = _mixerPos.left + 'px'; p.style.top = _mixerPos.top + 'px'; } renderMixer(); }
+    }
+    function renderMixer() {
+      const wrap = $('mixerChannels'); if (!wrap) return;
+      wrap.innerHTML = '';
+      const tracks = DAW.tracks.filter(t => t.type === 'audio');
+      if (!tracks.length) { wrap.innerHTML = '<div style="color:var(--text-secondary);padding:12px;">ترک صوتی وجود ندارد</div>'; return; }
+      tracks.forEach(tr => {
+        const ch = document.createElement('div');
+        ch.className = 'mixer-channel' + (tr.id === 'tRec' ? ' rec-channel' : '');
+        const volPct = Math.round((tr.vol || 0) * 100);
+        const bal = tr.pan < 0 ? 'L ' + Math.round(Math.abs(tr.pan) * 100) : (tr.pan > 0 ? 'R ' + Math.round(tr.pan * 100) : '(C)');
+        ch.innerHTML =
+          '<div class="mixer-ch-top"><span class="mixer-ch-name">' + (tr.icon || '') + '</span>' +
+          '<input class="mixer-ch-name-input" value="' + tr.name + '" data-mn="' + tr.id + '" title="تغییر نام لاین" spellcheck="false"></div>' +
+          '<div class="mixer-ch-controls">' +
+            '<button class="t-btn ' + (tr.muted ? 'on' : '') + '" data-mm="' + tr.id + '" title="Mute">M</button>' +
+            '<button class="t-btn ' + (tr.solo ? 'on-solo' : '') + '" data-ms="' + tr.id + '" title="Solo">S</button>' +
+          '</div>' +
+          '<div class="mixer-ch-fader"><label>Volume (' + volPct + '%)</label>' +
+            '<input type="range" min="0" max="1" step="0.01" value="' + (tr.vol || 0) + '" data-mv="' + tr.id + '"></div>' +
+          '<div class="mixer-ch-fader"><label>Balance ' + bal + '</label>' +
+            '<input type="range" min="-1" max="1" step="0.01" value="' + (tr.pan || 0) + '" data-mp="' + tr.id + '"></div>';
+        wrap.appendChild(ch);
+      });
+      wrap.querySelectorAll('[data-mn]').forEach(inp => inp.addEventListener('change', () => {
+        const tr = DAW.tracks.find(t => t.id === inp.dataset.mn); if (!tr) return;
+        tr.name = inp.value.trim() || tr.name; saveState(); renderTracks(); renderClips(); if (DAW.isPlaying) scheduleAllFromPlayhead();
+      }));
+      wrap.querySelectorAll('[data-mm]').forEach(b => b.addEventListener('click', () => {
+        const tr = DAW.tracks.find(t => t.id === b.dataset.mm); if (!tr) return;
+        tr.muted = !tr.muted; updateTrackMix(tr.id); renderMixer(); renderTracks(); renderClips(); if (DAW.isPlaying) scheduleAllFromPlayhead();
+      }));
+      wrap.querySelectorAll('[data-ms]').forEach(b => b.addEventListener('click', () => {
+        const tr = DAW.tracks.find(t => t.id === b.dataset.ms); if (!tr) return;
+        tr.solo = !tr.solo; DAW.tracks.forEach(t => updateTrackMix(t.id)); renderMixer(); renderTracks(); renderClips(); if (DAW.isPlaying) scheduleAllFromPlayhead();
+      }));
+      wrap.querySelectorAll('[data-mv]').forEach(r => r.addEventListener('input', () => {
+        const tr = DAW.tracks.find(t => t.id === r.dataset.mv); if (!tr) return;
+        tr.vol = +r.value; updateTrackMix(tr.id);
+        r.parentElement.querySelector('label').textContent = 'Volume (' + Math.round(tr.vol * 100) + '%)';
+      }));
+      wrap.querySelectorAll('[data-mp]').forEach(r => {
+        r.addEventListener('input', () => {
+          const tr = DAW.tracks.find(t => t.id === r.dataset.mp); if (!tr) return;
+          tr.pan = +r.value; updateTrackMix(tr.id);
+          const lab = r.parentElement.querySelector('label');
+          lab.textContent = 'Balance ' + (tr.pan < 0 ? 'L ' + Math.round(Math.abs(tr.pan) * 100) : (tr.pan > 0 ? 'R ' + Math.round(tr.pan * 100) : '(C)'));
+        });
+        r.addEventListener('dblclick', (e) => {
+          e.preventDefault();
+          const tr = DAW.tracks.find(t => t.id === r.dataset.mp); if (!tr) return;
+          tr.pan = 0; r.value = 0; updateTrackMix(tr.id);
+          r.parentElement.querySelector('label').textContent = 'Balance (C)';
+        });
+      });
+    }
+    function initMixerDrag() {
+      const panel = $('mixerPanel'); if (!panel || panel._dragReady) return;
+      panel._dragReady = true;
+      const head = panel.querySelector('.mixer-head'); if (!head) return;
+      head.addEventListener('mousedown', (e) => {
+        if (e.target.closest('button')) return;
+        e.preventDefault();
+        const rect = panel.getBoundingClientRect();
+        panel.style.transform = 'none';
+        const offX = e.clientX - rect.left, offY = e.clientY - rect.top;
+        const move = (ev) => {
+          let x = ev.clientX - offX, y = ev.clientY - offY;
+          x = Math.max(-panel.offsetWidth + 80, Math.min(x, window.innerWidth - 40));
+          y = Math.max(0, Math.min(y, window.innerHeight - 30));
+          panel.style.left = x + 'px'; panel.style.top = y + 'px';
+        };
+        const up = () => { document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up); const r = panel.getBoundingClientRect(); _mixerPos = { left: r.left, top: r.top }; };
+        document.addEventListener('mousemove', move); document.addEventListener('mouseup', up);
+      });
+    }
+
+    /* ============================================================
+       SETTINGS (theme, audio device, toggles) + movable windows
+       ============================================================ */
+    const SETTINGS_KEY = 'ed_app_settings';
+    let APP_SETTINGS = {};
+    function loadSettings(){ try { APP_SETTINGS = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}'); } catch(_){ APP_SETTINGS = {}; } }
+    function saveSettings(){ try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(APP_SETTINGS)); } catch(_){} }
+    const THEMES = {
+      dark:     { '--dark-bg':'#0F131E', '--panel-bg':'#161B26', '--workspace-bg':'#121622', '--timeline-bg':'#0D1017', '--accent-teal':'#3FB8AF', '--accent-cyan-glow':'#00F2FE', '--accent-neon-pink':'#FF2E93' },
+      midnight: { '--dark-bg':'#0a0c14', '--panel-bg':'#12141f', '--workspace-bg':'#0d0f18', '--timeline-bg':'#090b11', '--accent-teal':'#818CF8', '--accent-cyan-glow':'#A5B4FC', '--accent-neon-pink':'#FF6BB5' },
+      ocean:    { '--dark-bg':'#04131c', '--panel-bg':'#0a2230', '--workspace-bg':'#071b27', '--timeline-bg':'#051420', '--accent-teal':'#21D4FD', '--accent-cyan-glow':'#4FB3E8', '--accent-neon-pink':'#FF7EB3' },
+      sunset:   { '--dark-bg':'#1a0f14', '--panel-bg':'#2a1a22', '--workspace-bg':'#221320', '--timeline-bg':'#1a1018', '--accent-teal':'#FF9E6D', '--accent-cyan-glow':'#FFB1A8', '--accent-neon-pink':'#FF4D8D' },
+      forest:   { '--dark-bg':'#08130d', '--panel-bg':'#101f16', '--workspace-bg':'#0c1811', '--timeline-bg':'#08140d', '--accent-teal':'#34D399', '--accent-cyan-glow':'#6EE7B7', '--accent-neon-pink':'#F472B6' }
+    };
+    function applyThemeVars(vars) { const r = document.documentElement.style; if (!vars) return; for (const k in vars) r.setProperty(k, vars[k]); }
+    function applyTheme(name) {
+      applyThemeVars(THEMES[name] || null);
+      APP_SETTINGS.theme = name || 'dark'; saveSettings();
+      if (APP_SETTINGS.accent) { const r = document.documentElement.style; r.setProperty('--accent-teal', APP_SETTINGS.accent); r.setProperty('--accent-cyan-glow', APP_SETTINGS.accent); }
+    }
+    function applyAccent(color) {
+      const r = document.documentElement.style;
+      r.setProperty('--accent-teal', color); r.setProperty('--accent-cyan-glow', color);
+      APP_SETTINGS.accent = color; saveSettings();
+    }
+    async function loadOutputDevices() {
+      const sel = $('setOutDevice'); if (!sel) return;
+      try {
+        if (navigator && navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
+          const devs = await navigator.mediaDevices.enumerateDevices();
+          devs.filter(d => d.kind === 'audiooutput').forEach(d => {
+            const opt = document.createElement('option');
+            opt.value = d.deviceId; opt.textContent = d.label || ('خروجی ' + (sel.options.length + 1));
+            sel.appendChild(opt);
+          });
+        }
+      } catch(_) {}
+      sel.value = APP_SETTINGS.outDevice || 'default';
+    }
+    function applyOutputDevice(id) {
+      APP_SETTINGS.outDevice = id; saveSettings();
+      try {
+        const ctx = ensureAudioCtx();
+        if (ctx && ctx.destination && typeof ctx.destination.setSinkId === 'function') {
+          ctx.destination.setSinkId(id).then(() => toast('دستگاه خروجی تغییر کرد')).catch(() => toast('تغییر دستگاه پشتیبانی نمی‌شود'));
+        } else { toast('تغییر دستگاه خروجی پشتیبانی نمی‌شود'); }
+      } catch(_) { toast('تغییر دستگاه خروجی پشتیبانی نمی‌شود'); }
+    }
+    function applySettingsToggles() {
+      const metro = $('setMetronome').checked;
+      if (metro !== metroActive) toggleMetronome();
+      APP_SETTINGS.metronome = metro;
+      returnToStartOnPause = $('setReturnToStart').checked;
+      APP_SETTINGS.returnToStart = returnToStartOnPause;
+      const wantLock = $('setSizeLock').checked;
+      if (wantLock !== !!_sizeLocked) toggleSizeLock();
+      APP_SETTINGS.sizeLock = wantLock;
+      saveSettings();
+    }
+    function openSettings() {
+      loadSettings();
+      if ($('setTheme')) $('setTheme').value = APP_SETTINGS.theme || 'dark';
+      if (APP_SETTINGS.accent && $('setAccent')) $('setAccent').value = APP_SETTINGS.accent;
+      if ($('setMetronome')) $('setMetronome').checked = !!metroActive;
+      if ($('setReturnToStart')) $('setReturnToStart').checked = !!returnToStartOnPause;
+      if ($('setSizeLock')) $('setSizeLock').checked = !!_sizeLocked;
+      $('settingsModal').classList.add('show');
+      $('settingsModal').focus();
+      loadOutputDevices();
+    }
+    function closeSettings() { $('settingsModal').classList.remove('show'); }
+    function resetSettings() {
+      localStorage.removeItem(SETTINGS_KEY);
+      APP_SETTINGS = {};
+      applyTheme('dark');
+      const r = document.documentElement.style;
+      r.removeProperty('--accent-teal'); r.removeProperty('--accent-cyan-glow'); r.removeProperty('--accent-neon-pink');
+      metroActive = false; if ($('metroToggleBtn')) $('metroToggleBtn').textContent = '🔇';
+      returnToStartOnPause = false;
+      if (_sizeLocked) toggleSizeLock();
+      openSettings();
+      toast('تنظیمات بازنشانی شد');
+    }
+    loadSettings();
+    if (APP_SETTINGS.theme) applyTheme(APP_SETTINGS.theme);
+    if (APP_SETTINGS.accent) { const r = document.documentElement.style; r.setProperty('--accent-teal', APP_SETTINGS.accent); r.setProperty('--accent-cyan-glow', APP_SETTINGS.accent); }
+
+    // Generic: drag windows from their title/header
+    function initMovableWindows() {
+      document.addEventListener('mousedown', (e) => {
+        const head = e.target.closest('h3, h4, .mv-head, .shortcut-panel-header');
+        if (!head) return;
+        if (head.closest('#arrangerModal')) return;
+        const panel = head.closest('.mv-window') || head.closest('.chord-editor') || head.closest('.icon-picker-panel') || head.closest('.arr-song-note-panel') || head.closest('.shortcut-panel');
+        if (!panel) return;
+        if (e.target.closest('button, input, select, textarea')) return;
+        e.preventDefault();
+        const r = panel.getBoundingClientRect();
+        const w = panel.offsetWidth, h = panel.offsetHeight;
+        panel.style.position = 'fixed';
+        panel.style.margin = '0';
+        panel.style.left = r.left + 'px';
+        panel.style.top = r.top + 'px';
+        const ox = e.clientX - r.left, oy = e.clientY - r.top;
+        const move = (me) => {
+          let x = me.clientX - ox, y = me.clientY - oy;
+          x = Math.max(-w + 60, Math.min(x, window.innerWidth - 40));
+          y = Math.max(0, Math.min(y, window.innerHeight - 30));
+          panel.style.left = x + 'px'; panel.style.top = y + 'px';
+        };
+        const up = () => { document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up); };
+        document.addEventListener('mousemove', move); document.addEventListener('mouseup', up);
+      });
+    }
+    initMovableWindows();
 
     // Playhead mode toggle
     function togglePlayheadMode() {
@@ -8241,6 +8647,7 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
       else if (matchShortcut(e, 'loopA')) { e.preventDefault(); setLoopA(); }
       else if (matchShortcut(e, 'loopB')) { e.preventDefault(); setLoopB(); }
       else if (e.code === 'KeyV' && !e.ctrlKey && !e.metaKey && !e.altKey && !isInput && !isContentEditable) { e.preventDefault(); togglePlayheadMode(); }
+      else if (e.code === 'KeyR' && !e.ctrlKey && !e.metaKey && !e.altKey && !isInput && !isContentEditable) { e.preventDefault(); toggleRec(); }
       else if (e.key === 'Escape') {
         if (_focusMode) { toggleFocusMode(); return; }
         if (syncActive) { exitSyncMode(); const tab = $('tab-sync'); if (tab) tab.classList.remove('active-teal'); return; }
@@ -8266,6 +8673,7 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
           t._pannerNode.connect(t._gainNode); t._gainNode.connect(DAW.masterGain); updateTrackMix(t.id);
         }
       });
+      ensureRecLane();
       DAW.sections = []; DAW.selectedSectionIds = new Set();
       DAW.timelineDuration = 120; DAW.pxPerSecond = 70; saveState(); renderAll();
       updateZoomFontScale();
@@ -8480,6 +8888,7 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
       }, { passive: false });
 
       const beginScrub = (e) => {
+  if (DAW.isRecording) { toast('در حال ضبط — برای جابه‌جایی پلی‌هد ابتدا توقف کنید'); return; }
   clearEditorTextSelection();
   edClearChordSelection();
 

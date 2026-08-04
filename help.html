@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>آکوردیار — راهنمای کاربر</title>
+<style>
+  :root{--bg:#0F131E;--panel:#161B26;--teal:#3FB8AF;--cyan:#00F2FE;--pink:#FF2E93;--txt:#E2E8F0;--muted:#718096;--border:#232B3E;--accent2:#9F7AEA;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',Tahoma,sans-serif;background:var(--bg);color:var(--txt);line-height:1.8;font-size:15px}
+  .layout{display:flex;min-height:100vh}
+  nav{width:280px;background:var(--panel);border-left:1px solid var(--border);position:sticky;top:0;height:100vh;overflow-y:auto;padding:20px 14px;flex-shrink:0}
+  .logo{font-size:1.4rem;font-weight:900;color:var(--cyan);margin-bottom:6px;text-align:center}
+  .sub{font-size:.72rem;color:var(--muted);text-align:center;margin-bottom:20px}
+  nav a{display:block;color:var(--muted);text-decoration:none;padding:9px 14px;border-radius:8px;font-size:.88rem;transition:.15s;margin-bottom:2px}
+  nav a:hover{background:rgba(63,184,175,.1);color:var(--teal)}
+  nav a.active{background:rgba(63,184,175,.18);color:var(--cyan);font-weight:700;border-right:3px solid var(--teal)}
+  main{flex:1;max-width:920px;margin:0 auto;padding:40px 36px}
+  h1{font-size:2rem;color:var(--cyan);margin-bottom:8px;font-weight:900}
+  h2{font-size:1.4rem;color:var(--teal);margin:36px 0 14px;padding-bottom:8px;border-bottom:1px solid var(--border);scroll-margin-top:20px}
+  h3{font-size:1.1rem;color:var(--accent2);margin:22px 0 10px}
+  p{margin-bottom:12px;color:#cbd5e0}
+  .hero{background:linear-gradient(135deg,rgba(63,184,175,.12),rgba(0,242,254,.05));border:1px solid var(--border);border-radius:14px;padding:26px;margin-bottom:30px}
+  ul,ol{padding-right:22px;margin-bottom:14px}
+  li{margin-bottom:6px;color:#cbd5e0}
+  code{background:#0a0e18;color:var(--cyan);padding:2px 7px;border-radius:5px;font-family:Consolas,monospace;font-size:.85rem;direction:ltr;display:inline-block}
+  .kbd{display:inline-block;background:#1F2736;border:1px solid #4A5568;border-bottom-width:2px;border-radius:5px;padding:2px 9px;font-family:Consolas,monospace;font-size:.78rem;color:#fff;direction:ltr;box-shadow:0 1px 0 #000}
+  .note{background:rgba(159,122,234,.1);border:1px solid rgba(159,122,234,.35);border-right:4px solid var(--accent2);border-radius:8px;padding:12px 16px;margin:14px 0}
+  .note.warn{background:rgba(255,46,147,.08);border-color:rgba(255,46,147,.4)}
+  .tip{background:rgba(63,184,175,.08);border-right:4px solid var(--teal);border-radius:8px;padding:12px 16px;margin:14px 0}
+  table{width:100%;border-collapse:collapse;margin:14px 0;font-size:.85rem}
+  th,td{border:1px solid var(--border);padding:8px 12px;text-align:right}
+  th{background:#1a2030;color:var(--teal);font-weight:700}
+  td:first-child{color:var(--cyan);font-family:Consolas,monospace;direction:ltr;width:42%}
+  .feat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin:16px 0}
+  .feat{background:#121722;border:1px solid var(--border);border-radius:10px;padding:16px}
+  .feat .ic{font-size:1.6rem;margin-bottom:6px}
+  .feat h4{color:var(--cyan);font-size:.95rem;margin-bottom:4px}
+  .feat p{font-size:.8rem;color:var(--muted);margin:0}
+  @media(max-width:900px){.layout{flex-direction:column}nav{position:relative;width:100%;height:auto;border-left:none;border-bottom:1px solid var(--border)}}
+</style>
+</head>
+<body>
+<div class="layout">
+<nav>
+  <div class="logo">🎛 آکوردیار</div>
+  <div class="sub">راهنمای کاربر · نسخه ۱.۰</div>
+  <a href="#intro" class="active">معرفی</a>
+  <a href="#start">شروع سریع</a>
+  <a href="#editor">ویرایشگر آکورد و شعر</a>
+  <a href="#timeline">تایملاین و DAW</a>
+  <a href="#record">ضبط صدا</a>
+  <a href="#mixer">میکسر</a>
+  <a href="#arranger">ارنجر ترک</a>
+  <a href="#archive">آرشیو آهنگها</a>
+  <a href="#perf">اجراهی زنده</a>
+  <a href="#shortcuts">میانبرهای صفحه‌کلید</a>
+  <a href="#settings">تنظیمات</a>
+  <a href="#faq">سؤال‌های رایج</a>
+</nav>
+<main>
+  <h1>راهنمای کاربر آکوردیار</h1>
+  <div class="hero">
+    <p>آکوردیار یک محیط یکپارچه برای <b>ویرایش متن آکورد و شعر فارسی</b>، <b>تایملاین چندترکی صوتی (DAW)</b>، <b>ضبط</b>، <b>میکسر</b> و <b>اجراهی زنده</b> است. این راهنما بهصورت ساده نحوه استفاده از هر بخش را توضیح میدهد.</p>
+  </div>
+
+  <h2 id="intro">معرفی</h2>
+  <p>برنامه در دو حالت اجرا میشود:</p>
+  <ul>
+    <li><b>دسکتاپ (الکترون):</b> دسترسی کامل به فایل سیستم، لینک آهنگ از روی هارد، نصب بهصورت NSIS یا Portable.</li>
+    <li><b>وب (Node.js):</b> اجرا با <code>npm run server</code> و باز کردن <code>http://localhost:3000</code>.</li>
+  </ul>
+  <div class="feat-grid">
+    <div class="feat"><div class="ic">📝</div><h4>ویرایشگر</h4><p>متن RTL با آکورد روی کاراکتر و چند نسخه</p></div>
+    <div class="feat"><div class="ic">🎚</div><h4>DAW</h4><p>تایملاین چندترکی، کلیپ، waveform، loop</p></div>
+    <div class="feat"><div class="ic">🎤</div><h4>ضبط</h4><p>لاین ضبط میکروفن با waveform زنده</p></div>
+    <div class="feat"><div class="ic">🎛</div><h4>میکسر</h4><p>vol/pan/mute/solo قابل کشیدن</p></div>
+    <div class="feat"><div class="ic">📂</div><h4>آرشیو</h4><p>IndexedDB با تصاویر خوانندهها</p></div>
+    <div class="feat"><div class="ic">🎼</div><h4>ارنجر</h4><p>پلی‌لیست و اجرای زنده</p></div>
+  </div>
+
+  <h2 id="start">شروع سریع</h2>
+  <ol>
+    <li>یک ترانه جدید بسازید: از منوی کناری «ترانه جدید».</li>
+    <li>متن آکورد را وارد کنید: با «وب» از لینک سایت یا «اتومات» ایمپورت چندخواننده، یا متن را مستقیم بچسبانید.</li>
+    <li>آکوردها روی متن قرار میگیرند. با دابلکلیک روی آکورد، پنجره ویرایشگر آکورد باز میشود.</li>
+    <li>برای پخش: <span class="kbd">Space</span>. برای ضبط: <span class="kbd">R</span>.</li>
+    <li>ذخیره در آرشیو با «ذخیره در آرشیو» در منوی کناری.</li>
+  </ol>
+  <div class="tip">نکته: اولین بار که دکمه پخش یا ضبط را میزنید، مرورگر اجازه صدا میخواهد؛ تأیید کنید.</div>
+
+  <h2 id="editor">ویرایشگر آکورد و شعر</h2>
+  <p>قسمت بالای صفحه، ویرایشگر متن RTL است که آکوردها بهصورت لایه جدا روی آن نمایش داده میشوند.</p>
+  <h3>قراردادن آکورد روی متن</h3>
+  <ul>
+    <li><b>کلیک روی آکورد</b> در لایه بالایی → ویرایشگر آکورد باز میشود.</li>
+    <li><b>دابلکلیک روی آکورد</b> در متن → ویرایشگر آکورد برای همان موقع باز میشود.</li>
+    <li>در حالت <b>ترتیبی (Sequential)</b>: با <span class="kbd">Enter</span> ویرایشگر برای موقع فعلی باز میشود.</li>
+  </ul>
+  <h3>نسخههای آکورد (Chord Versions)</h3>
+  <p>روی هدر «Chord Line» با دکمه‌های ◀ ▶ بین نسخههای آکورد جابهجا شوید، با <b>+</b> نسخه جدید بسازید و با دابلکلیک روی نام نسخه آن را تغییر نام دهید.</p>
+  <h3>قفل ویرایشگر و قفل اندازه</h3>
+  <p>دکمه قفل (🔒) ویرایشگر را قفل میکند. دکمه قفل کنار اندازه، متن و آکورد را همزمان تغییر میدهد. وقتی ویرایشگر قفل است کلیک روی متن مسدود است.</p>
+  <div class="note warn">وقتی ویرایشگر قفل است، دکمه قرمز چشمکزن میشود و رنگش هم تغییر میکند.</div>
+
+
+  <h2 id="timeline">تایملاین و DAW</h2>
+  <p>تایملاین پایین صفحه، محیط چندترکی است:</p>
+  <table>
+    <tr><th>ترک</th><th>کاربرد</th></tr>
+    <tr><td>Chord Line</td><td>لاین آکورد با چند نسخه</td></tr>
+    <tr><td>Section</td><td>برچسب بخش (Verse/Chorus...)</td></tr>
+    <tr><td>Rec</td><td>لاین ضبط میکروفن</td></tr>
+    <tr><td>Vocals/Guitar/Bass/Keys/Drums</td><td>ترکهای صوتی</td></tr>
+  </table>
+  <h3>افزودن فایل صوتی و ویرایش کلیپ</h3>
+  <ul>
+    <li>دکمه فولدر 📁 روی هدر ترک یا <b>Drag &amp; Drop</b>. انتخاب: <b>کپی در پروژه</b> یا <b>لینک</b>.</li>
+    <li><b>حرکت:</b> درگ کلیپ. <b>Split:</b> <span class="kbd">S</span>. <b>Cut/Copy/Paste:</b> <span class="kbd">Ctrl+X/C/V</span>.</li>
+    <li>کلیک روی رولر → پلیهد. <span class="kbd">V</span> حالت پلیهد. حلقه: <span class="kbd">/</span>، <span class="kbd">I</span>/<span class="kbd">O</span>.</li>
+    <li>Alt+Scroll = زوم افقی، Ctrl+Alt+Scroll = زوم عمودی.</li>
+  </ul>
+
+  <h2 id="record">ضبط صدا</h2>
+  <p>لاین «Rec» مخصوص ضبط از میکروفن است، مثل یک DAW.</p>
+  <ul>
+    <li>دکمه قرمز <code>● REC</code> یا کلید <span class="kbd">R</span>.</li>
+    <li>ضبط از موقع پلیهد شروع میشود، waveform قرمز <b>زنده</b> رسم میشود.</li>
+    <li>توقف: دوباره <span class="kbd">R</span> یا Pause/Stop. صدا به کلیپ قابل‌پخش تبدیل میشود.</li>
+  </ul>
+  <div class="note warn">حین ضبط <b>پلیهد با موس قابل جابهجایی نیست</b>. ابتدا توقف کنید.</div>
+
+  <h2 id="mixer">میکسر</h2>
+  <p>دکمه «🎛 میکسر» پنجره شناور میکسر را باز/بسته میکند.</p>
+  <ul>
+    <li><b>Volume</b>: چپ→راست زیاد میشود. <b>Balance</b>: دابلکلیک → ریست وسط.</li>
+    <li><b>M</b> (Mute) و <b>S</b> (Solo). <b>تغییر نام</b> لاین از داخل میکسر.</li>
+  </ul>
+  <div class="tip">پنجره میکسر و سایر پنجرهها از روی تیتر <b>قابل کشیدن</b> هستند.</div>
+
+  <h2 id="arranger">ارنجر ترک</h2>
+  <p>از منوی کناری «ارنجر ترک» باز میشود. پلی‌لیستی از آهنگها بسازید و به ترتیب پخش کنید.</p>
+  <ul>
+    <li>آهنگها را از ستون چپ به ست‌لیست بکشید یا با ↑↓ مرتب کنید.</li>
+    <li>دکمه «اجرا» → حالت اجرای زنده: هر آهنگ بعد از اتمام، بعدی خودکار لود میشود.</li>
+    <li>«ارسال به ارنجر» آهنگ فعلی را به پلی‌لیست اضافه میکند.</li>
+    <li>دکمه خروجی → اکسپورت پلی‌لیست به JSON.</li>
+  </ul>
+
+  <h2 id="archive">آرشیو آهنگها</h2>
+  <p>از منوی کناری «آرشیو آهنگها». آهنگها در IndexedDB ذخیره میشوند.</p>
+  <ul>
+    <li><b>جستجو</b> بر اساس خواننده یا نام ترانه. <b>فیلتر</b> بر اساس گام/ژانر/تمپو.</li>
+    <li><b>نمای کارت / جدول</b> قابل تغییر. اسلایدر خوانندهها با تصاویر ۲۸ خواننده.</li>
+    <li>کلیک راست روی کارت → منوی زمینه (ویرایش، کپی، حذف، ...).</li>
+  </ul>
+  <h3>ایمپورت اتومات</h3>
+  <p>«اتومات» از منوی کناری: واردکردن خودکار چندخواننده از سایت لامینور با نوار پیشرفت و تلاش مجدد.</p>
+
+  <h2 id="perf">اجراهی زنده و نمایشها</h2>
+  <ul>
+    <li><b>Singer View:</b> پاپ‌آپ جدا برای خواننده (متن + آکورد بزرگ، تم شیشه‌ای).</li>
+    <li><b>Player View:</b> نمایش پخشکننده با سینک متن.</li>
+    <li><span class="kbd">F9</span> پاپ‌آپ تمام‌صفحه + پخش. <span class="kbd">F10</span> حالت تمرکز.</li>
+    <li><b>Performance Mode:</b> پنل کناری اجرا با آهنگ بعدی/قبلی. <span class="kbd">Esc</span> خروج.</li>
+  </ul>
+
+
+  <h2 id="shortcuts">میانبرهای صفحه‌کلید</h2>
+  <table>
+    <tr><th>کلید</th><th>عملکرد</th></tr>
+    <tr><td>Space</td><td>پخش / توقف</td></tr>
+    <tr><td>R</td><td>شروع/توقف ضبط</td></tr>
+    <tr><td>S</td><td>برش در پلیهد (Split)</td></tr>
+    <tr><td>V</td><td>تغییر حالت پلیهد</td></tr>
+    <tr><td>I / O</td><td>شروع/پایان حلقه</td></tr>
+    <tr><td>/</td><td>روشن/خاموش حلقه</td></tr>
+    <tr><td>Home</td><td>رفتن به ابتدا</td></tr>
+    <tr><td>Ctrl+Z / Ctrl+Y</td><td>Undo / Redo</td></tr>
+    <tr><td>Ctrl+X/C/V</td><td>Cut/Copy/Paste کلیپ</td></tr>
+    <tr><td>Ctrl+A</td><td>انتخاب همه</td></tr>
+    <tr><td>Ctrl+D</td><td>کپی + چسباندن</td></tr>
+    <tr><td>Delete</td><td>حذف انتخاب‌شده</td></tr>
+    <tr><td>T</td><td>Tap Tempo</td></tr>
+    <tr><td>C / Alt+C</td><td>ابزار رنگ (قلم‌مو / قطره‌چکان)</td></tr>
+    <tr><td>F9 / F10</td><td>پاپ‌آپ اجرا / حالت تمرکز</td></tr>
+    <tr><td>Esc</td><td>خروج/بستن</td></tr>
+    <tr><td>Alt+Scroll</td><td>زوم افقی تایملاین</td></tr>
+    <tr><td>Ctrl+Alt+Scroll</td><td>زوم عمودی لاینها</td></tr>
+  </table>
+  <div class="tip">تمام میانبرها از منوی «شرتکات» قابل سفارشیسازی و <b>MIDI Learn</b> هستند.</div>
+
+  <h2 id="settings">تنظیمات</h2>
+  <p>دکمه «⚙️ تنظیمات» در تولبار تایملاین:</p>
+  <ul>
+    <li><b>تم:</b> تیره، نیمه‌شب، اقیانوس، غروب، جنگل.</li>
+    <li><b>رنگ اصلی (Accent):</b> انتخاب رنگ دلخواه.</li>
+    <li><b>دستگاه خروجی صدا:</b> انتخاب دستگاه پخش.</li>
+    <li><b>مترونوم، برگشت به ابتدا هنگام Pause، قفل اندازه متن/آکورد.</b></li>
+    <li>دکمه «بازنشانی» برای برگشت به پیشفرض.</li>
+  </ul>
+  <div class="note">تنظیمات در localStorage ذخیره میشوند و در اجراهای بعدی خودکار اعمال میگردند.</div>
+
+  <h2 id="faq">سؤال‌های رایج</h2>
+  <h3>صدای میکروفن ضبط نمیشود؟</h3>
+  <p>برنامه نیاز به اجازه میکروفن دارد. در مرورگر باید روی https یا localhost باشید. در نسخه دسکتاپ معمولاً مشکلی نیست.</p>
+  <h3>بالانس لاین کار نمیکرد؟</h3>
+  <p>این باگ برطرف شد. حالا اسلایدر بالانس در میکسر و هدر لاین هر دو روی صدا اعمال میشوند. دابلکلیک → ریست وسط.</p>
+  <h3>فایلهای صوتی کجا ذخیره میشوند؟</h3>
+  <p>حالت «کپی»: پوشه <code>Audio</code> (الکترون) یا IndexedDB (وب). حالت «لینک»: فقط مسیر ذخیره میشود.</p>
+  <h3>آرشیو پر شد (QuotaExceeded)؟</h3>
+  <p>فایلهای بزرگ را بهصورت «لینک» نگه دارید یا آهنگهای قدیمی را پاک کنید.</p>
+
+  <div style="margin-top:40px;padding-top:18px;border-top:1px solid var(--border);color:var(--muted);font-size:.8rem;text-align:center">
+    آکوردیار · راهنمای کاربر · نسخه ۱.۰
+  </div>
+</main>
+</div>
+<script>
+  const links=document.querySelectorAll('nav a');const sects=[...document.querySelectorAll('h2')];
+  links.forEach(a=>a.addEventListener('click',e=>{links.forEach(x=>x.classList.remove('active'));a.classList.add('active');}));
+  const obs=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting){const id=e.target.id;links.forEach(a=>a.classList.toggle('active',a.getAttribute('href')==='#'+id));}})},{rootMargin:'-20% 0px -70% 0px'});
+  sects.forEach(s=>obs.observe(s));
+</script>
+</body>
+</html>

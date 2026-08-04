@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>آکوردیار — مستندات فنی کامل</title>
+<style>
+  :root{--bg:#0F131E;--panel:#161B26;--teal:#3FB8AF;--cyan:#00F2FE;--pink:#FF2E93;--txt:#E2E8F0;--muted:#718096;--border:#232B3E;--accent2:#9F7AEA;--yellow:#ECC94B;--green:#48BB78;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',Tahoma,sans-serif;background:var(--bg);color:var(--txt);line-height:1.8;font-size:14.5px}
+  .layout{display:flex;min-height:100vh}
+  nav{width:300px;background:var(--panel);border-left:1px solid var(--border);position:sticky;top:0;height:100vh;overflow-y:auto;padding:20px 14px;flex-shrink:0}
+  .logo{font-size:1.3rem;font-weight:900;color:var(--cyan);margin-bottom:4px;text-align:center}
+  .sub{font-size:.7rem;color:var(--muted);text-align:center;margin-bottom:18px}
+  nav a{display:block;color:var(--muted);text-decoration:none;padding:7px 12px;border-radius:7px;font-size:.83rem;transition:.15s;margin-bottom:1px}
+  nav a:hover{background:rgba(63,184,175,.1);color:var(--teal)}
+  nav a.active{background:rgba(63,184,175,.18);color:var(--cyan);font-weight:700;border-right:3px solid var(--teal)}
+  main{flex:1;max-width:980px;margin:0 auto;padding:36px 32px}
+  h1{font-size:1.9rem;color:var(--cyan);margin-bottom:6px;font-weight:900}
+  h2{font-size:1.35rem;color:var(--teal);margin:32px 0 12px;padding-bottom:7px;border-bottom:1px solid var(--border);scroll-margin-top:20px}
+  h3{font-size:1.05rem;color:var(--accent2);margin:20px 0 8px}
+  h4{font-size:.95rem;color:var(--yellow);margin:14px 0 6px}
+  p{margin-bottom:10px;color:#cbd5e0}
+  ul,ol{padding-right:20px;margin-bottom:10px}
+  li{margin-bottom:5px;color:#cbd5e0}
+  code{background:#0a0e18;color:var(--cyan);padding:1px 6px;border-radius:4px;font-family:Consolas,monospace;font-size:.82rem;direction:ltr;display:inline-block}
+  pre{background:#0a0e18;border:1px solid var(--border);border-radius:8px;padding:14px;overflow-x:auto;margin:10px 0;direction:ltr}
+  pre code{background:none;padding:0;font-size:.78rem;color:#a7f3d0}
+  .hero{background:linear-gradient(135deg,rgba(63,184,175,.12),rgba(0,242,254,.05));border:1px solid var(--border);border-radius:14px;padding:24px;margin-bottom:26px}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:.82rem}
+  th,td{border:1px solid var(--border);padding:7px 10px;text-align:right}
+  th{background:#1a2030;color:var(--teal);font-weight:700}
+  td:first-child{color:var(--cyan);font-family:Consolas,monospace;direction:ltr}
+  .note{background:rgba(159,122,234,.1);border:1px solid rgba(159,122,234,.35);border-right:4px solid var(--accent2);border-radius:8px;padding:10px 14px;margin:12px 0}
+  .warn{background:rgba(255,46,147,.08);border:1px solid rgba(255,46,147,.35);border-right:4px solid var(--pink);border-radius:8px;padding:10px 14px;margin:12px 0}
+  .ok{background:rgba(72,187,120,.08);border-right:4px solid var(--green);border-radius:8px;padding:10px 14px;margin:12px 0}
+  .badge{display:inline-block;background:rgba(63,184,175,.15);color:var(--teal);border:1px solid var(--teal);border-radius:12px;padding:1px 10px;font-size:.72rem;font-weight:700}
+  .badge.r{background:rgba(255,46,147,.12);color:var(--pink);border-color:var(--pink)}
+  .badge.y{background:rgba(236,196,75,.12);color:var(--yellow);border-color:var(--yellow)}
+  .badge.g{background:rgba(72,187,120,.12);color:var(--green);border-color:var(--green)}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:12px 0}
+  .card{background:#121722;border:1px solid var(--border);border-radius:10px;padding:14px}
+  .card h4{margin-top:0}
+  @media(max-width:900px){.layout{flex-direction:column}nav{position:relative;width:100%;height:auto;border-left:none;border-bottom:1px solid var(--border)}}
+</style>
+</head>
+<body>
+<div class="layout">
+<nav>
+  <div class="logo">📋 آکوردیار</div>
+  <div class="sub">مستندات فنی کامل · v1.0</div>
+  <a href="#overview" class="active">نمای کلی</a>
+  <a href="#arch">معماری</a>
+  <a href="#files">ساختار فایلها</a>
+  <a href="#datamodel">مدل داده</a>
+  <a href="#audio">موتور صوتی</a>
+  <a href="#electron">الکترون و IPC</a>
+  <a href="#editor">ویرایشگر آکورد</a>
+  <a href="#daw">موتور DAW</a>
+  <a href="#record">ضبط</a>
+  <a href="#mixer">میکسر</a>
+  <a href="#archive">آرشیو</a>
+  <a href="#arranger">ارنجر/اجرا</a>
+  <a href="#settings">تنظیمات/تم</a>
+  <a href="#parser">پارسر آکورد</a>
+  <a href="#quality">تحلیل کیفیت</a>
+  <a href="#risks">ریسکها</a>
+  <a href="#recs">توصیهها</a>
+</nav>
+<main>
+  <h1>مستندات فنی کامل آکوردیار</h1>
+  <div class="hero">
+    <p>این مستند معماری، ساختار فایلها، مدل داده، موتور صوتی، و تمام زیرسیستمهای آکوردیار را با جزئیات شرح میدهد. مخاطب: توسعهدهنده.</p>
+  </div>
+
+  <h2 id="overview">۱. نمای کلی</h2>
+  <p><b>آکوردیار</b> اپلیکیشن ویرایشگر آکورد/شعر فارسی + DAW چندترکی است که بهصورت <span class="badge">دسکتاپ (Electron)</span> و <span class="badge">وب (Node.js)</span> اجرا میشود.</p>
+  <table>
+    <tr><th>ویژگی</th><th>مقدار</th></tr>
+    <tr><td>نام پکیج</td><td>akordyar @ 1.0.0</td></tr>
+    <tr><td>لایسنس</td><td>MIT</td></tr>
+    <tr><td>زبان اصلی</td><td>Vanilla JavaScript (بدون فریم‌ورک)</td></tr>
+    <tr><td>موتور صوتی</td><td>Web Audio API</td></tr>
+    <tr><td>رندر</td><td>Canvas + DOM</td></tr>
+    <tr><td>ماندگاری داده</td><td>localStorage + IndexedDB + فایل (الکترون)</td></tr>
+    <tr><td>حجم کل کد</td><td>~900KB (app.js 696KB)</td></tr>
+    <tr><td>تعداد توابع app.js</td><td>531 (64 async)</td></tr>
+    <tr><td>پلتفرم هدف</td><td>Windows x64 (NSIS / Portable)</td></tr>
+  </table>
+
+  <h2 id="arch">۲. معماری</h2>
+  <p>پروژه ۴ لایه منطقی دارد:</p>
+  <pre><code>┌─────────────────────────────────────────────────────┐
+│  electron-main.js / server.js        (لایه میزبانی)   │
+│         ↓ IPC / HTTP                                  │
+│  preload.js  (contextBridge امن)                      │
+│         ↓ window.electronAPI                           │
+├─────────────────────────────────────────────────────┤
+│  js/app.js  ←─ edCur (مدل ترانه فعلی)                 │
+│    ├─ ویرایشگر متن+آکورد (contenteditable)            │
+│    ├─ DAW: tracks / clips / sections / playhead         │
+│    ├─ آرشیو (IndexedDB)                                │
+│    ├─ ارنجر / اجرای زنده (perf mode)                   │
+│    ├─ ضبط میکروفن (MediaRecorder + AnalyserNode)       │
+│    └─ میکسر (vol/pan/mute/solo)                        │
+│         ↓                                              │
+│  performanceBridge → SongDocumentModel                 │
+│  → SharedEngine → viewRenderers                        │
+│   (singerView / playerView / embeddedPerformance)      │
+└─────────────────────────────────────────────────────┘</code></pre>
+  <div class="grid2">
+    <div class="card"><h4>دوگانگی میزبانی</h4><p>همان کد در Electron و وب کار میکند با تشخیص <code>isElectron</code> و استفاده از <code>window.electronAPI</code> بهجای دسترسی مستقیم fs.</p></div>
+    <div class="card"><h4>امنیت الکترون</h4><p><code>contextIsolation: true</code> + preload با whitelist کانالهای IPC. استاندارد امنیتی مناسب.</p></div>
+    <div class="card"><h4>معماری Performance v2</h4><p>جداسازی منطق اجرا/نمایش از مدل داده با <code>performanceBridge.js</code> و <code>SongDocumentModel</code>.</p></div>
+    <div class="card"><h4>بدون فریم‌ورک</h4><p>Vanilla JS با <code>$()</code> (getElementById) و رندر دستی DOM. سبک ولی مقیاسپذیری محدود.</p></div>
+  </div>
+
+  <h2 id="files">۳. ساختار فایلها</h2>
+  <table>
+    <tr><th>فایل</th><th>حجم</th><th>خط</th><th>نقش</th></tr>
+    <tr><td>js/app.js</td><td>696KB</td><td>13327</td><td>مغز اصلی: DAW + ویرایشگر + آرشیو + ارنجر</td></tr>
+    <tr><td>Akordyar.html</td><td>75KB</td><td>913</td><td>کل رابط کاربری</td></tr>
+    <tr><td>server.js</td><td>29KB</td><td>670</td><td>سرور Express + اسکرپر لامینور (jsdom)</td></tr>
+    <tr><td>electron-main.js</td><td>18KB</td><td>570</td><td>فرآیند اصلی الکترون + منو</td></tr>
+    <tr><td>preload.js</td><td>6KB</td><td>164</td><td>پل امن IPC</td></tr>
+    <tr><td>js/performanceBridge.js</td><td>15KB</td><td>348</td><td>همگامساز edCur ↔ موتور اجرا</td></tr>
+    <tr><td>js/core/AudioManager.js</td><td>12KB</td><td>303</td><td>مدیریت فایلهای صوتی</td></tr>
+    <tr><td>js/core/ProjectStore.js</td><td>11KB</td><td>259</td><td>ذخیره/بارگذاری پروژه</td></tr>
+    <tr><td>js/core/AudioFileLoader.js</td><td>6KB</td><td>148</td><td>لود و دیکود صوت</td></tr>
+    <tr><td>js/core/FileSystemBridge.js</td><td>4KB</td><td>78</td><td>لایه انتزاعی فایل سیستم</td></tr>
+    <tr><td>js/songDocumentModel.js</td><td>5KB</td><td>151</td><td>مدل سند آهنگ</td></tr>
+    <tr><td>js/sharedEngine.js</td><td>8KB</td><td>214</td><td>موتور مشترک نمایش</td></tr>
+    <tr><td>js/playerViewRenderer.js</td><td>9KB</td><td>208</td><td>رندر نمای پخشکننده</td></tr>
+    <tr><td>js/singerViewRenderer.js</td><td>4KB</td><td>105</td><td>رندر نمای خواننده</td></tr>
+    <tr><td>js/performanceStore.js</td><td>9KB</td><td>253</td><td>store تنظیمات اجرا</td></tr>
+    <tr><td>js/embeddedPerformanceRenderer.js</td><td>10KB</td><td>216</td><td>رندر اجرای جاسازیشده</td></tr>
+    <tr><td>parser-test.js</td><td>31KB</td><td>615</td><td>تست پارسر آکورد</td></tr>
+    <tr><td>8 فایل CSS</td><td>117KB</td><td>~1200</td><td>استایلها</td></tr>
+  </table>
+  <div class="warn"><b>نکته بحرانی:</b> ۸۳٪ کل منطق در یک فایل <code>app.js</code> متمرکز است → بزرگترین ریسک فنی پروژه.</div>
+
+  <h2 id="datamodel">۴. مدل داده</h2>
+  <h3>مدل مرکزی: edCur</h3>
+  <p>آهنگ فعلی در متغیر سراسری <code>edCur</code> نگهداری میشود:</p>
+  <pre><code>edCur = {
+  id, artist, title, key, keyMode, tempo, timeSignature, genre,
+  lyrics: [{ name, text }],        // خطوط شعر
+  chords: [{ lineIndex, charIndex, name, anchorType }],  // آکوردها
+  syncTimes: [],                  // زمان سینک هر خط
+  chordVersions: [{name, chords}],  activeChordVersion: 0,
+  styles: { tSize, tColor, tFont, tBold, align, cSize, cColor, cFont, highlightEffect },
+  lineColors: [],
+  editorLocked, viewStyles,
+  _dawTracks: [...],  _dawClips: [...],  _dawSections: [...],  _dawLoop: {},
+  _embeddedAudio: { bufferKey: {format, data} },
+  _audioPaths: [{bufferKey, filePath, fileName}]
+}</code></pre>
+  <h3>شیء DAW</h3>
+  <pre><code>DAW = {
+  tracks: [{ id, name, icon, type, muted, solo, vol, pan, transpose, locked }],
+  clips:  [{ id, type:'audio'|'chord', trackId, name, start, duration, offset, sourceDuration, color, bufferKey, _peaks, waveUrl, _embedded, _originalBlob }],
+  sections: [{ id, trackId, label, start, duration, color }],
+  playhead, isPlaying, isScrubbing, pxPerSecond, laneHeight, timelineDuration,
+  audioCtx, masterGain, voices, bufferCache, waveCache, loopEnabled, loopA, loopB,
+  isRecording, recStartTime, recPeaks, recLaneId, ...  // ضبط
+}</code></pre>
+  <h3>ماندگاری</h3>
+  <ul>
+    <li><code>localStorage</code>: آهنگ فعلی، تنظیمات، میانبرها، نقشههای MIDI، آرنگرها.</li>
+    <li><code>IndexedDB</code>: آرشیو آهنگها + blobهای صوتی + dirHandle.</li>
+    <li><code>فایل</code> (الکترون): پوشه <code>Audio/</code> پروژه برای فایلهای کپیشده.</li>
+  </ul>
+  <h3>Undo/Redo</h3>
+  <p><code>undoStack</code> با <code>serializeState()</code> / <code>applyState()</code>. state شامل tracks/clips/sections/edCur. بعد از undo/redo، waveformها از <code>bufferCache</code> بازسازی میشوند.</p>
+
+
+  <h2 id="audio">۵. موتور صوتی (Web Audio)</h2>
+  <h3>گراف سیگنال</h3>
+  <pre><code>BufferSource → voiceGain(per-clip) → track._pannerNode → track._gainNode → masterGain → destination</code></pre>
+  <p>هر ترک صوتی دو نود پایدار دارد: <code>_pannerNode</code> (StereoPanner) و <code>_gainNode</code> (Gain). هنگام پخش، هر کلیپ یک <code>BufferSource</code> و یک <code>Gain</code> موقت میسازد که به <code>tr._pannerNode</code> وصل میشود.</p>
+  <h3>توابع کلیدی</h3>
+  <ul>
+    <li><code>ensureAudioCtx()</code>: ساخت/resume <code>DAW.audioCtx</code> و <code>masterGain</code>.</li>
+    <li><code>scheduleAllFromPlayhead()</code>: برنامهریزی پخش همه کلیپها از موقع پلیهد.</li>
+    <li><code>stopAllVoices()</code>: توقف همه BufferSourceهای فعال.</li>
+    <li><code>updateTrackMix(trackId)</code>: اعمال vol/pan/mute/solo روی نودهای ترک.</li>
+    <li><code>decodeFileToBuffer(file)</code>: <code>decodeAudioData</code> برای ساخت AudioBuffer.</li>
+    <li><code>peaksFromBuffer(buffer, 2000)</code>: استخراج آرایه peak برای waveform.</li>
+    <li><code>drawWaveToCanvas(peaks, w, h)</code> → <code>refreshClipWaveImage(clip)</code>: رندر waveform به dataURL.</li>
+  </ul>
+  <h3>Transpose</h3>
+  <p>با <code>source.playbackRate.value = Math.pow(2, semitones/12)</code> پیادهسازی شده (بدون تغییر pitch- preserving — سرعت هم عوض میشود).</p>
+  <div class="note"><b>تاریخچه باگ pan:</b> نسخه قدیمی voiceGain را به <code>tr._gainNode</code> وصل میکرد (باپس کردن panner). اصلاح شد: اکنون به <code>tr._pannerNode</code> وصل میشود تا بالانس واقعاً اثر کند.</div>
+
+  <h2 id="electron">۶. الکترون و IPC</h2>
+  <h3>فرآیند اصلی (electron-main.js)</h3>
+  <ul>
+    <li>سرور Express را در فرآیند اصلی (یا child) روی پورت ۳۰۰۰ اجرا میکند.</li>
+    <li><code>BrowserWindow</code> با <code>contextIsolation:true</code> و <code>preload.js</code>.</li>
+    <li>منوی اپلیکیشن (File/Edit/View) با accelerator و ارسال IPC به renderer.</li>
+    <li>هندلرهای IPC: <code>audio:read-file</code>, <code>audio:copy-to-project</code>, <code>fs:check-exists</code>, <code>project:save-with-audio</code>, <code>dialog:show-message-box</code>, <code>getPathForFile</code> (webUtils).</li>
+  </ul>
+  <h3>preload.js</h3>
+  <p><code>contextBridge.exposeInMainWorld('electronAPI', {...})</code> با whitelist کانالها. <code>isElectron: true</code> برای تشخیص محیط.</p>
+  <h3>تشخیص محیط</h3>
+  <pre><code>const isElectron = !!(window.electronAPI && window.electronAPI.isElectron) || process.versions.electron;</code></pre>
+  <p><code>fs</code> و <code>path</code> در renderer با contextIsolation در دسترس نیستند؛ بهجایش از <code>window.electronAPI</code> استفاده میشود.</p>
+  <div class="warn"><code>asar: false</code> در build → فایلها از کامپایل محافظت نمیشوند. برای محصول تجاری ملاحظه کنید.</div>
+
+  <h2 id="editor">۷. ویرایشگر آکورد و شعر</h2>
+  <h3>ساختار DOM</h3>
+  <ul>
+    <li><code>#editor</code>: <code>contenteditable</code> RTL، خطوط <code>.eline</code>.</li>
+    <li><code>#chordLayer</code>: لایه مطلق روی editor، آکوردها با <code>position:absolute</code>.</li>
+  </ul>
+  <h3>سیستم لنگر آکورد (Anchor)</h3>
+  <p>هر آکورد با سه نوع لنگر:</p>
+  <ul>
+    <li><code>LineStart</code> (charIndex ≤ 0)</li>
+    <li><code>OnCharacter</code> (charIndex بین ۱ و طول)</li>
+    <li><code>LineEnd</code> (charIndex ≥ طول)</li>
+  </ul>
+  <p>کلیدهای جهت در حالت انتخاب آکورد، charIndex را با توجه به RTL جابهجا میکنند.</p>
+  <h3>چند نسخه آکورد</h3>
+  <p><code>chordVersions[]</code> روی Chord Line. <code>activeChordVersion</code> نسخه فعال را مشخص میکند. <code>switchChordVersion()</code>, <code>addChordVersion()</code>, <code>renameChordVersion()</code>.</p>
+  <h3>حالات آکوردگذاری</h3>
+  <ul>
+    <li><b>لایرس:</b> نقطه‌گذاری روی متن با موس. <b>کورد لاین:</b> نقطه‌گذاری با آهنگ روی تایملاین (کلید ۰).</li>
+    <li><b>ترتیبی (Sequential):</b> با <code>Enter</code> ویرایشگر برای موقع فعلی باز میشود.</li>
+    <li><b>ضبط آکورد MIDI:</b> <code>isRecordingChords</code> با ورودی MIDI کلیپ آکورد میسازد.</li>
+  </ul>
+  <h3>ویرایشگر آکورد (Modal)</h3>
+  <p>انتخاب root (A-G با #/b)، type (maj/min/m/7/dim/aug/sus/add)، tension (9/11/13/b9/...)، bass (/G). ۴ ستون با chord-item ها.</p>
+
+
+  <h2 id="daw">۸. موتور DAW / تایملاین</h2>
+  <h3>رندر</h3>
+  <ul>
+    <li><code>renderTracks()</code>: هدر ترک + لاین. هر ترک با نوع chord/section/audio/rec رندر متفاوت.</li>
+    <li><code>renderClips()</code>: حذف همه <code>.clip</code> و بازسازی از <code>DAW.clips</code>. waveform با <code>refreshClipWaveImage</code>.</li>
+    <li><code>renderRuler()</code>: رولر با Canvas (میزان/ضرب/ساب‌بیت) + برچسبها.</li>
+    <li><code>updatePlayheadUI()</code>: موقعیت <code>#main-playhead</code> و <code>#playhead-hit</code>.</li>
+    <li><code>renderAll()</code>: ترکیب همه + <code>edRenderClMarkers()</code>.</li>
+  </ul>
+  <h3>ترنسپورت</h3>
+  <ul>
+    <li><code>startTransport()</code>: <code>requestAnimationFrame(tick)</code> با حلقه پخش. پلیهد = originTime + (now - originPerf)/1000.</li>
+    <li><code>pauseTransport()</code>: توقف + <code>stopAllVoices()</code>. اگر در حال ضبط باشد، <code>endRec()</code> صدا زده میشود.</li>
+    <li><code>stopTransport()</code>: پاز + پلیهد=0 + auto-advance ارنجر.</li>
+    <li><code>seekTransport(t)</code>: جابهجایی. حلقه A-B در tick بررسی میشود (حین ضبط غیرفعال).</li>
+  </ul>
+  <h3>تعامل</h3>
+  <ul>
+    <li><code>onClipMouseDown</code>: drag/resize/select کلیپ. <code>onDocMouseMove/Up</code> تکمیل درگ.</li>
+    <li><code>beginScrub</code>: کلیک روی رولر/پلیهد → seek. حین ضبط مسدود است.</li>
+    <li>Marquee selection، cross-lane drag، Alt+drag کپی.</li>
+    <li>Snap-to-grid با <code>snapTime()</code>. Split با Shift+کلیک.</li>
+  </ul>
+  <h3>میانبرها</h3>
+  <p>سیستم <code>SHORTCUT_DEFAULTS</code> + <code>SHORTCUTS</code> (localStorage) + <code>matchShortcut(e, id)</code>. MIDI Learn با <code>MIDI_MAPS</code>.</p>
+
+  <h2 id="record">۹. ضبط صدا</h2>
+  <h3>جریان</h3>
+  <pre><code>getUserMedia({audio:true})
+  → createMediaStreamSource → AnalyserNode → MediaStreamDestination → MediaRecorder
+  → chunks[] → Blob → decodeAudioData → AudioBuffer → clip</code></pre>
+  <ul>
+    <li><code>ensureRecLane()</code>: ترک «Rec» را تضمین میکند (با نودهای صوتی).</li>
+    <li><code>startRec()</code>: گرفتن میکروفن، ساخت گراف، شروع MediaRecorder + transport.</li>
+    <li><code>tickRecWave()</code> (rAF): خواندن <code>getFloatTimeDomainData</code>، push peak، <code>renderLiveRecWave()</code>.</li>
+    <li><code>renderLiveRecWave()</code>: رسم Canvas waveform قرمز رشدی روی لاین.</li>
+    <li><code>endRec()</code>: توقف رکوردر → <code>onstop</code> → <code>finishRec(blob)</code>.</li>
+    <li><code>finishRec(blob)</code>: decode → ساخت clip با <code>_embedded</code> + <code>_originalBlob</code> → ذخیره در IndexedDB.</li>
+  </ul>
+  <div class="note">حین ضبط: پلیهد با موس غیرقابل جابهجایی (<code>beginScrub</code> مسدود). حلقه غیرفعال. میانبر <code>R</code> toggle.</div>
+
+  <h2 id="mixer">۱۰. میکسر</h2>
+  <ul>
+    <li><code>toggleMixer()</code>: باز/بست پنجره <code>#mixerPanel</code> (fixed). موقعیت در <code>_mixerPos</code> ذخیره میشود.</li>
+    <li><code>renderMixer()</code>: ساخت کانال برای هر ترک صوتی. هر کانال: نام (input)، M/S، Volume، Balance.</li>
+    <li>تغییر نام از میکسر → <code>tr.name</code> + <code>renderTracks()</code> (دوطرفه).</li>
+    <li>تغییر نام از لاین → <code>renderMixer()</code> اگر باز است.</li>
+    <li>Volume: <code>direction:ltr</code> (چپ→راست زیاد). Balance: دابلکلیک → ریست وسط.</li>
+    <li>همه کنترلها <code>updateTrackMix()</code> را صدا میزنند → اثر فوری روی صدا.</li>
+  </ul>
+
+  <h2 id="archive">۱۱. آرشیو</h2>
+  <ul>
+    <li>IndexedDB با objectStore <code>songs</code>. <code>edGetAllSongs()</code> / <code>edSetAllSongs()</code>.</li>
+    <li>تصاویر خوانندهها در localStorage (<code>arch_artist_img_</code>) با fallback به فایلهای <code>assets/artists/</code>.</li>
+    <li>اسلایدر خوانندهها با ۲۸ خواننده پیشفرض + جستجو.</li>
+    <li>منوی زمینه (کلیک راست): ویرایش، کپی، حذف، export.</li>
+    <li>ایمپورت اتومات از لامینور: <code>server.js</code> با jsdom اسکرپ میکند. <code>parseDeclaredSongCount</code>، <code>extractLaminorSongLinks</code>.</li>
+  </ul>
+
+  <h2 id="arranger">۱۲. ارنجر / اجرای زنده</h2>
+  <ul>
+    <li><code>arrangers[]</code> در localStorage (<code>arrangers_v1</code>). هر ارنجر: setlist + تنظیمات.</li>
+    <li>حالت اجرا: <code>arrPerformActive</code>، آهنگ بعدی با <code>loadArrSong(idx)</code> خودکار لود میشود.</li>
+    <li>پنل اجرا (<code>#arrPerfOverlay</code>) قابل کشیدن با <code>arrPerfDragHandle</code>.</li>
+    <li>پاپ‌آپ اجرا (Singer/Player View) با F9. حالت تمرکز F10.</li>
+    <li>Performance Architecture v2: <code>performanceBridge.js</code> با <code>rebuildSongDocumentFromEdCur()</code>.</li>
+  </ul>
+
+  <h2 id="settings">۱۳. تنظیمات و تم</h2>
+  <ul>
+    <li><code>APP_SETTINGS</code> در localStorage (<code>ed_app_settings</code>).</li>
+    <li>تمها: <code>THEMES</code> با ۵ preset (dark/midnight/ocean/sunset/forest) که CSS variables را override میکنند.</li>
+    <li>رنگ سفارشی: <code>applyAccent(color)</code> روی <code>--accent-teal</code> و <code>--accent-cyan-glow</code>.</li>
+    <li>دستگاه خروجی: <code>navigator.mediaDevices.enumerateDevices()</code> + <code>AudioContext.setSinkId()</code>.</li>
+    <li>Toggleها: مترونوم، برگشت به ابتدا، قفل اندازه — به توابع موجود (<code>toggleMetronome</code>، <code>toggleSizeLock</code>) وصل.</li>
+    <li>پنجره تنظیمات <code>#settingsModal</code> با کلاس <code>mv-window</code> (قابل کشیدن).</li>
+  </ul>
+  <h3>پنجرههای قابل کشیدن</h3>
+  <p><code>initMovableWindows()</code>: delegated mousedown روی <code>h3/h4/.mv-head/.shortcut-panel-header</code> → drag پنل. شامل: ویرایشگر آکورد، آیکون پیکر، نت آهنگ، شرتکات، تنظیمات. ارنجر سیستم خودکار دارد.</p>
+
+
+  <h2 id="parser">۱۴. پارسر آکورد</h2>
+  <p>منطق parse آکورد پراکنده در app.js است و <code>parser-test.js</code> (۶۱۵ خط) آن را تست میکند.</p>
+  <h3>ساختار آکورد</h3>
+  <pre><code>chord = {
+  root: 'C'|'C#'|'Db'|...|'B',     // ۱۲ نت با #/b
+  type: 'None'|'maj'|'min'|'m'|'7'|'dim'|'aug'|'sus2'|'sus4'|'add9'|...,
+  tension: ''|'9'|'11'|'13'|'b9'|'#9'|'#11'|'b13',
+  bass: 'None'|'C'|'C#'|...        // /G bass note
+}</code></pre>
+  <h3>مراحل parse</h3>
+  <ul>
+    <li>تشخیص root: <code>A-G</code> با <code>#</code> یا <code>b</code>.</li>
+    <li>تشخیص type: <code>m/min</code> (مینور)، <code>dim</code>، <code>aug</code>، <code>sus</code>، <code>add</code>، عدد (۷/۹/۱۱/۱۳).</li>
+    <li>تشخیص tension: <code>b9</code>، <code>#9</code>، <code>#11</code>، <code>b13</code>.</li>
+    <li>تشخیص bass: <code>/G</code> در انتقال.</li>
+    <li>Auto-fix: حذف ستاره <code>*</code> و برعکس کردن ترتیب آکورد.</li>
+  </ul>
+  <div class="note">پارسر کامل به نظر میرسد ولی در برابر قالببندی نامنظم شکنندگی دارد (مثلاً هنوز <code>*</code> نیاز به cleanup دارد).</div>
+
+  <h2 id="quality">۱۵. تحلیل کیفیت کد</h2>
+  <div class="grid2">
+    <div class="card"><h4>نظم <span class="badge g">خوب</span></h4><p>توابع با نام معنادار، کامنتهای فارسی فراوان، بخشبندی با <code>// =====</code>.</p></div>
+    <div class="card"><h4>استحکام <span class="badge g">خوب</span></h4><p><code>?.</code>، <code>??</code>، try/catch گسترده، <code>typeof === 'function'</code> guards.</p></div>
+    <div class="card"><h4>بدون فریم‌ورک <span class="badge y">متوسط</span></h4><p>سبک و سریع ولی مقیاسپذیری محدود.</p></div>
+    <div class="card"><h4>بدون TODO/FIXME <span class="badge g">خوب</span></h4><p>۰ مورد — کد پایدار شمرده میشود.</p></div>
+    <div class="card"><h4>طول توابع <span class="badge r">ضعیف</span></h4><p>برخی توابع صدها خط (init، edImportProject).</p></div>
+    <div class="card"><h4>تکرار کد <span class="badge r">ضعیف</span></h4><p>ایجاد نودهای panner/gain در ۸+ نقطه.</p></div>
+  </div>
+  <h3>آمار</h3>
+  <ul>
+    <li>۵۳۱ تابع در app.js (۶۴ async)</li>
+    <li>۸۳ <code>console.log</code> در پروداکشن</li>
+    <li>۱۴۷ <code>onclick</code> handler در HTML</li>
+    <li>۰ TODO/FIXME/HACK</li>
+  </ul>
+
+  <h2 id="risks">۱۶. ریسکهای فنی</h2>
+  <div class="warn"><h4>🔴 ریسک ۱: تمرکز در app.js (۶۹۶KB، ۱۳۳۲۷ خط)</h4><p>۵۳۱ تابع در یک فایل → نگهداری سخت، احتمال تداخل نام. بزرگترین ریسک پروژه.</p></div>
+  <div class="warn"><h4>🔴 ریسک ۲: وضعیت سراسری پراکنده</h4><p>متغیرهای <code>let</code> زیاد (metroActive، returnToStartOnPause، _sizeLocked، edCur، DAW...) که توسط صدها تابع مستقیم تغییر میکنند.</p></div>
+  <div class="note"><h4>🟡 ریسک ۳: استایل درون‌خطی فراوان</h4><p>HTML پر از <code>style="..."</code> → سفارشیسازی تم سخت.</p></div>
+  <div class="note"><h4>🟡 ریسک ۴: ۸۳ console.log در پروداکشن</h4><p>حجم لاگ بالا، پاکسازی نشده.</p></div>
+  <div class="note"><h4>🟡 ریسک ۵: asar: false</h4><p>فایلها از کامپایل محافظت نمیشوند.</p></div>
+  <div class="note"><h4>🟡 ریسک ۶: getUserMedia</h4><p>نیاز به context امن (https/localhost)؛ روی http ساده کار نمیکند.</p></div>
+
+  <h2 id="recs">۱۷. توصیهها (اولویتبندی شده)</h2>
+  <ol>
+    <li><span class="badge r">فوری</span> commit تغییرات فعلی قبل از ادامه.</li>
+    <li><span class="badge r">مهم</span> شکستن <code>app.js</code> به ماژولهای ES (daw.js، editor.js، archive.js، transport.js، mixer.js، recorder.js).</li>
+    <li><span class="badge r">مهم</span> متمرکزسازی state در یک <code>AppStore</code> برای کاهش باگهای پنهان.</li>
+    <li><span class="badge y">متوسط</span> یکپارچهسازی تکرار ایجاد نودهای صوتی در <code>ensureTrackNodes(tr)</code>.</li>
+    <li><span class="badge y">متوسط</span> انتقال استایل درون‌خطی به کلاسهای CSS.</li>
+    <li><span class="badge g">کمتر</span> فعالسازی <code>asar: true</code> برای نسخه نهایی + wrapper لاگ.</li>
+  </ol>
+
+  <h2>خلاصه</h2>
+  <div class="ok">
+    <p>آکوردیار پروژهی بالغ و کارآمدی است با امکانات غنی (DAW + ویرایشگر آکورد + آرشیو + اجرا + ضبط + میکسر). نقاط قوت اصلی: یکپارچگی، دوزبانه، Web Audio واقعی، امنیت الکترون مناسب.</p>
+    <p>چالش اصلی: مقیاسپذیری نگهداری به دلیل تمرکز در یک فایل غول‌پیکر و وضعیت پراکنده. برای رشد آینده، شکستن ماژولها و متمرکزسازی state ضروری است.</p>
+  </div>
+
+  <div style="margin-top:40px;padding-top:16px;border-top:1px solid var(--border);color:var(--muted);font-size:.78rem;text-align:center">
+    آکوردیار · مستندات فنی کامل · تولیدشده برای نسخه ۱.۰ · منبع: تحلیل کدبیس
+  </div>
+</main>
+</div>
+<script>
+  const links=document.querySelectorAll('nav a');const sects=[...document.querySelectorAll('h2')];
+  links.forEach(a=>a.addEventListener('click',e=>{links.forEach(x=>x.classList.remove('active'));a.classList.add('active');}));
+  const obs=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting){const id=e.target.id;links.forEach(a=>a.classList.toggle('active',a.getAttribute('href')==='#'+id));}})},{rootMargin:'-20% 0px -70% 0px'});
+  sects.forEach(s=>obs.observe(s));
+</script>
+</body>
+</html>
