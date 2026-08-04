@@ -1325,11 +1325,15 @@ function undo() {
           e.preventDefault(); e.stopPropagation();
           const t = clientToTime(e.clientX);
           // Create a temporary anchor at clicked time and open chord modal
-          edCur = DAW.tracks.find(t => t.id === tr.id);
-          if (edCur) {
+          // IMPORTANT: Don't change edCur (which holds the song), use a local variable
+          const chordTrack = DAW.tracks.find(track => track.id === tr.id);
+          if (chordTrack) {
             const anchor = { time: t, x: e.clientX, y: e.clientY };
-            edPendingAnchor = anchor; edChordIdx = null;
-            edOpenChordModal(null);
+            // Store in a temp variable, don't overwrite edCur
+            window._tempChordTrackAnchor = anchor;
+            window._tempChordTrack = chordTrack;
+            // Open the regular chord editor (not the song chord editor)
+            openChordEditor(null);
             renderClips();
           }
           return;
