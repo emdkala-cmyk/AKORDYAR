@@ -1129,7 +1129,7 @@ function undo() {
   h.querySelector('[data-rec]').addEventListener('click', (e) => {
     e.stopPropagation();
     isRecordingChords = !isRecordingChords;
-    renderTracks();
+    renderAll();
     toast(isRecordingChords ? t('chordRecOn') : t('chordRecOff'));
   });
   h.querySelector('[data-lock]')?.addEventListener('click', (e) => {
