@@ -1038,6 +1038,7 @@ function undo() {
 
     function renderAll() {
   renderTracks(); renderRuler(); renderClips(); renderLoopRegion(); updatePlayheadUI(); updateHud();
+  edRenderClMarkers();
 }
 
 
@@ -1081,9 +1082,10 @@ function undo() {
       >◀</button>
 
       <span
-        style="font-size:0.55rem;color:var(--accent-cyan-glow);min-width:16px;text-align:center;font-family:'JetBrains Mono';"
+        style="font-size:0.55rem;color:var(--accent-cyan-glow);min-width:46px;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center;font-family:'JetBrains Mono';cursor:pointer;"
         data-chord-ver-label=""
-      >V${curVer + 1}</span>
+        title="دوبار کلیک برای تغییر نام ورژن"
+      >${chordTarget.chordVersions[curVer] && chordTarget.chordVersions[curVer].name ? chordTarget.chordVersions[curVer].name : 'V' + (curVer + 1)}</span>
 
       <button
         class="t-btn"
@@ -1123,11 +1125,28 @@ function undo() {
     </button>
   `;
 
+  // ── اتصال ابزارهای کورد لاین ──
   h.querySelector('[data-rec]').addEventListener('click', (e) => {
     e.stopPropagation();
     isRecordingChords = !isRecordingChords;
+    renderTracks();
+    toast(isRecordingChords ? t('chordRecOn') : t('chordRecOff'));
   });
-           h.addEventListener('click', (e) => { if(!e.target.closest('button') && !e.target.closest('.t-icon') && !e.target.closest('[data-chord-ver-label]')) openChordEditor(); });
+  h.querySelector('[data-lock]')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    tr.locked = !tr.locked;
+    saveState();
+    renderTracks();
+    renderClips();
+    toast(tr.locked ? '🔒 آکوردهای کورد لاین قفل شد' : '🔓 آکوردهای کورد لاین باز شد');
+  });
+  h.querySelector('[data-chord-ver-prev]')?.addEventListener('click', (e) => { e.stopPropagation(); switchChordVersion(-1); });
+  h.querySelector('[data-chord-ver-next]')?.addEventListener('click', (e) => { e.stopPropagation(); switchChordVersion(1); });
+  h.querySelector('[data-chord-ver-add]')?.addEventListener('click', (e) => { e.stopPropagation(); addChordVersion(); });
+  const _verLabel = h.querySelector('[data-chord-ver-label]');
+  if (_verLabel) _verLabel.addEventListener('dblclick', (e) => { e.stopPropagation(); renameChordVersion(); });
+  h.addEventListener('click', (e) => { if(!e.target.closest('button') && !e.target.closest('.t-icon') && !e.target.closest('[data-chord-ver-label]')) openChordEditor(); });
+
         } else if (tr.type === 'section') {
             h.innerHTML = `<span class="t-icon" data-icon-pick="${tr.id}" title="تغییر آیکون">${getIconSvg(tr.icon)}</span><span class="t-label">${tr.name}</span>`;
             h.querySelector('[data-icon-pick]')?.addEventListener('click', (e) => { e.stopPropagation(); openIconPicker(tr); });
@@ -1613,8 +1632,6 @@ function undo() {
           el.style.background = `linear-gradient(180deg, ${chordColor}cc, ${chordColor}77)`;
           el.style.borderColor = chordColor;
           el.innerHTML = `<span>${clip.name}</span><div class="resize-handle left" data-edge="left"></div><div class="resize-handle right" data-edge="right"></div>`;
-          // Double Click to open editor
-          el.ondblclick = (e) => { e.stopPropagation(); openChordEditor(clip.id); };
         }
         el.addEventListener('mousedown', onClipMouseDown); lane.appendChild(el);
       });
@@ -2126,7 +2143,17 @@ sels.forEach(c => {
 
   edClearChordSelection();
 
-
+  // دبل‌کلیک سفارشی (native dblclick به خاطر preventDefault و بازسازی کلیپ‌ها قابل‌اعتماد نیست)
+  const _now = Date.now();
+  const _dx = Math.abs(e.clientX - (clip._clickX || 0));
+  const _dy = Math.abs(e.clientY - (clip._clickY || 0));
+  if (clip._clickTimer && (_now - (clip._clickTime || 0)) < 350 && _dx < 5 && _dy < 5) {
+    clearTimeout(clip._clickTimer); clip._clickTimer = null;
+    if (clip.type === 'chord') openChordEditor(clip.id);
+    return;
+  }
+  clip._clickX = e.clientX; clip._clickY = e.clientY; clip._clickTime = _now;
+  clip._clickTimer = setTimeout(() => { clip._clickTimer = null; }, 350);
 
       // Shift+Click to Cut
       if (e.shiftKey) {
@@ -4328,6 +4355,94 @@ let syncTapKeyHandler = null;
     if ($('edSeqPrev')) $('edSeqPrev').onclick = () => edSeqNavigate(-1);
     if ($('edSeqNext')) $('edSeqNext').onclick = () => edSeqNavigate(1);
 
+    // ===== Sequential: حالت کورد لاین (نقطه‌گذاری با آهنگ روی تایم لاین) =====
+    let edClMode = false, edClTapActive = false, edClMarkers = [];
+    function edUpdateClCount() {
+      const c = $('edClCount'); if (c) c.textContent = edClMarkers.length ? String(edClMarkers.length) : '';
+    }
+    function edRenderClMarkers() {
+      const lanes = $('lanes-container'); if (!lanes) return;
+      let overlay = $('clMarkersOverlay');
+      if (!overlay) { overlay = document.createElement('div'); overlay.id = 'clMarkersOverlay'; overlay.className = 'cl-markers-overlay'; lanes.appendChild(overlay); }
+      overlay.innerHTML = '';
+      if (!edClMarkers.length) { overlay.style.display = 'none'; return; }
+      overlay.style.display = '';
+      edClMarkers.forEach((m, i) => {
+        const mk = document.createElement('div');
+        mk.className = 'cl-tap-marker' + (edClTapActive ? ' armed' : '');
+        mk.style.left = timeToX(m.time) + 'px';
+        const badge = document.createElement('div');
+        badge.className = 'cl-tap-badge';
+        badge.textContent = i + 1;
+        badge.title = 'نقطه ' + (i + 1) + ' — ' + formatTime(m.time) + ' (کلیک = حذف)';
+        badge.addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); if (i >= 0 && i < edClMarkers.length) { edClMarkers.splice(i, 1); edRenderClMarkers(); edUpdateClCount(); } });
+        mk.appendChild(badge); overlay.appendChild(mk);
+      });
+    }
+    function edSetSeqMode(mode) {
+      edClMode = (mode === 'chord');
+      const ly = $('edSeqModeLyrics'), ch = $('edSeqModeChord');
+      if (ly) ly.classList.toggle('active', !edClMode);
+      if (ch) ch.classList.toggle('active', edClMode);
+      const lt = $('edSeqLyricsTools'), ct = $('edSeqChordTools');
+      if (lt) lt.style.display = edClMode ? 'none' : '';
+      if (ct) ct.style.display = edClMode ? '' : 'none';
+      // هنگام رفتن به کورد لاین، حالت انتخاب نقطه روی متن (لایرس) را ببند
+      if (edClMode && edSeqModeActive) edToggleSeqMode();
+      if (!edClMode) { edClTapActive = false; const b = $('edClStart'); if (b) b.classList.remove('active'); }
+      edRenderClMarkers();
+    }
+    function edToggleClTap() {
+      edClTapActive = !edClTapActive;
+      const b = $('edClStart'); if (b) b.classList.toggle('active', edClTapActive);
+      edRenderClMarkers(); edUpdateClCount();
+      toast(edClTapActive ? 'نقطه‌گذاری کورد لاین فعال شد — آهنگ را پخش کن و هر بار تعویض آکورد، کلید ۰ را بزن' : 'نقطه‌گذاری متوقف شد');
+    }
+    function edClTap() {
+      if (!edClTapActive) { toast('اول روی ⏺ کلیک کن تا نقطه‌گذاری با آهنگ فعال شود'); return; }
+      if (!DAW || typeof DAW.playhead !== 'number') return;
+      const t = roundMs(Math.max(0, DAW.playhead));
+      edClMarkers.push({ time: t });
+      ensureTimelineFits(t + 6);
+      edRenderClMarkers(); edUpdateClCount();
+    }
+    function edClUndoMarker() {
+      if (!edClMarkers.length) { toast('نقطه‌ای برای حذف نیست'); return; }
+      edClMarkers.pop(); edRenderClMarkers(); edUpdateClCount();
+    }
+    function edClClearMarkers() {
+      if (!edClMarkers.length) return;
+      edClMarkers = []; edRenderClMarkers(); edUpdateClCount(); toast('همه نقاط پاک شد');
+    }
+    function edClApplyMarkers() {
+      if (!edClMarkers.length) { toast('اول با آهنگ نقطه‌گذاری کن (دکمه ⏺ و کلید ۰)'); return; }
+      const lyrics = (edCur?.chords || []).filter(c => c && c.name && String(c.name).trim() !== '');
+      if (lyrics.length === 0) { toast('آکوردی در بخش لایرس نیست تا کپی شود'); return; }
+      if (lyrics.length !== edClMarkers.length) {
+        toast('⚠️ تعداد آکوردهای لایرس (' + lyrics.length + ') با تعداد نقاط تایم‌لاین (' + edClMarkers.length + ') یکی نیست — اول تعداد را برابر کن');
+        return;
+      }
+      const chordTrack = DAW.tracks.find(t => t.type === 'chord');
+      if (!chordTrack) { toast('ترک کورد لاین پیدا نشد'); return; }
+      edClMarkers.forEach((m, i) => {
+        DAW.clips.push({ id: uid('c'), type: 'chord', trackId: chordTrack.id, name: lyrics[i].name, start: roundMs(m.time), duration: 2, color: '#9F7AEA' });
+      });
+      const lastT = edClMarkers[edClMarkers.length - 1].time;
+      edClMarkers = []; edClTapActive = false;
+      const b = $('edClStart'); if (b) b.classList.remove('active');
+      edRenderClMarkers(); edUpdateClCount();
+      ensureTimelineFits(lastT + 6);
+      saveState(); renderAll(); edSaveSong();
+      toast('✔ ' + lyrics.length + ' آکورد لایرس به کورد لاین (تایم‌لاین) کپی شد');
+    }
+    if ($('edSeqModeLyrics')) $('edSeqModeLyrics').onclick = () => edSetSeqMode('lyrics');
+    if ($('edSeqModeChord')) $('edSeqModeChord').onclick = () => edSetSeqMode('chord');
+    if ($('edClStart')) $('edClStart').onclick = edToggleClTap;
+    if ($('edClUndo')) $('edClUndo').onclick = edClUndoMarker;
+    if ($('edClClear')) $('edClClear').onclick = edClClearMarkers;
+    if ($('edClApply')) $('edClApply').onclick = edClApplyMarkers;
+    edUpdateClCount();
+
     // Editor click for seq mode point placement
     if ($('editor')) $('editor').addEventListener('click', (e) => {
       if (!edSeqModeActive) return;
@@ -6093,12 +6208,19 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function placeChordOnTimeline() {
-      const { root, type, tension, bass } = currentChord;
-      if (root === 'None' || type === 'None') {
-          toast(t('selectCompleteChord'));
-          return;
+      // اگر کاربر نامی دستی تایپ کرده، از آن استفاده کن (هماهنگ با ویرایشگر آکورد)
+      let name = ($('chordManual')?.value || '').trim();
+      if (name) {
+        name = name.replace(/^([A-G][#b]?)maj$/, '$1');
+        name = name.replace(/^([A-G][#b]?)min/i, '$1m');
+      } else {
+        const { root, type, tension, bass } = currentChord;
+        if (root === 'None' || type === 'None') {
+            toast(t('selectCompleteChord'));
+            return;
+        }
+        name = `${root}${chordTypeDisplay(type)}${tension}${bass !== 'None' && bass !== root ? '/' + bass : ''}`;
       }
-      const name = `${root}${chordTypeDisplay(type)}${tension}${bass !== 'None' && bass !== root ? '/' + bass : ''}`;
       if (DAW.editingChordClipId) {
         const clip = getClip(DAW.editingChordClipId);
         if (clip) { clip.name = name; DAW.editingChordClipId = null; saveState(); renderAll(); closeChordEditor(); toast(`${t('chordEditedTo')} ${name}`); return; }
@@ -8179,7 +8301,7 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
         { label: 'گام و حالت', selector: '#edKey, #edKeyMode' },
         { label: 'تنظیمات متن', selector: '#edTextSize, #edTextFont, #edTextBold, #edAlignRight, #edAlignCenter, #edAlignLeft' },
         { label: 'تنظیمات آکورد', selector: '#edChordSize, #edChordFont, #edToggleChords' },
-        { label: 'ترتیبی', selector: '#edSeqToggle, #edSeqStart, #edSeqPrev, #edSeqNext' },
+        { label: 'ترتیبی', selector: '#edSeqToggle, #edSeqStart, #edSeqPrev, #edSeqNext, #edClStart, #edClUndo, #edClClear, #edClApply, #edSeqModeSeg' },
         { label: 'ترنسپوز', selector: '#edTransDown, #edTransVal, #edTransUp' },
         { label: 'Undo/Redo', selector: '#edUndoBtn, #edRedoBtn' },
         { label: 'قفل ویرایشگر', selector: '#edEditorLockBtn' },
@@ -12675,7 +12797,10 @@ if ($('edDoBoth')) {
         edCur.chordVersions.push({
           name: 'V1',
           chords: JSON.parse(JSON.stringify(edCur.chords)),
-          clips: JSON.parse(JSON.stringify(clips.map(c => ({ start: c.start, duration: c.duration, color: c.color }))))
+          clips: JSON.parse(JSON.stringify(clips.map(c => ({ start: c.start, duration: c.duration, color: c.color })))),
+          transpose: edCur.transpose || 0,
+          key: edCur.key || 'C',
+          keyMode: edCur.keyMode || 'maj'
         });
         edCur.activeChordVersion = 0;
       }
@@ -12686,11 +12811,15 @@ if ($('edDoBoth')) {
       const curVer = edCur.activeChordVersion || 0;
       if (!edCur.chordVersions[curVer]) return;
       edCur.chordVersions[curVer].chords = JSON.parse(JSON.stringify(edCur.chords));
+      // ذخیره ترنسپوز و گام به‌صورت مستقل برای هر ورژن
+      edCur.chordVersions[curVer].transpose = edCur.transpose || 0;
+      edCur.chordVersions[curVer].key = edCur.key || 'C';
+      edCur.chordVersions[curVer].keyMode = edCur.keyMode || 'maj';
       // Also save timeline clip positions
       const chordTrack = DAW.tracks.find(t => t.type === 'chord');
       if (chordTrack) {
         const clips = DAW.clips.filter(c => c.type === 'chord' && c.trackId === chordTrack.id);
-        edCur.chordVersions[curVer].clips = JSON.parse(JSON.stringify(clips.map(c => ({ start: c.start, duration: c.duration, color: c.color }))));
+        edCur.chordVersions[curVer].clips = JSON.parse(JSON.stringify(clips.map(c => ({ start: c.start, duration: c.duration, color: c.color, name: c.name }))));
       }
     }
 
@@ -12701,15 +12830,15 @@ if ($('edDoBoth')) {
       if (!chordTrack) return;
       // Remove existing chord clips
       DAW.clips = DAW.clips.filter(c => !(c.type === 'chord' && c.trackId === chordTrack.id));
-      // Add clips from version (with saved positions or auto-generated)
-      const savedClips = ver.clips || [];
-      ver.chords.forEach((ch, i) => {
-        if (!ch.name) return;
-        const saved = savedClips[i];
-        const start = saved ? saved.start : roundMs(i * 2);
-        const duration = saved ? saved.duration : 2;
-        const color = saved ? saved.color : '#9F7AEA';
-        DAW.clips.push({ id: uid('c'), type: 'chord', trackId: chordTrack.id, name: ch.name, start, duration, color });
+      // Add clips from version snapshot (هر کلیپ نام خودش را دارد)
+      const savedClips = Array.isArray(ver.clips) ? ver.clips : [];
+      savedClips.forEach((saved, i) => {
+        const name = (saved && saved.name) || (ver.chords && ver.chords[i] && ver.chords[i].name) || '';
+        if (!name) return;
+        const start = saved && saved.start != null ? saved.start : roundMs(i * 2);
+        const duration = saved && saved.duration ? saved.duration : 2;
+        const color = saved && saved.color ? saved.color : '#9F7AEA';
+        DAW.clips.push({ id: uid('c'), type: 'chord', trackId: chordTrack.id, name, start, duration, color });
       });
     }
 
@@ -12725,15 +12854,21 @@ if ($('edDoBoth')) {
       if (newVer >= edCur.chordVersions.length) newVer = edCur.chordVersions.length - 1;
       if (newVer === curVer) { toast('ورژن ' + (curVer + 1) + ' (آخرین)'); return; }
       // Load target version
+      const ver = edCur.chordVersions[newVer];
       edCur.activeChordVersion = newVer;
-      edCur.chords = JSON.parse(JSON.stringify(edCur.chordVersions[newVer].chords));
+      edCur.chords = JSON.parse(JSON.stringify(ver.chords || []));
+      // بازیابی ترنسپوز و گام مختص همین ورژن
+      edCur.transpose = ver.transpose !== undefined ? ver.transpose : 0;
+      if (ver.key) edCur.key = ver.key;
+      if (ver.keyMode) edCur.keyMode = ver.keyMode;
       // Rebuild editor + timeline
       edRenderEditor(true);
       loadVersionToTimeline(newVer);
       saveState();
-      renderClips();
       renderTracks();
-      toast('ورژن: ' + (edCur.chordVersions[newVer].name || 'V' + (newVer + 1)));
+      renderClips();
+      if (typeof refreshKeyUI === 'function') refreshKeyUI();
+      toast('ورژن: ' + (ver.name || 'V' + (newVer + 1)));
     }
 
     function addChordVersion() {
@@ -12744,7 +12879,7 @@ if ($('edDoBoth')) {
       saveCurrentVersion();
       // Create new empty version
       const newVer = edCur.chordVersions.length;
-      edCur.chordVersions.push({ name: 'V' + (newVer + 1), chords: [], clips: [] });
+      edCur.chordVersions.push({ name: 'V' + (newVer + 1), chords: [], clips: [], transpose: edCur.transpose || 0, key: edCur.key || 'C', keyMode: edCur.keyMode || 'maj' });
       edCur.activeChordVersion = newVer;
       edCur.chords = [];
       // Clear timeline chord clips
@@ -12752,17 +12887,17 @@ if ($('edDoBoth')) {
       if (chordTrack) DAW.clips = DAW.clips.filter(c => !(c.type === 'chord' && c.trackId === chordTrack.id));
       edRenderEditor(true);
       saveState();
-      renderClips();
       renderTracks();
+      renderClips();
       toast('ورژن جدید: V' + (newVer + 1));
     }
 
-    function renameChordVersion() {
+    async function renameChordVersion() {
       if (!edCur || !edCur.chordVersions) return;
       const curVer = edCur.activeChordVersion || 0;
       const ver = edCur.chordVersions[curVer];
       if (!ver) return;
-      const newName = prompt('نام ورژن:', ver.name || 'V' + (curVer + 1));
+      const newName = await customPrompt('نام ورژن:', ver.name || 'V' + (curVer + 1));
       if (newName !== null && newName.trim()) {
         ver.name = newName.trim();
         saveState();
@@ -12921,6 +13056,8 @@ if ($('edDoBoth')) {
       edCur.transpose = newTranspose;
       edCur.key = edTransposeKeyName(edCur.key, delta) || edCur.key;
       edCur.keyMode = edCur.keyMode || 'maj';
+      // همگام‌سازی ترنسپوز با ورژن فعال فعلی
+      if (typeof saveCurrentVersion === 'function') saveCurrentVersion();
       refreshKeyUI();
       renderAllChordsAndText();
       edSaveSong();
@@ -13190,6 +13327,13 @@ if ($('edDoBoth')) {
 
       // TAP TEMPO shortcut (T key, not in input/editor)
       if (e.key === 't' && !isInput && !isEditing && !e.ctrlKey && !e.metaKey && !e.altKey) { e.preventDefault(); tapTempo(); return; }
+
+      // Chord-line tap: عدد ۰ هر بار یک نقطه روی تایم لاین می‌گذارد (فقط وقتی ⏺ فعال است)
+      if ((e.code === 'Digit0' || e.code === 'Numpad0') && edClTapActive && !isInput && !isEditing && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        edClTap();
+        return;
+      }
 
       // Sequential chording: Enter opens chord modal for current position
       if (edSeqChordingActive && e.code === 'Enter' && !isInput && !isEditing && !($('chord-modal')?.classList.contains('show') && edChordModalMode === 'editor')) {

@@ -101,6 +101,13 @@
 .track-lane { height: var(--lane-h); position: relative; border-bottom: 1px solid rgba(255,255,255,0.04); background-color: #0E121B; }
 .track-lane:nth-child(even) { background-color: #0B0F17; }
 .track-lane.chord-lane { background-color: #1a1f2e; }
+
+/* ===== موقت: مارکرهای نقطه‌گذاری کورد لاین (لایه جدا) ===== */
+.cl-markers-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; z-index: 25; }
+.cl-tap-marker { position: absolute; top: 0; bottom: 0; width: 0; }
+.cl-tap-marker::before { content: ''; position: absolute; top: 0; bottom: 0; left: 0; border-left: 2px solid rgba(0,242,254,0.55); }
+.cl-tap-badge { position: absolute; top: 2px; left: 0; transform: translateX(-50%); width: 18px; height: 18px; border-radius: 50%; background: #00F2FE; color: #04222a; font-size: 10px; font-weight: 800; display: flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono', monospace; pointer-events: auto; cursor: pointer; box-shadow: 0 0 8px rgba(0,242,254,0.6); z-index: 2; }
+.cl-tap-marker.armed .cl-tap-badge { background: #FF2E93; color: #fff; box-shadow: 0 0 8px rgba(255,46,147,0.7); }
 .lane-resize-handle { position: absolute; left: 0; right: 0; height: 5px; cursor: ns-resize; z-index: 10; }
 .lane-resize-handle.bottom { bottom: -3px; }
 .lane-resize-handle.top { top: -3px; }
