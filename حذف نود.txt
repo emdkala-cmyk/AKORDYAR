@@ -1,0 +1,7 @@
+echo node_modules/ > .gitignore
+
+
+
+git add .gitignore
+git commit -m "تنظیم صحیح فایل gitignore برای نادیده گرفتن node_modules"
+git push
