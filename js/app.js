@@ -2183,9 +2183,29 @@ sels.forEach(c => {
       document.addEventListener('mousemove', onDocMouseMove); document.addEventListener('mouseup', onDocMouseUp);
     }
 
+    let dragOverLaneTrackId = null;
+
     function onDocMouseMove(e) {
       if (DAW.drag) {
         const dt = xToTime(e.clientX - DAW.drag.startX);
+        
+        // Check if we're over a different track lane during move
+        if (DAW.drag.type === 'move') {
+          const targetLane = e.target.closest('.track-lane');
+          if (targetLane) {
+            const laneTrackId = targetLane.dataset.trackId;
+            const targetTrack = DAW.tracks.find(t => t.id === laneTrackId);
+            // Only allow drop on audio tracks (not section or chord)
+            if (targetTrack && targetTrack.type === 'audio') {
+              dragOverLaneTrackId = laneTrackId;
+            } else {
+              dragOverLaneTrackId = null;
+            }
+          } else {
+            dragOverLaneTrackId = null;
+          }
+        }
+        
         if (DAW.drag.type === 'move') {
           DAW.drag.items.forEach(it => {
             let item;
@@ -2232,7 +2252,22 @@ sels.forEach(c => {
     }
 
     function onDocMouseUp() {
-      if (DAW.drag) { DAW.drag = null; saveState(); if (DAW.isPlaying) scheduleAllFromPlayhead(); renderAll(); }
+      if (DAW.drag) {
+        // If we were dragging over a different track lane, move clips to that track
+        if (DAW.drag.type === 'move' && dragOverLaneTrackId) {
+          DAW.drag.items.forEach(it => {
+            const clip = getClip(it.id);
+            if (clip && !it._isSection) {
+              clip.trackId = dragOverLaneTrackId;
+            }
+          });
+        }
+        dragOverLaneTrackId = null;
+        DAW.drag = null;
+        saveState();
+        if (DAW.isPlaying) scheduleAllFromPlayhead();
+        renderAll();
+      }
       if (DAW.marquee) { DAW.marquee = null; $('marquee').style.display = 'none'; renderClips(); }
       document.removeEventListener('mousemove', onDocMouseMove); document.removeEventListener('mouseup', onDocMouseUp);
     }
@@ -4853,7 +4888,9 @@ let syncTapKeyHandler = null;
           // بررسی songId برای هر آیتم
           for (let i = 0; i < data.items.length; i++) {
             const item = data.items[i];
-            if (!item || !item.songId) {
+            // آیتم می‌تونه هم رشته/عدد (songId مستقیم) باشه هم آبجکت با خاصیت songId
+            const songId = (item && typeof item === 'object') ? item.songId : item;
+            if (!songId) {
               toast(`❌ آیتم شماره ${i + 1} فاقد songId معتبر است.`);
               return;
             }
@@ -4881,7 +4918,7 @@ let syncTapKeyHandler = null;
           const newArr = {
             id: 'playlist_' + Date.now(),
             name: baseName,
-            items: Array.isArray(data.items) ? data.items.map(it => it.songId || it) : [],
+            items: Array.isArray(data.items) ? data.items.map(it => (it && typeof it === 'object') ? it.songId : it) : [],
             crossfade: data.crossfade || 0,
             pauseBetween: !!data.pauseBetween,
             _itemSettings: data._itemSettings || {},
@@ -8414,7 +8451,25 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
         // Clear all selections before import
         clearSelection();
         ensureAudioCtx();
+        
+        // Detect which track lane the file was dropped on
+        const droppedLane = e.target.closest('.track-lane');
+        let targetTrackId = null;
+        if (droppedLane) {
+          const laneTrackId = droppedLane.dataset.trackId;
+          const targetTrack = DAW.tracks.find(t => t.id === laneTrackId);
+          // Only accept drop on audio tracks (not section or chord)
+          if (targetTrack && targetTrack.type === 'audio') {
+            targetTrackId = laneTrackId;
+          }
+        }
+        
         let audioTracks = DAW.tracks.filter(t => t.type === 'audio');
+        
+        // If dropped on a specific audio track, use only that track
+        if (targetTrackId) {
+          audioTracks = [DAW.tracks.find(t => t.id === targetTrackId)];
+        }
 
         // اگه ترک صوتی کمتر از تعداد فایلهاست، خودکار ترک جدید بساز
         while (audioTracks.length < files.length) {
@@ -13834,7 +13889,7 @@ if (
           name: arr.name || 'پلی‌لیست',
           createdAt: arr.createdAt || new Date().toISOString(),
           updatedAt: arr.updatedAt || new Date().toISOString(),
-          items: arr.items,
+          items: Array.isArray(arr.items) ? arr.items.map(it => (typeof it === 'string' ? it : it.songId)) : [],
           crossfade: arr.crossfade || 0,
           pauseBetween: !!arr.pauseBetween,
           _itemSettings: arr._itemSettings || {}
