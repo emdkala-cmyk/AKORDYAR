@@ -909,6 +909,17 @@ function applyState(stateStr) {
     });
 
     DAW.selectedIds.clear();
+    
+    // Rebuild waveforms for audio clips after undo/redo
+    DAW.clips.forEach(clip => {
+      if (clip.type === 'audio' && clip.bufferKey && DAW.bufferCache.has(clip.bufferKey)) {
+        const buffer = DAW.bufferCache.get(clip.bufferKey);
+        clip.sourceDuration = buffer.duration;
+        clip._peaks = peaksFromBuffer(buffer, 2000);
+        refreshClipWaveImage(clip);
+      }
+    });
+    
     PERF.tracksVersion++;
     PERF.clipsVersion++;
     renderAll();
@@ -1572,6 +1583,27 @@ function undo() {
         if (clip.type !== 'chord') {
           el.style.background = `linear-gradient(180deg, ${clip.color}bb, ${clip.color}88)`;
           el.innerHTML = `<img class="clip-wave" alt="" draggable="false" ${clip.waveUrl ? `src="${clip.waveUrl}"` : ''}><div class="clip-title">${clip.name}</div><div class="resize-handle left" data-edge="left"></div><div class="resize-handle right" data-edge="right"></div>`;
+          // Mouseover event to show file path in storageInfoBar
+          el.addEventListener('mouseenter', (e) => {
+            const filePath = getClipFilePath(clip);
+            if (filePath) {
+              const storageBar = document.getElementById('storageInfoBar');
+              const storageText = document.getElementById('storageText');
+              if (storageBar && storageText) {
+                storageBar.style.display = 'block';
+                storageText.textContent = filePath;
+                storageText.title = filePath;
+              }
+            }
+          });
+          el.addEventListener('mouseleave', () => {
+            const storageBar = document.getElementById('storageInfoBar');
+            const storageText = document.getElementById('storageText');
+            if (storageBar && storageText) {
+              storageBar.style.display = 'none';
+              storageText.textContent = '';
+            }
+          });
         } else {
           const chordColor = clip.color || '#9F7AEA';
           el.style.background = `linear-gradient(180deg, ${chordColor}cc, ${chordColor}77)`;
@@ -12708,8 +12740,9 @@ if ($('edDoBoth')) {
       $('chordModalTitle').textContent = t('editSongChord');
       $('chordModalConfirmBtn').textContent = t('confirmBtn');
       // Update preview and manual input
-      $('chord-preview').textContent = edCur.chords[idx]?.name || 'None';
-      $('chordManual').value = edCur.chords[idx]?.name || '';
+      const currentChordName = (idx !== null && edCur.chords[idx]) ? edCur.chords[idx].name : '';
+      $('chord-preview').textContent = currentChordName || 'None';
+      $('chordManual').value = currentChordName;
       $('chord-modal').classList.add('show');
       buildChordEditor();
       // اضافه کردن هندلر کیبورد برای دکمه ESC
@@ -13915,3 +13948,41 @@ if (
       };
       input.click();
     }
+
+/**
+ * دریافت مسیر فایل صوتی برای یک کلیپ (بدون لود کردن)
+ */
+function getClipFilePath(clip, projectFilePath = null) {
+  let filePath = null;
+  
+  // بررسی حالت‌های مختلف ذخیره‌سازی
+  if (clip.storage && clip.storage.mode === 'copy') {
+    const projRoot = projectFilePath ? pathDirname(projectFilePath) : DAW.projectRoot;
+    if (!projRoot || !clip.storage.projectPath) {
+      return null;
+    }
+    filePath = (window.electronAPI?.resolvePath)
+               ? window.electronAPI.resolvePath(projRoot, clip.storage.projectPath)
+               : pathJoin(projRoot, clip.storage.projectPath);
+  } else if (clip.storage && clip.storage.mode === 'reference') {
+    filePath = clip.storage.externalPath;
+  } else if (clip.relativePath) {
+    const projRoot = projectFilePath ? pathDirname(projectFilePath) : DAW.projectRoot;
+    if (projRoot) {
+      filePath = (window.electronAPI?.resolvePath)
+                 ? window.electronAPI.resolvePath(projRoot, clip.relativePath)
+                 : pathJoin(projRoot, clip.relativePath);
+    }
+  } else if (clip._filePath) {
+    filePath = clip._filePath;
+  } else if (clip.filePath) {
+    filePath = clip.filePath;
+  }
+  
+  return filePath;
+}
+
+// اطمینان از اینکه تابع getClipFilePath در global scope قابل دسترسی هست
+if (typeof window !== 'undefined') {
+  window.getClipFilePath = getClipFilePath;
+}
