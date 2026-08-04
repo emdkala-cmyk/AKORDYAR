@@ -6066,8 +6066,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const clip = getClip(DAW.editingChordClipId);
         if (clip) { clip.name = name; DAW.editingChordClipId = null; saveState(); renderAll(); closeChordEditor(); toast(`${t('chordEditedTo')} ${name}`); return; }
       }
+      // Check if we're placing from Alt+Click on chord track (use mouse position)
+      let targetTime = DAW.playhead;
+      if (window._tempChordTrackAnchor && window._tempChordTrack) {
+        targetTime = window._tempChordTrackAnchor.time;
+        // Clean up temp variables to prevent interference with future clicks
+        delete window._tempChordTrackAnchor;
+        delete window._tempChordTrack;
+      }
       const chordTrack = DAW.tracks.find(t => t.type === 'chord'); if (!chordTrack) return;
-      const clip = { id: uid('c'), type: 'chord', trackId: chordTrack.id, name, start: roundMs(DAW.playhead), duration: 4, color: '#9F7AEA' };
+      const clip = { id: uid('c'), type: 'chord', trackId: chordTrack.id, name, start: roundMs(targetTime), duration: 4, color: '#9F7AEA' };
       DAW.clips.push(clip); DAW.selectedIds = new Set([clip.id]); saveState(); ensureTimelineFits(clip.start + clip.duration + 5);
       renderAll(); closeChordEditor(); toast(`${t('chordPlaced')} ${name}`);
       edSaveSong();
