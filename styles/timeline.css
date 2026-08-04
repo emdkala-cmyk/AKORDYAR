@@ -84,8 +84,12 @@
 .section-tag .resize-handle { position: absolute; top: 0; width: 7px; height: 100%; cursor: ew-resize; z-index: 32; }
 .section-tag .resize-handle.left { left: 0; }
 .section-tag .resize-handle.right { right: 0; }
-@keyframes lock-blink { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+@keyframes lock-blink {
+  0%, 100% { opacity: 1; color: #FF8A8A; background: #7F1D1D; border-color: #EF4444; box-shadow: 0 0 8px rgba(239,68,68,0.55); }
+  50% { opacity: 0.35; color: #FF5A5A; background: #B91C1C; border-color: #F87171; box-shadow: 0 0 14px rgba(239,68,68,0.8); }
+}
 .editor-lock-blink { animation: lock-blink 1s ease-in-out infinite; }
+#edEditorLockBtn.editor-lock-blink:hover { color: #FF8A8A; background: #7F1D1D; border-color: #EF4444; }
 .track-name.muted-track .t-label { text-decoration: line-through; color: var(--accent-neon-pink); opacity: 0.8; }
 .track-name.solo-dim-track .t-label { opacity: 0.45; }
 
