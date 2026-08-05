@@ -50,7 +50,6 @@
       icon: '🎤',
       tags: ['وکال', 'مترونوم'],
       config: {
-        title: 'تمرین خوانندگی',
         tempo: 90,
         key: 'C',
         keyMode: 'maj',
@@ -70,7 +69,6 @@
       tags: ['آکوستیک', 'گیتار'],
       tagClass: 'yellow',
       config: {
-        title: 'تنظیم آکوستیک',
         tempo: 80,
         key: 'G',
         keyMode: 'maj',
@@ -92,7 +90,6 @@
       tags: ['کامل', '۸ ترک'],
       tagClass: 'purple',
       config: {
-        title: 'پروژه کامل DAW',
         tempo: 120,
         key: 'Am',
         keyMode: 'min',
@@ -118,7 +115,6 @@
       tags: ['ضبط', 'سریع'],
       tagClass: 'pink',
       config: {
-        title: 'ضبط سریع',
         tempo: 100,
         key: 'D',
         keyMode: 'maj',
@@ -138,7 +134,6 @@
       tags: ['بکینگ', 'ساز'],
       tagClass: 'yellow',
       config: {
-        title: 'بکینگ ترک',
         tempo: 110,
         key: 'E',
         keyMode: 'min',
@@ -160,7 +155,6 @@
       tags: ['پادکست', 'وکال'],
       tagClass: 'purple',
       config: {
-        title: 'پادکست',
         tempo: 100,
         key: 'C',
         keyMode: 'maj',
@@ -236,20 +230,30 @@
   }
 
   /* ---------- Actions (یکپارچه با توابع واقعی) ---------- */
-  function openProject(id) {
+  async function openProject(id) {
+    // ریست undoStack تا پیام ذخیره نمایش داده نشود
+    if (typeof undoStack !== 'undefined') {
+      undoStack = [];
+      undoIndex = -1;
+    }
     if (typeof archLoadSong === 'function') {
-      archLoadSong(id);
+      await archLoadSong(id);
     } else if (typeof edLoadFromArchive === 'function') {
-      edLoadFromArchive(id);
+      await edLoadFromArchive(id);
     } else {
       console.warn('[ProjectHub] No archive loader available');
     }
     closeHub();
   }
 
-  function newProject() {
+  async function newProject() {
+    // ریست undoStack تا پیام ذخیره نمایش داده نشود
+    if (typeof undoStack !== 'undefined') {
+      undoStack = [];
+      undoIndex = -1;
+    }
     if (typeof edNewSong === 'function') {
-      edNewSong();
+      await edNewSong();
     } else {
       console.warn('[ProjectHub] edNewSong not available');
     }
@@ -263,23 +267,31 @@
       return;
     }
 
-    // ۱) ریست کامل پروژه
+    // ۱) ریست undoStack تا پیام ذخیره نمایش داده نشود
+    if (typeof undoStack !== 'undefined') {
+      undoStack = [];
+      undoIndex = -1;
+    }
+
+    // ۲) ریست کامل پروژه
     if (typeof edNewSong === 'function') {
       await edNewSong();
     }
 
-    // ۲) اعمال تنظیمات قالب روی edCur
+    // ۳) اعمال تنظیمات قالب روی edCur
+    // توجه: عنوان ترانه ست نمیشود — قالب فقط ساختار DAW را تنظیم میکند
     const cfg = template.config;
     try {
       if (edCur) {
-        if (cfg.title) edCur.title = cfg.title;
         if (cfg.tempo) edCur.tempo = cfg.tempo;
         if (cfg.key) edCur.key = cfg.key;
         if (cfg.keyMode) edCur.keyMode = cfg.keyMode;
         if (cfg.genre) edCur.genre = cfg.genre;
+        // اطمینان از باز بودن ویرایشگر
+        edCur.editorLocked = false;
       }
 
-      // ۳) تنظیم ترک‌های DAW بر اساس قالب
+      // ۴) تنظیم ترک‌های DAW بر اساس قالب
       if (cfg.tracks && Array.isArray(cfg.tracks) && typeof DAW !== 'undefined') {
         DAW.tracks = JSON.parse(JSON.stringify(cfg.tracks));
         if (typeof ensureAudioCtx === 'function') ensureAudioCtx();
@@ -293,10 +305,10 @@
         });
       }
 
-      // ۴) تنظیم طول تایم‌لاین
+      // ۵) تنظیم طول تایم‌لاین
       if (cfg.timelineDuration) DAW.timelineDuration = cfg.timelineDuration;
 
-      // ۵) به‌روزرسانی UI
+      // ۶) به‌روزرسانی UI
       if (typeof edSyncToolbar === 'function') edSyncToolbar();
       if (typeof edRenderEditor === 'function') edRenderEditor(true);
       if (typeof renderAll === 'function') renderAll();
@@ -308,6 +320,13 @@
     }
 
     closeHub();
+
+    // ۷) اطمینان از فعال بودن ویرایشگر (بعد از بستن Hub)
+    const editor = document.getElementById('editor');
+    if (editor) {
+      editor.contentEditable = 'true';
+      editor.focus();
+    }
   }
 
   function openArchive() {
@@ -403,8 +422,9 @@
       return;
     }
 
+    // کلیک روی آیتم پروژه = باز کردن مستقیم
     selectedProjectId = id;
-    renderProjects();
+    openProject(id);
   }
 
   function handleTemplateClick(e) {
