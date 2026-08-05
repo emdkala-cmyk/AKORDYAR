@@ -1,4 +1,4 @@
- <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
   <meta charset="UTF-8" />
@@ -465,7 +465,7 @@
         <button onclick="closeImportChordModal()">✕</button>
       </div>
       <div class="import-panel-body">
-        <label>لینک وبسایت (اختیاری - لامینور، گیتارיסט و...)</label>
+        <label>لینک وبسایت (اختیاری - لامینور، گیتاروست و...)</label>
         <input type="text" id="importUrl" placeholder="https://laminor.org/artists/...">
         <div style="text-align:center;margin-bottom:14px;"><button class="btn-primary" style="padding:8px 20px;border-radius:8px;border:none;background:var(--accent-teal);color:#000;font-weight:700;cursor:pointer;" onclick="fetchFromUrl()">📥 دریافت از لینک</button></div>
         <label>یا متن آکورد و شعر را اینجا بچسبانید:</label>
@@ -1007,12 +1007,13 @@
       <!-- Main Content (راست در RTL) -->
       <main class="hub-main">
         <div class="hub-body">
-          <!-- ستون راست: بکینگ ترک‌ها -->
-          <aside class="hub-backing">
+          <!-- ستون راست: ارنجر ترک‌ها -->
+          <aside class="hub-arranger">
             <div class="section-header">
-              <h2>بکینگ ترک‌ها</h2>
+              <h2>ارنجر ترک‌ها</h2>
+              <button class="btn-ghost" id="hubBtnNewArranger" title="ساخت پلی‌لیست جدید">➕ جدید</button>
             </div>
-            <div class="backing-list" id="hubBackingList"></div>
+            <div class="arranger-list" id="hubArrangerList"></div>
           </aside>
 
           <!-- ستون اصلی -->

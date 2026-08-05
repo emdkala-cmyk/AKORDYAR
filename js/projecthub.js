@@ -172,52 +172,67 @@
     }
   ];
 
-  /* ---------- Data: Backing Tracks (بکینگ ترک‌ها از آرشیو) ---------- */
-  function getBackingTracks() {
+  /* ---------- Data: Arranger Playlists (ارنجر ترک‌ها از localStorage) ---------- */
+  function getArrangerPlaylists() {
     try {
-      const songs = (typeof edGetAllSongs === 'function') ? edGetAllSongs() : [];
-      // بکینگ ترک‌ها = ترانه‌هایی که در آرشیو هستند
-      return songs.map((s) => ({
-        id: s.id,
-        name: s.title || s.name || 'بدون نام',
-        artist: s.artist || 'نامشخص',
-        key: s.key || '—',
-        tempo: s.tempo || '—',
-        icon: '🎼'
-      }));
+      // Attempt to access the global arranger data from app.js
+      if (typeof window.arrangers !== 'undefined' && Array.isArray(window.arrangers)) {
+        return window.arrangers.map((arr) => ({
+          id: arr.id,
+          name: arr.name || 'بدون نام',
+          songCount: (arr.items || []).length,
+          crossfade: arr.crossfade || 0,
+          pauseBetween: !!arr.pauseBetween,
+          icon: '🎼'
+        }));
+      }
+      // Fallback: try to read from localStorage directly
+      try {
+        const stored = JSON.parse(localStorage.getItem('arrangers_v1') || '[]');
+        return stored.map((arr) => ({
+          id: arr.id,
+          name: arr.name || 'بدون نام',
+          songCount: (arr.items || []).length,
+          crossfade: arr.crossfade || 0,
+          pauseBetween: !!arr.pauseBetween,
+          icon: '🎼'
+        }));
+      } catch (e) {
+        return [];
+      }
     } catch (e) {
-      console.warn('[ProjectHub] Error loading backing tracks:', e);
+      console.warn('[ProjectHub] Error loading arranger playlists:', e);
       return [];
     }
   }
 
-  function renderBackingTracks() {
-    const list = $('hubBackingList');
+  function renderArrangerPlaylists() {
+    const list = $('hubArrangerList');
     if (!list) return;
 
-    const tracks = getBackingTracks();
+    const playlists = getArrangerPlaylists();
 
-    if (tracks.length === 0) {
+    if (playlists.length === 0) {
       list.innerHTML = `
-        <div class="backing-empty">
+        <div class="arranger-empty">
           <div style="font-size:1.5rem;margin-bottom:6px;">🎼</div>
-          <span>بکینگ ترکی در آرشیو نیست</span>
-          <span style="font-size:0.65rem;display:block;margin-top:4px;">ترانه‌ها را در آرشیو ذخیره کنید</span>
+          <span>ارنجر ترکی وجود ندارد</span>
+          <span style="font-size:0.65rem;display:block;margin-top:4px;">از «ارسال به ارنجر» یا «➕ جدید» استفاده کنید</span>
         </div>`;
       return;
     }
 
-    list.innerHTML = tracks.map((t) => `
-      <div class="backing-item" data-id="${escH(t.id)}">
-        <div class="backing-ic">${t.icon}</div>
-        <div class="backing-info">
-          <div class="backing-name">${escH(t.name)}</div>
-          <div class="backing-meta">
-            <span>🎵 ${escH(t.artist)}</span>
-            <span>🎼 <span class="meta-key">${escH(t.key)}</span></span>
-            <span>⏱ <span class="meta-key">${escH(t.tempo)}</span> BPM</span>
+    list.innerHTML = playlists.map((p) => `
+      <div class="arranger-item" data-id="${escH(p.id)}">
+        <div class="arranger-ic">${p.icon}</div>
+        <div class="arranger-info">
+          <div class="arranger-name">${escH(p.name)}</div>
+          <div class="arranger-meta">
+            <span>🎵 ${p.songCount} آهنگ</span>
+            ${p.crossfade > 0 ? `<span>🔄 کراس‌فید: ${p.crossfade}s</span>` : ''}
           </div>
         </div>
+        <button class="icon-btn" title="باز کردن در ارنجر" data-action="open">📂</button>
       </div>
     `).join('');
   }
@@ -416,13 +431,35 @@
     }
   }
 
+  /* ---------- Arranger Actions ---------- */
+  function openArrangerFromPlaylist(id) {
+    // Try to open the arranger modal and select the specific playlist
+    if (typeof window.openArrangerModal === 'function') {
+      window.openArrangerModal();
+    } else {
+      // Fallback: try to open via the global onclick handler
+      const modal = document.getElementById('arrangerModal');
+      if (modal) modal.classList.add('show');
+    }
+  }
+
+  function createNewArranger() {
+    if (typeof window.createNewArranger === 'function') {
+      window.createNewArranger();
+    } else {
+      // Fallback: try the global function
+      const modal = document.getElementById('arrangerModal');
+      if (modal) modal.classList.add('show');
+    }
+  }
+
   /* ---------- Hub Open/Close ---------- */
   function openHub() {
     const hub = $('projectHub');
     if (!hub) return;
     renderProjects();
     renderTemplates();
-    renderBackingTracks();
+    renderArrangerPlaylists();
     hub.classList.add('show');
   }
 
@@ -488,12 +525,16 @@
     createProjectFromTemplate(template);
   }
 
-  function handleBackingClick(e) {
-    const item = e.target.closest('.backing-item');
+  function handleArrangerClick(e) {
+    const item = e.target.closest('.arranger-item');
     if (!item) return;
-    const id = item.dataset.id;
-    // باز کردن بکینگ ترک به عنوان پروژه
-    openProject(id);
+    const actionBtn = e.target.closest('[data-action]');
+    if (actionBtn && actionBtn.dataset.action === 'open') {
+      openArrangerFromPlaylist(item.dataset.id);
+      return;
+    }
+    // کلیک روی آیتم = باز کردن ارنجر
+    openArrangerFromPlaylist(item.dataset.id);
   }
 
   /* ---------- Init ---------- */
@@ -522,9 +563,13 @@
     const grid = $('hubTemplatesGrid');
     if (grid) grid.addEventListener('click', handleTemplateClick);
 
-    // Backing tracks list (event delegation)
-    const backingList = $('hubBackingList');
-    if (backingList) backingList.addEventListener('click', handleBackingClick);
+    // Arranger playlists list (event delegation)
+    const arrangerList = $('hubArrangerList');
+    if (arrangerList) arrangerList.addEventListener('click', handleArrangerClick);
+
+    // New arranger button
+    const btnNewArr = $('hubBtnNewArranger');
+    if (btnNewArr) btnNewArr.addEventListener('click', createNewArranger);
 
     // Bottom bar
     const btnNew = $('hubBtnNewProject');
@@ -577,7 +622,7 @@
     init,
     renderProjects,
     renderTemplates,
-    renderBackingTracks,
+    renderArrangerPlaylists,
     createFromTemplate: createProjectFromTemplate
   };
 

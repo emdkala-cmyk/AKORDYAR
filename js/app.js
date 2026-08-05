@@ -4923,6 +4923,7 @@ let syncTapKeyHandler = null;
 
     /* ===== ARRANGER ===== */
     let arrangers = JSON.parse(localStorage.getItem('arrangers_v1') || '[]');
+    window.arrangers = arrangers; // exposed for ProjectHub
     let editingArr = null;
 
     // ===== Normalize playlist name for comparison (case-insensitive, whitespace-insensitive) =====
