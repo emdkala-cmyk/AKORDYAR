@@ -1,4 +1,6 @@
 /* ============================================================
+
+
    آکوردیار — Project Hub Overlay Logic
    یکپارچه با توابع واقعی پروژه (app.js)
    شامل: قالب‌های واقعی، صفحه شروع، بهبود طراحی
@@ -169,6 +171,56 @@
       }
     }
   ];
+
+  /* ---------- Data: Backing Tracks (بکینگ ترک‌ها از آرشیو) ---------- */
+  function getBackingTracks() {
+    try {
+      const songs = (typeof edGetAllSongs === 'function') ? edGetAllSongs() : [];
+      // بکینگ ترک‌ها = ترانه‌هایی که در آرشیو هستند
+      return songs.map((s) => ({
+        id: s.id,
+        name: s.title || s.name || 'بدون نام',
+        artist: s.artist || 'نامشخص',
+        key: s.key || '—',
+        tempo: s.tempo || '—',
+        icon: '🎼'
+      }));
+    } catch (e) {
+      console.warn('[ProjectHub] Error loading backing tracks:', e);
+      return [];
+    }
+  }
+
+  function renderBackingTracks() {
+    const list = $('hubBackingList');
+    if (!list) return;
+
+    const tracks = getBackingTracks();
+
+    if (tracks.length === 0) {
+      list.innerHTML = `
+        <div class="backing-empty">
+          <div style="font-size:1.5rem;margin-bottom:6px;">🎼</div>
+          <span>بکینگ ترکی در آرشیو نیست</span>
+          <span style="font-size:0.65rem;display:block;margin-top:4px;">ترانه‌ها را در آرشیو ذخیره کنید</span>
+        </div>`;
+      return;
+    }
+
+    list.innerHTML = tracks.map((t) => `
+      <div class="backing-item" data-id="${escH(t.id)}">
+        <div class="backing-ic">${t.icon}</div>
+        <div class="backing-info">
+          <div class="backing-name">${escH(t.name)}</div>
+          <div class="backing-meta">
+            <span>🎵 ${escH(t.artist)}</span>
+            <span>🎼 <span class="meta-key">${escH(t.key)}</span></span>
+            <span>⏱ <span class="meta-key">${escH(t.tempo)}</span> BPM</span>
+          </div>
+        </div>
+      </div>
+    `).join('');
+  }
 
   /* ---------- Render ---------- */
   function renderProjects() {
@@ -370,6 +422,7 @@
     if (!hub) return;
     renderProjects();
     renderTemplates();
+    renderBackingTracks();
     hub.classList.add('show');
   }
 
@@ -435,6 +488,14 @@
     createProjectFromTemplate(template);
   }
 
+  function handleBackingClick(e) {
+    const item = e.target.closest('.backing-item');
+    if (!item) return;
+    const id = item.dataset.id;
+    // باز کردن بکینگ ترک به عنوان پروژه
+    openProject(id);
+  }
+
   /* ---------- Init ---------- */
   function init() {
     const hub = $('projectHub');
@@ -460,6 +521,10 @@
     // Templates grid (event delegation)
     const grid = $('hubTemplatesGrid');
     if (grid) grid.addEventListener('click', handleTemplateClick);
+
+    // Backing tracks list (event delegation)
+    const backingList = $('hubBackingList');
+    if (backingList) backingList.addEventListener('click', handleBackingClick);
 
     // Bottom bar
     const btnNew = $('hubBtnNewProject');
@@ -512,6 +577,7 @@
     init,
     renderProjects,
     renderTemplates,
+    renderBackingTracks,
     createFromTemplate: createProjectFromTemplate
   };
 

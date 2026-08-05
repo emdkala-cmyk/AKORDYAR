@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+ <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
   <meta charset="UTF-8" />
@@ -1006,21 +1006,34 @@
 
       <!-- Main Content (راست در RTL) -->
       <main class="hub-main">
-        <section class="hub-section" id="hubRecentSection">
-          <div class="section-header">
-            <h2>پروژه‌های اخیر</h2>
-            <button class="btn-ghost" id="hubBtnRefresh">🔄 تازه‌سازی</button>
-          </div>
-          <div class="project-list" id="hubProjectList"></div>
-        </section>
+        <div class="hub-body">
+          <!-- ستون راست: بکینگ ترک‌ها -->
+          <aside class="hub-backing">
+            <div class="section-header">
+              <h2>بکینگ ترک‌ها</h2>
+            </div>
+            <div class="backing-list" id="hubBackingList"></div>
+          </aside>
 
-        <section class="hub-section" id="hubTemplatesSection">
-          <div class="section-header">
-            <h2>قالب‌های آماده</h2>
-            <button class="btn-ghost" id="hubBtnBrowseTemplates">مشاهده همه</button>
+          <!-- ستون اصلی -->
+          <div class="hub-content">
+            <section class="hub-section" id="hubRecentSection">
+              <div class="section-header">
+                <h2>پروژه‌های اخیر</h2>
+                <button class="btn-ghost" id="hubBtnRefresh">🔄 تازه‌سازی</button>
+              </div>
+              <div class="project-list" id="hubProjectList"></div>
+            </section>
+
+            <section class="hub-section" id="hubTemplatesSection">
+              <div class="section-header">
+                <h2>قالب‌های آماده</h2>
+                <button class="btn-ghost" id="hubBtnBrowseTemplates">مشاهده همه</button>
+              </div>
+              <div class="templates-grid" id="hubTemplatesGrid"></div>
+            </section>
           </div>
-          <div class="templates-grid" id="hubTemplatesGrid"></div>
-        </section>
+        </div>
       </main>
 
       <!-- Bottom Bar -->

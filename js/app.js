@@ -8648,6 +8648,11 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
       else if (matchShortcut(e, 'loopB')) { e.preventDefault(); setLoopB(); }
       else if (e.code === 'KeyV' && !e.ctrlKey && !e.metaKey && !e.altKey && !isInput && !isContentEditable) { e.preventDefault(); togglePlayheadMode(); }
       else if (e.code === 'KeyR' && !e.ctrlKey && !e.metaKey && !e.altKey && !isInput && !isContentEditable) { e.preventDefault(); toggleRec(); }
+      // Q: کوانتایز آکوردهای انتخاب‌شده در کورد لاین
+      else if (e.code === 'KeyQ' && !e.ctrlKey && !e.metaKey && !e.altKey && !isInput && !isContentEditable) {
+        e.preventDefault();
+        quantizeSelectedChords();
+      }
       else if (e.key === 'Escape') {
         if (_focusMode) { toggleFocusMode(); return; }
         if (syncActive) { exitSyncMode(); const tab = $('tab-sync'); if (tab) tab.classList.remove('active-teal'); return; }

@@ -90,6 +90,10 @@ const PlayerViewRenderer = (() => {
       container.style.transformOrigin = 'center top';
     }
 
+    // ═══ خطوط کوانتایز (Grid Lines) ═══
+    // خطوط عمودی که موقعیت ضرب‌ها و میزان‌ها را نشان می‌دهند
+    _renderQuantizeGrid(container, vs);
+
     // Render lines (بدون هایلایت اولیه — فقط ساختار)
     (doc.lines || []).forEach(line => {
       const lineEl = document.createElement('div');
@@ -162,6 +166,50 @@ const PlayerViewRenderer = (() => {
 
     // اعمال هایلایت اولیه
     _applyHighlight(highlight, viewState, container);
+  }
+
+  /* ═══════════════════════════════════════════════
+     خطوط کوانتایز (Grid Lines)
+     — خطوط عمودی برای نمایش ضرب‌ها و میزان‌ها
+     ═══════════════════════════════════════════════ */
+  function _renderQuantizeGrid(container, vs) {
+    // حذف grid قبلی
+    const oldGrid = container.querySelector('.pv-quantize-grid');
+    if (oldGrid) oldGrid.remove();
+
+    const showGrid = vs.showQuantizeGrid !== false;
+    if (!showGrid) return;
+
+    const bpm = vs.tempo || 120;
+    const timeSig = vs.timeSignature || '4/4';
+    const beatsPerBar = parseInt(timeSig.split('/')[0]) || 4;
+    const beatDur = 60 / bpm;
+    const barDur = beatDur * beatsPerBar;
+
+    // Grid container
+    const grid = document.createElement('div');
+    grid.className = 'pv-quantize-grid';
+    grid.style.cssText = 'position:absolute;top:0;bottom:0;left:0;right:0;pointer-events:none;z-index:1;';
+
+    // خطوط میزان (Bar lines) — پررنگ‌تر
+    for (let t = 0; t <= 300; t += barDur) {
+      const line = document.createElement('div');
+      line.style.cssText = 'position:absolute;top:0;bottom:0;width:1px;background:rgba(63,184,175,0.15);';
+      line.style.left = (t / 300 * 100) + '%';
+      grid.appendChild(line);
+    }
+
+    // خطوط ضرب (Beat lines) — کمرنگ‌تر
+    for (let t = 0; t <= 300; t += beatDur) {
+      const isBar = Math.abs(t % barDur) < 0.001;
+      if (isBar) continue;
+      const line = document.createElement('div');
+      line.style.cssText = 'position:absolute;top:0;bottom:0;width:1px;background:rgba(255,255,255,0.05);';
+      line.style.left = (t / 300 * 100) + '%';
+      grid.appendChild(line);
+    }
+
+    container.appendChild(grid);
   }
 
   /* ═══════════════════════════════════════════════
