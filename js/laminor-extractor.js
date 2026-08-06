@@ -796,10 +796,6 @@ function convertExtractedLinesToEdCur(lines) {
   for (const line of lines) {
     lyricLines.push(line.text);
 
-    // V7.1: تشخیص خطوط تک‌آکوردی — جایگاه آکورد برعکس می‌شود
-    const validChords = line.chords.filter(ch => ch.charIndex != null);
-    const isSingleChordLine = validChords.length === 1;
-
     for (const chord of line.chords) {
       if (chord.charIndex == null) {
         result.warnings.push({
@@ -824,28 +820,11 @@ function convertExtractedLinesToEdCur(lines) {
         }
       }
 
-      // V7.1: رفع تشخیص برعکس جایگاه آکورد در خطوط تک‌آکوردی
-      // اگر خط فقط یک آکورد دارد، جایگاه آن برعکس می‌شود:
-      //   - آکورد سمت راست (end) → سمت چپ (start)
-      //   - آکورد سمت چپ (start) → سمت راست (end)
-      let finalCharIndex = chord.charIndex;
-      let finalAnchorType = anchorType;
-
-      if (isSingleChordLine) {
-        if (anchorType === 'end' || finalCharIndex >= line.text.length) {
-          finalAnchorType = 'start';
-          finalCharIndex = 0;
-        } else if (anchorType === 'start' || finalCharIndex === 0) {
-          finalAnchorType = 'end';
-          finalCharIndex = line.text.length;
-        }
-      }
-
       result.chords.push({
         name: chord.symbol,
         lineIndex: lineIndex,
-        charIndex: finalCharIndex,
-        anchorType: finalAnchorType,
+        charIndex: chord.charIndex,
+        anchorType: anchorType,
         logicalSlot: chord.logicalSlot != null ? chord.logicalSlot : 0,
         confidence: chord.confidence || 'high'
       });
