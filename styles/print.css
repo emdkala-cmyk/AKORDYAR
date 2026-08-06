@@ -1,20 +1,90 @@
 /**
  * print.css — Print styles
+ * فقط محتوای چاپ (#printContainer) در حالت چاپ نمایش داده می‌شود
  */
 
 @media print {
-  body { background: #fff !important; color: #000 !important; }
-  .sidebar, .topbar, .inspector, .player-controls, .timeline, #archiveModal, .chord-modal-overlay,
-  .import-modal, .shortcut-modal, .modal-overlay, #syncSection { display: none !important; }
-  .app-container { display: block !important; height: auto !important; }
-  .workspace { display: block !important; padding: 0 !important; background: #fff !important; }
-  #lyricEditorPanel { max-width: 100% !important; overflow: visible !important; display: flex !important; }
-  #editorWrap { border: none !important; background: #fff !important; overflow: visible !important; max-height: none !important; position: relative !important; }
-  #editor { color: #000 !important; font-size: 18px !important; padding: 20px 40px !important; background: #fff !important; position: relative !important; }
-  #editor .eline { color: #000 !important; position: relative !important; }
-  #editorPrintHeader { padding: 20px 0 10px !important; }
-  #editorPrintHeader .eph-title { font-size: 28px !important; color: #000 !important; }
-  #editorPrintHeader .eph-sub { font-size: 14px !important; color: #555 !important; }
-  #chordLayer { position: absolute !important; display: block !important; pointer-events: none !important; z-index: 10 !important; }
-  .chord { color: #004cff !important; background: transparent !important; font-weight: bold !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  /* مخفی کردن همه چیز به جز محتوای چاپ */
+  body > *:not(#printContainer) {
+    display: none !important;
+  }
+
+  body {
+    background: #fff !important;
+    color: #000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* کانتینر چاپ */
+  #printContainer {
+    display: block !important;
+    position: static !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    background: #fff !important;
+    color: #000 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+  }
+
+  /* هدر چاپ */
+  #printContainer .print-header {
+    text-align: center;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid #333;
+  }
+  #printContainer .print-header .title {
+    font-size: 26px;
+    font-weight: 900;
+    color: #000;
+  }
+  #printContainer .print-header .sub {
+    font-size: 13px;
+    color: #555;
+    margin-top: 4px;
+    font-weight: 400;
+  }
+
+  /* محتوای چاپ */
+  #printContainer #printWrap {
+    position: relative;
+  }
+  #printContainer #lyricContent {
+    line-height: 2.2;
+    white-space: pre-wrap;
+  }
+  #printContainer #chordOverlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+    z-index: 10;
+  }
+  #printContainer .eline {
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  #printContainer .chord-print {
+    position: absolute;
+    font-weight: 700;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  #printContainer .chord-print-anchor {
+    position: absolute;
+    height: 2px;
+    opacity: 0.5;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+
+/* در حالت عادی (غیر چاپ) مخفی است */
+#printContainer {
+  display: none !important;
 }

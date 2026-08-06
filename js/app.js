@@ -14803,260 +14803,235 @@ function printSong() {
   const cSize = st.cSize || 23;
   const GAP = Math.max(10, cSize * 0.6);
 
-  // ساخت iframe مخفی
-  const frame = document.createElement('iframe');
-  frame.setAttribute('aria-hidden', 'true');
-  frame.style.position = 'fixed';
-  frame.style.right = '0';
-  frame.style.bottom = '0';
-  frame.style.width = '0';
-  frame.style.height = '0';
-  frame.style.border = '0';
-  frame.style.visibility = 'hidden';
-  document.body.appendChild(frame);
+  try {
+    // ─── ساخت کانتینر چاپ در سند اصلی ───
+    // این روش در Electron قطعاً کار می‌کند چون محتوا در DOM اصلی رندر می‌شود
+    // و window.print() محتوای رندر شده را چاپ می‌کند
+    let printContainer = document.getElementById('printContainer');
+    if (!printContainer) {
+      printContainer = document.createElement('div');
+      printContainer.id = 'printContainer';
+      document.body.appendChild(printContainer);
+    }
+    printContainer.innerHTML = '';
 
-  const frameDoc = frame.contentDocument || frame.contentWindow.document;
-  frameDoc.open();
-  frameDoc.write('<!DOCTYPE html><html lang="fa" dir="rtl"><head><meta charset="UTF-8"><title>' + (edCur.title || 'ترانه').replace(/</g, '<') + '</title><style>' +
-    '@page { size: A4; margin: 1.2cm; }' +
-    '* { margin: 0; padding: 0; box-sizing: border-box; }' +
-    'html, body { background: #fff !important; color: #000 !important; }' +
-    '@font-face { font-family: "Vazirmatn"; src: url("fonts/Vazirmatn-Regular.woff2") format("woff2"); font-weight: 400; }' +
-    '@font-face { font-family: "Vazirmatn"; src: url("fonts/Vazirmatn-Bold.woff2") format("woff2"); font-weight: 700; }' +
-    '@font-face { font-family: "Vazirmatn"; src: url("fonts/Vazirmatn-Black.woff2") format("woff2"); font-weight: 900; }' +
-    '@font-face { font-family: "JetBrains Mono"; src: url("fonts/JetBrainsMono-Regular.woff2") format("woff2"); font-weight: 400; }' +
-    '@font-face { font-family: "JetBrains Mono"; src: url("fonts/JetBrainsMono-Bold.woff2") format("woff2"); font-weight: 700; }' +
-    '.print-header { text-align: center; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 2px solid #333; }' +
-    '.print-header .title { font-size: 26px; font-weight: 900; color: #000; }' +
-    '.print-header .sub { font-size: 13px; color: #555; margin-top: 4px; font-weight: 400; }' +
-    '#printWrap { position: relative; }' +
-    '#lyricContent { line-height: 2.2; white-space: pre-wrap; }' +
-    '#chordOverlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; z-index: 10; }' +
-    '.eline { white-space: pre-wrap; word-break: break-word; }' +
-    '.chord-print { position: absolute; font-weight: 700; -webkit-print-color-adjust: exact; print-color-adjust: exact; }' +
-    '.chord-print-anchor { position: absolute; height: 2px; opacity: 0.5; -webkit-print-color-adjust: exact; print-color-adjust: exact; }' +
-    '</style></head><body>' +
-    '<div class="print-header"><div class="title" id="printTitle"></div><div class="sub" id="printSub"></div></div>' +
-    '<div id="printWrap"><div id="lyricContent"></div><div id="chordOverlay"></div></div>' +
-    '</body></html>');
-  frameDoc.close();
+    // ─── هدر چاپ ───
+    const header = document.createElement('div');
+    header.className = 'print-header';
+    const titleEl = document.createElement('div');
+    titleEl.className = 'title';
+    const subEl = document.createElement('div');
+    subEl.className = 'sub';
+    header.appendChild(titleEl);
+    header.appendChild(subEl);
+    printContainer.appendChild(header);
 
-  const onReady = () => {
-    try {
-      // داده‌های مورد نیاز
-      const chordData = (edCur.chords || []).map(ch => {
-        let name = ch.name || '';
-        // اعمال ترانسپوز
-        if (name && edCur.transpose && edCur.originalKey) {
-          name = edTransposeChord(name, edCur.transpose);
+    // ─── محتوای چاپ ───
+    const wrap = document.createElement('div');
+    wrap.id = 'printWrap';
+    const content = document.createElement('div');
+    content.id = 'lyricContent';
+    const overlay = document.createElement('div');
+    overlay.id = 'chordOverlay';
+    wrap.appendChild(content);
+    wrap.appendChild(overlay);
+    printContainer.appendChild(wrap);
+
+    // ─── داده‌های آکوردها (با اعمال ترنسپوز) ───
+    const chordData = (edCur.chords || []).map(ch => {
+      let name = ch.name || '';
+      if (name && edCur.transpose && edCur.originalKey) {
+        name = edTransposeChord(name, edCur.transpose);
+      }
+      return {
+        lineIndex: ch.lineIndex,
+        charIndex: ch.charIndex,
+        anchorType: ch.anchorType,
+        name: name,
+        color: ch.color || st.cColor || '#e6aa28'
+      };
+    }).filter(c => c.name && c.name.trim());
+
+    // ─── هدر ───
+    const displayKey = edCur.transpose ? (edTransposeKeyName(edCur.originalKey || edCur.key, edCur.transpose) || edCur.key) : edCur.key;
+    const keyStr = displayKey + (edCur.keyMode === 'min' ? 'm' : '');
+    const subParts = [];
+    if (edCur.artist) subParts.push(edCur.artist);
+    if (edCur.key) subParts.push((currentLang === 'fa' ? 'گام: ' : 'Key: ') + keyStr);
+    if (edCur.transpose) subParts.push((currentLang === 'fa' ? 'ترنسپوز ' : 'Transpose ') + (edCur.transpose > 0 ? '+' : '') + edCur.transpose);
+    titleEl.textContent = edCur.title || t('untitled');
+    subEl.textContent = subParts.join('  •  ');
+
+    // ─── رندر متن ───
+    const tFont = st.tFont || 'Vazirmatn';
+    const tSize = st.tSize || 23;
+    const tColor = st.tColor || '#0fa966';
+    const tBold = st.tBold ? 'bold' : 'normal';
+    const align = st.align || 'center';
+    const lineColors = edCur.lineColors || [];
+
+    const lines = (edCur.lyrics || '').split('\n');
+    lines.forEach(function(ln, li) {
+      const d = document.createElement('div');
+      d.className = 'eline';
+      d.setAttribute('data-line', String(li));
+      d.style.unicodeBidi = 'plaintext';
+      d.style.fontSize = tSize + 'px';
+      d.style.color = lineColors[li] || tColor;
+      d.style.fontFamily = tFont;
+      d.style.fontWeight = tBold;
+      d.style.textAlign = align;
+      d.style.lineHeight = '2.2';
+      d.textContent = ln || '\u200B';
+      content.appendChild(d);
+    });
+
+    // ─── موقعیت‌یابی آکوردها ───
+    const drawChords = () => {
+      overlay.innerHTML = '';
+
+      const isRTL = document.documentElement.dir === 'rtl';
+      const MARGIN = 5;
+
+      chordData.forEach(function(ch, idx) {
+        const lineEl = content.children[ch.lineIndex];
+        if (!lineEl) return;
+
+        // محاسبه rect کاراکتر مورد نظر — همان منطق anchorRectIn
+        let rect = null;
+        const segs = [];
+        let total = 0;
+        const walker = document.createTreeWalker(lineEl, NodeFilter.SHOW_TEXT);
+        let node;
+        while (node = walker.nextNode()) {
+          segs.push({ node: node, start: total, len: node.textContent.length });
+          total += node.textContent.length;
         }
-        return {
-          lineIndex: ch.lineIndex,
-          charIndex: ch.charIndex,
-          anchorType: ch.anchorType,
-          name: name,
-          color: ch.color || st.cColor || '#e6aa28'
-        };
-      }).filter(c => c.name && c.name.trim());
+        if (segs.length) {
+          const len = total;
+          const r = document.createRange();
+          if (ch.anchorType === 'LineStart') {
+            const s = segs[0];
+            r.setStart(s.node, 0); r.setEnd(s.node, Math.min(1, s.len));
+            rect = r.getBoundingClientRect();
+          } else if (ch.anchorType === 'LineEnd') {
+            const s = segs[segs.length - 1];
+            const rp = Math.max(0, s.len - 1);
+            r.setStart(s.node, rp); r.setEnd(s.node, Math.min(rp + 1, s.len));
+            rect = r.getBoundingClientRect();
+          } else {
+            const ci = Math.min(ch.charIndex, Math.max(0, len - 1));
+            let s3 = null;
+            for (let k = 0; k < segs.length; k++) {
+              if (ci >= segs[k].start && ci < segs[k].start + segs[k].len) { s3 = segs[k]; break; }
+            }
+            if (!s3) s3 = segs[segs.length - 1];
+            const local = Math.max(0, ci - s3.start);
+            r.setStart(s3.node, Math.min(local, s3.len));
+            r.setEnd(s3.node, Math.min(local + 1, s3.len));
+            rect = r.getBoundingClientRect();
+          }
+        }
+        if (!rect) return;
 
-      // هدر
-      const displayKey = edCur.transpose ? (edTransposeKeyName(edCur.originalKey || edCur.key, edCur.transpose) || edCur.key) : edCur.key;
-      const keyStr = displayKey + (edCur.keyMode === 'min' ? 'm' : '');
-      const subParts = [];
-      if (edCur.artist) subParts.push(edCur.artist);
-      if (edCur.key) subParts.push((currentLang === 'fa' ? 'گام: ' : 'Key: ') + keyStr);
-      if (edCur.transpose) subParts.push((currentLang === 'fa' ? 'ترنسپوز ' : 'Transpose ') + (edCur.transpose > 0 ? '+' : '') + edCur.transpose);
-      frameDoc.getElementById('printTitle').textContent = edCur.title || t('untitled');
-      frameDoc.getElementById('printSub').textContent = subParts.join('  •  ');
+        const wrapRect = wrap.getBoundingClientRect();
+        const el = document.createElement('span');
+        el.className = 'chord-print';
+        el.textContent = ch.name;
+        el.style.fontSize = cSize + 'px';
+        el.style.color = ch.color || st.cColor || '#e6aa28';
+        el.style.fontFamily = st.cFont || 'JetBrains Mono';
+        el.style.fontWeight = 'bold';
 
-      // رندر متن
-      const content = frameDoc.getElementById('lyricContent');
-      const tFont = st.tFont || 'Vazirmatn';
-      const tSize = st.tSize || 23;
-      const tColor = st.tColor || '#0fa966';
-      const tBold = st.tBold ? 'bold' : 'normal';
-      const align = st.align || 'center';
-      const lineColors = edCur.lineColors || [];
+        overlay.appendChild(el);
+        const elW = el.offsetWidth;
+        const elH = el.offsetHeight;
 
-      const lines = (edCur.lyrics || '').split('\n');
-      lines.forEach(function(ln, li) {
-        const d = frameDoc.createElement('div');
-        d.className = 'eline';
-        d.setAttribute('data-line', String(li));
-        d.style.unicodeBidi = 'plaintext';
-        d.style.fontSize = tSize + 'px';
-        d.style.color = lineColors[li] || tColor;
-        d.style.fontFamily = tFont;
-        d.style.fontWeight = tBold;
-        d.style.textAlign = align;
-        d.style.lineHeight = '2.2';
-        d.textContent = ln || '\u200B';
-        content.appendChild(d);
+        let x;
+        if (ch.anchorType === 'LineStart') {
+          x = isRTL ? rect.right + MARGIN : rect.left - MARGIN;
+        } else if (ch.anchorType === 'LineEnd') {
+          x = isRTL ? rect.left - MARGIN : rect.right + MARGIN;
+        } else if (ch.anchorType === 'BetweenCharacters') {
+          x = rect.right;
+        } else {
+          x = (rect.left + rect.right) / 2;
+        }
+
+        const top = rect.top - wrapRect.top - cSize - GAP;
+
+        el.style.top = top + 'px';
+        el.style.left = (x - wrapRect.left - elW / 2) + 'px';
+
+        // خط اتصال آکورد به متن
+        const line = document.createElement('div');
+        line.className = 'chord-print-anchor';
+        line.style.left = (x - wrapRect.left) + 'px';
+        line.style.top = (top + elH) + 'px';
+        line.style.width = '2px';
+        line.style.height = Math.max(4, GAP) + 'px';
+        line.style.background = (ch.color || st.cColor || '#e6aa28');
+        overlay.appendChild(line);
       });
 
-      // بعد از رندر متن، آکوردها را موقعیت‌یابی کن
-      const overlay = frameDoc.getElementById('chordOverlay');
-      const wrap = frameDoc.getElementById('printWrap');
-      const drawChords = () => {
-        overlay.innerHTML = '';
-
-        const isRTL = frameDoc.documentElement.dir === 'rtl';
-        const MARGIN = 5;
-
-        chordData.forEach(function(ch, idx) {
-          const lineEl = content.children[ch.lineIndex];
-          if (!lineEl) return;
-
-          // محاسبه rect کاراکتر مورد نظر — همان منطق anchorRectIn ولی داخل iframe
-          let rect = null;
-          const segs = [];
-          let total = 0;
-          const walker = frameDoc.createTreeWalker(lineEl, NodeFilter.SHOW_TEXT);
-          let node;
-          while (node = walker.nextNode()) {
-            segs.push({ node: node, start: total, len: node.textContent.length });
-            total += node.textContent.length;
-          }
-          if (segs.length) {
-            const len = total;
-            const r = frameDoc.createRange();
-            if (ch.anchorType === 'LineStart') {
-              const s = segs[0];
-              r.setStart(s.node, 0); r.setEnd(s.node, Math.min(1, s.len));
-              rect = r.getBoundingClientRect();
-            } else if (ch.anchorType === 'LineEnd') {
-              const s = segs[segs.length - 1];
-              const rp = Math.max(0, s.len - 1);
-              r.setStart(s.node, rp); r.setEnd(s.node, Math.min(rp + 1, s.len));
-              rect = r.getBoundingClientRect();
-            } else {
-              const ci = Math.min(ch.charIndex, Math.max(0, len - 1));
-              let s3 = null;
-              for (let k = 0; k < segs.length; k++) {
-                if (ci >= segs[k].start && ci < segs[k].start + segs[k].len) { s3 = segs[k]; break; }
-              }
-              if (!s3) s3 = segs[segs.length - 1];
-              const local = Math.max(0, ci - s3.start);
-              r.setStart(s3.node, Math.min(local, s3.len));
-              r.setEnd(s3.node, Math.min(local + 1, s3.len));
-              rect = r.getBoundingClientRect();
-            }
-          }
-          if (!rect) return;
-
-          const wrapRect = wrap.getBoundingClientRect();
-          const el = frameDoc.createElement('span');
-          el.className = 'chord-print';
-          el.textContent = ch.name;
-          el.style.fontSize = cSize + 'px';
-          el.style.color = ch.color || st.cColor || '#e6aa28';
-          el.style.fontFamily = st.cFont || 'JetBrains Mono';
-          el.style.fontWeight = 'bold';
-
-          overlay.appendChild(el);
-          const elW = el.offsetWidth;
-          const elH = el.offsetHeight;
-
-          let x;
-          if (ch.anchorType === 'LineStart') {
-            x = isRTL ? rect.right + MARGIN : rect.left - MARGIN;
-          } else if (ch.anchorType === 'LineEnd') {
-            x = isRTL ? rect.left - MARGIN : rect.right + MARGIN;
-          } else if (ch.anchorType === 'BetweenCharacters') {
-            x = rect.right;
-          } else {
-            x = (rect.left + rect.right) / 2;
-          }
-
-          const top = rect.top - wrapRect.top - cSize - GAP;
-
-          el.style.top = top + 'px';
-          el.style.left = (x - wrapRect.left - elW / 2) + 'px';
-
-          // خط اتصال آکورد به متن
-          const line = frameDoc.createElement('div');
-          line.className = 'chord-print-anchor';
-          line.style.left = (x - wrapRect.left) + 'px';
-          line.style.top = (top + elH) + 'px';
-          line.style.width = '2px';
-          line.style.height = Math.max(4, GAP) + 'px';
-          line.style.background = (ch.color || st.cColor || '#e6aa28');
-          overlay.appendChild(line);
-        });
-
-        // جلوگیری از هم‌پوشانی افقی آکوردهای یک خط
-        const lineGroups = {};
-        chordData.forEach(function(ch, i) {
-          if (!lineGroups[ch.lineIndex]) lineGroups[ch.lineIndex] = [];
-          const chordEls = overlay.querySelectorAll('.chord-print');
-          if (chordEls[i]) {
-            lineGroups[ch.lineIndex].push(chordEls[i]);
-          }
-        });
-        Object.keys(lineGroups).forEach(function(li) {
-          const els = lineGroups[li];
-          els.sort(function(a, b) { return parseFloat(a.style.left) - parseFloat(b.style.left); });
-          for (let i = 1; i < els.length; i++) {
-            const prev = els[i - 1];
-            const curr = els[i];
-            const prevRight = parseFloat(prev.style.left) + prev.offsetWidth;
-            const currLeft = parseFloat(curr.style.left);
-            if (currLeft < prevRight + 8) {
-              curr.style.left = (prevRight + 8) + 'px';
-            }
-          }
-        });
-      };
-
-      drawChords();
-
-      // اگر فونت‌ها بعداً لود شدند، دوباره رسم کن
-      if (document.fonts && document.fonts.ready) {
-        document.fonts.ready.then(function() {
-          requestAnimationFrame(function() { requestAnimationFrame(drawChords); });
-        });
-      }
-
-      // کمی صبر کن تا فونت‌ها لود شوند و بعد چاپ کن
-      setTimeout(function() {
-        try {
-          frame.contentWindow.focus();
-          frame.contentWindow.print();
-        } catch (e) {
-          console.error('[Print] Error:', e);
-          toast('خطا در چاپ');
+      // جلوگیری از هم‌پوشانی افقی آکوردهای یک خط
+      const lineGroups = {};
+      chordData.forEach(function(ch, i) {
+        if (!lineGroups[ch.lineIndex]) lineGroups[ch.lineIndex] = [];
+        const chordEls = overlay.querySelectorAll('.chord-print');
+        if (chordEls[i]) {
+          lineGroups[ch.lineIndex].push(chordEls[i]);
         }
-        // iframe را بعد از چاپ حذف کن
-        setTimeout(function() {
-          if (frame && frame.parentNode) frame.parentNode.removeChild(frame);
-          printSong._active = false;
-        }, 1000);
-      }, 300);
-    } catch (e) {
-      console.error('[Print] Error building content:', e);
-      toast('خطا در آماده‌سازی چاپ');
-      if (frame && frame.parentNode) frame.parentNode.removeChild(frame);
-      printSong._active = false;
+      });
+      Object.keys(lineGroups).forEach(function(li) {
+        const els = lineGroups[li];
+        els.sort(function(a, b) { return parseFloat(a.style.left) - parseFloat(b.style.left); });
+        for (let i = 1; i < els.length; i++) {
+          const prev = els[i - 1];
+          const curr = els[i];
+          const prevRight = parseFloat(prev.style.left) + prev.offsetWidth;
+          const currLeft = parseFloat(curr.style.left);
+          if (currLeft < prevRight + 8) {
+            curr.style.left = (prevRight + 8) + 'px';
+          }
+        }
+      });
+    };
+
+    drawChords();
+
+    // اگر فونت‌ها بعداً لود شدند، دوباره رسم کن
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(function() {
+        requestAnimationFrame(function() { requestAnimationFrame(drawChords); });
+      });
     }
-  };
 
-  // صبر کن تا iframe لود شود
-  (function waitLoad(tries) {
-    requestAnimationFrame(function() { requestAnimationFrame(function() {
+    // ─── چاپ ───
+    // کمی صبر کن تا فونت‌ها لود شوند و بعد چاپ کن
+    setTimeout(function() {
       try {
-        if (frameDoc && frameDoc.body) {
-          onReady();
-        } else if (tries < 50) {
-          setTimeout(function() { waitLoad(tries + 1); }, 50);
-        } else {
-          onReady();
-        }
+        window.focus();
+        window.print();
       } catch (e) {
-        if (tries < 50) setTimeout(function() { waitLoad(tries + 1); }, 50);
-        else onReady();
+        console.error('[Print] Error:', e);
+        toast('خطا در چاپ');
       }
-    }); });
-  })(0);
+      // بعد از چاپ، کانتینر را پاک کن
+      setTimeout(function() {
+        if (printContainer && printContainer.parentNode) {
+          printContainer.parentNode.removeChild(printContainer);
+        }
+        printSong._active = false;
+      }, 1000);
+    }, 300);
+  } catch (e) {
+    console.error('[Print] Error building content:', e);
+    toast('خطا در آماده‌سازی چاپ');
+    const pc = document.getElementById('printContainer');
+    if (pc && pc.parentNode) pc.parentNode.removeChild(pc);
+    printSong._active = false;
+  }
 }
 
 // expose to global scope
