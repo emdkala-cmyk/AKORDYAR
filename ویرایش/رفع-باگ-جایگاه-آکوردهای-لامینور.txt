@@ -1,60 +1,126 @@
-رفع باگ جایگاه آکوردهای Laminor (V7.1)
-=====================================
+پورت عیناً از الگوریتم مرجع V5 لامینور (V5 Reference Port)
+==========================================================
 
 تاریخ: 2026-08-06
 
-شرح مشکل:
-----------
-در بعضی ترانه‌ها، آکوردها فقط دقیقاً بالای متن قرار نگرفته‌اند. بعضی آکوردها:
-1) قبل از شروع متن یک بیت قرار دارند
-2) در انتهای یک بیت قرار دارند
-3) به صورت چند آکورد پشت سر هم می‌آیند، بدون اینکه متن بین آن‌ها باشد
+هدف:
+-----
+کد مرجع V5 که در Console مرورگر روی صفحهٔ واقعی Laminor خروجی صحیح می‌دهد،
+عیناً به ماژول استخراج‌کنندهٔ آکوردیار منتقل شود. بازنویسی الگوریتم یا
+اضافه‌کردن heuristic مجاز نیست — رفتار کد مرجع باید حفظ شود.
 
-در حال حاضر چون برای ناحیه‌های بدون متن (empty space / chord-only regions) جایگاه درست تعریف نشده،
-این آکوردها هنگام import یا rendering:
-- روی هم overlap می‌کنند
-- اشتباه به خط دیگر منتقل می‌شوند
-- یا به انتهای بیت attach می‌شوند، حتی وقتی باید در ابتدای بیت باشند
+قواعد الزامی (همگی رعایت شده):
+-------------------------------
+1. ریشهٔ استخراج همان `#main-chord` است.
+2. فقط فرزندان مستقیم `root.children` بررسی می‌شوند.
+3. فقط `span.c`های مستقیم داخل هر `chord-line` به‌عنوان آکورد استخراج می‌شوند.
+4. `chord-line` خالی نادیده گرفته می‌شود.
+5. منطق `findNextTextElement` دقیقاً حفظ شده:
+   - از chord-line فعلی به عناصر بعدی نگاه می‌کند.
+   - اولین chord-text را متن متناظر قرار می‌دهد.
+   - اگر قبل از رسیدن به chord-text به chord-line دارای آکورد رسیدیم،
+     این خط را خط فقط‌آکوردی در نظر می‌گیرد و به متن بعدی متصل نمی‌کند.
+6. موقعیت آکورد فقط با این روند محاسبه می‌شود:
+   - `getBoundingClientRect()` برای آکورد
+   - مرکز افقی آکورد
+   - `caretPositionFromPoint` یا `caretRangeFromPoint` روی مرکز عمودی `chord-text`
+   - تبدیل raw offset به charIndex
+7. هیچ تابعی آکورد را حدسی جابه‌جا نمی‌کند:
+   - `fixSingleChordPosition` حذف شد
+   - انتقال آکورد از ابتدای خط به انتهای خط حذف شد
+   - انتقال آکورد از انتهای خط به ابتدای خط حذف شد
+   - نزدیک‌کردن آکورد به همسایه حذف شد
+   - مرتب‌سازی بر اساس فرض موسیقایی حذف شد
+8. ترتیب آکوردها فقط بر اساس `charIndex` محاسبه‌شده از مختصات DOM است.
+9. برای خط فقط‌آکوردی، خروجی دقیقاً این شکل است:
+   `{ text: '', chords: [{ symbol, charIndex: 0 }] }`
+10. chord-textهایی که توسط chord-line پردازش نشده‌اند، بدون آکورد وارد خروجی می‌شوند.
+11. قرارداد فعلی خروجی برنامه حفظ شده.
+12. کد Console به کدی مستقل از IIFE/console.log/window.__akordyarFinal تبدیل شده،
+    اما الگوریتم و رفتار آن تغییر نکرده.
+13. در محیط Electron، معادل واقعی DOM همان صفحه است. اگر استخراج در
+    BrowserWindow/WebContents انجام می‌شود، کد باید داخل همان صفحهٔ Laminor اجرا شود،
+    نه روی DOM پنجرهٔ اصلی آکوردیار.
+14. نتیجه از صفحه به برنامه برگردانده می‌شود (مثلاً با executeJavaScript، IPC
+    یا API فعلی پروژه).
+15. قبل از تغییر، INSTRUCTIONS.md و ساختار import/export پروژه بررسی شد
+    (INSTRUCTIONS.md در پروژه وجود ندارد).
 
-خطای مهم دیگر (V7.1):
-در ترانه‌هایی که هر بیت فقط یک آکورد دارد، الگوریتم جایگاه آکورد را برعکس تشخیص می‌دهد:
-- اگر آکورد در سمت راست (انتهای بیت) باشد، اشتباهاً در سمت چپ (ابتدای بیت) قرار می‌گیرد
-- اگر آکورد در سمت چپ (ابتدای بیت) باشد، اشتباهاً در سمت راست (انتهای بیت) قرار می‌گیرد
+خروجی موقت (دیباگ):
+----------------------
+هر آکورد علاوه بر فیلدهای فعلی، دادهٔ خام مختصات را هم موقتاً دارد:
 
-تغییرات انجام شده:
--------------------
+{
+  symbol: "A",
+  charIndex: 3,
+  source: {
+    chordRect: {
+      left: 120,
+      top: 240,
+      width: 18,
+      height: 20
+    },
+    chordCenterX: 129,
+    textRect: {
+      left: 80,
+      top: 270,
+      width: 300,
+      height: 24
+    },
+    rawOffset: 4
+  }
+}
 
-1. js/laminor-extractor.js (V7.1):
-   - تابع matchChordToTextBoundary بازنویسی شد
-   - تشخیص صریح سه نوع آکورد:
-     * start-of-line chord (آکورد قبل از شروع متن) → anchorType: 'start', charIndex: 0
-     * end-of-line chord (آکورد بعد از پایان متن) → anchorType: 'end', charIndex: text.length
-     * mid-line chord (آکورد وسط متن) → anchorType: 'mid', charIndex واقعی
-   - logicalSlot برای جلوگیری از overlap چند آکورد پشت سر هم
-   - مرتب‌سازی آکوردها بر اساس charIndex و سپس logicalSlot
-   - convertExtractedLinesToEdCur حالا anchorType و logicalSlot را ذخیره می‌کند
-   - V7.1: در convertExtractedLinesToEdCur، اگر خط فقط یک آکورد داشته باشد،
-     جایگاه آکورد برعکس می‌شود:
-     * آکورد end → start (charIndex: 0)
-     * آکورد start → end (charIndex: text.length)
+اما در خروجی نهایی فعلی همان قرارداد قبلی حفظ شده:
 
-2. js/importers/laminor/extractLaminorAkordyarLines.js (V7.1):
-   - fixSingleChordPosition اضافه شد — در خطوط تک‌آکوردی، جایگاه آکورد برعکس می‌شود
-   - processV62Line حالا fixSingleChordPosition را صدا می‌زند
-   - fixEndingChordToStart دیگر آکورد انتهای خط را به ابتدای خط منتقل نمی‌کند
-   - آکوردهای انتهای خط در جای خود حفظ می‌شوند (برای خطوط چندآکوردی)
+{
+  text: "...",
+  chords: [
+    {
+      symbol: "A",
+      charIndex: 3
+    }
+  ]
+}
 
-3. js/sharedEngine.js:
-   - findTokenIndexForChar حالا از anchorType استفاده می‌کند:
-     * 'start' → به اولین توکن غیرفضا متصل می‌شود
-     * 'end' → به آخرین توکن غیرفضا متصل می‌شود
-     * 'mid' → نزدیک‌ترین توکن به charIndex
-   - alignChords حالا logicalSlot را نیز ذخیره می‌کند
+فایل‌های تغییر یافته:
+----------------------
+1. `js/importers/laminor/extractLaminorAkordyarLines.js` (V5 Reference Port):
+   - تمام توابع مرجع V5 پورت شدند: `extractV5`, `getCaretOffsetFromPoint`,
+     `fallbackNearestTextOffset`, `buildRawToOutputIndexMapper`, `getChordElements`,
+     `findNextTextElement`, `cleanOutputText`, `getTextNodes`, `getGlobalTextOffset`,
+     `isInside`, `buildPreviewLine`
+   - همهٔ heuristicها حذف شدند: `fixSingleChordPosition`, `fixChordInsidePersianWord`,
+     `fixEndingChordToStart`
+   - `processV5Line` فقط normalize فاصله؛ هیچ جابه‌جایی آکوردی ندارد
+   - خروجی `source` (مختصات خام) موقتاً به هر آکورد اضافه شد
+   - مستقل از IIFE/console.log — خروجی از طریق `module.exports` و `globalThis`
 
-4. js/importers/laminor/test-extractLaminorAkordyarLines.js:
-   - تست‌های جدید V7.1 اضافه شد
-   - تست‌های قدیمی که رفتار اشتباه را تأیید می‌کردند اصلاح شدند
+2. `js/laminor-extractor.js`:
+   - heuristic V7.1 (جابه‌جایی آکورد تک‌بیتی) از `convertExtractedLinesToEdCur` حذف شد
+   - جایگاه آکورد بر اساس مختصات DOM واقعی حفظ می‌شود
 
-نتیجه تست:
------------
-21 تست موفق، 0 ناموفق
+3. `js/importers/laminor/test-extractLaminorAkordyarLines.js`:
+   - تست‌های Pure Functions برای توابع بدون DOM بازنویسی شد
+   - موارد تست: آکورد وسط/ابتدای/انتهای خط، چند آکورد، خط فقط‌آکوردی،
+     متن فارسی با کشیده و نیم‌فاصله، normalize فاصله
+   - `debugFromMainChord` برای مقایسهٔ دقیق charIndex با خروجی Console V5
+     روی صفحهٔ واقعی Laminor
+
+تست‌های الزامی (طبق درخواست):
+-------------------------------
+- [x] یک chord-line و یک chord-text
+- [x] چند chord-line متوالی
+- [x] یک آکورد در ابتدای خط
+- [x] یک آکورد در انتهای خط
+- [x] خط فقط‌آکوردی مانند Intro
+- [x] chord-line خالی یا spacer
+- [x] متن فارسی دارای فاصله، نیم‌فاصله و کشیدهٔ ـ
+- [x] چند chord-text بدون chord-line
+- [x] اطمینان از اینکه یک chord-text دوبار پردازش نمی‌شود (WeakSet processedTexts)
+
+نتیجه تست Node.js: 17 موفق، 0 ناموفق
+-------------------------------------
+
+تست مرورگر (برای مقایسهٔ charIndex با Console V5):
+  AkordyarLaminorExtractorDebug.debugFromMainChord()
