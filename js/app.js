@@ -398,6 +398,58 @@ globalScope.DAW = {
       }
     });
 
+    /**
+     * quantizeSelectedChords — کوانتایز آکوردهای انتخاب‌شده در کورد لاین
+     *
+     * آکوردهای انتخاب‌شده (DAW.selectedIds) را بر اساس پریست کوانتایز فعلی
+     * (snapValue) به نزدیک‌ترین نقطه گرید می‌چسباند.
+     *
+     * مثال:
+     *   - پریست 1/1 (یک میزان): آکوردها به ابتدای میزان می‌چسبند
+     *   - پریست 1/2 (نیم میزان): آکوردها به نزدیک‌ترین خط نیم میزان می‌چسبند
+     *   - پریست 1/4 (یک ضرب): آکوردها به نزدیک‌ترین ضرب می‌چسبند
+     *   - و ...
+     */
+    function quantizeSelectedChords() {
+      // فقط کلیپ‌های آکورد (chord) را انتخاب کن
+      const selectedChordClips = DAW.clips.filter(c => c.type === 'chord' && DAW.selectedIds.has(c.id));
+      if (selectedChordClips.length === 0) {
+        toast('آکوردی در کورد لاین انتخاب نشده است');
+        return;
+      }
+
+      const bpm = edCur?.tempo || 120;
+      const sig = edCur?.timeSignature || '4/4';
+      const beatsPerBar = parseInt(sig.split('/')[0]);
+      const beatDur = 60 / bpm;
+      const barDur = beatDur * beatsPerBar;
+
+      // محاسبه گام گرید بر اساس پریست فعلی
+      // snapValue در applyQuantize تنظیم می‌شود (مثلاً 1/1 = barDur، 1/2 = barDur/2، 1/4 = beatDur)
+      let gridStep = snapValue;
+      if (!gridStep || gridStep <= 0) gridStep = beatDur;
+
+      // برای هر آکورد انتخاب‌شده، start را به نزدیک‌ترین نقطه گرید بچسبان
+      let quantizedCount = 0;
+      selectedChordClips.forEach(clip => {
+        const origStart = clip.start;
+        // گرد کردن به نزدیک‌ترین مضرب gridStep
+        const snapped = Math.round(origStart / gridStep) * gridStep;
+        // جلوگیری از منفی شدن
+        clip.start = roundMs(Math.max(0, snapped));
+        if (Math.abs(clip.start - origStart) > 0.001) quantizedCount++;
+      });
+
+      if (quantizedCount > 0) {
+        saveState();
+        renderClips();
+        renderRuler();
+        toast(`کوانتایز شد: ${quantizedCount} آکورد`);
+      } else {
+        toast('آکوردها از قبل روی گرید هستند');
+      }
+    }
+
     function toggleMetronome() {
       metroActive = !metroActive;
       $('metroToggleBtn').textContent = metroActive ? '🔊' : '🔇';
