@@ -8381,12 +8381,52 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
           if (!resp.ok) throw new Error('HTTP ' + resp.status);
           html = await resp.text();
         }
-        const parsed = parseChordPage(html, url);
-        if (parsed) {
-          _importParsed = parsed;
-          showImportPreview(parsed);
-          toast('متن استخراج شد!');
-        } else { toast('نتوانستم متن را استخراج کنم'); }
+        // برای لامینور از استخراج‌کننده دقیق (پیکسلی) استفاده کن
+        if (isLaminor) {
+          try {
+            const extraction = await window.extractLaminorFromHtml(html);
+            if (extraction && extraction.lines && extraction.lines.length > 0) {
+              const converted = window.convertExtractedLinesToEdCur(extraction.lines);
+              const parsed = {
+                title: '',
+                artist: '',
+                key: '',
+                rhythm: '',
+                rawText: converted.lyrics,
+                url,
+                _extractedChords: converted.chords,
+                _extractionWarnings: converted.warnings,
+                _extractionValidation: extraction.validation
+              };
+              _importParsed = parsed;
+              showImportPreview(parsed);
+              toast('متن و آکوردها با دقت پیکسلی استخراج شد!');
+            } else {
+              // Fallback به روش متنی
+              const parsed = parseChordPage(html, url);
+              if (parsed) {
+                _importParsed = parsed;
+                showImportPreview(parsed);
+                toast('متن استخراج شد (روش متنی)');
+              } else { toast('نتوانستم متن را استخراج کنم'); }
+            }
+          } catch (extractErr) {
+            console.warn('[Laminor Extractor] Pixel extraction failed, falling back to text:', extractErr);
+            const parsed = parseChordPage(html, url);
+            if (parsed) {
+              _importParsed = parsed;
+              showImportPreview(parsed);
+              toast('متن استخراج شد (روش متنی)');
+            } else { toast('نتوانستم متن را استخراج کنم'); }
+          }
+        } else {
+          const parsed = parseChordPage(html, url);
+          if (parsed) {
+            _importParsed = parsed;
+            showImportPreview(parsed);
+            toast('متن استخراج شد!');
+          } else { toast('نتوانستم متن را استخراج کنم'); }
+        }
       } catch(e) { console.error(e); toast('خطا در دریافت: ' + e.message); }
     }
 
@@ -8519,7 +8559,15 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
       }
 
       // --- Use canonical parser (only authority for positions) ---
-      const parsedResult = parseRawSongToEdCur(parsed);
+      let parsedResult = parseRawSongToEdCur(parsed);
+
+      // --- اگر استخراج پیکسلی انجام شده، آکوردهای دقیق را جایگزین کن ---
+      if (parsed._extractedChords && parsed._extractedChords.length > 0) {
+        parsedResult.chords = parsed._extractedChords;
+        if (parsed._extractionWarnings) {
+          parsedResult.warnings = parsedResult.warnings.concat(parsed._extractionWarnings);
+        }
+      }
 
       // --- Apply parsed result to edCur (no post-parse mutations) ---
       if (!edCur) edCur = edBlankSong();
