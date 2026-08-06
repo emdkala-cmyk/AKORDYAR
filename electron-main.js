@@ -325,22 +325,10 @@ ipcMain.handle('audio:resolve-path', async (event, projectFilePath, relativePath
 });
 
 ipcMain.handle('print:open-window', async (event, htmlContent) => {
+  let printWindow = null;
+  let tempFile = null;
   try {
-    // ایجاد یک پنجره چاپ مخفی
-    const printWindow = new BrowserWindow({
-      width: 800,
-      height: 1100,
-      show: false,
-      webPreferences: {
-        nodeIntegration: false,
-        contextIsolation: false,
-        sandbox: false,
-        webSecurity: false
-      }
-    });
-
     // ─── تزریق فونت‌های سفارشی به HTML چاپ ───
-    // فونت‌ها را از پوشه fonts به صورت base64 بخوان و در HTML تزریق کن
     let enhancedHtml = htmlContent;
     try {
       const fontsDir = app.isPackaged
@@ -374,32 +362,69 @@ ipcMain.handle('print:open-window', async (event, htmlContent) => {
       }
 
       if (fontCss) {
-        // تزریق فونت‌ها قبل از </head>
         enhancedHtml = htmlContent.replace('</head>', `<style>${fontCss}</style></head>`);
       }
     } catch (fontErr) {
       logError('Print', `Font injection error: ${fontErr.message}`);
-      // اگر فونت‌ها لود نشدند، از فونت‌های سیستمی استفاده کن
     }
 
-    // لود محتوای HTML
-    await printWindow.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(enhancedHtml));
+    // ─── ذخیره HTML به عنوان فایل موقت ───
+    // استفاده از فایل واقعی به جای data: URL برای جلوگیری از "No preview available"
+    const os = require('os');
+    tempFile = path.join(os.tmpdir(), `akordyar-print-${Date.now()}.html`);
+    await fsPromises.writeFile(tempFile, enhancedHtml, 'utf8');
 
-    // صبر کن تا فونت‌ها و محتوا لود شوند
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    // ─── ایجاد پنجره چاپ قابل مشاهده ───
+    // پنجره باید قابل مشاهده باشد تا پیش‌نمایش چاپ در ویندوز کار کند
+    printWindow = new BrowserWindow({
+      width: 800,
+      height: 1100,
+      show: true,
+      title: 'Print Preview - Akordyar',
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: false,
+        sandbox: false,
+        webSecurity: false
+      }
+    });
 
-    // چاپ
+    // لود فایل موقت
+    await printWindow.loadFile(tempFile);
+
+    // صبر کن تا محتوا و فونت‌ها کامل لود و رندر شوند
+    await new Promise(resolve => setTimeout(resolve, 1500));
+
+    // ─── چاپ ───
     const result = await printWindow.webContents.print({
       silent: false,
       printBackground: true,
       margins: { marginType: 'default' }
     });
 
-    printWindow.destroy();
+    // بعد از چاپ، پنجره را ببند
+    setTimeout(() => {
+      if (printWindow && !printWindow.isDestroyed()) {
+        printWindow.close();
+      }
+    }, 500);
+
     return { success: true, result };
   } catch (error) {
     logError('Print', `Error printing: ${error.message}`);
+    if (printWindow && !printWindow.isDestroyed()) {
+      printWindow.destroy();
+    }
     return { success: false, error: error.message };
+  } finally {
+    // پاک‌سازی فایل موقت
+    if (tempFile) {
+      try {
+        fsSync.unlinkSync(tempFile);
+      } catch (e) {
+        // ignore
+      }
+    }
   }
 });
 

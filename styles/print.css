@@ -92,7 +92,18 @@
   }
 }
 
-/* در حالت عادی (غیر چاپ) مخفی است */
+/* در حالت عادی (غیر چاپ) خارج از دید است ولی رندر می‌شود */
+/* این مهم است چون getBoundingClientRect() با display:none صفر برمی‌گرداند */
 #printContainer {
-  display: none !important;
+  position: fixed !important;
+  left: -9999px !important;
+  top: 0 !important;
+  width: 800px !important;
+  background: #fff !important;
+  color: #000 !important;
+  z-index: -9999 !important;
+  pointer-events: none !important;
+  visibility: visible !important;
+  display: block !important;
+  opacity: 1 !important;
 }
