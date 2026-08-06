@@ -65,6 +65,12 @@
         </div>
         <div class="ed-sep"></div>
         <div class="ed-grp">
+          <button class="ed-btn" id="edTransUp" title="دیز">♯</button>
+          <span id="edTransVal" title="دوبار کلیک = ریست">0</span>
+          <button class="ed-btn" id="edTransDown" title="بمل">♭</button>
+        </div>
+        <div class="ed-sep"></div>
+        <div class="ed-grp">
           <label data-i18n="textLabel">متن:</label>
           <input type="number" id="edTextSize" value="23" min="10" max="48">
           <select id="edTextFont"><option selected>Vazirmatn</option><option>Vazirmatn Thin</option><option>Vazirmatn Bold</option><option>Vazirmatn Black</option><option>BArshia</option><option>BFarnaz</option><option>BJadid</option><option>BZar</option><option>BZar Bold</option><option>Lalezar</option><option>Mada</option><option>Rubik</option><option>JetBrains Mono</option></select>
@@ -102,12 +108,6 @@
             <button class="ed-btn" id="edClApply" title="کپی آکوردهای لایرس به نقاط (اگر تعداد یکی بود)">✔ کپی</button>
             <span class="ed-cl-count" id="edClCount" title="تعداد نقاط"></span>
           </div>
-        </div>
-        <div class="ed-sep"></div>
-        <div class="ed-grp">
-          <button class="ed-btn" id="edTransUp" title="دیز">♯</button>
-          <span id="edTransVal" title="دوبار کلیک = ریست">0</span>
-          <button class="ed-btn" id="edTransDown" title="بمل">♭</button>
         </div>
         <div class="ed-sep"></div>
         <div class="ed-grp">
@@ -932,7 +932,6 @@
 
   <script src="js/laminor-extractor.js"></script>
   <script src="js/importers/laminor/extractLaminorAkordyarLines.js"></script>
-  <script src="js/importers/laminor/test-extractLaminorAkordyarLines.js"></script>
   <script src="js/app.js"></script>
   <script src="js/projecthub.js"></script>
 

@@ -8387,11 +8387,14 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
             const extraction = await window.extractLaminorFromHtml(html);
             if (extraction && extraction.lines && extraction.lines.length > 0) {
               const converted = window.convertExtractedLinesToEdCur(extraction.lines);
+              // گام اصلی (original key) و ریتم/امضای زمان از صفحهٔ لامینور استخراج می‌شود
+              const extractedKey = extraction.key ? String(extraction.key).trim() : '';
+              const extractedRhythm = extraction.rhythm ? String(extraction.rhythm).trim() : '';
               const parsed = {
                 title: '',
                 artist: '',
-                key: '',
-                rhythm: '',
+                key: extractedKey,
+                rhythm: extractedRhythm,
                 rawText: converted.lyrics,
                 url,
                 _extractedChords: converted.chords,
@@ -13498,6 +13501,13 @@ if ($('edDoBoth')) {
       } else if (edPendingAnchor) {
         edCur.chords.push({ ...edPendingAnchor, name });
       }
+      // Keep baseChordNames in sync with chord edits
+      if (!edCur.baseChordNames) edCur.baseChordNames = [];
+      if (edChordIdx !== null && edCur.chords[edChordIdx]) {
+        edCur.baseChordNames[edChordIdx] = name;
+      } else if (edPendingAnchor) {
+        edCur.baseChordNames.push(name);
+      }
       edPendingAnchor = null; edChordIdx = null;
       edCloseChordModal(); edRenderChords(); edCommit();
       // Sequential chording: advance cursor
@@ -13516,7 +13526,10 @@ if ($('edDoBoth')) {
       }
     }
     function edDeleteChord() {
-      if (edChordIdx !== null && edCur) edCur.chords.splice(edChordIdx, 1);
+      if (edChordIdx !== null && edCur) {
+        edCur.chords.splice(edChordIdx, 1);
+        if (edCur.baseChordNames) edCur.baseChordNames.splice(edChordIdx, 1);
+      }
       edCloseChordModal(); edRenderChords(); edCommit();
     }
 
@@ -13569,16 +13582,18 @@ if ($('edDoBoth')) {
       syncTransposeToTimelineChords();
     }
 
-    // TRANSPOSE: only modify chord names in current state
+    // TRANSPOSE: always compute from baseChordNames (never from already-transposed chords)
     function applyTranspose(newTranspose) {
       if (!edCur || edCur.editorLocked) return;
-      const oldT = edCur.transpose || 0;
-      const delta = newTranspose - oldT;
-      if (delta) transposeChordNamesInPlace(edCur.chords, delta);
+      const names = edCur.baseChordNames || [];
+      edCur.chords.forEach((ch, i) => {
+        const baseName = (i < names.length) ? names[i] : ch.name;
+        if (baseName) ch.name = edTransposeChord(baseName, newTranspose);
+      });
       edCur.transpose = newTranspose;
-      edCur.key = edTransposeKeyName(edCur.key, delta) || edCur.key;
+      edCur.key = edTransposeKeyName(edCur.originalKey || edCur.key, newTranspose) || edCur.key;
       edCur.keyMode = edCur.keyMode || 'maj';
-      // همگام‌سازی ترنسپوز با ورژن فعال فعلی
+      // همگام‌سازی ترنسپز با ورژن فعال فعلی
       if (typeof saveCurrentVersion === 'function') saveCurrentVersion();
       refreshKeyUI();
       renderAllChordsAndText();

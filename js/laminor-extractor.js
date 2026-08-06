@@ -839,6 +839,140 @@ function convertExtractedLinesToEdCur(lines) {
 }
 
 // ============================================
+// Key / Rhythm (signature) detection
+// ============================================
+
+/**
+ * نرمال‌سازی گام اصلی (original key) از متن «گام اصلی: X»
+ * ورودی: 'Dm' ، 'D minor' ، 'Dm (ری مینور)' ، 'DM' ، 'D#m' ، 'Eb' ...
+ * خروجی استاندارد: 'Dm' ، 'C#m' ، 'Eb' ...
+ * @param {string} rawText
+ * @returns {string}
+ */
+function normalizeLaminorKey(rawText) {
+  const text = String(rawText || '').trim();
+
+  if (!text) return '';
+
+  // حذف برچسب «گام اصلی:» (فارسی/انگلیسی)
+  const withoutLabel = text
+    .replace(/^گام\s*اصلی\s*[:：]?\s*/iu, '')
+    .replace(/^original\s*key\s*[:：]?\s*/iu, '')
+    .replace(/^key\s*[:：]?\s*/iu, '')
+    .trim();
+
+  // حذف توضیحات داخل پرانتز، مثل «(ری مینور)»
+  const cleaned = withoutLabel.replace(/\s*\([^)]*\)\s*/g, ' ').trim();
+
+  // استخراج ریشه‌ی نت به همراه علامت نیم‌پرده (♯/♭/#/b) و نوع (m ، min ، M ، maj)
+  // بین ریشه و نوع ممکن است فاصله باشد: «D minor» ، «C# major»
+  const m = cleaned.match(/^([A-Ha-h])([#b♯♭]?)\s*(maj|min|m|M|major|minor)?/);
+  if (!m) return '';
+
+  let root = m[1].toUpperCase();
+  let accidental = (m[2] || '').replace(/[♯]/g, '#').replace(/[♭]/g, 'b');
+  const type = (m[3] || '').toLowerCase();
+
+  // نگاشت نت‌های حامل به شاهدهای رایج (مثل H -> B در سبک آلمانی، و Bb پایین)
+  if (root === 'H') root = 'B';
+
+  // نرمال‌سازی نوع مینور/ماژور به 'm' یا ''
+  let suffix = '';
+  if (/^(min|m)$/.test(type) || /^minor$/.test(type)) {
+    suffix = 'm';
+  }
+
+  return root + accidental + suffix;
+}
+
+/**
+ * استخراج ریتم/امضای زمان (signature) از صفحهٔ لامینور
+ * اولویت:
+ *   1) لینک <a href="...rhythms/4-4">4/4</a>
+ *   2) عنصر شامل «ریتم: X»
+ *   3) عنصر شامل «میزان: X»
+ * @param {Document} doc
+ * @returns {string}
+ */
+function extractLaminorRhythm(doc) {
+  if (!doc) return '';
+
+  // 1) لینک rhythms
+  const rhythmLink = doc.querySelector('a[href*="rhythms/"]');
+  if (rhythmLink) {
+    const linkText = (rhythmLink.textContent || '').trim();
+    if (linkText) return linkText;
+  }
+
+  // 2) جستجوی «ریتم:» در همه عناصر
+  const rhythmEl = findElementContainingText(doc, 'ریتم');
+  if (rhythmEl) {
+    const m = (rhythmEl.textContent || '').match(/(\d{1,2}\s*\/\s*\d{1,2})/);
+    if (m) return m[1];
+  }
+
+  // 3) جستجوی «میزان:» در همه عناصر
+  const measureEl = findElementContainingText(doc, 'میزان');
+  if (measureEl) {
+    const m = (measureEl.textContent || '').match(/(\d{1,2}\s*\/\s*\d{1,2})/);
+    if (m) return m[1];
+  }
+
+  return '';
+}
+
+/**
+ * پیدا کردن اولین عنصر کوچکی که شامل متن مورد نظر است
+ * (برای «ریتم:» و «میزان:» در هدر صفحهٔ لامینور)
+ * @param {Document} doc
+ * @param {string} text
+ * @returns {Element|null}
+ */
+function findElementContainingText(doc, text) {
+  if (!doc || !doc.querySelectorAll) return null;
+
+  const els = doc.querySelectorAll('span, div, p, li, h6, a, b, strong, label');
+
+  for (const el of els) {
+    // فقط عنصرهای کوتاه و مستقیم بررسی می‌شوند تا هدر کل صفحه انتخاب نشود
+    const content = (el.textContent || '').trim();
+    if (content.length > 0 && content.length < 60 && content.includes(text) && content.includes(':')) {
+      return el;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * استخراج گام اصلی (original key) از صفحهٔ لامینور
+ * اولویت:
+ *   1) عنصر <span id="main-scale">گام اصلی: Dm</span>
+ *   2) هر عنصر شامل متن «گام اصلی: X»
+ * @param {Document} doc
+ * @returns {string}
+ */
+function extractLaminorKey(doc) {
+  if (!doc) return '';
+
+  // 1) عنصر #main-scale
+  const mainScale = doc.querySelector('#main-scale');
+  if (mainScale) {
+    const key = normalizeLaminorKey(mainScale.textContent);
+    if (key) return key;
+  }
+
+  // 2) جستجوی متن «گام اصلی:»
+  const labelEl = findElementContainingText(doc, 'گام اصلی');
+  if (labelEl) {
+    const key = normalizeLaminorKey(labelEl.textContent);
+    if (key) return key;
+  }
+
+  return '';
+}
+
+// ============================================
 // Load laminor page into hidden iframe and extract
 // ============================================
 
@@ -865,13 +999,19 @@ async function extractLaminorFromHtml(html) {
     // استخراج از iframe
     const lines = await extractLaminorSong.call(iframe.contentWindow, iframeDoc);
 
+    // استخراج گام اصلی و ریتم/امضای زمان
+    const key = extractLaminorKey(iframeDoc);
+    const rhythm = extractLaminorRhythm(iframeDoc);
+
     // اعتبارسنجی
     const validation = lines.map(validateExtractedLine);
 
     return {
       lines,
       validation,
-      hasErrors: validation.some(v => !v.valid)
+      hasErrors: validation.some(v => !v.valid),
+      key,
+      rhythm
     };
   } finally {
     // پاک‌سازی iframe
@@ -892,4 +1032,8 @@ if (typeof window !== 'undefined') {
   window.convertExtractedLinesToEdCur = convertExtractedLinesToEdCur;
   window.validateExtractedLine = validateExtractedLine;
   window.waitForStableLayout = waitForStableLayout;
+  window.normalizeLaminorKey = normalizeLaminorKey;
+  window.extractLaminorKey = extractLaminorKey;
+  window.extractLaminorRhythm = extractLaminorRhythm;
+  window.findElementContainingText = findElementContainingText;
 }

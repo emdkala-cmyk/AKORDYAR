@@ -1,256 +1,115 @@
 /**
- * تست و Debug برای Akordyar Laminor Extractor — V5 Reference Port
+ * تست تشخیص گام اصلی (original key) و ریتم/امضای زمان (signature) از صفحهٔ لامینور
  *
- * دو حالت:
- * 1. تست Node.js — تست توابع پردازش بدون نیاز به DOM
- * 2. تست مرورگر — تست extractLaminorAkordyarLines با root واقعی (#main-chord)
+ * ⚠️ این فایل فقط در محیط Node.js اجرا می‌شود (با دستور node):
+ *    node js/importers/laminor/test-extractLaminorAkordyarLines.js
  *
- * اجرا در Node:
- *   node js/importers/laminor/test-extractLaminorAkordyarLines.js
- *
- * اجرا در مرورگر (Console):
- *   AkordyarLaminorExtractorDebug.debugFromMainChord()
- *
- * نکته:
- *   هستهٔ extractV5 نیاز به DOM رندر شده دارد (getBoundingClientRect + caretPosition).
- *   برای مقایسهٔ دقیق charIndex با خروجی Console V5، تست مرورگر را روی صفحهٔ
- *   واقعی Laminor اجرا کنید.
+ * چون این فایل توسط Akordyar.html (مرورگر/الکترون) هم load می‌شود،
+ * تمام بدنهٔ تست داخل یک گارد Node-only قرار گرفته تا هیچ
+ * require/global‌ای در renderer اجرا نشود و با app.js تداخل نکند.
  */
 
 'use strict';
 
-/* ═══════════════════════════════════════════════
-   تست‌های بدون DOM (Node)
-   ═══════════════════════════════════════════════ */
+// ─── گارد: فقط اگر در Node.js هستیم و مستقیم این فایل اجرا شده، تست را اجرا کن ───
+const isNodeMain =
+  typeof module !== 'undefined' &&
+  typeof module.parent !== 'undefined' &&
+  !module.parent;
 
-function runPureFunctionTests() {
-  const extractor = global.AkordyarLaminorExtractor;
-
-  if (!extractor) {
-    console.error('AkordyarLaminorExtractor پیدا نشد. ابتدا extractLaminorAkordyarLines.js را لود کنید.');
-    return false;
+if (!isNodeMain) {
+  // وقتی از طریق <script> در مرورگر/الکترون load می‌شود، کاری نکنید.
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = {};
   }
+} else {
+  const { JSDOM } = require('jsdom');
+  const fs = require('fs');
+  const path = require('path');
 
-  const {
-    buildPreviewLine,
-    processV5Line,
-    isOnlyChordLine,
-    normalizeSpaces,
-    cleanOutputText
-  } = extractor;
-
-  const tests = [
-    /* ─── buildPreviewLine: درج آکورد در محل charIndex ─── */
-    {
-      name: 'buildPreviewLine: یک chrord-line و یک chord-text — آکورد وسط',
-      input: { text: 'سلام دنیا', chords: [{ symbol: 'Am', charIndex: 5 }] },
-      expected: 'سلام [Am]دنیا',
-      fn: (line) => buildPreviewLine(line)
-    },
-    {
-      name: 'buildPreviewLine: آکورد در ابتدای خط (charIndex 0)',
-      input: { text: 'سلام دنیا', chords: [{ symbol: 'Am', charIndex: 0 }] },
-      expected: '[Am]سلام دنیا',
-      fn: (line) => buildPreviewLine(line)
-    },
-    {
-      name: 'buildPreviewLine: آکورد در انتهای خط (charIndex = length)',
-      input: { text: 'سلام دنیا', chords: [{ symbol: 'Am', charIndex: 9 }] },
-      expected: 'سلام دنیا[Am]',
-      fn: (line) => buildPreviewLine(line)
-    },
-    {
-      name: 'buildPreviewLine: چند آکورد — بدون جابه‌جایی، ترتیب charIndex حفظ شود',
-      input: {
-        text: 'سلام دنیای قشنگ',
-        chords: [
-          { symbol: 'Am', charIndex: 0 },
-          { symbol: 'G', charIndex: 6 },
-          { symbol: 'Dm', charIndex: 12 }
-        ]
-      },
-      expected: '[Am]سلام د[G]نیای ق[Dm]شنگ',
-      fn: (line) => buildPreviewLine(line)
-    },
-    {
-      name: 'buildPreviewLine: خط فقط‌آکوردی (text خالی)',
-      input: { text: '', chords: [{ symbol: 'Am', charIndex: 0 }] },
-      expected: '[Am]',
-      fn: (line) => buildPreviewLine(line)
-    },
-
-    /* ─── processV5Line: فقط نرمال‌سازی فاصله، هیچ جابه‌جایی آکورد ─── */
-    {
-      name: 'processV5Line: آکورد انتهای خط — تغییر نکند (V5 behavior)',
-      input: 'غم میون دو تا چشمون قشنگت[Am]',
-      expected: 'غم میون دو تا چشمون قشنگت[Am]',
-      fn: processV5Line
-    },
-    {
-      name: 'processV5Line: آکورد ابتدای خط — تغییر نکند (V5 behavior)',
-      input: '[Am]غم میون دو تا چشمون قشنگت',
-      expected: '[Am]غم میون دو تا چشمون قشنگت',
-      fn: processV5Line
-    },
-    {
-      name: 'processV5Line: چند آکورد — تغییر نکند',
-      input: 'غم میون [Am]دو تا [G]چشمون قشنگت[Dm]',
-      expected: 'غم میون [Am]دو تا [G]چشمون قشنگت[Dm]',
-      fn: processV5Line
-    },
-    {
-      name: 'processV5Line: فاصله‌های اضافه حذف شود + trim',
-      input: '  سلام    دنیا  ',
-      expected: 'سلام دنیا',
-      fn: processV5Line
-    },
-    {
-      name: 'processV5Line: خط فقط آکورد — تغییر نکند',
-      input: '[Am] [G] [Dm]',
-      expected: '[Am] [G] [Dm]',
-      fn: processV5Line
-    },
-
-    /* ─── isOnlyChordLine ─── */
-    {
-      name: 'isOnlyChordLine: خط فقط آکوردی → true',
-      input: '[Am] [G] [Dm]',
-      expected: true,
-      fn: (line) => isOnlyChordLine(line) === true
-    },
-    {
-      name: 'isOnlyChordLine: خط با متن → false',
-      input: 'سلام دنیا[Am]',
-      expected: true,
-      fn: (line) => isOnlyChordLine(line) === false
-    },
-    {
-      name: 'isOnlyChordLine: خط فقط یک آکورد → true',
-      input: '[Am]',
-      expected: true,
-      fn: (line) => isOnlyChordLine(line) === true
-    },
-
-    /* ─── normalizeSpaces ─── */
-    {
-      name: 'normalizeSpaces: فاصله‌های متوالی → یک فاصله',
-      input: 'سلام    دنیا',
-      expected: 'سلام دنیا',
-      fn: normalizeSpaces
-    },
-    {
-      name: 'normalizeSpaces: trim سمت‌ها',
-      input: '  سلام دنیا  ',
-      expected: 'سلام دنیا',
-      fn: normalizeSpaces
-    },
-
-    /* ─── cleanOutputText: کشیده و trim ─── */
-    {
-      name: 'cleanOutputText: حذف کشیده و trim',
-      input: '  ســلامــ دنیا  ',
-      expected: 'سلام دنیا',
-      fn: cleanOutputText
-    },
-    {
-      name: 'cleanOutputText: نیم‌فاصله حفظ شود (حذف نشود)',
-      input: 'می‌روم به خانه',
-      expected: 'می‌روم به خانه',
-      fn: cleanOutputText
-    }
-  ];
+  function loadExtractor(html) {
+    const dom = new JSDOM(html, { runScripts: 'dangerously', resources: 'usable' });
+    const win = dom.window;
+    win.requestAnimationFrame = (cb) => setTimeout(cb, 0);
+    // document.fonts و document.images در jsdom فقط getter هستند؛
+    // waitForStableLayout با بررسی وجودشان به‌صورت ایمن کار می‌کند.
+    const code = fs.readFileSync(path.join(__dirname, '..', '..', 'laminor-extractor.js'), 'utf8');
+    win.eval(code);
+    return win;
+  }
 
   let passed = 0;
   let failed = 0;
-
-  console.log('========================================');
-  console.log('🧪 تست‌های Pure Functions — V5 Reference');
-  console.log('========================================');
-
-  for (const test of tests) {
-    let actual;
-    let ok;
-
-    try {
-      actual = test.fn(test.input);
-      ok = actual === test.expected;
-    } catch (e) {
-      actual = `ERROR: ${e.message}`;
-      ok = false;
-    }
-
-    if (ok) {
-      passed++;
-      console.log('✅ ' + test.name);
-    } else {
-      failed++;
-      console.log('❌ ' + test.name);
-      console.log('   Input:    ' + JSON.stringify(test.input));
-      console.log('   Expected: ' + JSON.stringify(test.expected));
-      console.log('   Actual:   ' + JSON.stringify(actual));
-    }
+  function assert(cond, msg) {
+    if (cond) { passed++; console.log('  ✓ ' + msg); }
+    else { failed++; console.error('  ✗ ' + msg); }
   }
 
-  console.log('========================================');
-  console.log('نتیجه: ' + passed + ' موفق، ' + failed + ' ناموفق');
-  console.log('========================================');
-
-  return failed === 0;
-}
-
-/* ═══════════════════════════════════════════════
-   تست مرورگر — استخراج از #main-chord
-   ═══════════════════════════════════════════════ */
-
-function debugFromMainChord() {
-  const extractor = global.AkordyarLaminorExtractor;
-
-  if (!extractor) {
-    console.error('AkordyarLaminorExtractor پیدا نشد.');
-    return null;
+  // گام اصلی از #main-scale
+  {
+    const win = loadExtractor('<!DOCTYPE html><html><head><meta charset="utf-8"></head><body><div class="text-center"><span id="main-scale" class="badge">گام اصلی: Dm</span></div></body></html>');
+    const key = win.extractLaminorKey(win.document);
+    console.log('[گام اصلی از #main-scale]');
+    assert(key === 'Dm', `انتظار 'Dm' بود ولی '${key}' دریافت شد`);
   }
 
-  const root = document.querySelector('#main-chord');
-
-  if (!root) {
-    console.error('#main-chord پیدا نشد. مطمئن شو داخل صفحهٔ آهنگ لامینور هستی.');
-    return null;
+  // گام ماژور
+  {
+    const win = loadExtractor('<!DOCTYPE html><html><head><meta charset="utf-8"></head><body><span id="main-scale">گام اصلی: G</span></body></html>');
+    const key = win.extractLaminorKey(win.document);
+    console.log('[گام ماژور]');
+    assert(key === 'G', `انتظار 'G' بود ولی '${key}' دریافت شد`);
   }
 
-  const result = extractor.extractLaminorAkordyarLines(root);
-
-  console.group('🎵 Akordyar Laminor Extractor V5 — Debug');
-  console.log('final (با مختصات خام):', result.final);
-  console.log('rawLines (قبل از normalize):', result.rawLines);
-  console.log('lines (خروجی نهایی):', result.lines);
-  console.log('برای کپی:', 'copy(JSON.stringify(result.lines, null, 2))');
-  console.groupEnd();
-
-  return result;
-}
-
-/* ═══════════════════════════════════════════════
-   اجرا در Node.js
-   ═══════════════════════════════════════════════ */
-
-if (typeof module !== 'undefined' && module.exports) {
-  const extractor = require('./extractLaminorAkordyarLines.js');
-  global.AkordyarLaminorExtractor = extractor;
-
-  const allPassed = runPureFunctionTests();
-
-  if (!allPassed) {
-    process.exit(1);
+  // گام دیز
+  {
+    const win = loadExtractor('<!DOCTYPE html><html><head><meta charset="utf-8"></head><body><span id="main-scale">گام اصلی: C#m</span></body></html>');
+    const key = win.extractLaminorKey(win.document);
+    console.log('[گام دیز]');
+    assert(key === 'C#m', `انتظار 'C#m' بود ولی '${key}' دریافت شد`);
   }
-}
 
-/* ═══════════════════════════════════════════════
-   Exports برای مرورگر
-   ═══════════════════════════════════════════════ */
+  // ریتم از لینک rhythms/4-4
+  {
+    const win = loadExtractor('<!DOCTYPE html><html><head><meta charset="utf-8"></head><body><a href="https://laminor.org/rhythms/4-4" class="color-light-blue text-bold font-16">4/4</a></body></html>');
+    const rhythm = win.extractLaminorRhythm(win.document);
+    console.log('[ریتم از لینک rhythms/4-4]');
+    assert(rhythm === '4/4', `انتظار '4/4' بود ولی '${rhythm}' دریافت شد`);
+  }
 
-if (typeof window !== 'undefined') {
-  window.AkordyarLaminorExtractorDebug = {
-    runPureFunctionTests: runPureFunctionTests,
-    debugFromMainChord: debugFromMainChord
-  };
+  // ریتم 12/8
+  {
+    const win = loadExtractor('<!DOCTYPE html><html><head><meta charset="utf-8"></head><body><a href="https://laminor.org/rhythms/12-8">12/8</a></body></html>');
+    const rhythm = win.extractLaminorRhythm(win.document);
+    console.log('[ریتم 12/8]');
+    assert(rhythm === '12/8', `انتظار '12/8' بود ولی '${rhythm}' دریافت شد`);
+  }
+
+  // تست یکپارچه گام + ریتم
+  {
+    const win = loadExtractor('<!DOCTYPE html><html><head><meta charset="utf-8"></head><body><div class="text-center"><span id="main-scale" class="badge">گام اصلی: Dm</span></div><a href="https://laminor.org/rhythms/4-4">4/4</a></body></html>');
+    const key = win.extractLaminorKey(win.document);
+    const rhythm = win.extractLaminorRhythm(win.document);
+    console.log('[تست یکپارچه گام + ریتم]');
+    assert(key === 'Dm', `گام: انتظار 'Dm' بود ولی '${key}' دریافت شد`);
+    assert(rhythm === '4/4', `ریتم: انتظار '4/4' بود ولی '${rhythm}' دریافت شد`);
+  }
+
+  // نرمال‌سازی گام
+  {
+    const win = loadExtractor('<!DOCTYPE html><html><head><meta charset="utf-8"></head><body></body></html>');
+    console.log('[نرمال‌سازی گام]');
+    assert(win.normalizeLaminorKey('Dm') === 'Dm', "normalizeLaminorKey('Dm') === 'Dm'");
+    assert(win.normalizeLaminorKey('D minor') === 'Dm', "normalizeLaminorKey('D minor') === 'Dm'");
+    assert(win.normalizeLaminorKey('Dm (ری مینور)') === 'Dm', "normalizeLaminorKey('Dm (ری مینور)') === 'Dm'");
+    assert(win.normalizeLaminorKey('گام اصلی: G') === 'G', "normalizeLaminorKey('گام اصلی: G') === 'G'");
+    assert(win.normalizeLaminorKey('C#m') === 'C#m', "normalizeLaminorKey('C#m') === 'C#m'");
+    assert(win.normalizeLaminorKey('Eb') === 'Eb', "normalizeLaminorKey('Eb') === 'Eb'");
+    assert(win.normalizeLaminorKey('H') === 'B', "normalizeLaminorKey('H') === 'B' (نگاشت H -> B)");
+    assert(win.normalizeLaminorKey('') === '', "normalizeLaminorKey('') === ''");
+  }
+
+  console.log('\n══════════════════════════════════');
+  console.log(`نتیجه: ${passed} پاس‌شده، ${failed} ناموفق`);
+  if (failed > 0) process.exitCode = 1;
 }
