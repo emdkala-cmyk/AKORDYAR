@@ -371,14 +371,18 @@
   // ===============================
 
   /**
-   * Post processor نهایی V6.2
+   * Post processor نهایی V7
    * @param {string} line
    * @returns {string}
+   *
+   * اصلاحات V7:
+   *   - fixEndingChordToStart حذف شد — آکورد انتهای خط نباید به ابتدای خط منتقل شود
+   *   - آکوردهای انتهای خط باید در همان جایگاه خود حفظ شوند
    */
   function processV62Line(line) {
     let fixed = line;
 
-    fixed = fixEndingChordToStart(fixed);
+    // V7: fixEndingChordToStart حذف شد — آکورد انتهای خط باید در جای خود بماند
     fixed = fixChordInsidePersianWord(fixed);
     fixed = normalizeSpaces(fixed);
 
@@ -397,30 +401,15 @@
   }
 
   /**
-   * اگر خط با یک آکورد تمام شد، آن آکورد را به ابتدای خط منتقل می‌کند
-   * مثال: "غم میون دو تا چشمون قشنگت[Am]" → "[Am]غم میون دو تا چشمون قشنگت"
+   * V7: این تابع دیگر استفاده نمی‌شود.
+   * آکورد انتهای خط باید در همان جایگاه خود حفظ شود، نه اینکه به ابتدای خط منتقل شود.
+   * این تابع برای سازگاری با کدهای قدیمی نگه داشته شده اما در processV62Line استفاده نمی‌شود.
    * @param {string} line
    * @returns {string}
    */
   function fixEndingChordToStart(line) {
-    if (typeof line !== 'string') return line;
-
-    if (isOnlyChordLine(line)) return line;
-
-    const match = line.match(CHORD_AT_END_REGEX);
-
-    if (!match) return line;
-
-    const chord = match[1];
-    const before = line.slice(0, match.index).trimEnd();
-
-    if (!before.trim()) return line;
-
-    if (before.trimStart().startsWith(chord)) {
-      return before;
-    }
-
-    return chord + before;
+    // V7: آکورد انتهای خط را به ابتدای خط منتقل نکن — در جای خود بماند
+    return line;
   }
 
   /**

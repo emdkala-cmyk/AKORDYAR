@@ -98,8 +98,25 @@ const SharedEngine = (() => {
      3) Chord Alignment
      ═══════════════════════════════════════════════ */
 
-  function findTokenIndexForChar(line, charIndex) {
+  function findTokenIndexForChar(line, charIndex, anchorType) {
     if (!line.tokens || !line.tokens.length) return 0;
+
+    const textLength = (line.text || '').length;
+    const tokens = line.tokens.filter(tok => tok.type !== 'space');
+
+    if (!tokens.length) return 0;
+
+    // آکورد ابتدای خط — به اولین توکن غیرفضا متصل شود
+    if (anchorType === 'start' || charIndex <= 0) {
+      return tokens[0].index;
+    }
+
+    // آکورد انتهای خط — به آخرین توکن غیرفضا متصل شود
+    if (anchorType === 'end' || (charIndex != null && charIndex >= textLength)) {
+      return tokens[tokens.length - 1].index;
+    }
+
+    // آکورد وسط خط — نزدیک‌ترین توکن به charIndex
     let bestIdx = 0;
     let bestDist = Infinity;
     line.tokens.forEach((tok, idx) => {
@@ -126,7 +143,8 @@ const SharedEngine = (() => {
       if (!Number.isInteger(li) || li < 0 || li >= doc.lines.length) return;
 
       const line = doc.lines[li];
-      const tokenIndex = findTokenIndexForChar(line, ci);
+      const anchorType = ch.anchorType || 'mid';
+      const tokenIndex = findTokenIndexForChar(line, ci, anchorType);
 
       line.chords.push({
         id:         'ln' + li + '_ch' + idx,
@@ -135,7 +153,8 @@ const SharedEngine = (() => {
         lineIndex:  li,
         tokenIndex: tokenIndex,
         offset:     0,
-        anchorType: ch.anchorType || 'CharIndex'
+        anchorType: anchorType,
+        logicalSlot: ch.logicalSlot != null ? ch.logicalSlot : 0
       });
     });
 

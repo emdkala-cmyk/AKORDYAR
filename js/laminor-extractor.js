@@ -9,6 +9,13 @@
  * نکته:
  *   هرگز برای مرتب‌سازی آکوردها از reverse() استفاده نمی‌شود.
  *   ترتیب بصری با مختصات X تعیین می‌شود.
+ *
+ * اصلاحات V7:
+ *   - آکوردهای قبل از شروع متن (leading chords) به عنوان start-of-line حفظ می‌شوند
+ *   - آکوردهای بعد از پایان متن (trailing chords) به عنوان end-of-line حفظ می‌شوند
+ *   - چند آکورد پشت سر هم بدون متن بینشان، ترتیب واقعی خود را حفظ می‌کنند
+ *   - chord-only region ها به عنوان ناحیه معتبر مستقل پشتیبانی می‌شوند
+ *   - جایگذاری آکوردها از موقعیت واقعی DOM تبعیت می‌کند، نه حدس‌زدن بر اساس طول متن
  */
 
 // ============================================
@@ -122,13 +129,17 @@ function extractLine(textElement, chordElement, lineIndex) {
   const rawBoundaryRects = buildBoundaryRects(source);
   const chordItems = collectChords(chordElement);
 
+  // محاسبه محدوده بصری متن
+  const textVisualRect = getTextVisualRect(source);
+
   const chords = chordItems
     .map(chord => {
       const match = matchChordToTextBoundary(
         chord,
         rawBoundaryRects,
         source,
-        rawText
+        rawText,
+        textVisualRect
       );
 
       if (!match) {
@@ -138,6 +149,7 @@ function extractLine(textElement, chordElement, lineIndex) {
           rawCharIndex: null,
           distancePx: null,
           confidence: 'unresolved',
+          anchorType: 'unresolved',
           reason: 'هیچ مرز متنی معتبر پیدا نشد'
         };
       }
@@ -149,6 +161,8 @@ function extractLine(textElement, chordElement, lineIndex) {
         rawCharIndex: match.rawCharIndex,
         distancePx: round(match.distancePx),
         confidence: getConfidence(match.distancePx),
+        anchorType: match.anchorType,
+        logicalSlot: match.logicalSlot,
         matchedText: getContext(
           rawText,
           match.rawCharIndex,
@@ -157,8 +171,17 @@ function extractLine(textElement, chordElement, lineIndex) {
       };
     })
     .sort((a, b) => {
+      // آکوردهای با charIndex مشخص اول
+      if (a.charIndex == null && b.charIndex == null) return 0;
       if (a.charIndex == null) return 1;
       if (b.charIndex == null) return -1;
+
+      // اگر charIndex یکسان است، بر اساس logicalSlot مرتب کن
+      if (a.charIndex === b.charIndex) {
+        const slotA = a.logicalSlot != null ? a.logicalSlot : 0;
+        const slotB = b.logicalSlot != null ? b.logicalSlot : 0;
+        return slotA - slotB;
+      }
 
       return a.charIndex - b.charIndex;
     });
@@ -390,16 +413,23 @@ function deduplicateBoundaries(boundaries) {
 
 /**
  * مهم‌ترین بخش الگوریتم — تطبیق آکورد با مرز متن
+ *
+ * اصلاحات V7:
+ *   - آکورد قبل از شروع متن → anchorType: 'start', charIndex: 0
+ *   - آکورد بعد از پایان متن → anchorType: 'end', charIndex: text.length
+ *   - آکورد وسط متن → anchorType: 'mid', charIndex واقعی
+ *   - چند آکورد پشت سر هم بدون متن → logicalSlot برای جلوگیری از overlap
  */
 function matchChordToTextBoundary(
   chord,
   boundaries,
   source,
-  rawText
+  rawText,
+  textVisualRect
 ) {
   if (!boundaries.length) return null;
 
-  const textRect = getTextVisualRect(source);
+  const textRect = textVisualRect || getTextVisualRect(source);
 
   if (!textRect) return null;
 
@@ -419,6 +449,70 @@ function matchChordToTextBoundary(
 
   if (!candidates.length) return null;
 
+  // ─── تشخیص موقعیت آکورد نسبت به متن ───
+  // آکورد قبل از شروع متن است؟
+  const isBeforeTextStart = chord.centerX < textRect.left - 2;
+
+  // آکورد بعد از پایان متن است؟
+  const isAfterTextEnd = chord.centerX > textRect.right + 2;
+
+  // ─── آکورد قبل از شروع متن (leading chord) ───
+  if (isBeforeTextStart) {
+    // پیدا کردن اولین مرز متنی
+    const firstBoundary = candidates.reduce((min, b) =>
+      b.x < min.x ? b : min
+    );
+
+    // محاسبه فاصله از ابتدای متن
+    const distanceFromStart = Math.abs(chord.centerX - firstBoundary.x);
+
+    const maxDistance = getMaxAcceptableDistance(
+      textRect,
+      chord.element
+    );
+
+    // اگر خیلی دور است، unresolved
+    if (distanceFromStart > maxDistance * 3) {
+      return null;
+    }
+
+    return {
+      rawCharIndex: 0,
+      distancePx: distanceFromStart,
+      anchorType: 'start',
+      logicalSlot: 0
+    };
+  }
+
+  // ─── آکورد بعد از پایان متن (trailing chord) ───
+  if (isAfterTextEnd) {
+    // پیدا کردن آخرین مرز متنی
+    const lastBoundary = candidates.reduce((max, b) =>
+      b.x > max.x ? b : max
+    );
+
+    // محاسبه فاصله از انتهای متن
+    const distanceFromEnd = Math.abs(chord.centerX - lastBoundary.x);
+
+    const maxDistance = getMaxAcceptableDistance(
+      textRect,
+      chord.element
+    );
+
+    // اگر خیلی دور است، unresolved
+    if (distanceFromEnd > maxDistance * 3) {
+      return null;
+    }
+
+    return {
+      rawCharIndex: rawText.length,
+      distancePx: distanceFromEnd,
+      anchorType: 'end',
+      logicalSlot: 0
+    };
+  }
+
+  // ─── آکورد وسط متن (mid-line chord) ───
   let best = null;
 
   for (const candidate of candidates) {
@@ -444,7 +538,12 @@ function matchChordToTextBoundary(
     return null;
   }
 
-  return best;
+  return {
+    rawCharIndex: best.rawCharIndex,
+    distancePx: best.distancePx,
+    anchorType: 'mid',
+    logicalSlot: 0
+  };
 }
 
 /**
@@ -707,11 +806,26 @@ function convertExtractedLinesToEdCur(lines) {
         continue;
       }
 
+      // تعیین anchorType بر اساس موقعیت آکورد
+      let anchorType = chord.anchorType || 'explicit';
+
+      // اگر anchorType مشخص نیست، بر اساس charIndex تشخیص بده
+      if (anchorType === 'unresolved' || anchorType === 'mid') {
+        if (chord.charIndex === 0) {
+          anchorType = 'start';
+        } else if (chord.charIndex >= line.text.length) {
+          anchorType = 'end';
+        } else {
+          anchorType = 'mid';
+        }
+      }
+
       result.chords.push({
         name: chord.symbol,
         lineIndex: lineIndex,
         charIndex: chord.charIndex,
-        anchorType: 'explicit',
+        anchorType: anchorType,
+        logicalSlot: chord.logicalSlot != null ? chord.logicalSlot : 0,
         confidence: chord.confidence || 'high'
       });
     }

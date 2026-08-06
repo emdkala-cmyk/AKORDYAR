@@ -36,10 +36,16 @@
 
     const tests = [
       {
-        name: 'نمونه 1: آکورد انتهای خط به ابتدا منتقل شود',
+        name: 'V7: آکورد انتهای خط در جای خود بماند (تغییر نکند)',
         input: 'غم میون دو تا چشمون قشنگت[Am]',
-        expected: '[Am]غم میون دو تا چشمون قشنگت',
+        expected: 'غم میون دو تا چشمون قشنگت[Am]',
         fn: fixEndingChordToStart
+      },
+      {
+        name: 'V7: آکورد انتهای خط در processV62Line حفظ شود',
+        input: 'غم میون دو تا چشمون قشنگت[Am]',
+        expected: 'غم میون دو تا چشمون قشنگت[Am]',
+        fn: processV62Line
       },
       {
         name: 'نمونه 2: آکورد وسط کلمه فارسی به ابتدای کلمه منتقل شود',
@@ -48,9 +54,9 @@
         fn: fixChordInsidePersianWord
       },
       {
-        name: 'نمونه 3: ترکیبی — آکورد انتها و وسط کلمه',
+        name: 'V7: ترکیبی — آکورد انتها حفظ شود و وسط کلمه اصلاح شود',
         input: 'غم میون دو تا چش[G]مون قشنگت[Am]',
-        expected: '[Am]غم میون دو تا [G]چشمون قشنگت',
+        expected: 'غم میون دو تا [G]چشمون قشنگت[Am]',
         fn: processV62Line
       },
       {
@@ -94,6 +100,18 @@
         input: 'سلام [Am]دنیا',
         expected: 'سلام [Am]دنیا',
         fn: fixChordInsidePersianWord
+      },
+      {
+        name: 'V7: چند آکورد پشت سر هم در انتهای خط حفظ شوند',
+        input: 'سلام دنیا[Am][G][Dm]',
+        expected: 'سلام دنیا[Am][G][Dm]',
+        fn: processV62Line
+      },
+      {
+        name: 'V7: چند آکورد پشت سر هم در ابتدای خط حفظ شوند',
+        input: '[Am][G][Dm]سلام دنیا',
+        expected: '[Am][G][Dm]سلام دنیا',
+        fn: processV62Line
       }
     ];
 
