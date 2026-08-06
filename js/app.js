@@ -14282,16 +14282,115 @@ if (
         targetDiv.style.direction = 'ltr';
         targetDiv.style.overflow = 'hidden';
         targetDiv.style.position = 'relative';
+        targetDiv.style.backgroundColor = '#0D1017';
 
         const mirrorH = targetDiv.clientHeight || 90;
+        const RULER_H = 18;
         clone.style.direction = 'ltr';
         clone.style.position = 'absolute';
-        clone.style.top = '0';
+        clone.style.top = RULER_H + 'px';
         clone.style.left = '0';
         clone.style.width = sourceTimeline.scrollWidth + 'px';
-        clone.style.height = mirrorH + 'px';
+        clone.style.height = (mirrorH - RULER_H) + 'px';
         clone.style.display = 'block';
         clone.style.backgroundColor = 'transparent';
+
+        // ── خط کشی بالا (شماره میزان) مثل تایم لاین اصلی ──
+        let mirrorRuler = targetDiv.querySelector('.mirror-ruler');
+        if (!mirrorRuler) {
+          mirrorRuler = _lyricPopup.document.createElement('div');
+          mirrorRuler.className = 'mirror-ruler';
+          mirrorRuler.style.cssText = 'position:absolute;top:0;left:0;height:' + RULER_H + 'px;width:100%;overflow:hidden;z-index:5;pointer-events:none;background:rgba(13,16,23,0.95);border-bottom:1px solid rgba(255,255,255,0.1);';
+          targetDiv.appendChild(mirrorRuler);
+        }
+        let rulerInner = mirrorRuler.querySelector('.mirror-ruler-inner');
+        if (!rulerInner) {
+          rulerInner = _lyricPopup.document.createElement('div');
+          rulerInner.className = 'mirror-ruler-inner';
+          rulerInner.style.cssText = 'position:absolute;top:0;height:100%;white-space:nowrap;font-size:8px;color:rgba(255,255,255,0.5);font-family:JetBrains Mono,monospace;line-height:' + RULER_H + 'px;';
+          mirrorRuler.appendChild(rulerInner);
+        }
+        rulerInner.innerHTML = '';
+        rulerInner.style.width = sourceTimeline.scrollWidth + 'px';
+
+        // ── اعداد و پارامترهای گرید ──
+        const _glen = getProjectEnd();
+        const _gbpm = edCur?.tempo || 120;
+        const _gsig = edCur?.timeSignature || '4/4';
+        const _gbeatsPerBar = parseInt(_gsig.split('/')[0]);
+        const _gbeatDur = 60 / _gbpm;
+        const _gbarDur = _gbeatDur * _gbeatsPerBar;
+        const _gpxPerSec = DAW.pxPerSecond;
+        const _gpxPerBar = _gbarDur * _gpxPerSec;
+        let _gbarStep = 1;
+        if (_gpxPerBar > 120) _gbarStep = 1;
+        else if (_gpxPerBar > 60) _gbarStep = 2;
+        else if (_gpxPerBar > 30) _gbarStep = 4;
+        else if (_gpxPerBar > 15) _gbarStep = 8;
+        else if (_gpxPerBar > 8) _gbarStep = 16;
+        else _gbarStep = 32;
+
+        // شماره میزان‌ها روی رولر
+        for (let _bar = 1; _bar * _gbarDur <= _glen; _bar++) {
+          if ((_bar - 1) % _gbarStep !== 0) continue;
+          const _x = timeToX((_bar - 1) * _gbarDur);
+          const _span = _lyricPopup.document.createElement('span');
+          _span.className = 'mirror-ruler-label';
+          _span.style.cssText = 'position:absolute;left:' + _x + 'px;top:0;padding-left:2px;';
+          _span.textContent = _bar;
+          rulerInner.appendChild(_span);
+        }
+
+        // ── رسم خطوط گرید روی کانواس داخل کلون (مثل drawLaneGrid) ──
+        let gridCanvas = clone.querySelector('canvas.lane-grid');
+        if (!gridCanvas) {
+          gridCanvas = _lyricPopup.document.createElement('canvas');
+          gridCanvas.className = 'lane-grid';
+          clone.insertBefore(gridCanvas, clone.firstChild);
+        }
+        gridCanvas.style.cssText = 'position:absolute;top:0;left:0;pointer-events:none;z-index:0;display:block;';
+        gridCanvas.width = Math.min(Math.ceil(sourceTimeline.scrollWidth), 20000);
+        gridCanvas.height = (mirrorH - RULER_H);
+        gridCanvas.style.width = gridCanvas.width + 'px';
+        gridCanvas.style.height = (mirrorH - RULER_H) + 'px';
+
+        const _gctx = gridCanvas.getContext('2d');
+        _gctx.clearRect(0, 0, gridCanvas.width, gridCanvas.height);
+        // خطوط میزان (پررنگ‌تر)
+        _gctx.strokeStyle = 'rgba(255,255,255,0.12)';
+        _gctx.lineWidth = 1;
+        let _gBarCount = 0;
+        for (let _bar = 1; _bar * _gbarDur <= _glen && _gBarCount < 500; _bar++) {
+          const _x = Math.round((_bar * _gbarDur) * _gpxPerSec) + 0.5;
+          if (_x > gridCanvas.width) break;
+          _gctx.beginPath(); _gctx.moveTo(_x, 0); _gctx.lineTo(_x, gridCanvas.height); _gctx.stroke();
+          _gBarCount++;
+        }
+        // خطوط ضرب (کمرنگ‌تر)
+        if (_gpxPerSec > 10) {
+          _gctx.strokeStyle = 'rgba(255,255,255,0.04)';
+          let _gBeatCount = 0;
+          for (let _beat = 0; _beat * _gbeatDur <= _glen && _gBeatCount < 500; _beat++) {
+            if (_beat % _gbeatsPerBar === 0) continue;
+            const _x = Math.round((_beat * _gbeatDur) * _gpxPerSec) + 0.5;
+            if (_x > gridCanvas.width) break;
+            _gctx.beginPath(); _gctx.moveTo(_x, 0); _gctx.lineTo(_x, gridCanvas.height); _gctx.stroke();
+            _gBeatCount++;
+          }
+        }
+        // ساب ضرب (زمانی که زوم خیلی زیاد است)
+        if (_gpxPerSec > 40) {
+          const _gSubBeatDur = _gbeatDur / 4;
+          _gctx.strokeStyle = 'rgba(255,255,255,0.02)';
+          let _gSubCount = 0;
+          for (let _sub = 0; _sub * _gSubBeatDur <= _glen && _gSubCount < 500; _sub++) {
+            if (_sub % 4 === 0) continue;
+            const _x = Math.round((_sub * _gSubBeatDur) * _gpxPerSec) + 0.5;
+            if (_x > gridCanvas.width) break;
+            _gctx.beginPath(); _gctx.moveTo(_x, 0); _gctx.lineTo(_x, gridCanvas.height); _gctx.stroke();
+            _gSubCount++;
+          }
+        }
 
         // ۲. ساخت پلی‌هد — ثابت در وسط کانتینر
         let mirrorPlayhead = targetDiv.querySelector('.mirror-playhead');
@@ -14313,6 +14412,9 @@ if (
             let sourceClip = sourceClips[i]; // تطابق دقیق یک به یک
 
             if (clip.classList.contains('mirror-playhead')) continue;
+
+            // کانواس گرید را مخفی نکن
+            if (clip.tagName === 'CANVAS') continue;
 
             // مخفی کردن دستگیره‌ها به جای حذف کردن
             if (clip.classList.contains('lane-resize-handle')) {
@@ -14408,6 +14510,11 @@ if (
                     // اسکرول کلون تا پلی‌هد وسط بماند
                     if (clone) {
                         clone.style.left = (containerCenter - phLeftInLane) + 'px';
+                    }
+                    // هماهنگ کردن رولر بالا با حرکت لاین
+                    const rulerInner = targetDiv.querySelector('.mirror-ruler-inner');
+                    if (rulerInner) {
+                        rulerInner.style.left = (containerCenter - phLeftInLane) + 'px';
                     }
                 }
 
