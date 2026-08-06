@@ -15011,19 +15011,117 @@ function printSong() {
     // کمی صبر کن تا فونت‌ها لود شوند و بعد چاپ کن
     setTimeout(function() {
       try {
-        window.focus();
-        window.print();
+        // در محیط Electron از پنجره چاپ جداگانه استفاده کن
+        if (isElectron && window.electronAPI && window.electronAPI.printHtml) {
+          // ساخت HTML کامل برای پنجره چاپ
+          const printHtmlContent = `<!DOCTYPE html>
+<html dir="rtl" lang="fa">
+<head>
+<meta charset="UTF-8">
+<title>${(edCur.title || t('untitled')).replace(/</g, '<').replace(/>/g, '>')}</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Vazirmatn', 'Tahoma', sans-serif;
+    background: #fff;
+    color: #000;
+    padding: 20px;
+    direction: rtl;
+  }
+  .print-header {
+    text-align: center;
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid #333;
+  }
+  .print-header .title {
+    font-size: 26px;
+    font-weight: 900;
+    color: #000;
+  }
+  .print-header .sub {
+    font-size: 13px;
+    color: #555;
+    margin-top: 4px;
+    font-weight: 400;
+  }
+  #printWrap {
+    position: relative;
+  }
+  #lyricContent {
+    line-height: 2.2;
+    white-space: pre-wrap;
+  }
+  #chordOverlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+    z-index: 10;
+  }
+  .eline {
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .chord-print {
+    position: absolute;
+    font-weight: 700;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .chord-print-anchor {
+    position: absolute;
+    height: 2px;
+    opacity: 0.5;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  @media print {
+    body { padding: 0; }
+  }
+</style>
+</head>
+<body>
+${printContainer.innerHTML}
+</body>
+</html>`;
+
+          window.electronAPI.printHtml(printHtmlContent).then(function(res) {
+            if (!res || !res.success) {
+              console.error('[Print] Electron print error:', res);
+              toast('خطا در چاپ');
+            }
+          }).catch(function(err) {
+            console.error('[Print] Electron print error:', err);
+            toast('خطا در چاپ');
+          }).finally(function() {
+            if (printContainer && printContainer.parentNode) {
+              printContainer.parentNode.removeChild(printContainer);
+            }
+            printSong._active = false;
+          });
+        } else {
+          // در مرورگر معمولی از window.print استفاده کن
+          window.focus();
+          window.print();
+          // بعد از چاپ، کانتینر را پاک کن
+          setTimeout(function() {
+            if (printContainer && printContainer.parentNode) {
+              printContainer.parentNode.removeChild(printContainer);
+            }
+            printSong._active = false;
+          }, 1000);
+        }
       } catch (e) {
         console.error('[Print] Error:', e);
         toast('خطا در چاپ');
-      }
-      // بعد از چاپ، کانتینر را پاک کن
-      setTimeout(function() {
         if (printContainer && printContainer.parentNode) {
           printContainer.parentNode.removeChild(printContainer);
         }
         printSong._active = false;
-      }, 1000);
+      }
     }, 300);
   } catch (e) {
     console.error('[Print] Error building content:', e);

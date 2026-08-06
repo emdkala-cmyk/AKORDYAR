@@ -324,6 +324,85 @@ ipcMain.handle('audio:resolve-path', async (event, projectFilePath, relativePath
   }
 });
 
+ipcMain.handle('print:open-window', async (event, htmlContent) => {
+  try {
+    // ایجاد یک پنجره چاپ مخفی
+    const printWindow = new BrowserWindow({
+      width: 800,
+      height: 1100,
+      show: false,
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: false,
+        sandbox: false,
+        webSecurity: false
+      }
+    });
+
+    // ─── تزریق فونت‌های سفارشی به HTML چاپ ───
+    // فونت‌ها را از پوشه fonts به صورت base64 بخوان و در HTML تزریق کن
+    let enhancedHtml = htmlContent;
+    try {
+      const fontsDir = app.isPackaged
+        ? path.join(process.resourcesPath, 'app', 'fonts')
+        : path.join(__dirname, 'fonts');
+
+      const fontFiles = [
+        { name: 'Vazirmatn', file: 'Vazirmatn-Regular.woff2', weight: 'normal' },
+        { name: 'Vazirmatn Bold', file: 'Vazirmatn-Bold.woff2', weight: 'bold' },
+        { name: 'Vazirmatn Thin', file: 'Vazirmatn-Thin.woff2', weight: '100' },
+        { name: 'Vazirmatn Black', file: 'Vazirmatn-Black.woff2', weight: '900' },
+        { name: 'BArshia', file: 'BArshia.woff2', weight: 'normal' },
+        { name: 'BFarnaz', file: 'BFarnaz.woff2', weight: 'normal' },
+        { name: 'BJadid', file: 'BJadidBd.woff2', weight: 'bold' },
+        { name: 'BZar', file: 'BZar.woff2', weight: 'normal' },
+        { name: 'BZar Bold', file: 'BZarBd.woff2', weight: 'bold' },
+        { name: 'Lalezar', file: 'Lalezar-Regular.woff2', weight: 'normal' },
+        { name: 'Mada', file: 'Mada-Bold.woff2', weight: 'bold' },
+        { name: 'Rubik', file: 'Rubik-Bold.woff2', weight: 'bold' },
+        { name: 'JetBrains Mono', file: 'JetBrainsMono-Regular.woff2', weight: 'normal' },
+        { name: 'JetBrains Mono Bold', file: 'JetBrainsMono-Bold.woff2', weight: 'bold' }
+      ];
+
+      let fontCss = '';
+      for (const f of fontFiles) {
+        const fontPath = path.join(fontsDir, f.file);
+        if (fsSync.existsSync(fontPath)) {
+          const fontData = fsSync.readFileSync(fontPath).toString('base64');
+          fontCss += `@font-face { font-family: '${f.name}'; src: url(data:font/woff2;base64,${fontData}) format('woff2'); font-weight: ${f.weight}; font-style: normal; }\n`;
+        }
+      }
+
+      if (fontCss) {
+        // تزریق فونت‌ها قبل از </head>
+        enhancedHtml = htmlContent.replace('</head>', `<style>${fontCss}</style></head>`);
+      }
+    } catch (fontErr) {
+      logError('Print', `Font injection error: ${fontErr.message}`);
+      // اگر فونت‌ها لود نشدند، از فونت‌های سیستمی استفاده کن
+    }
+
+    // لود محتوای HTML
+    await printWindow.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(enhancedHtml));
+
+    // صبر کن تا فونت‌ها و محتوا لود شوند
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    // چاپ
+    const result = await printWindow.webContents.print({
+      silent: false,
+      printBackground: true,
+      margins: { marginType: 'default' }
+    });
+
+    printWindow.destroy();
+    return { success: true, result };
+  } catch (error) {
+    logError('Print', `Error printing: ${error.message}`);
+    return { success: false, error: error.message };
+  }
+});
+
 ipcMain.handle('dialog:show-message-box', async (event, options) => {
   try {
     const result = await dialog.showMessageBox(mainWindow, {

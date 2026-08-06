@@ -51,10 +51,12 @@
   /* محتوای چاپ */
   #printContainer #printWrap {
     position: relative;
+    padding: 0 10px;
   }
   #printContainer #lyricContent {
-    line-height: 2.2;
+    line-height: 2.4;
     white-space: pre-wrap;
+    padding-top: 30px; /* فضای کافی برای آکوردها */
   }
   #printContainer #chordOverlay {
     position: absolute;
@@ -68,17 +70,23 @@
   #printContainer .eline {
     white-space: pre-wrap;
     word-break: break-word;
+    margin-bottom: 8px;
   }
   #printContainer .chord-print {
     position: absolute;
     font-weight: 700;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+    text-shadow: 0 0 2px #fff, 0 0 2px #fff;
+    background: rgba(255,255,255,0.85);
+    padding: 0 3px;
+    border-radius: 3px;
+    z-index: 20;
   }
   #printContainer .chord-print-anchor {
     position: absolute;
     height: 2px;
-    opacity: 0.5;
+    opacity: 0.4;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }

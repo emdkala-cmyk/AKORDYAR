@@ -178,7 +178,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
         arch: process.arch,
         nodeVersion: process.versions.node,
         electronVersion: process.versions.electron
-    })
+    }),
+
+    // ============================================
+    // Print Operations
+    // ============================================
+
+    /**
+     * چاپ محتوای HTML در یک پنجره چاپ جداگانه
+     * @param {string} htmlContent - محتوای HTML برای چاپ
+     * @returns {Promise<Object>}
+     */
+    printHtml: (htmlContent) => ipcRenderer.invoke('print:open-window', htmlContent)
 });
 
 console.log('[Preload] electronAPI exposed to renderer');
