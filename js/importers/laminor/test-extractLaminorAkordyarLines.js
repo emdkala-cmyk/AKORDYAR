@@ -30,6 +30,7 @@
     const {
       processV62Line,
       fixEndingChordToStart,
+      fixSingleChordPosition,
       fixChordInsidePersianWord,
       normalizeSpaces
     } = extractor;
@@ -42,9 +43,9 @@
         fn: fixEndingChordToStart
       },
       {
-        name: 'V7: آکورد انتهای خط در processV62Line حفظ شود',
+        name: 'V7.1: آکورد انتهای خط تک‌آکوردی در processV62Line به ابتدا منتقل شود',
         input: 'غم میون دو تا چشمون قشنگت[Am]',
-        expected: 'غم میون دو تا چشمون قشنگت[Am]',
+        expected: '[Am]غم میون دو تا چشمون قشنگت',
         fn: processV62Line
       },
       {
@@ -111,6 +112,54 @@
         name: 'V7: چند آکورد پشت سر هم در ابتدای خط حفظ شوند',
         input: '[Am][G][Dm]سلام دنیا',
         expected: '[Am][G][Dm]سلام دنیا',
+        fn: processV62Line
+      },
+      {
+        name: 'V7.1: تک‌آکورد انتهای خط به ابتدای خط منتقل شود',
+        input: 'غم میون دو تا چشمون قشنگت[Am]',
+        expected: '[Am]غم میون دو تا چشمون قشنگت',
+        fn: fixSingleChordPosition
+      },
+      {
+        name: 'V7.1: تک‌آکورد ابتدای خط به انتهای خط منتقل شود',
+        input: '[Am]غم میون دو تا چشمون قشنگت',
+        expected: 'غم میون دو تا چشمون قشنگت[Am]',
+        fn: fixSingleChordPosition
+      },
+      {
+        name: 'V7.1: تک‌آکورد وسط خط — تغییر نکند',
+        input: 'غم میون [Am]دو تا چشمون',
+        expected: 'غم میون [Am]دو تا چشمون',
+        fn: fixSingleChordPosition
+      },
+      {
+        name: 'V7.1: چند آکورد — تغییر نکند',
+        input: 'غم میون [Am]دو تا [G]چشمون',
+        expected: 'غم میون [Am]دو تا [G]چشمون',
+        fn: fixSingleChordPosition
+      },
+      {
+        name: 'V7.1: خط فقط آکورد — تغییر نکند',
+        input: '[Am]',
+        expected: '[Am]',
+        fn: fixSingleChordPosition
+      },
+      {
+        name: 'V7.1: processV62Line — چند آکورد تغییر نکند (نمونه ترکیبی)',
+        input: 'غم میون دو تا چش[G]مون قشنگت[Am]',
+        expected: 'غم میون دو تا [G]چشمون قشنگت[Am]',
+        fn: processV62Line
+      },
+      {
+        name: 'V7.1: processV62Line — تک‌آکورد ابتدای خط به انتها منتقل شود',
+        input: '[Am]غم میون دو تا چشمون قشنگت',
+        expected: 'غم میون دو تا چشمون قشنگت[Am]',
+        fn: processV62Line
+      },
+      {
+        name: 'V7.1: processV62Line — چند آکورد تغییر نکند',
+        input: 'غم میون [Am]دو تا [G]چشمون قشنگت[Dm]',
+        expected: 'غم میون [Am]دو تا [G]چشمون قشنگت[Dm]',
         fn: processV62Line
       }
     ];

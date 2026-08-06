@@ -1,4 +1,4 @@
-رفع باگ جایگاه آکوردهای Laminor (V7)
+رفع باگ جایگاه آکوردهای Laminor (V7.1)
 =====================================
 
 تاریخ: 2026-08-06
@@ -16,14 +16,15 @@
 - اشتباه به خط دیگر منتقل می‌شوند
 - یا به انتهای بیت attach می‌شوند، حتی وقتی باید در ابتدای بیت باشند
 
-خطای مهم دیگر:
-در ترانه‌هایی که هر بیت فقط یک آکورد دارد، اگر آن آکورد در ابتدای بیت باشد،
-الگوریتم فعلی آن را اشتباه به انتهای همان بیت منتقل می‌کند.
+خطای مهم دیگر (V7.1):
+در ترانه‌هایی که هر بیت فقط یک آکورد دارد، الگوریتم جایگاه آکورد را برعکس تشخیص می‌دهد:
+- اگر آکورد در سمت راست (انتهای بیت) باشد، اشتباهاً در سمت چپ (ابتدای بیت) قرار می‌گیرد
+- اگر آکورد در سمت چپ (ابتدای بیت) باشد، اشتباهاً در سمت راست (انتهای بیت) قرار می‌گیرد
 
 تغییرات انجام شده:
 -------------------
 
-1. js/laminor-extractor.js (V7):
+1. js/laminor-extractor.js (V7.1):
    - تابع matchChordToTextBoundary بازنویسی شد
    - تشخیص صریح سه نوع آکورد:
      * start-of-line chord (آکورد قبل از شروع متن) → anchorType: 'start', charIndex: 0
@@ -32,11 +33,16 @@
    - logicalSlot برای جلوگیری از overlap چند آکورد پشت سر هم
    - مرتب‌سازی آکوردها بر اساس charIndex و سپس logicalSlot
    - convertExtractedLinesToEdCur حالا anchorType و logicalSlot را ذخیره می‌کند
+   - V7.1: در convertExtractedLinesToEdCur، اگر خط فقط یک آکورد داشته باشد،
+     جایگاه آکورد برعکس می‌شود:
+     * آکورد end → start (charIndex: 0)
+     * آکورد start → end (charIndex: text.length)
 
-2. js/importers/laminor/extractLaminorAkordyarLines.js (V7):
+2. js/importers/laminor/extractLaminorAkordyarLines.js (V7.1):
+   - fixSingleChordPosition اضافه شد — در خطوط تک‌آکوردی، جایگاه آکورد برعکس می‌شود
+   - processV62Line حالا fixSingleChordPosition را صدا می‌زند
    - fixEndingChordToStart دیگر آکورد انتهای خط را به ابتدای خط منتقل نمی‌کند
-   - آکوردهای انتهای خط در جای خود حفظ می‌شوند
-   - processV62Line دیگر fixEndingChordToStart را صدا نمی‌زند
+   - آکوردهای انتهای خط در جای خود حفظ می‌شوند (برای خطوط چندآکوردی)
 
 3. js/sharedEngine.js:
    - findTokenIndexForChar حالا از anchorType استفاده می‌کند:
@@ -46,9 +52,9 @@
    - alignChords حالا logicalSlot را نیز ذخیره می‌کند
 
 4. js/importers/laminor/test-extractLaminorAkordyarLines.js:
-   - تست‌های جدید V7 اضافه شد
+   - تست‌های جدید V7.1 اضافه شد
    - تست‌های قدیمی که رفتار اشتباه را تأیید می‌کردند اصلاح شدند
 
 نتیجه تست:
 -----------
-13 تست موفق، 0 ناموفق
+21 تست موفق، 0 ناموفق

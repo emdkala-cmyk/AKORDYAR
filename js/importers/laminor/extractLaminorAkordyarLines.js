@@ -371,22 +371,74 @@
   // ===============================
 
   /**
-   * Post processor نهایی V7
+   * Post processor نهایی V7.1
    * @param {string} line
    * @returns {string}
    *
    * اصلاحات V7:
    *   - fixEndingChordToStart حذف شد — آکورد انتهای خط نباید به ابتدای خط منتقل شود
    *   - آکوردهای انتهای خط باید در همان جایگاه خود حفظ شوند
+   *
+   * اصلاحات V7.1:
+   *   - fixSingleChordPosition اضافه شد — در خطوطی که فقط یک آکورد دارند،
+   *     اگر آکورد در سمت راست (انتهای خط) بود به سمت چپ (ابتدای خط) منتقل می‌شود
+   *     و اگر در سمت چپ (ابتدای خط) بود به سمت راست (انتهای خط) منتقل می‌شود
+   *     (رفع تشخیص برعکس جایگاه آکورد تک‌بیتی)
    */
   function processV62Line(line) {
     let fixed = line;
 
     // V7: fixEndingChordToStart حذف شد — آکورد انتهای خط باید در جای خود بماند
+    // V7.1: فقط برای خطوط تک‌آکوردی، جایگاه آکورد برعکس می‌شود
+    fixed = fixSingleChordPosition(fixed);
     fixed = fixChordInsidePersianWord(fixed);
     fixed = normalizeSpaces(fixed);
 
     return fixed;
+  }
+
+  /**
+   * V7.1: رفع تشخیص برعکس جایگاه آکورد در خطوط تک‌آکوردی
+   * وقتی یک خط فقط یک آکورد دارد:
+   *   - اگر آکورد در سمت راست (انتهای خط) است → به سمت چپ (ابتدای خط) منتقل می‌شود
+   *   - اگر آکورد در سمت چپ (ابتدای خط) است → به سمت راست (انتهای خط) منتقل می‌شود
+   * مثال: "غم میون دو تا چشمون قشنگت[Am]" → "[Am]غم میون دو تا چشمون قشنگت"
+   * مثال: "[Am]غم میون دو تا چشمون قشنگت" → "غم میون دو تا چشمون قشنگت[Am]"
+   * @param {string} line
+   * @returns {string}
+   */
+  function fixSingleChordPosition(line) {
+    if (typeof line !== 'string') return line;
+
+    if (isOnlyChordLine(line)) return line;
+
+    const matches = [...line.matchAll(ANY_CHORD_REGEX)];
+    if (matches.length !== 1) return line;
+
+    const match = matches[0];
+    const chord = match[0];
+    const chordIndex = match.index;
+
+    if (chordIndex == null) return line;
+
+    const before = line.slice(0, chordIndex);
+    const after = line.slice(chordIndex + chord.length);
+
+    const beforeText = before.trim();
+    const afterText = after.trim();
+
+    // آکورد در انتهای خط (سمت راست) → به ابتدای خط (سمت چپ) منتقل کن
+    if (!afterText && beforeText) {
+      return chord + beforeText;
+    }
+
+    // آکورد در ابتدای خط (سمت چپ) → به انتهای خط (سمت راست) منتقل کن
+    if (!beforeText && afterText) {
+      return afterText + chord;
+    }
+
+    // آکورد وسط خط — تغییری نده
+    return line;
   }
 
   /**
@@ -548,6 +600,7 @@
     buildPreviewLine,
     processV62Line,
     fixEndingChordToStart,
+    fixSingleChordPosition,
     fixChordInsidePersianWord,
     normalizeSpaces,
     isOnlyChordLine,
