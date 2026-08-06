@@ -639,8 +639,12 @@ globalScope.DAW = {
     const COLORS = ['#3FB8AF', '#3182CE', '#D69E2E', '#9F7AEA', '#ED64A6', '#48BB78', '#ED8936', '#00B5D8'];
     
     const NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-    const ROOT_NOTES = ['None', ...NOTES];
-    const BASS_NOTES = ['None', ...NOTES];
+    const FLAT_NOTES = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
+    const ALL_NOTE_NAMES = ['C', 'C#', 'Db', 'D', 'D#', 'Eb', 'E', 'F', 'F#', 'Gb', 'G', 'G#', 'Ab', 'A', 'A#', 'Bb', 'B'];
+    const ROOT_NOTES = ['None', ...ALL_NOTE_NAMES];
+    const BASS_NOTES = ['None', ...ALL_NOTE_NAMES];
+    const NOTE_TO_SHARP = { 'Db': 'C#', 'Eb': 'D#', 'Gb': 'F#', 'Ab': 'G#', 'Bb': 'A#' };
+    const NOTE_SEMITONE = { 'C':0,'C#':1,'Db':1,'D':2,'D#':3,'Eb':3,'E':4,'F':5,'F#':6,'Gb':6,'G':7,'G#':8,'Ab':8,'A':9,'A#':10,'Bb':10,'B':11 };
     const CHORD_TYPES = ['None', 'maj', 'min', 'dim', 'aug', 'sus2', 'sus4'];
     const TENSIONS = ['', '7', 'M7', '9', 'b9', '#9', '11', '#11', '13', '6'];
     function chordTypeDisplay(type) { return type === 'min' ? 'm' : type === 'maj' ? '' : type; }
@@ -6603,7 +6607,7 @@ document.addEventListener('DOMContentLoaded', () => {
       document.querySelectorAll('.piano-keyboard .white-key, .piano-keyboard .black-key').forEach(k => k.classList.remove('active'));
       if (name === '') return;
 
-      const rootIdx = NOTES.indexOf(root); 
+      const rootIdx = NOTE_SEMITONE[root] != null ? NOTE_SEMITONE[root] : NOTES.indexOf(root);
       const intervals = [...(CHORD_INTERVALS[type] || []), ...(TENSION_INTERVALS[tension] || [])];
       intervals.forEach(i => {
         const noteIdx = (rootIdx + i) % 12; const noteName = NOTES[noteIdx];
@@ -6613,8 +6617,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (keyEl5) keyEl5.classList.add('active');
       });
       if (bass !== 'None' && bass !== root) {
-        const bassEl4 = document.querySelector(`.piano-keyboard [data-note="${bass}4"]`);
-        const bassEl5 = document.querySelector(`.piano-keyboard [data-note="${bass}5"]`);
+        const bassSharp = NOTE_TO_SHARP[bass] || bass;
+        const bassEl4 = document.querySelector(`.piano-keyboard [data-note="${bassSharp}4"]`);
+        const bassEl5 = document.querySelector(`.piano-keyboard [data-note="${bassSharp}5"]`);
         if (bassEl4) bassEl4.classList.add('active');
         if (bassEl5) bassEl5.classList.add('active');
       }
@@ -6625,7 +6630,7 @@ document.addEventListener('DOMContentLoaded', () => {
       edChordModalMode = null;
       if (clipId) {
         const clip = getClip(clipId);
-        const m = clip.name.match(/^([A-G]#?)(maj|m(?:in)?|dim|aug|sus2|sus4)?(M7|7|9|b9|#9|11|#11|13|6)?(?:\/([A-G]#?))?$/);
+        const m = clip.name.match(/^([A-G][#b]?)(maj|m(?:in)?|dim|aug|sus2|sus4)?(M7|7|9|b9|#9|11|#11|13|6)?(?:\/([A-G][#b]?))?$/);
         if (m) { let tp = m[2] || 'None'; if (tp === 'm') tp = 'min'; currentChord = { root: m[1] || 'None', type: tp, tension: m[3] || '', bass: m[4] || 'None' }; }
         else currentChord = { root: 'None', type: 'None', tension: '', bass: 'None' };
       } else {
@@ -9246,7 +9251,11 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
 
     // -- Song Data --
     const ED_NOTES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
-    const ED_SEMITONE = {'C':0,'C#':1,'D':2,'D#':3,'E':4,'F':5,'F#':6,'G':7,'G#':8,'A':9,'A#':10,'B':11};
+    const ED_FLAT_NOTES = ['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'];
+    const ED_ALL_NOTE_NAMES = ['C','C#','Db','D','D#','Eb','E','F','F#','Gb','G','G#','Ab','A','A#','Bb','B'];
+    const ED_SEMITONE = {'C':0,'C#':1,'Db':1,'D':2,'D#':3,'Eb':3,'E':4,'F':5,'F#':6,'Gb':6,'G':7,'G#':8,'Ab':8,'A':9,'A#':10,'Bb':10,'B':11};
+    const ED_NOTE_TO_SHARP = { 'Db':'C#', 'Eb':'D#', 'Gb':'F#', 'Ab':'G#', 'Bb':'A#' };
+    const ED_FLAT_MAP = { 1:'Db', 3:'Eb', 6:'Gb', 8:'Ab', 10:'Bb' };
     const ED_TYPES = ['','m','7','maj7','m7','dim','aug','sus2','sus4','6','m6','m7b5'];
     const ED_TENS = ['','add9','9','11','13','b9','#9','#11','b13'];
 
@@ -12770,7 +12779,16 @@ saveState();
     }
     function anchorRect(ch) { return anchorRectIn($('editor'), ch); }
 
-    function edShiftNote(n, semi) { const map = {'C':0,'C#':1,'D':2,'D#':3,'E':4,'F':5,'F#':6,'G':7,'G#':8,'A':9,'A#':10,'B':11}; if (!(n in map)) return n; const sharp = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B']; const flat = {1:'Db',3:'Eb',6:'Gb',8:'Ab',10:'Bb'}; const idx = (map[n] + semi%12 + 12) % 12; return (n.includes('#') || n.includes('b')) && flat[idx] ? flat[idx] : sharp[idx]; }
+    function edShiftNote(n, semi) {
+      const map = NOTE_SEMITONE || {'C':0,'C#':1,'Db':1,'D':2,'D#':3,'Eb':3,'E':4,'F':5,'F#':6,'Gb':6,'G':7,'G#':8,'Ab':8,'A':9,'A#':10,'Bb':10,'B':11};
+      if (!(n in map)) return n;
+      const sharp = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+      const flat = ED_FLAT_MAP || {1:'Db',3:'Eb',6:'Gb',8:'Ab',10:'Bb'};
+      const idx = (map[n] + semi%12 + 12) % 12;
+      // اگر ورودی بمل باشد، خروجی بمل بماند؛ اگر دیز باشد، خروجی دیز بماند
+      if (n.includes('b')) return flat[idx] || sharp[idx];
+      return sharp[idx];
+    }
     function edTransposeChord(name, semi) { if (!semi || !name) return name; return name.split('/').map(part => part.replace(/^([A-G][b#]?)/, (_,root) => edShiftNote(root,semi))).join('/'); }
 
     let edRenderChordsToken = 0;
@@ -13457,7 +13475,7 @@ if ($('edDoBoth')) {
       edChordModalMode = 'editor';
       // Set currentChord from existing chord
       if (idx !== null && edCur.chords[idx]) {
-        const m = edCur.chords[idx].name.match(/^([A-G]#?)(maj|m(?:in)?|dim|aug|sus2|sus4)?(M7|7|9|b9|#9|11|#11|13|6)?(?:\/([A-G]#?))?$/);
+        const m = edCur.chords[idx].name.match(/^([A-G][#b]?)(maj|m(?:in)?|dim|aug|sus2|sus4)?(M7|7|9|b9|#9|11|#11|13|6)?(?:\/([A-G][#b]?))?$/);
         if (m) { let tp = m[2] || 'None'; if (tp === 'm') tp = 'min'; currentChord = { root: m[1] || 'None', type: tp, tension: m[3] || '', bass: m[4] || 'None' }; }
         else currentChord = { root: 'None', type: 'None', tension: '', bass: 'None' };
       } else {
@@ -13540,6 +13558,10 @@ if ($('edDoBoth')) {
       const idx = ED_SEMITONE[key];
       if (idx == null) return key;
       const newIdx = ((idx + semitones) % 12 + 12) % 12;
+      // اگر گام بمل باشد، خروجی بمل بماند؛ اگر دیز باشد، خروجی دیز بماند
+      if (key.includes('b')) {
+        return ED_FLAT_NOTES[newIdx] || ED_NOTES[newIdx];
+      }
       return ED_NOTES[newIdx];
     }
 
@@ -13828,8 +13850,8 @@ if ($('edDoBoth')) {
     if ($('edTempo')) $('edTempo').oninput = () => { if (edCur) { edCur.tempo = parseInt($('edTempo').value) || 120; edSaveSong(); } };
     if ($('edGenre')) $('edGenre').onchange = () => { if (edCur) { edCur.genre = $('edGenre').value; edSaveSong(); } };
 
-    // Populate key select
-    ED_NOTES.forEach(n => { if ($('edKey')) $('edKey').add(new Option(n, n)); });
+    // Populate key select (both sharp and flat options)
+    ED_ALL_NOTE_NAMES.forEach(n => { if ($('edKey')) $('edKey').add(new Option(n, n)); });
 
     // -- Mouse wheel on toolbar inputs (number + select) --
     document.querySelector('.header-center-controls')?.addEventListener('wheel', e => {
