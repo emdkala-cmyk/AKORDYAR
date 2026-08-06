@@ -441,6 +441,8 @@
       const modal = document.getElementById('arrangerModal');
       if (modal) modal.classList.add('show');
     }
+    // بستن هاب تا محیط ارنجر دیده شود
+    closeHub();
   }
 
   function createNewArranger() {
@@ -451,6 +453,8 @@
       const modal = document.getElementById('arrangerModal');
       if (modal) modal.classList.add('show');
     }
+    // بستن هاب تا محیط ارنجر دیده شود
+    closeHub();
   }
 
   /* ---------- Hub Open/Close ---------- */

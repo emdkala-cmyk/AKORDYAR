@@ -4990,6 +4990,10 @@ let syncTapKeyHandler = null;
       editingArr = null;
     }
 
+    // Expose for ProjectHub (Hub arranger track click)
+    window.openArrangerModal = openArrangerModal;
+    window.closeArrangerModal = closeArrangerModal;
+
     // درگ arrangerModal
     function _setupArrangerModalDrag() {
       const handle = $('arrModalDragHandle');
@@ -5169,6 +5173,9 @@ let syncTapKeyHandler = null;
       openArrEditor();          // بعد ادیتور رو باز کن
       toast(`✅ پلی‌لیست «${arr.name}» ساخته شد`);
     }
+
+    // Expose for ProjectHub (Hub "➕ جدید" button)
+    window.createNewArranger = createNewArranger;
 
     function openArrEditor() {
       if (!editingArr) return;
