@@ -15305,9 +15305,15 @@ function quickSearchFilter() {
     clearBtn.style.display = query ? 'block' : 'none';
   }
   
+  // Get filter values
+  const sig = document.getElementById('qspFilterSig')?.value || '';
+  const genre = document.getElementById('qspFilterGenre')?.value || '';
+  const tempoRange = document.getElementById('qspFilterTempo')?.value || '';
+  const keyFilter = document.getElementById('qspFilterKey')?.value || '';
+  
   const songs = edGetAllSongs().filter(s => !s.deletedAt);
   
-  if (!query) {
+  if (!query && !sig && !genre && !tempoRange && !keyFilter) {
     // Show recent/opened songs or all
     const recent = [...songs].sort((a, b) => {
       const aTime = a.lastOpenedAt ? new Date(a.lastOpenedAt).getTime() : 0;
@@ -15321,13 +15327,43 @@ function quickSearchFilter() {
   
   // Filter songs
   const filtered = songs.filter(s => {
-    const title = (s.title || '').toLowerCase();
-    const artist = (s.artist || '').toLowerCase();
-    const rawText = (s.rawText || '').toLowerCase();
-    return title.includes(query) || artist.includes(query) || rawText.includes(query);
+    // Text search
+    if (query) {
+      const title = (s.title || '').toLowerCase();
+      const artist = (s.artist || '').toLowerCase();
+      const rawText = (s.rawText || '').toLowerCase();
+      if (!title.includes(query) && !artist.includes(query) && !rawText.includes(query)) return false;
+    }
+    // Signature filter
+    if (sig && s.timeSignature !== sig) return false;
+    // Genre filter
+    if (genre && s.genre !== genre) return false;
+    // Key filter
+    if (keyFilter === '_maj' && s.keyMode !== 'maj') return false;
+    else if (keyFilter === '_min' && s.keyMode !== 'min') return false;
+    else if (keyFilter && keyFilter !== '_maj' && keyFilter !== '_min' && s.key !== keyFilter) return false;
+    // Tempo filter
+    if (tempoRange) {
+      const bpm = s.tempo || s.bpm || 120;
+      if (tempoRange === 'slow' && bpm > 80) return false;
+      if (tempoRange === 'mid' && (bpm <= 80 || bpm > 120)) return false;
+      if (tempoRange === 'fast' && (bpm <= 120 || bpm > 160)) return false;
+      if (tempoRange === 'vfast' && bpm <= 160) return false;
+    }
+    return true;
   }).slice(0, 50);
   
   renderQuickSearchList(filtered, list);
+}
+
+function quickSearchClearFilters() {
+  const input = document.getElementById('quickSearchInput');
+  ['qspFilterSig','qspFilterGenre','qspFilterTempo','qspFilterKey'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  if (input) input.value = '';
+  quickSearchFilter();
 }
 
 function renderQuickSearchList(songs, container) {

@@ -1068,6 +1068,14 @@
       <input type="text" id="quickSearchInput" placeholder="جستجو: نام، خواننده، متن..." oninput="quickSearchFilter()">
       <button class="qsp-clear" id="quickSearchClear" onclick="document.getElementById('quickSearchInput').value='';quickSearchFilter();">✕</button>
     </div>
+    <!-- Advanced Filters -->
+    <div class="qsp-filters" id="quickSearchFilters">
+      <select id="qspFilterSig" aria-label="فیلتر میزان‌نما" onchange="quickSearchFilter()"><option value="">همه میزان‌ها</option><option value="4/4">4/4</option><option value="3/4">3/4</option><option value="2/4">2/4</option><option value="6/8">6/8</option><option value="5/4">5/4</option><option value="7/8">7/8</option><option value="9/8">9/8</option><option value="12/8">12/8</option></select>
+      <select id="qspFilterGenre" aria-label="فیلتر ژانر" onchange="quickSearchFilter()"><option value="">همه ژانرها</option><option value="sad">غمگین</option><option value="happy">شاد</option><option value="heavy">سنگین</option><option value="romantic">عاشقانه</option><option value="energetic">انرژیک</option><option value="calm">آرام</option><option value="epic">حماسی</option><option value="pop">پاپ</option><option value="rock">راک</option><option value="jazz">جاز</option><option value="classical">کلاسیک</option><option value="folk">سنتی</option><option value="electronic">الکترونیک</option><option value="hiphop">هیپ‌هاپ</option><option value="other">سایر</option></select>
+      <select id="qspFilterTempo" aria-label="فیلتر تمپو" onchange="quickSearchFilter()"><option value="">همه تمپوها</option><option value="slow">کند (≤80)</option><option value="mid">متوسط (81-120)</option><option value="fast">سریع (121-160)</option><option value="vfast">خیلی سریع (>160)</option></select>
+      <select id="qspFilterKey" aria-label="فیلتر گام" onchange="quickSearchFilter()"><option value="">همه گام‌ها</option><option value="C">C</option><option value="C#">C#/Db</option><option value="D">D</option><option value="D#">D#/Eb</option><option value="E">E</option><option value="F">F</option><option value="F#">F#/Gb</option><option value="G">G</option><option value="G#">G#/Ab</option><option value="A">A</option><option value="A#">A#/Bb</option><option value="B">B</option><option value="_maj">--- فقط ماژور ---</option><option value="_min">--- فقط مینور ---</option></select>
+      <button class="qsp-filter-clear" onclick="quickSearchClearFilters()" title="پاک کردن فیلترها">پاک کردن</button>
+    </div>
     <div class="qsp-list" id="quickSearchList"></div>
   </div>
 

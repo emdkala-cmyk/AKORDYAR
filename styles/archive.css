@@ -271,6 +271,35 @@
   font-size: 0.82rem;
 }
 .qsp-search input:focus { border-color: var(--accent-teal); outline: none; }
+.qsp-filters {
+  display: flex;
+  gap: 4px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: rgba(255,255,255,0.01);
+  flex-wrap: wrap;
+}
+.qsp-filters select {
+  background: #0D1017;
+  border: 1px solid var(--border-subtle);
+  padding: 4px 6px;
+  border-radius: 6px;
+  color: white;
+  font-size: 0.72rem;
+  min-width: 70px;
+}
+.qsp-filters select:focus { border-color: var(--accent-teal); outline: none; }
+.qsp-filter-clear {
+  background: rgba(255,46,147,0.1);
+  border: 1px solid rgba(255,46,147,0.3);
+  color: var(--accent-neon-pink);
+  font-size: 0.7rem;
+  padding: 4px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: 0.15s;
+}
+.qsp-filter-clear:hover { background: rgba(255,46,147,0.2); }
 .qsp-clear {
   background: none;
   border: none;
