@@ -1,1 +1,1 @@
-node_modules/ 
+Nothing needs to be added to .gitignore since only a single HTML file was modified and there are no build artifacts, dependencies, or temporary files in the changes.
