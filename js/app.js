@@ -4351,11 +4351,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     window.electronAPI.onMenuCommand('menu-archive', () => {
       console.log('[Menu] Archive requested');
-      const panel = document.getElementById('archive-panel');
-      if (panel) {
-        panel.style.display = panel.style.display === 'none' || panel.style.display === '' ? 'block' : 'none';
+      if (typeof edOpenArchive === 'function') {
+        edOpenArchive();
       } else {
-        alert('پنجره آرشیو پیدا نشد.');
+        alert('آرشیو هنوز بارگذاری نشده است.');
       }
     });
 

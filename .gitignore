@@ -1,1 +1,5 @@
+<<<<<<< HEAD
 node_modules/ 
+=======
+Nothing should be ignored based on the provided file changes. The modified files (Akordyar.html and js/projecthub.js) are source code files that should be tracked in version control.
+>>>>>>> ab50c0691efe79c93a4a888f077406b93d7c41c4
