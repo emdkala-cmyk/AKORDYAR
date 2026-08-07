@@ -15218,3 +15218,149 @@ ${printContainer.innerHTML}
 
 // expose to global scope
 window.printSong = printSong;
+
+// ===== Quick Search Panel Functions =====
+let _quickSearchDragging = false;
+let _quickSearchDragOffset = { x: 0, y: 0 };
+
+function openQuickSearchPanel() {
+  const panel = document.getElementById('quickSearchPanel');
+  if (!panel) return;
+  
+  // Show panel
+  panel.style.display = 'flex';
+  // Force reflow
+  panel.offsetHeight;
+  panel.classList.add('show');
+  
+  // Focus input
+  setTimeout(() => {
+    const input = document.getElementById('quickSearchInput');
+    if (input) input.focus();
+  }, 50);
+  
+  // Render initial list
+  quickSearchFilter();
+  
+  // Setup drag functionality
+  setupQuickSearchDrag();
+}
+
+function closeQuickSearchPanel() {
+  const panel = document.getElementById('quickSearchPanel');
+  if (!panel) return;
+  panel.classList.remove('show');
+  setTimeout(() => {
+    panel.style.display = 'none';
+  }, 150);
+}
+
+function setupQuickSearchDrag() {
+  const header = document.getElementById('quickSearchHeader');
+  const panel = document.getElementById('quickSearchPanel');
+  if (!header || !panel) return;
+  
+  header.addEventListener('mousedown', (e) => {
+    if (e.target.closest('.qsp-close')) return;
+    _quickSearchDragging = true;
+    const rect = panel.getBoundingClientRect();
+    _quickSearchDragOffset.x = e.clientX - rect.left;
+    _quickSearchDragOffset.y = e.clientY - rect.top;
+    panel.style.transition = 'none';
+    e.preventDefault();
+  });
+  
+  document.addEventListener('mousemove', (e) => {
+    if (!_quickSearchDragging) return;
+    const x = e.clientX - _quickSearchDragOffset.x;
+    const y = e.clientY - _quickSearchDragOffset.y;
+    
+    // Boundary checks
+    const maxX = window.innerWidth - panel.offsetWidth;
+    const maxY = window.innerHeight - panel.offsetHeight;
+    
+    panel.style.left = Math.max(0, Math.min(x, maxX)) + 'px';
+    panel.style.top = Math.max(0, Math.min(y, maxY)) + 'px';
+    panel.style.right = 'auto';
+  });
+  
+  document.addEventListener('mouseup', () => {
+    if (_quickSearchDragging) {
+      _quickSearchDragging = false;
+      panel.style.transition = '';
+    }
+  });
+}
+
+function quickSearchFilter() {
+  const input = document.getElementById('quickSearchInput');
+  const list = document.getElementById('quickSearchList');
+  const clearBtn = document.getElementById('quickSearchClear');
+  if (!input || !list) return;
+  
+  const query = input.value.trim().toLowerCase();
+  
+  // Show/hide clear button
+  if (clearBtn) {
+    clearBtn.style.display = query ? 'block' : 'none';
+  }
+  
+  const songs = edGetAllSongs().filter(s => !s.deletedAt);
+  
+  if (!query) {
+    // Show recent/opened songs or all
+    const recent = [...songs].sort((a, b) => {
+      const aTime = a.lastOpenedAt ? new Date(a.lastOpenedAt).getTime() : 0;
+      const bTime = b.lastOpenedAt ? new Date(b.lastOpenedAt).getTime() : 0;
+      return bTime - aTime;
+    }).slice(0, 20);
+    
+    renderQuickSearchList(recent, list);
+    return;
+  }
+  
+  // Filter songs
+  const filtered = songs.filter(s => {
+    const title = (s.title || '').toLowerCase();
+    const artist = (s.artist || '').toLowerCase();
+    const rawText = (s.rawText || '').toLowerCase();
+    return title.includes(query) || artist.includes(query) || rawText.includes(query);
+  }).slice(0, 50);
+  
+  renderQuickSearchList(filtered, list);
+}
+
+function renderQuickSearchList(songs, container) {
+  if (!container) return;
+  
+  if (songs.length === 0) {
+    container.innerHTML = '<div class="qsp-empty">ترانه‌ای یافت نشد</div>';
+    return;
+  }
+  
+  container.innerHTML = songs.map(s => `
+    <button class="qsp-item" data-song-id="${s.id}" onclick="quickSearchLoadSong('${s.id}')">
+      <div class="qsp-item-title">${escapeHtml(s.title || 'بدون نام')}</div>
+      <div class="qsp-item-artist">${escapeHtml(s.artist || '')}</div>
+    </button>
+  `).join('');
+}
+
+function quickSearchLoadSong(id) {
+  // Use the existing archLoadSong function but close panel instead of archive modal
+  const songs = edGetAllSongs();
+  const s = songs.find(x => String(x.id) === String(id));
+  if (!s || s.deletedAt) {
+    toast('ترانه یافت نشد');
+    return;
+  }
+  
+  closeQuickSearchPanel();
+  archLoadSong(id);
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
