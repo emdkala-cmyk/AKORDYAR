@@ -2,8 +2,8 @@
  * timeline.css — Timeline toolbar, tracks, clips, playhead, ruler, loop
  */
 
-.timeline { grid-area: timeline; padding: 10px 16px 12px; background: var(--timeline-bg); border-top: 1px solid var(--border-subtle); display: flex; flex-direction: column; gap: 8px; min-height: 0; direction: ltr; }
-.tl-toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; direction: ltr; }
+.timeline { grid-area: timeline; padding: 6px 10px 8px; background: var(--timeline-bg); border-top: 1px solid var(--border-subtle); display: flex; flex-direction: column; gap: 4px; min-height: 0; direction: ltr; }
+.tl-toolbar { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; direction: ltr; }
 .tl-snap-btn { background: #1F2937; border: 1px solid #4B5563; color: #9CA3AF; border-radius: 3px; padding: 0 8px; font-size: 11px; cursor: pointer; height: 26px; min-width: 28px; display: inline-flex; align-items: center; justify-content: center; }
 .tl-snap-btn.active { background: #2563EB; color: #fff; border-color: #3B82F6; }
 .tl-snap-btn:hover { background: #374151; }
