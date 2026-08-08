@@ -12782,17 +12782,43 @@ saveState();
     }
     function anchorRect(ch) { return anchorRectIn($('editor'), ch); }
 
+    function resolveAccidentalPreference() {
+      if (typeof ED_ACCIDENTAL_PREF !== 'undefined') {
+        if (ED_ACCIDENTAL_PREF === 'sharp') return true;
+        if (ED_ACCIDENTAL_PREF === 'flat') return false;
+      }
+      return null; // auto
+    }
+
     function edShiftNote(n, semi) {
+      if (!n) return n;
+      if (typeof window.SharedEngine === 'object' && window.SharedEngine) {
+        return window.SharedEngine.transposeNote(n, semi, resolveAccidentalPreference());
+      }
+      // fallback (legacy) — never reachable if sharedEngine loaded first
       const map = NOTE_SEMITONE || {'C':0,'C#':1,'Db':1,'D':2,'D#':3,'Eb':3,'E':4,'F':5,'F#':6,'Gb':6,'G':7,'G#':8,'Ab':8,'A':9,'A#':10,'Bb':10,'B':11};
       if (!(n in map)) return n;
       const sharp = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
-      const flat = ED_FLAT_MAP || {1:'Db',3:'Eb',6:'Gb',8:'Ab',10:'Bb'};
       const idx = (map[n] + semi%12 + 12) % 12;
-      // اگر ورودی بمل باشد، خروجی بمل بماند؛ اگر دیز باشد، خروجی دیز بماند
-      if (n.includes('b')) return flat[idx] || sharp[idx];
+      const pref = resolveAccidentalPreference();
+      if (pref === false) {
+        const flat = ED_FLAT_MAP || {1:'Db',3:'Eb',6:'Gb',8:'Ab',10:'Bb'};
+        return flat[idx] || sharp[idx];
+      }
+      if (n.includes('b') && pref !== true) {
+        const flat = ED_FLAT_MAP || {1:'Db',3:'Eb',6:'Gb',8:'Ab',10:'Bb'};
+        return flat[idx] || sharp[idx];
+      }
       return sharp[idx];
     }
-    function edTransposeChord(name, semi) { if (!semi || !name) return name; return name.split('/').map(part => part.replace(/^([A-G][b#]?)/, (_,root) => edShiftNote(root,semi))).join('/'); }
+    function edTransposeChord(name, semi) {
+      if (!semi || !name) return name;
+      if (typeof window.SharedEngine === 'object' && window.SharedEngine) {
+        return window.SharedEngine.transposeChordName(name, semi, resolveAccidentalPreference());
+      }
+      // fallback (legacy)
+      return name.split('/').map(part => part.replace(/^([A-G][b#]?)/, (_,root) => edShiftNote(root,semi))).join('/');
+    }
 
     let edRenderChordsToken = 0;
 
@@ -13558,11 +13584,18 @@ if ($('edDoBoth')) {
     let _edSyncingKey = false; // flag to prevent onchange during programmatic key update
     function edTransposeKeyName(key, semitones) {
       if (!key || !semitones) return key;
+      if (typeof window.SharedEngine === 'object' && window.SharedEngine) {
+        return window.SharedEngine.transposeKeyName(key, semitones, resolveAccidentalPreference());
+      }
+      // fallback (legacy)
       const idx = ED_SEMITONE[key];
       if (idx == null) return key;
       const newIdx = ((idx + semitones) % 12 + 12) % 12;
-      // اگر گام بمل باشد، خروجی بمل بماند؛ اگر دیز باشد، خروجی دیز بماند
-      if (key.includes('b')) {
+      const pref = resolveAccidentalPreference();
+      if (pref === false) {
+        return ED_FLAT_NOTES[newIdx] || ED_NOTES[newIdx];
+      }
+      if (key.includes('b') && pref !== true) {
         return ED_FLAT_NOTES[newIdx] || ED_NOTES[newIdx];
       }
       return ED_NOTES[newIdx];
@@ -13570,7 +13603,12 @@ if ($('edDoBoth')) {
 
     // ===== CENTRAL KEY/TRANSPOSE FUNCTIONS =====
     function keyToSemi(key) { return ED_SEMITONE[key] != null ? ED_SEMITONE[key] : -1; }
-    function keyDelta(fromKey, toKey) { return ((keyToSemi(toKey) - keyToSemi(fromKey)) % 12 + 12) % 12; }
+    function keyDelta(fromKey, toKey) {
+      if (typeof window.SharedEngine === 'object' && window.SharedEngine) {
+        return window.SharedEngine.keyDelta(fromKey, toKey);
+      }
+      return ((keyToSemi(toKey) - keyToSemi(fromKey)) % 12 + 12) % 12;
+    }
 
     // Only modify ch.name in place — preserves position, spacing, alignment, everything
     function transposeChordNamesInPlace(chords, semitones) {
