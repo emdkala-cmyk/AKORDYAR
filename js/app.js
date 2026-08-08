@@ -347,9 +347,9 @@ globalScope.DAW = {
     /**
      * getTimeSignatureGridConfig - تبدیل Time Signature به مشخصات گرید
      * @param {string} timeSignature - رشته Time Signature مثل '4/4', '3/4', '6/8'
-     * @returns {object} شامل numerator, denominator, beatUnit, beatsPerMeasure, subdivisionsPerBeat, unitsPerMeasure
+     * @returns {object} شامل numerator, denominator, beatUnit, beatsPerMeasure, subdivisionsPerBeat, unitsPerMeasure, measureDuration, beatDuration
      */
-    function getTimeSignatureGridConfig(timeSignature) {
+    function getTimeSignatureGridConfig(timeSignature, bpm = 120) {
       const parts = (timeSignature || '4/4').split('/');
       const numerator = parseInt(parts[0]) || 4;
       const denominator = parseInt(parts[1]) || 4;
@@ -367,6 +367,17 @@ globalScope.DAW = {
         default: beatUnit = 'quarter'; subdivisionsPerBeat = 4;
       }
       
+      // مدت زمان یک ضرب بر اساس مخرج Time Signature
+      // فرمول: beatDuration = (60 / bpm) * (4 / denominator)
+      // برای مخرج 4: beatDuration = 60/bpm (quarter note)
+      // برای مخرج 8: beatDuration = (60/bpm) * 0.5 = 30/bpm (eighth note)
+      // برای مخرج 2: beatDuration = (60/bpm) * 2 = 120/bpm (half note)
+      const baseBeatDur = 60 / bpm;
+      const beatDuration = baseBeatDur * (4 / denominator);
+      
+      // مدت زمان یک میزان
+      const measureDuration = numerator * beatDuration;
+      
       // برای میزان‌های مرکب مثل 6/8، 9/8، 12/8 معمولاً ضرب اصلی گروهی از واحدهاست
       // اما برای سادگی گرید، همان تعداد واحد در میزان را برمی‌گردانیم
       const beatsPerMeasure = numerator;
@@ -378,7 +389,9 @@ globalScope.DAW = {
         beatUnit,
         beatsPerMeasure,
         subdivisionsPerBeat,
-        unitsPerMeasure
+        unitsPerMeasure,
+        beatDuration,
+        measureDuration
       };
     }
 
