@@ -4875,12 +4875,24 @@ let syncTapKeyHandler = null;
       if (!edClMarkers.length) return;
       edClMarkers = []; edRenderClMarkers(); edUpdateClCount(); toast('همه نقاط پاک شد');
     }
+    // Sync: copy chords from Lyrics Chord to chordLineClips (independent state)
+    function edClSyncChords() {
+      if (!edCur) return;
+      // Read current chords from Lyrics (edCur.chords)
+      const lyricsChords = (edCur?.chords || []).filter(c => c && c.name && String(c.name).trim() !== '');
+      if (lyricsChords.length === 0) { toast('آکوردی در بخش لایرس نیست تا Sync شود'); return; }
+      // Update chordLineClips with the same order and data
+      edCur.chordLineClips = lyricsChords.map(ch => ({ name: ch.name }));
+      toast('✔ Sync: ' + lyricsChords.length + ' آکورد از لایرس به Chord Line منتقل شد');
+      edSaveSong();
+    }
     function edClApplyMarkers() {
       if (!edClMarkers.length) { toast('اول با آهنگ نقطه‌گذاری کن (دکمه ⏺ و کلید ۰)'); return; }
-      const lyrics = (edCur?.chords || []).filter(c => c && c.name && String(c.name).trim() !== '');
-      if (lyrics.length === 0) { toast('آکوردی در بخش لایرس نیست تا کپی شود'); return; }
-      if (lyrics.length !== edClMarkers.length) {
-        toast('⚠️ تعداد آکوردهای لایرس (' + lyrics.length + ') با تعداد نقاط تایم‌لاین (' + edClMarkers.length + ') یکی نیست — اول تعداد را برابر کن');
+      // Use chordLineClips (independent state) instead of re-reading from edCur.chords
+      const clipsToUse = edCur.chordLineClips && edCur.chordLineClips.length > 0 ? edCur.chordLineClips : (edCur?.chords || []).filter(c => c && c.name && String(c.name).trim() !== '');
+      if (clipsToUse.length === 0) { toast('آکوردی برای کپی وجود ندارد'); return; }
+      if (clipsToUse.length !== edClMarkers.length) {
+        toast('⚠️ تعداد آکوردها (' + clipsToUse.length + ') با تعداد نقاط تایم‌لاین (' + edClMarkers.length + ') یکی نیست — اول تعداد را برابر کن');
         return;
       }
       const chordTrack = DAW.tracks.find(t => t.type === 'chord');
@@ -4888,7 +4900,7 @@ let syncTapKeyHandler = null;
       // آکوردها در edCur.chords به ترتیب موسیقایی ذخیره شده‌اند (از بیت اول تا آخر)
       // Chord Line فقط جهت نمایش LTR دارد — ترتیب موسیقایی باید حفظ شود
       edClMarkers.forEach((m, i) => {
-        DAW.clips.push({ id: uid('c'), type: 'chord', trackId: chordTrack.id, name: lyrics[i].name, start: roundMs(m.time), duration: 2, color: '#9F7AEA' });
+        DAW.clips.push({ id: uid('c'), type: 'chord', trackId: chordTrack.id, name: clipsToUse[i].name, start: roundMs(m.time), duration: 2, color: '#9F7AEA' });
       });
       const lastT = edClMarkers[edClMarkers.length - 1].time;
       edClMarkers = []; edClTapActive = false;
@@ -4896,13 +4908,14 @@ let syncTapKeyHandler = null;
       edRenderClMarkers(); edUpdateClCount();
       ensureTimelineFits(lastT + 6);
       saveState(); renderAll(); edSaveSong();
-      toast('✔ ' + lyrics.length + ' آکورد لایرس به کورد لاین (تایم‌لاین) کپی شد');
+      toast('✔ ' + clipsToUse.length + ' آکورد به کورد لاین (تایم‌لاین) کپی شد');
     }
     if ($('edSeqModeLyrics')) $('edSeqModeLyrics').onclick = () => edSetSeqMode('lyrics');
     if ($('edSeqModeChord')) $('edSeqModeChord').onclick = () => edSetSeqMode('chord');
     if ($('edClStart')) $('edClStart').onclick = edToggleClTap;
     if ($('edClUndo')) $('edClUndo').onclick = edClUndoMarker;
     if ($('edClClear')) $('edClClear').onclick = edClClearMarkers;
+    if ($('edClSync')) $('edClSync').onclick = edClSyncChords;
     if ($('edClApply')) $('edClApply').onclick = edClApplyMarkers;
     edUpdateClCount();
 
@@ -13545,11 +13558,13 @@ if ($('edDoBoth')) {
       if (!chordTrack) return;
       // Only update existing timeline chord clips in place (never add/remove)
       const existingClips = DAW.clips.filter(c => c.type === 'chord' && c.trackId === chordTrack.id);
+      // Use chordLineClips if available, otherwise fall back to edCur.chords
+      const sourceChords = edCur.chordLineClips && edCur.chordLineClips.length > 0 ? edCur.chordLineClips : edCur.chords;
       // آکوردها در edCur.chords به ترتیب موسیقایی ذخیره شده‌اند (از بیت اول تا آخر)
       // Chord Line فقط جهت نمایش LTR دارد — ترتیب موسیقایی باید حفظ شود
       existingClips.forEach((clip, i) => {
-        if (i < edCur.chords.length && edCur.chords[i].name) {
-          clip.name = edCur.chords[i].name;
+        if (i < sourceChords.length && sourceChords[i].name) {
+          clip.name = sourceChords[i].name;
         }
       });
       saveState();
@@ -13747,6 +13762,13 @@ if ($('edDoBoth')) {
         const baseName = (i < names.length) ? names[i] : ch.name;
         if (baseName) ch.name = edTransposeChord(baseName, newTranspose);
       });
+      // Also transpose chordLineClips (independent state) if it exists
+      if (edCur.chordLineClips && edCur.chordLineClips.length > 0) {
+        edCur.chordLineClips.forEach((clip, i) => {
+          const baseName = (i < names.length) ? names[i] : clip.name;
+          if (baseName) clip.name = edTransposeChord(baseName, newTranspose);
+        });
+      }
       edCur.transpose = newTranspose;
       edCur.key = edTransposeKeyName(edCur.originalKey || edCur.key, newTranspose) || edCur.key;
       edCur.keyMode = edCur.keyMode || 'maj';
