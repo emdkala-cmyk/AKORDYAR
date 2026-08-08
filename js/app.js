@@ -4945,6 +4945,8 @@ let syncTapKeyHandler = null;
       if (edClMode && edSeqModeActive) edToggleSeqMode();
       if (!edClMode) { edClTapActive = false; const b = $('edClStart'); if (b) b.classList.remove('active'); }
       edRenderClMarkers();
+      // Open Chord Line popup when switching to chord mode
+      if (edClMode) openChordLinePopup();
     }
     function edToggleClTap() {
       edClTapActive = !edClTapActive;
