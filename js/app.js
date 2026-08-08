@@ -344,6 +344,44 @@ globalScope.DAW = {
     let snapEnabled = true;
     let snapValue = 0.25; // seconds (default: 1/4 beat)
 
+    /**
+     * getTimeSignatureGridConfig - تبدیل Time Signature به مشخصات گرید
+     * @param {string} timeSignature - رشته Time Signature مثل '4/4', '3/4', '6/8'
+     * @returns {object} شامل numerator, denominator, beatUnit, beatsPerMeasure, subdivisionsPerBeat, unitsPerMeasure
+     */
+    function getTimeSignatureGridConfig(timeSignature) {
+      const parts = (timeSignature || '4/4').split('/');
+      const numerator = parseInt(parts[0]) || 4;
+      const denominator = parseInt(parts[1]) || 4;
+      
+      // محاسبه واحد ضرب بر اساس مخرج
+      // مخرج 4 = quarter note, مخرج 8 = eighth note, مخرج 2 = half note
+      let beatUnit;
+      let subdivisionsPerBeat; // تعداد subdivisionهای استاندارد برای هر ضرب
+      
+      switch(denominator) {
+        case 2: beatUnit = 'half'; subdivisionsPerBeat = 4; break;
+        case 4: beatUnit = 'quarter'; subdivisionsPerBeat = 4; break;
+        case 8: beatUnit = 'eighth'; subdivisionsPerBeat = 2; break;
+        case 16: beatUnit = 'sixteenth'; subdivisionsPerBeat = 1; break;
+        default: beatUnit = 'quarter'; subdivisionsPerBeat = 4;
+      }
+      
+      // برای میزان‌های مرکب مثل 6/8، 9/8، 12/8 معمولاً ضرب اصلی گروهی از واحدهاست
+      // اما برای سادگی گرید، همان تعداد واحد در میزان را برمی‌گردانیم
+      const beatsPerMeasure = numerator;
+      const unitsPerMeasure = numerator; // تعداد واحدهای مخرج در هر میزان
+      
+      return {
+        numerator,
+        denominator,
+        beatUnit,
+        beatsPerMeasure,
+        subdivisionsPerBeat,
+        unitsPerMeasure
+      };
+    }
+
     function toggleSnap() {
       snapEnabled = !snapEnabled;
       $('snapBtn').classList.toggle('active', snapEnabled);
@@ -354,7 +392,7 @@ globalScope.DAW = {
       if (!snapEnabled) return time;
       const bpm = edCur?.tempo || 120;
       const sig = edCur?.timeSignature || '4/4';
-      const beatsPerBar = parseInt(sig.split('/')[0]);
+      const config = getTimeSignatureGridConfig(sig);
       const beatDur = 60 / bpm;
       // Snap to nearest grid point
       return Math.round(time / snapValue) * snapValue;
@@ -367,15 +405,18 @@ globalScope.DAW = {
 
     function applyQuantize(preset) {
       const bpm = edCur?.tempo || 120;
+      const sig = edCur?.timeSignature || '4/4';
+      const config = getTimeSignatureGridConfig(sig);
       const beatDur = 60 / bpm;
+      const barDur = beatDur * config.beatsPerMeasure; // مدت زمان یک میزان بر اساس تعداد ضرب‌ها
 
       switch(preset) {
-        case '1/1': snapValue = beatDur * 4; break; // 1 bar
-        case '1/2': snapValue = beatDur * 2; break; // half bar
-        case '1/4': snapValue = beatDur; break;     // 1 beat
-        case '1/8': snapValue = beatDur / 2; break; // half beat
-        case '1/16': snapValue = beatDur / 4; break; // quarter beat
-        case '1/32': snapValue = beatDur / 8; break; // 1/8 beat
+        case '1/1': snapValue = barDur; break;           // 1 bar (بر اساس Time Signature فعال)
+        case '1/2': snapValue = barDur / 2; break;       // half bar
+        case '1/4': snapValue = beatDur; break;          // 1 beat
+        case '1/8': snapValue = beatDur / 2; break;      // half beat
+        case '1/16': snapValue = beatDur / 4; break;     // quarter beat
+        case '1/32': snapValue = beatDur / 8; break;     // 1/8 beat
         case 'triplet': snapValue = beatDur / 3; break;
         case 'dotted': snapValue = beatDur * 1.5; break;
         default: snapValue = beatDur;
