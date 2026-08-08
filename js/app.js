@@ -4885,11 +4885,10 @@ let syncTapKeyHandler = null;
       }
       const chordTrack = DAW.tracks.find(t => t.type === 'chord');
       if (!chordTrack) { toast('ترک کورد لاین پیدا نشد'); return; }
-      // آکوردهای لایرس RTL هستند (اولی در راست) اما تایم‌لاین LTR است (اولی در چپ)
-      // پس باید ترتیب را برعکس کنیم: آخرین آکورد لایرس → اولین نقطه تایم‌لاین
-      const reversedLyrics = [...lyrics].reverse();
+      // آکوردها در edCur.chords به ترتیب موسیقایی ذخیره شده‌اند (از بیت اول تا آخر)
+      // Chord Line فقط جهت نمایش LTR دارد — ترتیب موسیقایی باید حفظ شود
       edClMarkers.forEach((m, i) => {
-        DAW.clips.push({ id: uid('c'), type: 'chord', trackId: chordTrack.id, name: reversedLyrics[i].name, start: roundMs(m.time), duration: 2, color: '#9F7AEA' });
+        DAW.clips.push({ id: uid('c'), type: 'chord', trackId: chordTrack.id, name: lyrics[i].name, start: roundMs(m.time), duration: 2, color: '#9F7AEA' });
       });
       const lastT = edClMarkers[edClMarkers.length - 1].time;
       edClMarkers = []; edClTapActive = false;
@@ -13538,19 +13537,16 @@ if ($('edDoBoth')) {
       if (!chordTrack) return;
       // Only update existing timeline chord clips in place (never add/remove)
       const existingClips = DAW.clips.filter(c => c.type === 'chord' && c.trackId === chordTrack.id);
-      // آکوردهای لایرس RTL هستند (اولی در راست) اما تایم‌لاین LTR است (اولی در چپ)
-      // پس باید ترتیب را برعکس کنیم: آخرین آکورد لایرس → اولین کلیپ تایم‌لاین
-      const reversedChords = [...edCur.chords].reverse();
+      // آکوردها در edCur.chords به ترتیب موسیقایی ذخیره شده‌اند (از بیت اول تا آخر)
+      // Chord Line فقط جهت نمایش LTR دارد — ترتیب موسیقایی باید حفظ شود
       existingClips.forEach((clip, i) => {
-        if (i < reversedChords.length && reversedChords[i].name) {
-          clip.name = reversedChords[i].name;
+        if (i < edCur.chords.length && edCur.chords[i].name) {
+          clip.name = edCur.chords[i].name;
         }
       });
       saveState();
       renderClips();
     }
-
-    // -- Chord Modal --
     function edFillCol(el, items, cb) { el.innerHTML = ''; items.forEach(v => { const d = document.createElement('div'); d.className = 'chord-item'; d.textContent = v === '' ? '—' : v; d.onclick = () => { [...el.children].forEach(c => c.classList.remove('active')); d.classList.add('active'); cb(v); updateChordPreview(); }; el.appendChild(d); }); }
 
     function edOpenChordModal(idx) {
