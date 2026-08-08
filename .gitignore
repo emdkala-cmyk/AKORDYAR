@@ -1,5 +1,27 @@
-(js/app.js is a source file, and there are no build artifacts, dependencies, or temp files in the changes)
+# Node dependencies
+node_modules/
+**/node_modules/
 
-```javascript
+# Package manager logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
 
-```
+# Build outputs
+dist/
+build/
+out/
+
+# Environment files
+.env
+.env.*
+
+# Logs
+*.log
+
+# IDE and operating system
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
