@@ -2976,8 +2976,16 @@ sels.forEach(c => {
         return b.charIndex - a.charIndex;
       });
       
-      // 3. Get current Chord Line clips
-      const currentChordLineClips = edCur.chordLineClips || [];
+      // 3. Get current Chord Line clips from DAW.clips (the actual source of truth)
+      const chordTrack = DAW.tracks.find(t => t.type === 'chord');
+      let currentChordLineClips = [];
+      
+      if (chordTrack) {
+        // Get all chord clips sorted by start time (left to right on timeline)
+        currentChordLineClips = DAW.clips
+          .filter(c => c.type === 'chord' && c.trackId === chordTrack.id)
+          .sort((a, b) => a.start - b.start);
+      }
       
       // If Chord Line is empty
       if (currentChordLineClips.length === 0) {
@@ -2994,13 +3002,18 @@ sels.forEach(c => {
       }
       
       // 5. Update state and re-render
-      edCur.chordLineClips = currentChordLineClips;
       edCur.hasManualChordLineEdits = false;
       
       // Re-render Chord Line popup if open
       if (_chordLinePopup && !_chordLinePopup.closed) {
         syncChordLinePopup();
       }
+      
+      // Save state to persist changes
+      saveState();
+      
+      // Re-render timeline to show updated chord clips
+      renderAll();
       
       // Show result message
       if (lyricsChordsInSyncOrder.length > currentChordLineClips.length) {
