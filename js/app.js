@@ -4885,8 +4885,11 @@ let syncTapKeyHandler = null;
       }
       const chordTrack = DAW.tracks.find(t => t.type === 'chord');
       if (!chordTrack) { toast('ترک کورد لاین پیدا نشد'); return; }
+      // آکوردهای لایرس RTL هستند (اولی در راست) اما تایم‌لاین LTR است (اولی در چپ)
+      // پس باید ترتیب را برعکس کنیم: آخرین آکورد لایرس → اولین نقطه تایم‌لاین
+      const reversedLyrics = [...lyrics].reverse();
       edClMarkers.forEach((m, i) => {
-        DAW.clips.push({ id: uid('c'), type: 'chord', trackId: chordTrack.id, name: lyrics[i].name, start: roundMs(m.time), duration: 2, color: '#9F7AEA' });
+        DAW.clips.push({ id: uid('c'), type: 'chord', trackId: chordTrack.id, name: reversedLyrics[i].name, start: roundMs(m.time), duration: 2, color: '#9F7AEA' });
       });
       const lastT = edClMarkers[edClMarkers.length - 1].time;
       edClMarkers = []; edClTapActive = false;
@@ -13535,10 +13538,12 @@ if ($('edDoBoth')) {
       if (!chordTrack) return;
       // Only update existing timeline chord clips in place (never add/remove)
       const existingClips = DAW.clips.filter(c => c.type === 'chord' && c.trackId === chordTrack.id);
-      // Use unfiltered list to preserve index alignment with clips
+      // آکوردهای لایرس RTL هستند (اولی در راست) اما تایم‌لاین LTR است (اولی در چپ)
+      // پس باید ترتیب را برعکس کنیم: آخرین آکورد لایرس → اولین کلیپ تایم‌لاین
+      const reversedChords = [...edCur.chords].reverse();
       existingClips.forEach((clip, i) => {
-        if (i < edCur.chords.length && edCur.chords[i].name) {
-          clip.name = edCur.chords[i].name;
+        if (i < reversedChords.length && reversedChords[i].name) {
+          clip.name = reversedChords[i].name;
         }
       });
       saveState();
