@@ -2966,14 +2966,14 @@ sels.forEach(c => {
       }
       
       // 2. Sort chords by spatial position from right to left (RTL reading order)
-      // First by lineIndex (top to bottom), then by charIndex (right to left within each line)
+      // For Persian text: index 0 is on the far right, higher indices go to the left
+      // So ascending sort (a.charIndex - b.charIndex) gives us right-to-left order
       const lyricsChordsInSyncOrder = [...lyricsChords].sort((a, b) => {
         if (a.lineIndex !== b.lineIndex) {
           return a.lineIndex - b.lineIndex;
         }
-        // For RTL Persian text, higher charIndex means further left visually
-        // Reading order is right-to-left, so we want larger charIndex first
-        return b.charIndex - a.charIndex;
+        // Ascending order: smaller charIndex (right side) comes first
+        return a.charIndex - b.charIndex;
       });
       
       // 3. Get current Chord Line clips from DAW.clips (the actual source of truth)
@@ -3513,14 +3513,15 @@ sels.forEach(c => {
             return; 
           }
           
-          // 2. Sort chords by spatial position from right to left
+          // 2. Sort chords by spatial position from right to left (RTL reading order)
+          // For Persian text: index 0 is on the far right, higher indices go to the left
+          // So ascending sort (a.charIndex - b.charIndex) gives us right-to-left order
           const lyricsChordsInSyncOrder = [...lyricsChords].sort((a, b) => {
-            // First by lineIndex
             if (a.lineIndex !== b.lineIndex) {
               return a.lineIndex - b.lineIndex;
             }
-            // Then by charIndex from right to left (larger values first)
-            return b.charIndex - a.charIndex;
+            // Ascending order: smaller charIndex (right side) comes first
+            return a.charIndex - b.charIndex;
           });
           
           // 3. Get current Chord Line clips
