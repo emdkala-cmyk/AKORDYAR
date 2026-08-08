@@ -7583,7 +7583,7 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
       if (song.key) {
         const cleanKey = song.key.replace('m', '');
         const kMode = song.key.endsWith('m') ? 'min' : 'maj';
-        if (typeof ED_NOTES !== 'undefined' && ED_NOTES.includes(cleanKey)) { tmpEd.key = cleanKey; tmpEd.keyMode = kMode; }
+        if (typeof etIsValidNote === 'function' && etIsValidNote(cleanKey)) { tmpEd.key = cleanKey; tmpEd.keyMode = kMode; }
       }
       if (song.rhythm) tmpEd.timeSignature = song.rhythm;
       existingSongs.unshift(JSON.parse(JSON.stringify(tmpEd)));
@@ -8586,10 +8586,18 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
       if (parsedResult.artist) edCur.artist = parsedResult.artist;
       if (parsedResult.key) {
         const cleanKey = parsedResult.key.replace('m', '');
-        if (typeof ED_NOTES !== 'undefined' && ED_NOTES.includes(cleanKey)) edCur.key = cleanKey;
+        if (typeof etIsValidNote === 'function' && etIsValidNote(cleanKey)) edCur.key = cleanKey;
         if (parsedResult.keyMode === 'min') edCur.keyMode = 'min';
       }
       if (parsedResult.timeSignature) edCur.timeSignature = parsedResult.timeSignature;
+
+      // --- Set originalKey as source of truth (Bug 2 fix) ---
+      // The imported key IS the original key. Never fall back to a wrong default.
+      edCur.originalKey = edCur.key || 'C';
+      edCur.originalKeyMode = edCur.keyMode || 'maj';
+      edCur.transpose = 0;
+      // Initialize baseChordNames from imported chords (original names, no positions)
+      edCur.baseChordNames = (edCur.chords || []).map(ch => ch.name || '');
 
       DAW.clips = DAW.clips.filter(c => c.type !== 'chord');
 
@@ -9259,6 +9267,12 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
     
     // Accidental preference: 'sharp' | 'flat' | 'auto'
     let ED_ACCIDENTAL_PREF = 'auto';
+
+    // Validate a note/key root accepts BOTH sharps and flats (e.g. 'Bb','Eb','F#','Db').
+    function etIsValidNote(n) {
+      if (!n) return false;
+      return ED_ALL_NOTE_NAMES.includes(n) || ED_SEMITONE[n] != null;
+    }
     const ED_TYPES = ['','m','7','maj7','m7','dim','aug','sus2','sus4','6','m6','m7b5'];
     const ED_TENS = ['','add9','9','11','13','b9','#9','#11','b13'];
 
@@ -10706,7 +10720,7 @@ function edBlankSong() {
       // Fix key format: 'Am' → key='A', keyMode='min'
       if (edCur.key && edCur.key.endsWith('m') && edCur.keyMode !== 'min') {
         const cleanKey = edCur.key.replace(/m$/, '');
-        if (typeof ED_NOTES !== 'undefined' && ED_NOTES.includes(cleanKey)) {
+        if (typeof etIsValidNote === 'function' && etIsValidNote(cleanKey)) {
           edCur.key = cleanKey;
           edCur.keyMode = 'min';
         }
@@ -10871,7 +10885,7 @@ function edBlankSong() {
       // Fix key format: 'Am' → key='A', keyMode='min'
       if (song.key && song.key.endsWith('m') && song.keyMode !== 'min') {
         const cleanKey = song.key.replace(/m$/, '');
-        if (typeof ED_NOTES !== 'undefined' && ED_NOTES.includes(cleanKey)) {
+        if (typeof etIsValidNote === 'function' && etIsValidNote(cleanKey)) {
           song.key = cleanKey;
           song.keyMode = 'min';
         }
@@ -12790,6 +12804,42 @@ saveState();
       return null; // auto
     }
 
+    // ===== دیز/بمل/خودکار selector =====
+    // Persist accidental preference and inject a small dropdown into the header.
+    function initAccidentalSelector() {
+      try {
+        const saved = localStorage.getItem('ed_accidental_pref');
+        if (saved === 'sharp' || saved === 'flat' || saved === 'auto') ED_ACCIDENTAL_PREF = saved;
+      } catch(_) {}
+      const host = document.getElementById('headerCenterControls');
+      if (!host || document.getElementById('edAccidentalSel')) return;
+      const wrap = document.createElement('div');
+      wrap.className = 'ed-grp';
+      wrap.style.cssText = 'display:inline-flex;align-items:center;gap:4px;';
+      const label = document.createElement('span');
+      label.textContent = 'نت:';
+      label.style.cssText = 'font-size:0.7rem;color:var(--text-secondary);';
+      const sel = document.createElement('select');
+      sel.id = 'edAccidentalSel';
+      sel.style.cssText = 'background:#0D1117;color:#E2E8F0;border:1px solid #30363D;border-radius:6px;padding:2px 6px;font-size:0.75rem;cursor:pointer;';
+      const opts = [['auto','خودکار'],['sharp','دیز ♯'],['flat','بمل ♭']];
+      opts.forEach(([v, t]) => { const o = document.createElement('option'); o.value = v; o.textContent = t; sel.appendChild(o); });
+      sel.value = ED_ACCIDENTAL_PREF;
+      sel.addEventListener('change', () => {
+        ED_ACCIDENTAL_PREF = sel.value;
+        try { localStorage.setItem('ed_accidental_pref', ED_ACCIDENTAL_PREF); } catch(_) {}
+        // Re-apply current transpose/key so display updates immediately
+        if (edCur) {
+          if (edCur.transpose) applyTranspose(edCur.transpose);
+          else { refreshKeyUI(); renderAllChordsAndText(); }
+        }
+        toast('نمایش نت: ' + (ED_ACCIDENTAL_PREF === 'sharp' ? 'دیز ♯' : ED_ACCIDENTAL_PREF === 'flat' ? 'بمل ♭' : 'خودکار'));
+      });
+      wrap.appendChild(label);
+      wrap.appendChild(sel);
+      header.appendChild(wrap);
+    }
+
     function edShiftNote(n, semi) {
       if (!n) return n;
       if (typeof window.SharedEngine === 'object' && window.SharedEngine) {
@@ -13751,7 +13801,7 @@ if ($('edDoBoth')) {
         newKey = val;
         newMode = 'maj';
       }
-      if (typeof ED_NOTES !== 'undefined' && !ED_NOTES.includes(newKey)) {
+      if (typeof etIsValidNote === 'function' && !etIsValidNote(newKey)) {
         toast('گام نامعتبر: ' + newKey);
         return;
       }
@@ -14708,6 +14758,8 @@ if (
     try { init(); } catch(ex) { console.warn('DAW init error:', ex); }
     // Always init song editor
     edInitSong();
+    // Init دیز/بمل/خودکار selector
+    initAccidentalSelector();
     // Apply language
     applyI18n();
     // Init highlight effect
