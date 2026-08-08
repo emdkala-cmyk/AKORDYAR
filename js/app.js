@@ -4885,6 +4885,8 @@ let syncTapKeyHandler = null;
       }
       const chordTrack = DAW.tracks.find(t => t.type === 'chord');
       if (!chordTrack) { toast('ترک کورد لاین پیدا نشد'); return; }
+      // آکوردها در edCur.chords به ترتیب موسیقایی ذخیره شده‌اند (از بیت اول تا آخر)
+      // Chord Line فقط جهت نمایش LTR دارد — ترتیب موسیقایی باید حفظ شود
       edClMarkers.forEach((m, i) => {
         DAW.clips.push({ id: uid('c'), type: 'chord', trackId: chordTrack.id, name: lyrics[i].name, start: roundMs(m.time), duration: 2, color: '#9F7AEA' });
       });
@@ -7583,7 +7585,7 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
       if (song.key) {
         const cleanKey = song.key.replace('m', '');
         const kMode = song.key.endsWith('m') ? 'min' : 'maj';
-        if (typeof ED_NOTES !== 'undefined' && ED_NOTES.includes(cleanKey)) { tmpEd.key = cleanKey; tmpEd.keyMode = kMode; }
+        if (typeof etIsValidNote === 'function' && etIsValidNote(cleanKey)) { tmpEd.key = cleanKey; tmpEd.keyMode = kMode; }
       }
       if (song.rhythm) tmpEd.timeSignature = song.rhythm;
       existingSongs.unshift(JSON.parse(JSON.stringify(tmpEd)));
@@ -8586,10 +8588,18 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
       if (parsedResult.artist) edCur.artist = parsedResult.artist;
       if (parsedResult.key) {
         const cleanKey = parsedResult.key.replace('m', '');
-        if (typeof ED_NOTES !== 'undefined' && ED_NOTES.includes(cleanKey)) edCur.key = cleanKey;
+        if (typeof etIsValidNote === 'function' && etIsValidNote(cleanKey)) edCur.key = cleanKey;
         if (parsedResult.keyMode === 'min') edCur.keyMode = 'min';
       }
       if (parsedResult.timeSignature) edCur.timeSignature = parsedResult.timeSignature;
+
+      // --- Set originalKey as source of truth (Bug 2 fix) ---
+      // The imported key IS the original key. Never fall back to a wrong default.
+      edCur.originalKey = edCur.key || 'C';
+      edCur.originalKeyMode = edCur.keyMode || 'maj';
+      edCur.transpose = 0;
+      // Initialize baseChordNames from imported chords (original names, no positions)
+      edCur.baseChordNames = (edCur.chords || []).map(ch => ch.name || '');
 
       DAW.clips = DAW.clips.filter(c => c.type !== 'chord');
 
@@ -9254,7 +9264,17 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
     const ED_ALL_NOTE_NAMES = ['C','C#','Db','D','D#','Eb','E','F','F#','Gb','G','G#','Ab','A','A#','Bb','B'];
     const ED_SEMITONE = {'C':0,'C#':1,'Db':1,'D':2,'D#':3,'Eb':3,'E':4,'F':5,'F#':6,'Gb':6,'G':7,'G#':8,'Ab':8,'A':9,'A#':10,'Bb':10,'B':11};
     const ED_NOTE_TO_SHARP = { 'Db':'C#', 'Eb':'D#', 'Gb':'F#', 'Ab':'G#', 'Bb':'A#' };
+    const ED_NOTE_TO_FLAT = { 'C#':'Db', 'D#':'Eb', 'F#':'Gb', 'G#':'Ab', 'A#':'Bb' };
     const ED_FLAT_MAP = { 1:'Db', 3:'Eb', 6:'Gb', 8:'Ab', 10:'Bb' };
+    
+    // Accidental preference: 'sharp' | 'flat' | 'auto'
+    let ED_ACCIDENTAL_PREF = 'auto';
+
+    // Validate a note/key root accepts BOTH sharps and flats (e.g. 'Bb','Eb','F#','Db').
+    function etIsValidNote(n) {
+      if (!n) return false;
+      return ED_ALL_NOTE_NAMES.includes(n) || ED_SEMITONE[n] != null;
+    }
     const ED_TYPES = ['','m','7','maj7','m7','dim','aug','sus2','sus4','6','m6','m7b5'];
     const ED_TENS = ['','add9','9','11','13','b9','#9','#11','b13'];
 
@@ -10702,7 +10722,7 @@ function edBlankSong() {
       // Fix key format: 'Am' → key='A', keyMode='min'
       if (edCur.key && edCur.key.endsWith('m') && edCur.keyMode !== 'min') {
         const cleanKey = edCur.key.replace(/m$/, '');
-        if (typeof ED_NOTES !== 'undefined' && ED_NOTES.includes(cleanKey)) {
+        if (typeof etIsValidNote === 'function' && etIsValidNote(cleanKey)) {
           edCur.key = cleanKey;
           edCur.keyMode = 'min';
         }
@@ -10867,7 +10887,7 @@ function edBlankSong() {
       // Fix key format: 'Am' → key='A', keyMode='min'
       if (song.key && song.key.endsWith('m') && song.keyMode !== 'min') {
         const cleanKey = song.key.replace(/m$/, '');
-        if (typeof ED_NOTES !== 'undefined' && ED_NOTES.includes(cleanKey)) {
+        if (typeof etIsValidNote === 'function' && etIsValidNote(cleanKey)) {
           song.key = cleanKey;
           song.keyMode = 'min';
         }
@@ -12778,17 +12798,79 @@ saveState();
     }
     function anchorRect(ch) { return anchorRectIn($('editor'), ch); }
 
+    function resolveAccidentalPreference() {
+      if (typeof ED_ACCIDENTAL_PREF !== 'undefined') {
+        if (ED_ACCIDENTAL_PREF === 'sharp') return true;
+        if (ED_ACCIDENTAL_PREF === 'flat') return false;
+      }
+      return null; // auto
+    }
+
+    // ===== دیز/بمل/خودکار selector =====
+    // Persist accidental preference and inject a small dropdown into the header.
+    function initAccidentalSelector() {
+      try {
+        const saved = localStorage.getItem('ed_accidental_pref');
+        if (saved === 'sharp' || saved === 'flat' || saved === 'auto') ED_ACCIDENTAL_PREF = saved;
+      } catch(_) {}
+      const host = document.getElementById('headerCenterControls');
+      if (!host || document.getElementById('edAccidentalSel')) return;
+      const wrap = document.createElement('div');
+      wrap.className = 'ed-grp';
+      wrap.style.cssText = 'display:inline-flex;align-items:center;gap:4px;';
+      const label = document.createElement('span');
+      label.textContent = 'نت:';
+      label.style.cssText = 'font-size:0.7rem;color:var(--text-secondary);';
+      const sel = document.createElement('select');
+      sel.id = 'edAccidentalSel';
+      sel.style.cssText = 'background:#0D1117;color:#E2E8F0;border:1px solid #30363D;border-radius:6px;padding:2px 6px;font-size:0.75rem;cursor:pointer;';
+      const opts = [['auto','خودکار'],['sharp','دیز ♯'],['flat','بمل ♭']];
+      opts.forEach(([v, t]) => { const o = document.createElement('option'); o.value = v; o.textContent = t; sel.appendChild(o); });
+      sel.value = ED_ACCIDENTAL_PREF;
+      sel.addEventListener('change', () => {
+        ED_ACCIDENTAL_PREF = sel.value;
+        try { localStorage.setItem('ed_accidental_pref', ED_ACCIDENTAL_PREF); } catch(_) {}
+        // Re-apply current transpose/key so display updates immediately
+        if (edCur) {
+          if (edCur.transpose) applyTranspose(edCur.transpose);
+          else { refreshKeyUI(); renderAllChordsAndText(); }
+        }
+        toast('نمایش نت: ' + (ED_ACCIDENTAL_PREF === 'sharp' ? 'دیز ♯' : ED_ACCIDENTAL_PREF === 'flat' ? 'بمل ♭' : 'خودکار'));
+      });
+      wrap.appendChild(label);
+      wrap.appendChild(sel);
+      header.appendChild(wrap);
+    }
+
     function edShiftNote(n, semi) {
+      if (!n) return n;
+      if (typeof window.SharedEngine === 'object' && window.SharedEngine) {
+        return window.SharedEngine.transposeNote(n, semi, resolveAccidentalPreference());
+      }
+      // fallback (legacy) — never reachable if sharedEngine loaded first
       const map = NOTE_SEMITONE || {'C':0,'C#':1,'Db':1,'D':2,'D#':3,'Eb':3,'E':4,'F':5,'F#':6,'Gb':6,'G':7,'G#':8,'Ab':8,'A':9,'A#':10,'Bb':10,'B':11};
       if (!(n in map)) return n;
       const sharp = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
-      const flat = ED_FLAT_MAP || {1:'Db',3:'Eb',6:'Gb',8:'Ab',10:'Bb'};
       const idx = (map[n] + semi%12 + 12) % 12;
-      // اگر ورودی بمل باشد، خروجی بمل بماند؛ اگر دیز باشد، خروجی دیز بماند
-      if (n.includes('b')) return flat[idx] || sharp[idx];
+      const pref = resolveAccidentalPreference();
+      if (pref === false) {
+        const flat = ED_FLAT_MAP || {1:'Db',3:'Eb',6:'Gb',8:'Ab',10:'Bb'};
+        return flat[idx] || sharp[idx];
+      }
+      if (n.includes('b') && pref !== true) {
+        const flat = ED_FLAT_MAP || {1:'Db',3:'Eb',6:'Gb',8:'Ab',10:'Bb'};
+        return flat[idx] || sharp[idx];
+      }
       return sharp[idx];
     }
-    function edTransposeChord(name, semi) { if (!semi || !name) return name; return name.split('/').map(part => part.replace(/^([A-G][b#]?)/, (_,root) => edShiftNote(root,semi))).join('/'); }
+    function edTransposeChord(name, semi) {
+      if (!semi || !name) return name;
+      if (typeof window.SharedEngine === 'object' && window.SharedEngine) {
+        return window.SharedEngine.transposeChordName(name, semi, resolveAccidentalPreference());
+      }
+      // fallback (legacy)
+      return name.split('/').map(part => part.replace(/^([A-G][b#]?)/, (_,root) => edShiftNote(root,semi))).join('/');
+    }
 
     let edRenderChordsToken = 0;
 
@@ -13455,7 +13537,8 @@ if ($('edDoBoth')) {
       if (!chordTrack) return;
       // Only update existing timeline chord clips in place (never add/remove)
       const existingClips = DAW.clips.filter(c => c.type === 'chord' && c.trackId === chordTrack.id);
-      // Use unfiltered list to preserve index alignment with clips
+      // آکوردها در edCur.chords به ترتیب موسیقایی ذخیره شده‌اند (از بیت اول تا آخر)
+      // Chord Line فقط جهت نمایش LTR دارد — ترتیب موسیقایی باید حفظ شود
       existingClips.forEach((clip, i) => {
         if (i < edCur.chords.length && edCur.chords[i].name) {
           clip.name = edCur.chords[i].name;
@@ -13464,8 +13547,6 @@ if ($('edDoBoth')) {
       saveState();
       renderClips();
     }
-
-    // -- Chord Modal --
     function edFillCol(el, items, cb) { el.innerHTML = ''; items.forEach(v => { const d = document.createElement('div'); d.className = 'chord-item'; d.textContent = v === '' ? '—' : v; d.onclick = () => { [...el.children].forEach(c => c.classList.remove('active')); d.classList.add('active'); cb(v); updateChordPreview(); }; el.appendChild(d); }); }
 
     function edOpenChordModal(idx) {
@@ -13554,19 +13635,66 @@ if ($('edDoBoth')) {
     let _edSyncingKey = false; // flag to prevent onchange during programmatic key update
     function edTransposeKeyName(key, semitones) {
       if (!key || !semitones) return key;
+      if (typeof window.SharedEngine === 'object' && window.SharedEngine) {
+        return window.SharedEngine.transposeKeyName(key, semitones, resolveAccidentalPreference());
+      }
+      // fallback (legacy)
       const idx = ED_SEMITONE[key];
       if (idx == null) return key;
       const newIdx = ((idx + semitones) % 12 + 12) % 12;
-      // اگر گام بمل باشد، خروجی بمل بماند؛ اگر دیز باشد، خروجی دیز بماند
-      if (key.includes('b')) {
+      const pref = resolveAccidentalPreference();
+      if (pref === false) {
+        return ED_FLAT_NOTES[newIdx] || ED_NOTES[newIdx];
+      }
+      if (key.includes('b') && pref !== true) {
         return ED_FLAT_NOTES[newIdx] || ED_NOTES[newIdx];
       }
       return ED_NOTES[newIdx];
     }
 
+    // ===== Convert Accidental Spelling (دیز/بمل toggle) =====
+    // Toggles the accidental spelling of ALL current chords WITHOUT changing the key.
+    // If chords currently use sharps → convert to flats; if flats → convert to sharps.
+    function edToggleAccidental() {
+      if (!edCur || edCur.editorLocked) { toast('🔒 ویرایشگر قفل است'); return; }
+      const cc = typeof window.SharedEngine === 'object' && window.SharedEngine &&
+        typeof window.SharedEngine.convertAccidentals === 'function'
+        ? window.SharedEngine.convertAccidentals
+        : null;
+      if (!cc) { toast('موتور آکورد در دسترس نیست'); return; }
+
+      // Determine current dominant spelling by looking at first accidental chord
+      let toFlat = true; // default: convert sharps → flats
+      const withAcc = (edCur.chords || []).map(c => c.name || '').filter(n => /[#♯]|[b♭]/.test(n));
+      if (withAcc.length && withAcc.every(n => /[b♭]/.test(n))) toFlat = false; // currently flats → to sharp
+
+      let converted = 0;
+      (edCur.chords || []).forEach(ch => {
+        if (!ch.name) return;
+        const newName = cc(ch.name, toFlat);
+        if (newName !== ch.name) { ch.name = newName; converted++; }
+      });
+      // Also convert baseChordNames so future transpose stays consistent
+      if (edCur.baseChordNames && edCur.baseChordNames.length) {
+        edCur.baseChordNames = edCur.baseChordNames.map(n => n ? cc(n, toFlat) : n);
+      }
+      if (converted === 0) { toast('آکوردی برای تبدیل یافت نشد'); return; }
+      edRenderChords(true);
+      edRenderEditor(false);
+      syncTransposeToTimelineChords();
+      edSaveSong();
+      if (typeof rebuildSongDocumentFromEdCur === 'function') rebuildSongDocumentFromEdCur();
+      toast(toFlat ? 'آکوردها به بمل ♭ تبدیل شدند (' + converted + ')' : 'آکوردها به دیز ♯ تبدیل شدند (' + converted + ')');
+    }
+
     // ===== CENTRAL KEY/TRANSPOSE FUNCTIONS =====
     function keyToSemi(key) { return ED_SEMITONE[key] != null ? ED_SEMITONE[key] : -1; }
-    function keyDelta(fromKey, toKey) { return ((keyToSemi(toKey) - keyToSemi(fromKey)) % 12 + 12) % 12; }
+    function keyDelta(fromKey, toKey) {
+      if (typeof window.SharedEngine === 'object' && window.SharedEngine) {
+        return window.SharedEngine.keyDelta(fromKey, toKey);
+      }
+      return ((keyToSemi(toKey) - keyToSemi(fromKey)) % 12 + 12) % 12;
+    }
 
     // Only modify ch.name in place — preserves position, spacing, alignment, everything
     function transposeChordNamesInPlace(chords, semitones) {
@@ -13682,6 +13810,8 @@ if ($('edDoBoth')) {
     if ($('edTransUp')) $('edTransUp').onclick = () => { if (edCur && edCur.editorLocked) { toast('🔒 ویرایشگر قفل است'); return; } if (edCur) applyTranspose((edCur.transpose || 0) + 1); };
     if ($('edTransDown')) $('edTransDown').onclick = () => { if (edCur && edCur.editorLocked) { toast('🔒 ویرایشگر قفل است'); return; } if (edCur) applyTranspose((edCur.transpose || 0) - 1); };
     if ($('edTransVal')) $('edTransVal').addEventListener('dblclick', () => { if (edCur) applyTranspose(0); });
+    // Toggle دیز/بمل برای همه آکوردها (بدون تغییر گام)
+    if ($('edToggleAccidental')) $('edToggleAccidental').onclick = () => edToggleAccidental();
 
     // Click on original key label → change or reset
     if ($('edOrigKeyLabel')) $('edOrigKeyLabel').addEventListener('click', (e) => {
@@ -13709,7 +13839,7 @@ if ($('edDoBoth')) {
         newKey = val;
         newMode = 'maj';
       }
-      if (typeof ED_NOTES !== 'undefined' && !ED_NOTES.includes(newKey)) {
+      if (typeof etIsValidNote === 'function' && !etIsValidNote(newKey)) {
         toast('گام نامعتبر: ' + newKey);
         return;
       }
@@ -14666,6 +14796,8 @@ if (
     try { init(); } catch(ex) { console.warn('DAW init error:', ex); }
     // Always init song editor
     edInitSong();
+    // Init دیز/بمل/خودکار selector
+    initAccidentalSelector();
     // Apply language
     applyI18n();
     // Init highlight effect
