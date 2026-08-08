@@ -2951,6 +2951,18 @@ sels.forEach(c => {
       $('settingsModal').focus();
       loadOutputDevices();
     }
+    function syncChordLineFromLyrics() {
+      if (!edCur) { toast('سندی برای سینک وجود ندارد'); return; }
+      // Extract chords from edCur.chords (parsed from Lyrics)
+      const lyricsChords = edCur.chords || [];
+      if (lyricsChords.length === 0) { toast('هیچ آکوردی در Lyrics پیدا نشد'); return; }
+      // Copy to chordLineClips preserving order and positions
+      edCur.chordLineClips = lyricsChords.map(ch => ({ ...ch }));
+      edCur.hasManualChordLineEdits = false;
+      // Re-render the Chord Line popup if open
+      if (_chordLinePopup && !_chordLinePopup.closed) syncChordLinePopup();
+      toast('✔ Chord Line از Lyrics بروزرسانی شد (' + lyricsChords.length + ' آکورد)');
+    }
     function closeSettings() { $('settingsModal').classList.remove('show'); }
     function resetSettings() {
       localStorage.removeItem(SETTINGS_KEY);
