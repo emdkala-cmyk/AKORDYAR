@@ -13336,8 +13336,13 @@ if ($('edRemoveAsterisks')) {
 
 if ($('edReverseChords')) {
   $('edReverseChords').onclick = () => {
+    // ⚠️ این دکمه فقط برای موارد خاص است که آکوردها عمداً برعکس وارد شده‌اند
+    // در حالت عادی نباید از این دکمه استفاده کرد چون ترتیب موسیقایی را برعکس می‌کند
     if (!edCur || edCur.editorLocked || !edCur.chords.length) {
       toast('آکوردی وجود ندارد');
+      return;
+    }
+    if (!confirm('⚠️ آیا مطمئن هستید؟ این کار ترتیب موسیقایی آکوردها را در هر خط برعکس می‌کند و فقط برای موارد خاص کاربرد دارد.')) {
       return;
     }
     // Group chords by line, sort by charIndex, reverse positions
@@ -13360,7 +13365,7 @@ if ($('edReverseChords')) {
     });
     edRenderEditor(true);
     edSaveSong();
-    toast('ترتیب آکورد هر خط برعکس شد');
+    toast('ترتیب آکورد هر خط برعکس شد (فقط برای موارد خاص)');
   };
 }
 
