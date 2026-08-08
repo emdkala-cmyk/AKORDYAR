@@ -3347,7 +3347,6 @@ sels.forEach(c => {
       const title = edCur.title || 'بدون نام';
       const artist = edCur.artist || '';
       const keyStr = (edCur.key || 'C') + ((edCur.keyMode || 'maj') === 'min' ? 'm' : '');
-      const transpose = edCur.transpose || 0;
       const tSize = edCur.styles?.tSize || 38;
       const tColor = edCur.styles?.tColor || '#0fa966';
       const tFont = edCur.styles?.tFont || 'Vazirmatn';
@@ -3357,7 +3356,16 @@ sels.forEach(c => {
       const cColor = edCur.styles?.cColor || '#e6aa28';
       const cFont = edCur.styles?.cFont || 'JetBrains Mono';
       const lines = (edCur.lyrics || '').split('\n');
-      const chords = edCur.chords.map(ch => ({ lineIndex: ch.lineIndex, charIndex: ch.charIndex, anchorType: ch.anchorType, _name: edTransposeChord(ch.name, transpose) }));
+      // Use independent chordLineClips state - this is the source of truth for Chord Line display
+      const chordLineClips = edCur.chordLineClips || [];
+      const transpose = edCur.transpose || 0;
+      // Render chords from chordLineClips with transpose applied
+      const chords = chordLineClips.map(ch => ({ 
+        lineIndex: ch.lineIndex, 
+        charIndex: ch.charIndex, 
+        anchorType: ch.anchorType, 
+        _name: ch.name ? edTransposeChord(ch.name, transpose) : '' 
+      }));
 
       doc.title = title + ' — ' + artist + ' | Chord Line';
       doc.documentElement.dir = 'rtl';
@@ -3383,6 +3391,12 @@ sels.forEach(c => {
           .clp-header { text-align: center; padding: 8px 12px 4px; background: linear-gradient(180deg, #1C2333, #161B26); border-bottom: 1px solid #232B3E; }
           .clp-header .title { font-size: 15px; font-weight: 900; color: #00F2FE; }
           .clp-header .sub { font-size: 10px; color: #718096; }
+          .clp-controls { display: flex; gap: 8px; padding: 8px 12px; background: #161B26; border-bottom: 1px solid #232B3E; align-items: center; justify-content: center; }
+          .clp-btn { background: #232B3E; color: #E2E8F0; border: 1px solid #2D3748; padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; transition: all 0.15s; }
+          .clp-btn:hover { background: #2D3748; border-color: #4A5568; }
+          .clp-btn:active { transform: translateY(1px); }
+          .clp-btn-primary { background: #0fa966; border-color: #0fa966; color: #fff; }
+          .clp-btn-primary:hover { background: #0c8a54; }
           .clp-body { flex: 1; overflow: auto; padding: 16px 20px; position: relative; line-height: 2.4; }
           .clp-body { flex: 1; overflow-y: auto; padding: 16px; }
           .eline { min-height: 1.2em; white-space: pre-wrap; }
@@ -3391,12 +3405,91 @@ sels.forEach(c => {
           .clp-active { color: #FF2E93 !important; text-shadow: 0 0 8px rgba(255,46,147,0.5); }
           .clp-active-bg { background: rgba(255,46,147,0.08); border-radius: 6px; }
         </style>`;
-      let html = `<div class="clp-header"><div class="title">${title}</div><div class="sub">${artist} · ${keyStr}</div></div><div class="clp-body" id="clpBody">`;
+      let html = `<div class="clp-header"><div class="title">${title}</div><div class="sub">${artist} · ${keyStr}</div></div>`;
+      // Add controls container with Sync and Transpose buttons
+      html += `<div class="clp-controls">
+        <button class="clp-btn clp-btn-primary" id="clpSyncBtn" title="بروزرسانی Chord Line از Lyrics Chord">🔄 سینک</button>
+        <button class="clp-btn" id="clpTransDown" title="بمل">♭</button>
+        <span id="clpTransVal" style="color:#718096;font-size:12px;font-weight:600;min-width:24px;text-align:center;display:inline-block;">${transpose > 0 ? '+' : ''}${transpose}</span>
+        <button class="clp-btn" id="clpTransUp" title="دیز">♯</button>
+        <button class="clp-btn" id="clpCopyBtn" title="کپی آکوردها">✔ کپی</button>
+      </div>`;
+      html += `<div class="clp-body" id="clpBody">`;
       lines.forEach((line, i) => {
         html += `<div class="eline" data-li="${i}" style="font-size:${tSize}px;color:${tColor};font-family:'${tFont}';font-weight:${tBold};text-align:${align};">${line || '\u200B'}</div>`;
       });
       html += '</div>';
       doc.body.innerHTML = html;
+
+      // Attach event listeners to controls
+      const syncBtn = doc.getElementById('clpSyncBtn');
+      const transUpBtn = doc.getElementById('clpTransUp');
+      const transDownBtn = doc.getElementById('clpTransDown');
+      const transValSpan = doc.getElementById('clpTransVal');
+      const copyBtn = doc.getElementById('clpCopyBtn');
+
+      // Sync button: copy chords from Lyrics to chordLineClips
+      if (syncBtn) {
+        syncBtn.onclick = () => {
+          if (!edCur) return;
+          // Extract chords from edCur.chords (parsed from Lyrics)
+          const lyricsChords = edCur.chords || [];
+          // Copy to chordLineClips preserving order and positions
+          edCur.chordLineClips = lyricsChords.map(ch => ({ ...ch }));
+          edCur.hasManualChordLineEdits = false;
+          // Re-render the popup with updated chords
+          syncChordLinePopup();
+          toast('Chord Line از Lyrics بروزرسانی شد');
+        };
+      }
+
+      // Transpose Up button: only modify chordLineClips
+      if (transUpBtn) {
+        transUpBtn.onclick = () => {
+          if (!edCur || !edCur.chordLineClips) return;
+          const newTranspose = (edCur.transpose || 0) + 1;
+          edCur.transpose = newTranspose;
+          // Update transpose display
+          if (transValSpan) transValSpan.textContent = (newTranspose > 0 ? '+' : '') + newTranspose;
+          // Re-render chords with new transpose (only affects chordLineClips)
+          syncChordLinePopup();
+        };
+      }
+
+      // Transpose Down button: only modify chordLineClips
+      if (transDownBtn) {
+        transDownBtn.onclick = () => {
+          if (!edCur || !edCur.chordLineClips) return;
+          const newTranspose = (edCur.transpose || 0) - 1;
+          edCur.transpose = newTranspose;
+          // Update transpose display
+          if (transValSpan) transValSpan.textContent = (newTranspose > 0 ? '+' : '') + newTranspose;
+          // Re-render chords with new transpose (only affects chordLineClips)
+          syncChordLinePopup();
+        };
+      }
+
+      // Copy button: copy chord names to clipboard
+      if (copyBtn) {
+        copyBtn.onclick = () => {
+          if (!edCur || !edCur.chordLineClips || edCur.chordLineClips.length === 0) {
+            toast('آکوردی برای کپی وجود ندارد');
+            return;
+          }
+          const transpose = edCur.transpose || 0;
+          const chordNames = edCur.chordLineClips.map(ch => ch.name ? edTransposeChord(ch.name, transpose) : '').filter(n => n);
+          if (chordNames.length === 0) {
+            toast('آکوردی برای کپی وجود ندارد');
+            return;
+          }
+          const textToCopy = chordNames.join(' ');
+          navigator.clipboard.writeText(textToCopy).then(() => {
+            toast('✔ ' + chordNames.length + ' آکورد کپی شد');
+          }).catch(() => {
+            toast('خطا در کپی');
+          });
+        };
+      }
 
       // Render chords
       const pb = doc.getElementById('clpBody');

@@ -1,5 +1,3 @@
-node_modules/
-**/node_modules/
-dist/
-.env
-*.log
+(js/app.js is a source file, and there are no build artifacts, dependencies, or temp files in the changes - only a modified JavaScript source file)
+
+(empty - output nothing)
