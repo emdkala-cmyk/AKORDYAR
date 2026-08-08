@@ -2956,53 +2956,53 @@ sels.forEach(c => {
     function syncChordLineFromLyrics() {
       if (!edCur) { toast('سندی برای سینک وجود ندارد'); return; }
       
-      // 1. استخراج آکوردها از وضعیت فعلی Lyrics Chord
+      // 1. Extract chords from edCur.chords (parsed from Lyrics)
       const lyricsChords = edCur.chords || [];
       
-      // اگر هیچ آکوردی در Lyrics وجود ندارد
+      // If no chords in Lyrics
       if (lyricsChords.length === 0) { 
         toast('هیچ آکوردی در Lyrics Chord وجود ندارد.'); 
         return; 
       }
       
-      // 2. مرتب‌سازی آکوردها بر اساس موقعیت فضایی از راست به چپ
-      // استفاده از charIndex برای تعیین موقعیت افقی هر آکورد
+      // 2. Sort chords by spatial position from right to left (RTL reading order)
+      // First by lineIndex (top to bottom), then by charIndex (right to left within each line)
       const lyricsChordsInSyncOrder = [...lyricsChords].sort((a, b) => {
-        // اول بر اساس lineIndex (سطر) مرتب می‌کنیم
         if (a.lineIndex !== b.lineIndex) {
           return a.lineIndex - b.lineIndex;
         }
-        // سپس بر اساس charIndex از راست به چپ (مقادیر بزرگتر اول می‌آیند)
+        // For RTL Persian text, higher charIndex means further left visually
+        // Reading order is right-to-left, so we want larger charIndex first
         return b.charIndex - a.charIndex;
       });
       
-      // 3. بررسی Chord Line
+      // 3. Get current Chord Line clips
       const currentChordLineClips = edCur.chordLineClips || [];
       
-      // اگر Chord Line خالی است
+      // If Chord Line is empty
       if (currentChordLineClips.length === 0) {
         toast('برای همگام‌سازی، ابتدا حداقل یک آکورد در Chord Line ایجاد کنید.');
         return;
       }
       
-      // 4. اعمال آکوردهای Lyrics روی Chord Line از چپ به راست
-      // فقط مقادیر آکوردهای موجود را تغییر می‌دهیم
+      // 4. Apply Lyrics chords to Chord Line from left to right
+      // Only update the .name property of existing clips
       let appliedCount = Math.min(lyricsChordsInSyncOrder.length, currentChordLineClips.length);
       
       for (let i = 0; i < appliedCount; i++) {
         currentChordLineClips[i].name = lyricsChordsInSyncOrder[i].name;
       }
       
-      // 5. به‌روزرسانی state و رندر مجدد
+      // 5. Update state and re-render
       edCur.chordLineClips = currentChordLineClips;
       edCur.hasManualChordLineEdits = false;
       
-      // رندر مجدد پاپ‌آپ Chord Line اگر باز است
+      // Re-render Chord Line popup if open
       if (_chordLinePopup && !_chordLinePopup.closed) {
         syncChordLinePopup();
       }
       
-      // نمایش پیام نتیجه
+      // Show result message
       if (lyricsChordsInSyncOrder.length > currentChordLineClips.length) {
         toast(`فقط ${appliedCount} آکورد اول Lyrics روی ${currentChordLineClips.length} آکورد موجود در Chord Line اعمال شد.`);
       } else {
