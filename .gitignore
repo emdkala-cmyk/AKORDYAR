@@ -1,2 +1,1 @@
-node_modules/
-**/node_modules/
+(js/app.js is a source file, so no need to ignore it)

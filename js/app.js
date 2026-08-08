@@ -8600,6 +8600,9 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
       edCur.transpose = 0;
       // Initialize baseChordNames from imported chords (original names, no positions)
       edCur.baseChordNames = (edCur.chords || []).map(ch => ch.name || '');
+      // Initialize chordLineClips for independent Chord Line state (Bug fix: prevent auto-overwrite from Lyrics)
+      if (!edCur.chordLineClips) edCur.chordLineClips = [];
+      if (!edCur.hasManualChordLineEdits) edCur.hasManualChordLineEdits = false;
 
       DAW.clips = DAW.clips.filter(c => c.type !== 'chord');
 
