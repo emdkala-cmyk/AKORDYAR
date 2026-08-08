@@ -15423,6 +15423,7 @@ ${printContainer.innerHTML}
 
 // expose to global scope
 window.printSong = printSong;
+window.syncChordLineFromLyrics = syncChordLineFromLyrics;
 
 // ===== Quick Search Panel Functions =====
 let _quickSearchDragging = false;
