@@ -924,9 +924,11 @@ function applyState(stateStr) {
     if (state.edCur) {
       const keepId = edCur?.id;
       edCur = state.edCur;
+      window.edCur = edCur; // sync global reference after loading state
       if (keepId != null) edCur.id = keepId;
     } else {
       edCur = null;
+      window.edCur = null; // sync global reference when edCur is null
     }
 
     edSeqPoints = Array.isArray(state.edSeqPoints)
@@ -6547,6 +6549,7 @@ document.addEventListener('DOMContentLoaded', () => {
       isRecordingChords = false; currentRecordingClipId = null;
 
       edCur = JSON.parse(JSON.stringify(song));
+      window.edCur = edCur; // sync global reference after loading song
       // اگر lyrics خالیه ولی rawText داریم، parse کن
       if (typeof ensureSongParsed === 'function') ensureSongParsed(edCur);
       if (!edCur.styles) edCur.styles = {};
@@ -8687,6 +8690,7 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
 
       // --- Apply parsed result to edCur (no post-parse mutations) ---
       if (!edCur) edCur = edBlankSong();
+      window.edCur = edCur; // sync global reference after ensuring song exists
       edCur.lyrics = parsedResult.lyrics;
       edCur.chords = parsedResult.chords;
 
@@ -9389,6 +9393,7 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
     const ED_TENS = ['','add9','9','11','13','b9','#9','#11','b13'];
 
     let edCur = null;
+    window.edCur = edCur; // expose to global scope for projecthub.js and other modules
     let edUndoStack = [], edRedoStack = [];
     let edChordIdx = null, edPendingAnchor = null;
     let edSelectedChords = [];
@@ -9430,6 +9435,7 @@ function edBlankSong() {
       const saved = localStorage.getItem('ed_current_song');
       if (saved) { try { edCur = JSON.parse(saved); } catch(e) { edCur = null; } }
       if (!edCur) edCur = edBlankSong();
+      window.edCur = edCur; // sync global reference
       if (!edCur.styles) edCur.styles = {};
       if (!edCur.lineColors) edCur.lineColors = [];
       if (!edCur.chordVersions) edCur.chordVersions = [];
@@ -10823,6 +10829,7 @@ function edBlankSong() {
       DAW.loopEnabled = false; DAW.loopA = 0; DAW.loopB = 10;
       isRecordingChords = false; currentRecordingClipId = null;
       edCur = JSON.parse(JSON.stringify(data));
+      window.edCur = edCur; // sync global reference after import
       if (!edCur.styles) edCur.styles = {};
       const defaults = { tSize:38,tColor:'#0fa966',tFont:'Vazirmatn',tBold:true,align:'center', cSize:38,cColor:'#e6aa28',cFont:'JetBrains Mono' };
       Object.keys(defaults).forEach(k => { if (edCur.styles[k] === undefined) edCur.styles[k] = defaults[k]; });
@@ -11453,6 +11460,7 @@ function edBlankSong() {
       copy.updatedAt = new Date().toISOString();
       const songs = edGetAllSongs(); songs.unshift(copy); edSetAllSongs(songs);
       edCur = copy;
+      window.edCur = edCur; // sync global reference after creating editable version
       toast('نسخه قابل ویرایش ساخته شد');
     }
 
@@ -12280,6 +12288,7 @@ function archUpdateActiveFilters() {
 stopAllVoices();
 
 edCur = edBlankSong();
+window.edCur = edCur; // sync global reference after new song
 
 undoStack = [];
 undoIndex = -1;
@@ -12514,6 +12523,7 @@ saveState();
             DAW.clips = []; DAW.sections = []; DAW.selectedIds.clear(); DAW.selectedSectionIds = new Set(); DAW.bufferCache.clear(); DAW.waveCache.clear();
             DAW.loopEnabled = false; DAW.loopA = 0; DAW.loopB = 10;
             edCur = data;
+            window.edCur = edCur; // sync global reference after loading project file
             if (!edCur.styles) edCur.styles = {};
             const defaults = { tSize:38,tColor:'#0fa966',tFont:'Vazirmatn',tBold:true,align:'center', cSize:38,cColor:'#e6aa28',cFont:'JetBrains Mono' };
             Object.keys(defaults).forEach(k => { if (edCur.styles[k] === undefined) edCur.styles[k] = defaults[k]; });
