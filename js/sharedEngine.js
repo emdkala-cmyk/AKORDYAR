@@ -358,6 +358,40 @@ const SharedEngine = (() => {
     return result;
   }
 
+  /**
+   * Convert all accidentals in a chord name to the opposite spelling.
+   *
+   * - If the root/bass uses sharps → convert to flats (C#m → Dbm, F# → Gb, A# → Bb)
+   * - If the root/bass uses flats → convert to sharps (Dbm → C#m, Gb → F#, Bb → A#)
+   * - Natural notes (C, D, E, F, G, A, B) are left unchanged.
+   * - Only the root note and slash bass note are converted; quality/suffix untouched.
+   *
+   * @param {string} name - chord name (e.g., "C#m", "F#", "G#/B", "Bbmaj7")
+   * @param {boolean} toFlat - true → convert sharps to flats; false → convert flats to sharps
+   * @returns {string} converted chord name
+   */
+  function convertAccidentals(name, toFlat) {
+    if (!name) return name;
+
+    const convert = (noteStr) => {
+      if (!noteStr) return noteStr;
+      if (toFlat) {
+        return SHARP_TO_FLAT[noteStr] || noteStr; // C#→Db, D#→Eb ... natural stays
+      }
+      return FLAT_TO_SHARP[noteStr] || noteStr;   // Db→C#, Eb→D# ... natural stays
+    };
+
+    // Parse the chord to isolate root and bass
+    const parsed = parseChord(name);
+    if (!parsed) return name;
+
+    let result = convert(parsed.rootStr);
+    if (parsed.quality) result += parsed.quality;
+    if (parsed.suffix) result += parsed.suffix;
+    if (parsed.bassStr) result += '/' + convert(parsed.bassStr);
+    return result;
+  }
+
   /* ═══════════════════════════════════════════════
      4) Tokenizer: line text → tokens with charStart/charEnd
      ═══════════════════════════════════════════════ */
@@ -618,6 +652,7 @@ const SharedEngine = (() => {
     parseChord,
     buildChordName,
     normalizeChord,
+    convertAccidentals,
     formatNoteName,
     transposeNote,
     transposeChordName,

@@ -13651,6 +13651,41 @@ if ($('edDoBoth')) {
       return ED_NOTES[newIdx];
     }
 
+    // ===== Convert Accidental Spelling (دیز/بمل toggle) =====
+    // Toggles the accidental spelling of ALL current chords WITHOUT changing the key.
+    // If chords currently use sharps → convert to flats; if flats → convert to sharps.
+    function edToggleAccidental() {
+      if (!edCur || edCur.editorLocked) { toast('🔒 ویرایشگر قفل است'); return; }
+      const cc = typeof window.SharedEngine === 'object' && window.SharedEngine &&
+        typeof window.SharedEngine.convertAccidentals === 'function'
+        ? window.SharedEngine.convertAccidentals
+        : null;
+      if (!cc) { toast('موتور آکورد در دسترس نیست'); return; }
+
+      // Determine current dominant spelling by looking at first accidental chord
+      let toFlat = true; // default: convert sharps → flats
+      const withAcc = (edCur.chords || []).map(c => c.name || '').filter(n => /[#♯]|[b♭]/.test(n));
+      if (withAcc.length && withAcc.every(n => /[b♭]/.test(n))) toFlat = false; // currently flats → to sharp
+
+      let converted = 0;
+      (edCur.chords || []).forEach(ch => {
+        if (!ch.name) return;
+        const newName = cc(ch.name, toFlat);
+        if (newName !== ch.name) { ch.name = newName; converted++; }
+      });
+      // Also convert baseChordNames so future transpose stays consistent
+      if (edCur.baseChordNames && edCur.baseChordNames.length) {
+        edCur.baseChordNames = edCur.baseChordNames.map(n => n ? cc(n, toFlat) : n);
+      }
+      if (converted === 0) { toast('آکوردی برای تبدیل یافت نشد'); return; }
+      edRenderChords(true);
+      edRenderEditor(false);
+      syncTransposeToTimelineChords();
+      edSaveSong();
+      if (typeof rebuildSongDocumentFromEdCur === 'function') rebuildSongDocumentFromEdCur();
+      toast(toFlat ? 'آکوردها به بمل ♭ تبدیل شدند (' + converted + ')' : 'آکوردها به دیز ♯ تبدیل شدند (' + converted + ')');
+    }
+
     // ===== CENTRAL KEY/TRANSPOSE FUNCTIONS =====
     function keyToSemi(key) { return ED_SEMITONE[key] != null ? ED_SEMITONE[key] : -1; }
     function keyDelta(fromKey, toKey) {
@@ -13774,6 +13809,8 @@ if ($('edDoBoth')) {
     if ($('edTransUp')) $('edTransUp').onclick = () => { if (edCur && edCur.editorLocked) { toast('🔒 ویرایشگر قفل است'); return; } if (edCur) applyTranspose((edCur.transpose || 0) + 1); };
     if ($('edTransDown')) $('edTransDown').onclick = () => { if (edCur && edCur.editorLocked) { toast('🔒 ویرایشگر قفل است'); return; } if (edCur) applyTranspose((edCur.transpose || 0) - 1); };
     if ($('edTransVal')) $('edTransVal').addEventListener('dblclick', () => { if (edCur) applyTranspose(0); });
+    // Toggle دیز/بمل برای همه آکوردها (بدون تغییر گام)
+    if ($('edToggleAccidental')) $('edToggleAccidental').onclick = () => edToggleAccidental();
 
     // Click on original key label → change or reset
     if ($('edOrigKeyLabel')) $('edOrigKeyLabel').addEventListener('click', (e) => {
