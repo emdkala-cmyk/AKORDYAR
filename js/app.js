@@ -924,9 +924,11 @@ function applyState(stateStr) {
     if (state.edCur) {
       const keepId = edCur?.id;
       edCur = state.edCur;
+      window.edCur = edCur; // sync global reference after loading state
       if (keepId != null) edCur.id = keepId;
     } else {
       edCur = null;
+      window.edCur = null; // sync global reference when edCur is null
     }
 
     edSeqPoints = Array.isArray(state.edSeqPoints)
@@ -2951,6 +2953,75 @@ sels.forEach(c => {
       $('settingsModal').focus();
       loadOutputDevices();
     }
+    function syncChordLineFromLyrics() {
+      if (!edCur) { toast('سندی برای سینک وجود ندارد'); return; }
+      
+      // 1. Extract chords from edCur.chords (parsed from Lyrics)
+      const lyricsChords = edCur.chords || [];
+      
+      // If no chords in Lyrics
+      if (lyricsChords.length === 0) { 
+        toast('هیچ آکوردی در Lyrics Chord وجود ندارد.'); 
+        return; 
+      }
+      
+      // 2. Sort chords by spatial position from right to left (RTL reading order)
+      // For Persian text: index 0 is on the far right, higher indices go to the left
+      // So ascending sort (a.charIndex - b.charIndex) gives us right-to-left order
+      const lyricsChordsInSyncOrder = [...lyricsChords].sort((a, b) => {
+        if (a.lineIndex !== b.lineIndex) {
+          return a.lineIndex - b.lineIndex;
+        }
+        // Ascending order: smaller charIndex (right side) comes first
+        return a.charIndex - b.charIndex;
+      });
+      
+      // 3. Get current Chord Line clips from DAW.clips (the actual source of truth)
+      const chordTrack = DAW.tracks.find(t => t.type === 'chord');
+      let currentChordLineClips = [];
+      
+      if (chordTrack) {
+        // Get all chord clips sorted by start time (left to right on timeline)
+        currentChordLineClips = DAW.clips
+          .filter(c => c.type === 'chord' && c.trackId === chordTrack.id)
+          .sort((a, b) => a.start - b.start);
+      }
+      
+      // If Chord Line is empty
+      if (currentChordLineClips.length === 0) {
+        toast('برای همگام‌سازی، ابتدا حداقل یک آکورد در Chord Line ایجاد کنید.');
+        return;
+      }
+      
+      // 4. Apply Lyrics chords to Chord Line from left to right
+      // Only update the .name property of existing clips
+      let appliedCount = Math.min(lyricsChordsInSyncOrder.length, currentChordLineClips.length);
+      
+      for (let i = 0; i < appliedCount; i++) {
+        currentChordLineClips[i].name = lyricsChordsInSyncOrder[i].name;
+      }
+      
+      // 5. Update state and re-render
+      edCur.hasManualChordLineEdits = false;
+      
+      // Re-render Chord Line popup if open
+      if (_chordLinePopup && !_chordLinePopup.closed) {
+        syncChordLinePopup();
+      }
+      
+      // Save state to persist changes
+      saveState();
+      
+      // Re-render timeline to show updated chord clips
+      renderAll();
+      
+      // Show result message
+      if (lyricsChordsInSyncOrder.length > currentChordLineClips.length) {
+        toast(`فقط ${appliedCount} آکورد اول Lyrics روی ${currentChordLineClips.length} آکورد موجود در Chord Line اعمال شد.`);
+      } else {
+        toast(`✔ Chord Line با موفقیت از Lyrics Chord همگام شد (${appliedCount} آکورد).`);
+      }
+    }
     function closeSettings() { $('settingsModal').classList.remove('show'); }
     function resetSettings() {
       localStorage.removeItem(SETTINGS_KEY);
@@ -3347,7 +3418,6 @@ sels.forEach(c => {
       const title = edCur.title || 'بدون نام';
       const artist = edCur.artist || '';
       const keyStr = (edCur.key || 'C') + ((edCur.keyMode || 'maj') === 'min' ? 'm' : '');
-      const transpose = edCur.transpose || 0;
       const tSize = edCur.styles?.tSize || 38;
       const tColor = edCur.styles?.tColor || '#0fa966';
       const tFont = edCur.styles?.tFont || 'Vazirmatn';
@@ -3357,7 +3427,16 @@ sels.forEach(c => {
       const cColor = edCur.styles?.cColor || '#e6aa28';
       const cFont = edCur.styles?.cFont || 'JetBrains Mono';
       const lines = (edCur.lyrics || '').split('\n');
-      const chords = edCur.chords.map(ch => ({ lineIndex: ch.lineIndex, charIndex: ch.charIndex, anchorType: ch.anchorType, _name: edTransposeChord(ch.name, transpose) }));
+      // Use independent chordLineClips state - this is the source of truth for Chord Line display
+      const chordLineClips = edCur.chordLineClips || [];
+      const transpose = edCur.transpose || 0;
+      // Render chords from chordLineClips with transpose applied
+      const chords = chordLineClips.map(ch => ({ 
+        lineIndex: ch.lineIndex, 
+        charIndex: ch.charIndex, 
+        anchorType: ch.anchorType, 
+        _name: ch.name ? edTransposeChord(ch.name, transpose) : '' 
+      }));
 
       doc.title = title + ' — ' + artist + ' | Chord Line';
       doc.documentElement.dir = 'rtl';
@@ -3383,6 +3462,12 @@ sels.forEach(c => {
           .clp-header { text-align: center; padding: 8px 12px 4px; background: linear-gradient(180deg, #1C2333, #161B26); border-bottom: 1px solid #232B3E; }
           .clp-header .title { font-size: 15px; font-weight: 900; color: #00F2FE; }
           .clp-header .sub { font-size: 10px; color: #718096; }
+          .clp-controls { display: flex; gap: 8px; padding: 8px 12px; background: #161B26; border-bottom: 1px solid #232B3E; align-items: center; justify-content: center; }
+          .clp-btn { background: #232B3E; color: #E2E8F0; border: 1px solid #2D3748; padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; transition: all 0.15s; }
+          .clp-btn:hover { background: #2D3748; border-color: #4A5568; }
+          .clp-btn:active { transform: translateY(1px); }
+          .clp-btn-primary { background: #0fa966; border-color: #0fa966; color: #fff; }
+          .clp-btn-primary:hover { background: #0c8a54; }
           .clp-body { flex: 1; overflow: auto; padding: 16px 20px; position: relative; line-height: 2.4; }
           .clp-body { flex: 1; overflow-y: auto; padding: 16px; }
           .eline { min-height: 1.2em; white-space: pre-wrap; }
@@ -3391,12 +3476,131 @@ sels.forEach(c => {
           .clp-active { color: #FF2E93 !important; text-shadow: 0 0 8px rgba(255,46,147,0.5); }
           .clp-active-bg { background: rgba(255,46,147,0.08); border-radius: 6px; }
         </style>`;
-      let html = `<div class="clp-header"><div class="title">${title}</div><div class="sub">${artist} · ${keyStr}</div></div><div class="clp-body" id="clpBody">`;
+      let html = `<div class="clp-header"><div class="title">${title}</div><div class="sub">${artist} · ${keyStr}</div></div>`;
+      // Add controls container with Sync and Transpose buttons
+      html += `<div class="clp-controls">
+        <button class="clp-btn clp-btn-primary" id="clpSyncBtn" title="بروزرسانی Chord Line از Lyrics Chord">🔄 سینک</button>
+        <button class="clp-btn" id="clpTransDown" title="بمل">♭</button>
+        <span id="clpTransVal" style="color:#718096;font-size:12px;font-weight:600;min-width:24px;text-align:center;display:inline-block;">${transpose > 0 ? '+' : ''}${transpose}</span>
+        <button class="clp-btn" id="clpTransUp" title="دیز">♯</button>
+        <button class="clp-btn" id="clpCopyBtn" title="کپی آکوردها">✔ کپی</button>
+      </div>`;
+      html += `<div class="clp-body" id="clpBody">`;
       lines.forEach((line, i) => {
         html += `<div class="eline" data-li="${i}" style="font-size:${tSize}px;color:${tColor};font-family:'${tFont}';font-weight:${tBold};text-align:${align};">${line || '\u200B'}</div>`;
       });
       html += '</div>';
       doc.body.innerHTML = html;
+
+      // Attach event listeners to controls
+      const syncBtn = doc.getElementById('clpSyncBtn');
+      const transUpBtn = doc.getElementById('clpTransUp');
+      const transDownBtn = doc.getElementById('clpTransDown');
+      const transValSpan = doc.getElementById('clpTransVal');
+      const copyBtn = doc.getElementById('clpCopyBtn');
+
+      // Sync button: copy chords from Lyrics to chordLineClips with spatial ordering
+      if (syncBtn) {
+        syncBtn.onclick = () => {
+          if (!edCur) return;
+          
+          // 1. Extract chords from edCur.chords (parsed from Lyrics)
+          const lyricsChords = edCur.chords || [];
+          
+          // If no chords in Lyrics
+          if (lyricsChords.length === 0) { 
+            toast('هیچ آکوردی در Lyrics Chord وجود ندارد.'); 
+            return; 
+          }
+          
+          // 2. Sort chords by spatial position from right to left (RTL reading order)
+          // For Persian text: index 0 is on the far right, higher indices go to the left
+          // So ascending sort (a.charIndex - b.charIndex) gives us right-to-left order
+          const lyricsChordsInSyncOrder = [...lyricsChords].sort((a, b) => {
+            if (a.lineIndex !== b.lineIndex) {
+              return a.lineIndex - b.lineIndex;
+            }
+            // Ascending order: smaller charIndex (right side) comes first
+            return a.charIndex - b.charIndex;
+          });
+          
+          // 3. Get current Chord Line clips
+          const currentChordLineClips = edCur.chordLineClips || [];
+          
+          // If Chord Line is empty
+          if (currentChordLineClips.length === 0) {
+            toast('برای همگام‌سازی، ابتدا حداقل یک آکورد در Chord Line ایجاد کنید.');
+            return;
+          }
+          
+          // 4. Apply Lyrics chords to Chord Line from left to right
+          let appliedCount = Math.min(lyricsChordsInSyncOrder.length, currentChordLineClips.length);
+          
+          for (let i = 0; i < appliedCount; i++) {
+            currentChordLineClips[i].name = lyricsChordsInSyncOrder[i].name;
+          }
+          
+          // 5. Update state and re-render
+          edCur.chordLineClips = currentChordLineClips;
+          edCur.hasManualChordLineEdits = false;
+          syncChordLinePopup();
+          
+          // Show result message
+          if (lyricsChordsInSyncOrder.length > currentChordLineClips.length) {
+            toast(`فقط ${appliedCount} آکورد اول Lyrics روی ${currentChordLineClips.length} آکورد موجود در Chord Line اعمال شد.`);
+          } else {
+            toast(`✔ Chord Line با موفقیت از Lyrics Chord همگام شد (${appliedCount} آکورد).`);
+          }
+        };
+      }
+
+      // Transpose Up button: only modify chordLineClips
+      if (transUpBtn) {
+        transUpBtn.onclick = () => {
+          if (!edCur || !edCur.chordLineClips) return;
+          const newTranspose = (edCur.transpose || 0) + 1;
+          edCur.transpose = newTranspose;
+          // Update transpose display
+          if (transValSpan) transValSpan.textContent = (newTranspose > 0 ? '+' : '') + newTranspose;
+          // Re-render chords with new transpose (only affects chordLineClips)
+          syncChordLinePopup();
+        };
+      }
+
+      // Transpose Down button: only modify chordLineClips
+      if (transDownBtn) {
+        transDownBtn.onclick = () => {
+          if (!edCur || !edCur.chordLineClips) return;
+          const newTranspose = (edCur.transpose || 0) - 1;
+          edCur.transpose = newTranspose;
+          // Update transpose display
+          if (transValSpan) transValSpan.textContent = (newTranspose > 0 ? '+' : '') + newTranspose;
+          // Re-render chords with new transpose (only affects chordLineClips)
+          syncChordLinePopup();
+        };
+      }
+
+      // Copy button: copy chord names to clipboard
+      if (copyBtn) {
+        copyBtn.onclick = () => {
+          if (!edCur || !edCur.chordLineClips || edCur.chordLineClips.length === 0) {
+            toast('آکوردی برای کپی وجود ندارد');
+            return;
+          }
+          const transpose = edCur.transpose || 0;
+          const chordNames = edCur.chordLineClips.map(ch => ch.name ? edTransposeChord(ch.name, transpose) : '').filter(n => n);
+          if (chordNames.length === 0) {
+            toast('آکوردی برای کپی وجود ندارد');
+            return;
+          }
+          const textToCopy = chordNames.join(' ');
+          navigator.clipboard.writeText(textToCopy).then(() => {
+            toast('✔ ' + chordNames.length + ' آکورد کپی شد');
+          }).catch(() => {
+            toast('خطا در کپی');
+          });
+        };
+      }
 
       // Render chords
       const pb = doc.getElementById('clpBody');
@@ -4852,6 +5056,8 @@ let syncTapKeyHandler = null;
       if (edClMode && edSeqModeActive) edToggleSeqMode();
       if (!edClMode) { edClTapActive = false; const b = $('edClStart'); if (b) b.classList.remove('active'); }
       edRenderClMarkers();
+      // Open Chord Line popup when switching to chord mode
+      if (edClMode) openChordLinePopup();
     }
     function edToggleClTap() {
       edClTapActive = !edClTapActive;
@@ -6440,6 +6646,7 @@ document.addEventListener('DOMContentLoaded', () => {
       isRecordingChords = false; currentRecordingClipId = null;
 
       edCur = JSON.parse(JSON.stringify(song));
+      window.edCur = edCur; // sync global reference after loading song
       // اگر lyrics خالیه ولی rawText داریم، parse کن
       if (typeof ensureSongParsed === 'function') ensureSongParsed(edCur);
       if (!edCur.styles) edCur.styles = {};
@@ -8580,6 +8787,7 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
 
       // --- Apply parsed result to edCur (no post-parse mutations) ---
       if (!edCur) edCur = edBlankSong();
+      window.edCur = edCur; // sync global reference after ensuring song exists
       edCur.lyrics = parsedResult.lyrics;
       edCur.chords = parsedResult.chords;
 
@@ -8600,6 +8808,9 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
       edCur.transpose = 0;
       // Initialize baseChordNames from imported chords (original names, no positions)
       edCur.baseChordNames = (edCur.chords || []).map(ch => ch.name || '');
+      // Initialize chordLineClips for independent Chord Line state (Bug fix: prevent auto-overwrite from Lyrics)
+      if (!edCur.chordLineClips) edCur.chordLineClips = [];
+      if (!edCur.hasManualChordLineEdits) edCur.hasManualChordLineEdits = false;
 
       DAW.clips = DAW.clips.filter(c => c.type !== 'chord');
 
@@ -9279,6 +9490,7 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
     const ED_TENS = ['','add9','9','11','13','b9','#9','#11','b13'];
 
     let edCur = null;
+    window.edCur = edCur; // expose to global scope for projecthub.js and other modules
     let edUndoStack = [], edRedoStack = [];
     let edChordIdx = null, edPendingAnchor = null;
     let edSelectedChords = [];
@@ -9320,6 +9532,7 @@ function edBlankSong() {
       const saved = localStorage.getItem('ed_current_song');
       if (saved) { try { edCur = JSON.parse(saved); } catch(e) { edCur = null; } }
       if (!edCur) edCur = edBlankSong();
+      window.edCur = edCur; // sync global reference
       if (!edCur.styles) edCur.styles = {};
       if (!edCur.lineColors) edCur.lineColors = [];
       if (!edCur.chordVersions) edCur.chordVersions = [];
@@ -10713,6 +10926,7 @@ function edBlankSong() {
       DAW.loopEnabled = false; DAW.loopA = 0; DAW.loopB = 10;
       isRecordingChords = false; currentRecordingClipId = null;
       edCur = JSON.parse(JSON.stringify(data));
+      window.edCur = edCur; // sync global reference after import
       if (!edCur.styles) edCur.styles = {};
       const defaults = { tSize:38,tColor:'#0fa966',tFont:'Vazirmatn',tBold:true,align:'center', cSize:38,cColor:'#e6aa28',cFont:'JetBrains Mono' };
       Object.keys(defaults).forEach(k => { if (edCur.styles[k] === undefined) edCur.styles[k] = defaults[k]; });
@@ -11343,6 +11557,7 @@ function edBlankSong() {
       copy.updatedAt = new Date().toISOString();
       const songs = edGetAllSongs(); songs.unshift(copy); edSetAllSongs(songs);
       edCur = copy;
+      window.edCur = edCur; // sync global reference after creating editable version
       toast('نسخه قابل ویرایش ساخته شد');
     }
 
@@ -12170,6 +12385,7 @@ function archUpdateActiveFilters() {
 stopAllVoices();
 
 edCur = edBlankSong();
+window.edCur = edCur; // sync global reference after new song
 
 undoStack = [];
 undoIndex = -1;
@@ -12404,6 +12620,7 @@ saveState();
             DAW.clips = []; DAW.sections = []; DAW.selectedIds.clear(); DAW.selectedSectionIds = new Set(); DAW.bufferCache.clear(); DAW.waveCache.clear();
             DAW.loopEnabled = false; DAW.loopA = 0; DAW.loopB = 10;
             edCur = data;
+            window.edCur = edCur; // sync global reference after loading project file
             if (!edCur.styles) edCur.styles = {};
             const defaults = { tSize:38,tColor:'#0fa966',tFont:'Vazirmatn',tBold:true,align:'center', cSize:38,cColor:'#e6aa28',cFont:'JetBrains Mono' };
             Object.keys(defaults).forEach(k => { if (edCur.styles[k] === undefined) edCur.styles[k] = defaults[k]; });
