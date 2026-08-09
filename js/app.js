@@ -1559,9 +1559,9 @@ function undo() {
       const ctx = canvas.getContext('2d'); ctx.clearRect(0, 0, w, h);
       const bpm = edCur?.tempo || 120;
       const sig = edCur?.timeSignature || '4/4';
-      const beatsPerBar = parseInt(sig.split('/')[0]);
-      const beatDur = 60 / bpm;
-      const barDur = beatDur * beatsPerBar;
+      const gridConfig = getTimeSignatureGridConfig(sig, bpm);
+      const beatDur = gridConfig.beatDuration;
+      const barDur = gridConfig.measureDuration;
       const pxPerSec = DAW.pxPerSecond;
 
       // محدود کردن تعداد خطوط برای جلوگیری از سفید شدن
@@ -1571,7 +1571,7 @@ function undo() {
       ctx.strokeStyle = 'rgba(255,255,255,0.12)';
       ctx.lineWidth = 1;
       let barCount = 0;
-      for (let bar = 1; bar * barDur <= total && barCount < maxLines; bar++) {
+      for (let bar = 0; bar * barDur <= total && barCount < maxLines; bar++) {
         const x = Math.round(timeToX(bar * barDur)) + 0.5;
         if (x > w) break;
         ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
@@ -1584,7 +1584,7 @@ function undo() {
         ctx.lineWidth = 1;
         let beatCount = 0;
         for (let beat = 0; beat * beatDur <= total && beatCount < maxLines; beat++) {
-          if (beat % beatsPerBar === 0) continue;
+          if (gridConfig.numerator > 1 && beat % gridConfig.numerator === 0) continue;
           const x = Math.round(timeToX(beat * beatDur)) + 0.5;
           if (x > w) break;
           ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
@@ -1594,11 +1594,11 @@ function undo() {
 
       // Draw sub-beat lines only when zoomed in enough
       if (pxPerSec > 40) {
-        const subBeatDur = beatDur / 4;
+        const subBeatDur = beatDur / gridConfig.subdivisionsPerBeat;
         ctx.strokeStyle = 'rgba(255,255,255,0.02)';
         let subCount = 0;
         for (let sub = 0; sub * subBeatDur <= total && subCount < maxLines; sub++) {
-          if (sub % 4 === 0) continue;
+          if (sub % gridConfig.subdivisionsPerBeat === 0) continue;
           const x = Math.round(timeToX(sub * subBeatDur)) + 0.5;
           if (x > w) break;
           ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
@@ -1623,9 +1623,9 @@ function undo() {
 
       const bpm = edCur?.tempo || 120;
       const sig = edCur?.timeSignature || '4/4';
-      const beatsPerBar = parseInt(sig.split('/')[0]);
-      const beatDur = 60 / bpm;
-      const barDur = beatDur * beatsPerBar;
+      const gridConfig = getTimeSignatureGridConfig(sig, bpm);
+      const beatDur = gridConfig.beatDuration;
+      const barDur = gridConfig.measureDuration;
       const pxPerSec = DAW.pxPerSecond;
 
       // محاسبه اینکه هر چند میزان شماره نشون بده (بر اساس زوم)
@@ -1651,15 +1651,15 @@ function undo() {
       const showBeats = pxPerSec > 15;
       const showSubBeats = pxPerSec > 50;
 
-      for (let bar = 1; bar * barDur <= total; bar++) {
-        const x = timeToX((bar - 1) * barDur);
+      for (let bar = 0; bar * barDur <= total; bar++) {
+        const x = timeToX(bar * barDur);
 
         // شماره میزان (فقط هر barStep میزان)
-        if ((bar - 1) % barStep === 0) {
+        if (bar % barStep === 0) {
           const span = document.createElement('span');
           span.className = 'ruler-tick-label major';
           span.style.left = x + 'px';
-          span.textContent = bar;
+          span.textContent = bar + 1;
           labels.appendChild(span);
         }
 
@@ -1673,7 +1673,7 @@ function undo() {
 
         // خطوط ضرب
         if (showBeats) {
-          for (let beat = 1; beat < beatsPerBar; beat++) {
+          for (let beat = 1; beat < gridConfig.numerator; beat++) {
             const bx = x + beat * beatDur * pxPerSec;
             if (bx > cappedWidth) break;
             rctx.strokeStyle = 'rgba(55, 65, 81, 0.3)';
@@ -1681,7 +1681,7 @@ function undo() {
             rctx.beginPath(); rctx.moveTo(bx + 0.5, 26); rctx.lineTo(bx + 0.5, 32); rctx.stroke();
 
             // شماره ضرب (فقط وقتی فضا کافی باشه)
-            if (pxPerBar > 40 && beatsPerBar <= 8) {
+            if (pxPerBar > 40 && gridConfig.numerator <= 8) {
               const bspan = document.createElement('span');
               bspan.className = 'ruler-tick-label';
               bspan.style.left = bx + 'px';
@@ -1695,8 +1695,8 @@ function undo() {
 
         // ساب‌بیت (زوم خیلی زیاد)
         if (showSubBeats) {
-          for (let sub = 1; sub < 4; sub++) {
-            const sx = x + sub * (beatDur / 4) * pxPerSec;
+          for (let sub = 1; sub < gridConfig.subdivisionsPerBeat; sub++) {
+            const sx = x + sub * (beatDur / gridConfig.subdivisionsPerBeat) * pxPerSec;
             if (sx > cappedWidth) break;
             rctx.strokeStyle = 'rgba(45, 55, 72, 0.25)';
             rctx.lineWidth = 1;
