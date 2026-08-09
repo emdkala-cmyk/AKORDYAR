@@ -403,11 +403,7 @@ globalScope.DAW = {
 
     function snapTime(time) {
       if (!snapEnabled) return time;
-      const bpm = edCur?.tempo || 120;
-      const sig = edCur?.timeSignature || '4/4';
-      const config = getTimeSignatureGridConfig(sig);
-      const beatDur = 60 / bpm;
-      // Snap to nearest grid point
+      // Snap to nearest grid point using snapValue set by applyQuantize
       return Math.round(time / snapValue) * snapValue;
     }
 
@@ -419,9 +415,9 @@ globalScope.DAW = {
     function applyQuantize(preset) {
       const bpm = edCur?.tempo || 120;
       const sig = edCur?.timeSignature || '4/4';
-      const config = getTimeSignatureGridConfig(sig);
-      const beatDur = 60 / bpm;
-      const barDur = beatDur * config.beatsPerMeasure; // مدت زمان یک میزان بر اساس تعداد ضرب‌ها
+      const config = getTimeSignatureGridConfig(sig, bpm);
+      const beatDur = config.beatDuration; // مدت واحد مخرج (سیاه در x/4، چنگ در x/8)
+      const barDur = config.measureDuration; // مدت زمان یک میزان بر اساس Time Signature فعال
 
       switch(preset) {
         case '1/1': snapValue = barDur; break;           // 1 bar (بر اساس Time Signature فعال)
@@ -474,9 +470,10 @@ globalScope.DAW = {
 
       const bpm = edCur?.tempo || 120;
       const sig = edCur?.timeSignature || '4/4';
-      const beatsPerBar = parseInt(sig.split('/')[0]);
-      const beatDur = 60 / bpm;
-      const barDur = beatDur * beatsPerBar;
+      const config = getTimeSignatureGridConfig(sig, bpm);
+      const beatsPerBar = config.beatsPerMeasure;
+      const beatDur = config.beatDuration; // مدت واحد مخرج (سیاه در x/4، چنگ در x/8)
+      const barDur = config.measureDuration;
 
       // محاسبه گام گرید بر اساس پریست فعلی
       // snapValue در applyQuantize تنظیم می‌شود (مثلاً 1/1 = barDur، 1/2 = barDur/2، 1/4 = beatDur)
@@ -514,7 +511,10 @@ globalScope.DAW = {
       stopMetronome();
       // مترونوم با پلی هد سینک میشه - نیازی به setTimeout جداگانه نیست
       // ضرب از حلقه tick اصلی پخش میشه
-      metroBeat = Math.floor(DAW.playhead / (60 / (parseInt($('edTempo')?.value) || 120)));
+      const _mbpm = parseInt($('edTempo')?.value) || 120;
+      const _msig = $('edTimeSig')?.value || '4/4';
+      const _mcfg = getTimeSignatureGridConfig(_msig, _mbpm);
+      metroBeat = Math.floor(DAW.playhead / _mcfg.beatDuration);
     }
     function stopMetronome() { metroTimer = null; metroBeat = 0; }
     function playClick(isAccent) {
@@ -534,9 +534,23 @@ globalScope.DAW = {
       if (!metroActive || !DAW.isPlaying) return;
       const bpm = parseInt($('edTempo')?.value) || 120;
       const sig = $('edTimeSig')?.value || '4/4';
-      const beatsPerBar = parseInt(sig.split('/')[0]);
-      const beatDur = 60 / bpm;
+      const config = getTimeSignatureGridConfig(sig, bpm);
+      const beatsPerBar = config.beatsPerMeasure;
+      const beatDur = config.beatDuration;
       const currentBeat = Math.floor(playheadTime / beatDur);
+
+      // [DEBUG] Metronome timing verification (log once per sig/bpm change)
+      if (!checkMetronomeTick._lastLog || checkMetronomeTick._lastLog.sig !== sig || checkMetronomeTick._lastLog.bpm !== bpm) {
+        console.log('[METRONOME TIMING]', {
+          sig, bpm,
+          numerator: config.numerator,
+          denominator: config.denominator,
+          beatDuration: config.beatDuration,
+          measureDuration: config.measureDuration
+        });
+        checkMetronomeTick._lastLog = { sig, bpm };
+      }
+
       if (currentBeat !== metroBeat) {
         playClick(currentBeat % beatsPerBar === 0);
         metroBeat = currentBeat;
@@ -1532,9 +1546,10 @@ function undo() {
     function timeToBarBeat(seconds) {
       const bpm = edCur?.tempo || 120;
       const sig = edCur?.timeSignature || '4/4';
-      const beatsPerBar = parseInt(sig.split('/')[0]);
-      const beatDur = 60 / bpm; // seconds per beat
-      const barDur = beatDur * beatsPerBar; // seconds per bar
+      const config = getTimeSignatureGridConfig(sig, bpm);
+      const beatsPerBar = config.beatsPerMeasure;
+      const beatDur = config.beatDuration; // seconds per beat (واحد مخرج)
+      const barDur = config.measureDuration; // seconds per bar
       const totalBeats = Math.floor(seconds / beatDur);
       const bar = Math.floor(totalBeats / beatsPerBar) + 1;
       const beat = (totalBeats % beatsPerBar) + 1;
@@ -1544,9 +1559,8 @@ function undo() {
     function barBeatToTime(bar, beat) {
       const bpm = edCur?.tempo || 120;
       const sig = edCur?.timeSignature || '4/4';
-      const beatsPerBar = parseInt(sig.split('/')[0]);
-      const beatDur = 60 / bpm;
-      return ((bar - 1) * beatsPerBar + (beat - 1)) * beatDur;
+      const config = getTimeSignatureGridConfig(sig, bpm);
+      return ((bar - 1) * config.measureDuration) + ((beat - 1) * config.beatDuration);
     }
 
     function drawLaneGrid(canvas) {
@@ -1559,9 +1573,10 @@ function undo() {
       const ctx = canvas.getContext('2d'); ctx.clearRect(0, 0, w, h);
       const bpm = edCur?.tempo || 120;
       const sig = edCur?.timeSignature || '4/4';
-      const beatsPerBar = parseInt(sig.split('/')[0]);
-      const beatDur = 60 / bpm;
-      const barDur = beatDur * beatsPerBar;
+      const config = getTimeSignatureGridConfig(sig, bpm);
+      const beatsPerBar = config.beatsPerMeasure;
+      const beatDur = config.beatDuration;
+      const barDur = config.measureDuration;
       const pxPerSec = DAW.pxPerSecond;
 
       // محدود کردن تعداد خطوط برای جلوگیری از سفید شدن
@@ -1594,11 +1609,11 @@ function undo() {
 
       // Draw sub-beat lines only when zoomed in enough
       if (pxPerSec > 40) {
-        const subBeatDur = beatDur / 4;
+        const subBeatDur = beatDur / config.subdivisionsPerBeat;
         ctx.strokeStyle = 'rgba(255,255,255,0.02)';
         let subCount = 0;
         for (let sub = 0; sub * subBeatDur <= total && subCount < maxLines; sub++) {
-          if (sub % 4 === 0) continue;
+          if (sub % config.subdivisionsPerBeat === 0) continue;
           const x = Math.round(timeToX(sub * subBeatDur)) + 0.5;
           if (x > w) break;
           ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
@@ -1623,10 +1638,25 @@ function undo() {
 
       const bpm = edCur?.tempo || 120;
       const sig = edCur?.timeSignature || '4/4';
-      const beatsPerBar = parseInt(sig.split('/')[0]);
-      const beatDur = 60 / bpm;
-      const barDur = beatDur * beatsPerBar;
+      const config = getTimeSignatureGridConfig(sig, bpm);
+      const beatsPerBar = config.beatsPerMeasure;
+      const beatDur = config.beatDuration;
+      const barDur = config.measureDuration;
       const pxPerSec = DAW.pxPerSecond;
+
+      // [DEBUG] Time Signature timing verification
+      if (!renderRuler._lastLog || renderRuler._lastLog.sig !== sig || renderRuler._lastLog.bpm !== bpm) {
+        console.log('[TIME SIGNATURE TIMING]', {
+          sig, bpm,
+          numerator: config.numerator,
+          denominator: config.denominator,
+          beatDuration: config.beatDuration,
+          measureDuration: config.measureDuration,
+          beatWidthPx: config.beatDuration * pxPerSec,
+          measureWidthPx: config.measureDuration * pxPerSec
+        });
+        renderRuler._lastLog = { sig, bpm };
+      }
 
       // محاسبه اینکه هر چند میزان شماره نشون بده (بر اساس زوم)
       const pxPerBar = barDur * pxPerSec;
@@ -1695,8 +1725,8 @@ function undo() {
 
         // ساب‌بیت (زوم خیلی زیاد)
         if (showSubBeats) {
-          for (let sub = 1; sub < 4; sub++) {
-            const sx = x + sub * (beatDur / 4) * pxPerSec;
+          for (let sub = 1; sub < config.subdivisionsPerBeat; sub++) {
+            const sx = x + sub * (beatDur / config.subdivisionsPerBeat) * pxPerSec;
             if (sx > cappedWidth) break;
             rctx.strokeStyle = 'rgba(45, 55, 72, 0.25)';
             rctx.lineWidth = 1;
@@ -2581,8 +2611,9 @@ sels.forEach(c => {
       if (countInBars > 0 && metroActive) {
         const bpm = parseInt($('edTempo')?.value) || 120;
         const sig = $('edTimeSig')?.value || '4/4';
-        const beatsPerBar = parseInt(sig.split('/')[0]);
-        const beatDur = 60 / bpm;
+        const config = getTimeSignatureGridConfig(sig, bpm);
+        const beatsPerBar = config.beatsPerMeasure;
+        const beatDur = config.beatDuration;
         let countBeat = 0;
         const totalBeats = countInBars * beatsPerBar;
         $('play-btn').style.color = 'var(--accent-cyan-glow)';
@@ -9008,7 +9039,7 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
         if ($('chord-modal')?.classList.contains('show')) return;
         // If chords are selected in editor, let the chord handler deal with it
         if (edSelectedChords.length > 0 && edCur) return;
-        const barDur = 60 / (parseInt($('edTempo')?.value) || 120) * parseInt(($('edTimeSig')?.value || '4/4').split('/')[0]);
+        const barDur = getTimeSignatureGridConfig(($('edTimeSig')?.value || '4/4'), (parseInt($('edTempo')?.value) || 120)).measureDuration;
         const step = e.shiftKey ? barDur : 0.05;
         e.preventDefault();
         seekTransport(DAW.playhead + (e.code === 'ArrowRight' ? step : -step), true, true);
@@ -14251,7 +14282,7 @@ if ($('edDoBoth')) {
     if ($('edTitle')) $('edTitle').oninput = () => { if (edCur) { edCur.title = $('edTitle').value; edRenderEditor(false); edSaveSong(); } };
     if ($('edKey')) $('edKey').onchange = () => { if (_edSyncingKey) return; if (!edCur) return; if (edCur.editorLocked) { toast('🔒 ویرایشگر قفل است'); $('edKey').value = edCur.key; return; } applyKeyChange($('edKey').value, $('edKeyMode')?.value || edCur.keyMode || 'maj'); };
     if ($('edKeyMode')) $('edKeyMode').onchange = () => { if (_edSyncingKey) return; if (edCur) { applyKeyChange(edCur.key, $('edKeyMode').value); } };
-    if ($('edTimeSig')) $('edTimeSig').onchange = () => { if (edCur) { edCur.timeSignature = $('edTimeSig').value; edSaveSong(); } };
+    if ($('edTimeSig')) $('edTimeSig').onchange = () => { if (edCur) { edCur.timeSignature = $('edTimeSig').value; edSaveSong(); renderTracks(); renderRuler(); renderClips(); } };
     if ($('edTempo')) $('edTempo').oninput = () => { if (edCur) { edCur.tempo = parseInt($('edTempo').value) || 120; edSaveSong(); } };
     if ($('edGenre')) $('edGenre').onchange = () => { if (edCur) { edCur.genre = $('edGenre').value; edSaveSong(); } };
 
@@ -14859,9 +14890,10 @@ if (
         const _glen = getProjectEnd();
         const _gbpm = edCur?.tempo || 120;
         const _gsig = edCur?.timeSignature || '4/4';
-        const _gbeatsPerBar = parseInt(_gsig.split('/')[0]);
-        const _gbeatDur = 60 / _gbpm;
-        const _gbarDur = _gbeatDur * _gbeatsPerBar;
+        const _gcfg = getTimeSignatureGridConfig(_gsig, _gbpm);
+        const _gbeatsPerBar = _gcfg.beatsPerMeasure;
+        const _gbeatDur = _gcfg.beatDuration;
+        const _gbarDur = _gcfg.measureDuration;
         const _gpxPerSec = DAW.pxPerSecond;
         const _gpxPerBar = _gbarDur * _gpxPerSec;
         let _gbarStep = 1;
@@ -14922,11 +14954,11 @@ if (
         }
         // ساب ضرب (زمانی که زوم خیلی زیاد است)
         if (_gpxPerSec > 40) {
-          const _gSubBeatDur = _gbeatDur / 4;
+          const _gSubBeatDur = _gbeatDur / _gcfg.subdivisionsPerBeat;
           _gctx.strokeStyle = 'rgba(255,255,255,0.02)';
           let _gSubCount = 0;
           for (let _sub = 0; _sub * _gSubBeatDur <= _glen && _gSubCount < 500; _sub++) {
-            if (_sub % 4 === 0) continue;
+            if (_sub % _gcfg.subdivisionsPerBeat === 0) continue;
             const _x = Math.round((_sub * _gSubBeatDur) * _gpxPerSec) + 0.5;
             if (_x > gridCanvas.width) break;
             _gctx.beginPath(); _gctx.moveTo(_x, 0); _gctx.lineTo(_x, gridCanvas.height); _gctx.stroke();

@@ -182,8 +182,10 @@ const PlayerViewRenderer = (() => {
 
     const bpm = vs.tempo || 120;
     const timeSig = vs.timeSignature || '4/4';
-    const beatsPerBar = parseInt(timeSig.split('/')[0]) || 4;
-    const beatDur = 60 / bpm;
+    const _parts = timeSig.split('/');
+    const beatsPerBar = parseInt(_parts[0]) || 4;
+    const denominator = parseInt(_parts[1]) || 4;
+    const beatDur = (60 / bpm) * (4 / denominator);
     const barDur = beatDur * beatsPerBar;
 
     // Grid container
