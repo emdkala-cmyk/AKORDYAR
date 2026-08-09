@@ -514,19 +514,57 @@ globalScope.DAW = {
       const _mbpm = parseInt($('edTempo')?.value) || 120;
       const _msig = $('edTimeSig')?.value || '4/4';
       const _mcfg = getTimeSignatureGridConfig(_msig, _mbpm);
-      metroBeat = Math.floor(DAW.playhead / _mcfg.beatDuration);
+      metroBeat = -1; // force first tick to always click
     }
     function stopMetronome() { metroTimer = null; metroBeat = 0; }
     function playClick(isAccent) {
       ensureAudioCtx();
-      const osc = DAW.audioCtx.createOscillator();
-      const gain = DAW.audioCtx.createGain();
-      osc.connect(gain); gain.connect(DAW.audioCtx.destination);
-      osc.frequency.value = isAccent ? 1000 : 600;
-      osc.type = 'square';
-      gain.gain.setValueAtTime(isAccent ? 0.3 : 0.15, DAW.audioCtx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, DAW.audioCtx.currentTime + 0.05);
-      osc.start(); osc.stop(DAW.audioCtx.currentTime + 0.05);
+      const ctx = DAW.audioCtx;
+      const t = ctx.currentTime;
+      const type = APP_SETTINGS.metroSound || 'classic';
+      const vol = isAccent ? 0.35 : 0.2;
+
+      if (type === 'wood') {
+        // Woodblock — short percussive knock (noise burst + resonance)
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine'; osc.frequency.value = isAccent ? 800 : 600;
+        gain.gain.setValueAtTime(vol * 0.6, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.03);
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.start(t); osc.stop(t + 0.03);
+      } else if (type === 'beep') {
+        // Electronic beep — sine wave ping
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine'; osc.frequency.value = isAccent ? 1200 : 900;
+        gain.gain.setValueAtTime(vol, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.start(t); osc.stop(t + 0.08);
+      } else if (type === 'click') {
+        // Soft click — very short noise burst
+        const buf = ctx.createBuffer(1, ctx.sampleRate * 0.015, ctx.sampleRate);
+        const data = buf.getChannelData(0);
+        for (let i = 0; i < data.length; i++) {
+          data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (ctx.sampleRate * 0.003));
+        }
+        const src = ctx.createBufferSource();
+        const gain = ctx.createGain();
+        src.buffer = buf;
+        gain.gain.setValueAtTime(isAccent ? vol : vol * 0.6, t);
+        src.connect(gain); gain.connect(ctx.destination);
+        src.start(t);
+      } else {
+        // Classic (default) — sharp square wave tick
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'square'; osc.frequency.value = isAccent ? 1000 : 600;
+        gain.gain.setValueAtTime(vol, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.start(t); osc.stop(t + 0.05);
+      }
     }
 
     // تابع کمکی برای چک کردن ضرب در حلقه پخش
@@ -1900,6 +1938,18 @@ function undo() {
       else if ($('live-chord')) $('live-chord').textContent = 'None';
     }
 
+    function autoScrollToPlayhead() {
+      const scroll = $('tl-scroll');
+      if (!scroll) return;
+      const x = timeToX(DAW.playhead);
+      const margin = 80;
+      if (x < scroll.scrollLeft + margin) {
+        scroll.scrollLeft = Math.max(0, x - margin);
+      } else if (x > scroll.scrollLeft + scroll.clientWidth - margin) {
+        scroll.scrollLeft = Math.max(0, x - scroll.clientWidth + margin);
+      }
+    }
+
     function updateHud() { $('clip-count').textContent = String(DAW.clips.length + (DAW.sections || []).length); }
 
     // ===== ICON PICKER =====
@@ -3016,6 +3066,9 @@ sels.forEach(c => {
         } else { toast('تغییر دستگاه خروجی پشتیبانی نمی‌شود'); }
       } catch(_) { toast('تغییر دستگاه خروجی پشتیبانی نمی‌شود'); }
     }
+    function applyMetroSound(val) {
+      APP_SETTINGS.metroSound = val; saveSettings();
+    }
     function applySettingsToggles() {
       const metro = $('setMetronome').checked;
       if (metro !== metroActive) toggleMetronome();
@@ -3031,6 +3084,7 @@ sels.forEach(c => {
       loadSettings();
       if ($('setTheme')) $('setTheme').value = APP_SETTINGS.theme || 'dark';
       if (APP_SETTINGS.accent && $('setAccent')) $('setAccent').value = APP_SETTINGS.accent;
+      if ($('setMetroSound')) $('setMetroSound').value = APP_SETTINGS.metroSound || 'classic';
       if ($('setMetronome')) $('setMetronome').checked = !!metroActive;
       if ($('setReturnToStart')) $('setReturnToStart').checked = !!returnToStartOnPause;
       if ($('setSizeLock')) $('setSizeLock').checked = !!_sizeLocked;
@@ -9326,7 +9380,19 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
     if (DAW.selectedPlayhead) {
       // Start dragging the selected playhead
       const startX = e.clientX; const origTime = DAW.playhead;
-      const onMove = (ev) => { seekTransport(Math.max(0, origTime + xToTime(ev.clientX - startX)), false); };
+      const startY = e.clientY; const origPxPerSec = DAW.pxPerSecond;
+      const onMove = (ev) => {
+        const dx = ev.clientX - startX;
+        seekTransport(Math.max(0, origTime + xToTime(dx)), false);
+        // Cubase-style vertical zoom: up = zoom in, down = zoom out
+        const dy = startY - ev.clientY;
+        if (Math.abs(dy) > 3) {
+          const zoomFactor = 1 + dy * 0.002;
+          setZoom(clamp(origPxPerSec * zoomFactor, 4, 800), ev.clientX);
+        }
+        // Auto-scroll timeline
+        autoScrollToPlayhead();
+      };
       const onUp = () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
       document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp);
     }
@@ -9361,7 +9427,18 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
 
   seekTransport(clientToTime(e.clientX), true);
 
-        const move = (ev) => seekTransport(clientToTime(ev.clientX), true);
+        const scrubStartX = e.clientX; const scrubStartY = e.clientY; const scrubOrigPxPerSec = DAW.pxPerSecond;
+        const move = (ev) => {
+          seekTransport(clientToTime(ev.clientX), true);
+          // Cubase-style vertical zoom: up = zoom in, down = zoom out
+          const dy = scrubStartY - ev.clientY;
+          if (Math.abs(dy) > 3) {
+            const zoomFactor = 1 + dy * 0.002;
+            setZoom(clamp(scrubOrigPxPerSec * zoomFactor, 4, 800), ev.clientX);
+          }
+          // Auto-scroll timeline
+          autoScrollToPlayhead();
+        };
         const up = () => { document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up); };
         document.addEventListener('mousemove', move); document.addEventListener('mouseup', up);
       };
