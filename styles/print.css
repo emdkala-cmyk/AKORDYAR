@@ -27,6 +27,8 @@
     padding: 0 !important;
     margin: 0 !important;
     overflow: visible !important;
+    visibility: visible !important;
+    z-index: auto !important;
   }
 
   /* هدر چاپ */
@@ -51,12 +53,13 @@
   /* محتوای چاپ */
   #printContainer #printWrap {
     position: relative;
-    padding: 0 10px;
+    padding-left: 10px;
+    padding-right: 10px;
+    overflow: visible !important;
   }
   #printContainer #lyricContent {
     line-height: 2.4;
     white-space: pre-wrap;
-    padding-top: 30px; /* فضای کافی برای آکوردها */
   }
   #printContainer #chordOverlay {
     position: absolute;
@@ -66,12 +69,14 @@
     bottom: 0;
     pointer-events: none;
     z-index: 10;
+    overflow: visible !important;
   }
   #printContainer .eline {
     white-space: pre-wrap;
     word-break: break-word;
     margin-bottom: 8px;
   }
+  #printContainer .chord,
   #printContainer .chord-print {
     position: absolute;
     font-weight: 700;
@@ -82,7 +87,9 @@
     padding: 0 3px;
     border-radius: 3px;
     z-index: 20;
+    white-space: nowrap;
   }
+  #printContainer .chord-anchor-line,
   #printContainer .chord-print-anchor {
     position: absolute;
     height: 2px;
@@ -92,18 +99,16 @@
   }
 }
 
-/* در حالت عادی (غیر چاپ) خارج از دید است ولی رندر می‌شود */
-/* این مهم است چون getBoundingClientRect() با display:none صفر برمی‌گرداند */
+/* در حالت عادی (غیر چاپ): hidden اما کاملاً layout شده تا getBoundingClientRect() کار کند */
+/* position توسط printSong داینامیک تنظیم می‌شود */
 #printContainer {
-  position: fixed !important;
-  left: -9999px !important;
-  top: 0 !important;
-  width: 800px !important;
-  background: #fff !important;
-  color: #000 !important;
-  z-index: -9999 !important;
-  pointer-events: none !important;
-  visibility: visible !important;
-  display: block !important;
-  opacity: 1 !important;
+  position: absolute;
+  background: #fff;
+  color: #000;
+  z-index: -1;
+  pointer-events: none;
+  visibility: hidden;
+  display: block;
+  opacity: 1;
+  overflow: hidden;
 }
