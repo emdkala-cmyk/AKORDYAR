@@ -864,10 +864,15 @@
   </div>
 
   <!-- Performance Architecture v2: shared core + renderers -->
-  <script src="js/songDocumentModel.js"></script>
-  <script src="js/sharedEngine.js"></script>
+    <script src="js/songDocumentModel.js"></script>
+    <script src="js/core/EdCurAdapter.js"></script>
+    <script src="js/core/DomainBridge.js"></script>
+    <script src="js/core/SongMetadata.js"></script>
+<script src="js/core/MusicTheory.js"></script>
+<script src="js/sharedEngine.js"></script>
   <script src="js/performanceStore.js"></script>
-  <script src="js/singerViewRenderer.js"></script>
+<script src="js/core/RendererBase.js"></script>
+<script src="js/singerViewRenderer.js"></script>
   <script src="js/playerViewRenderer.js"></script>
   <script src="js/embeddedPerformanceRenderer.js"></script>
   <script src="js/performanceBridge.js"></script>
@@ -942,7 +947,8 @@
   <script src="js/laminor-extractor.js"></script>
   <script src="js/importers/laminor/extractLaminorAkordyarLines.js"></script>
   <script src="js/app.js"></script>
-  <script src="js/projecthub.js"></script>
+<script src="js/core/EventBindings.js"></script>
+<script src="js/projecthub.js"></script>
 
   <!-- Audio Copy/Link Confirm Modal -->
   <div id="audioCopyModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(8px);z-index:9999;align-items:center;justify-content:center;">

@@ -3556,7 +3556,7 @@ sels.forEach(c => {
       const doc = _chordLinePopup.document;
       const title = edCur.title || 'بدون نام';
       const artist = edCur.artist || '';
-      const keyStr = (edCur.key || 'C') + ((edCur.keyMode || 'maj') === 'min' ? 'm' : '');
+      const keyStr = SongMetadata.getDisplayKey(edCur);
       const tSize = edCur.styles?.tSize || 38;
       const tColor = edCur.styles?.tColor || '#0fa966';
       const tFont = edCur.styles?.tFont || 'Vazirmatn';
@@ -10741,11 +10741,7 @@ function edBlankSong() {
     async function edExportProjectFull() {
       if (!edCur) { toast('ترانه‌ای باز نیست'); return; }
       try {
-      edCur.artist = $('edArtist')?.value || '';
-      edCur.title = $('edTitle')?.value || '';
-      edCur.timeSignature = $('edTimeSig')?.value || '4/4';
-      edCur.tempo = parseInt($('edTempo')?.value) || 120;
-      edCur.genre = $('edGenre')?.value || '';
+      SongMetadata.syncFromDom(edCur, {includeKey: false});
 
       edCur._dawTracks = DAW.tracks.map(tr => ({
         id: tr.id, name: tr.name, icon: tr.icon, muted: tr.muted,
@@ -10818,14 +10814,8 @@ function edBlankSong() {
     async function edSaveSong() {
   if (!edCur) return;
 
-  edCur.artist = $('edArtist')?.value || '';
+  SongMetadata.syncFromDom(edCur);
   edCur.artistKey = archArtistKey(edCur.artist);
-  edCur.title = $('edTitle')?.value || '';
-  edCur.timeSignature = $('edTimeSig')?.value || '4/4';
-  edCur.tempo = parseInt($('edTempo')?.value) || 120;
-  edCur.genre = $('edGenre')?.value || '';
-  edCur.key = $('edKey')?.value || edCur.key || 'C';
-  edCur.keyMode = $('edKeyMode')?.value || edCur.keyMode || 'maj';
 
   edCur._dawTracks = DAW.tracks.map(t => ({
     id: t.id,
@@ -11198,14 +11188,8 @@ function edBlankSong() {
     // --- Save To Archive ---
     async function edSaveToArchive() {
       if (!edCur) return;
-      edCur.artist = $('edArtist')?.value || '';
+      SongMetadata.syncFromDom(edCur);
       edCur.artistKey = archArtistKey(edCur.artist);
-      edCur.title = $('edTitle')?.value || '';
-      edCur.timeSignature = $('edTimeSig')?.value || '4/4';
-      edCur.tempo = parseInt($('edTempo')?.value) || 120;
-      edCur.genre = $('edGenre')?.value || '';
-      edCur.key = $('edKey')?.value || edCur.key || 'C';
-      edCur.keyMode = $('edKeyMode')?.value || edCur.keyMode || 'maj';
       edCur._dawTracks = DAW.tracks.map(t => ({ id:t.id,name:t.name,icon:t.icon,muted:t.muted,solo:t.solo,vol:t.vol,pan:t.pan,type:t.type,transpose:t.transpose||0 }));
       edCur._dawClips = DAW.clips.map(c => { const cp={...c}; delete cp._peaks; delete cp.waveUrl; delete cp._fileHandle; delete cp._originalBlob; return cp; });
       edCur._dawSections = (DAW.sections||[]).map(s=>({...s}));
@@ -11260,16 +11244,8 @@ function edBlankSong() {
           if (parsed.timeSignature) song.timeSignature = parsed.timeSignature;
         } catch(e) { console.warn('[PARSE] ensureSongParsed failed:', e.message, song.title); }
       }
-      // Fix key format: 'Am' → key='A', keyMode='min'
-      if (song.key && song.key.endsWith('m') && song.keyMode !== 'min') {
-        const cleanKey = song.key.replace(/m$/, '');
-        if (typeof etIsValidNote === 'function' && etIsValidNote(cleanKey)) {
-          song.key = cleanKey;
-          song.keyMode = 'min';
-        }
-      }
       if (!song.timeSignature && song.rhythm) song.timeSignature = song.rhythm;
-      if (song.transpose == null) song.transpose = 0;
+      SongMetadata.normalize(song, etIsValidNote);
       return song;
     }
 
@@ -12633,13 +12609,7 @@ saveState();
     async function edExportProject() {
       if (!edCur) { toast('ترانه‌ای باز نیست'); return; }
       try {
-      edCur.artist = $('edArtist')?.value || '';
-      edCur.title = $('edTitle')?.value || '';
-      edCur.timeSignature = $('edTimeSig')?.value || '4/4';
-      edCur.tempo = parseInt($('edTempo')?.value) || 120;
-      edCur.genre = $('edGenre')?.value || '';
-      edCur.key = $('edKey')?.value || edCur.key || 'C';
-      edCur.keyMode = $('edKeyMode')?.value || edCur.keyMode || 'maj';
+      SongMetadata.syncFromDom(edCur);
       edCur._dawTracks = DAW.tracks.map(tr => ({
         id: tr.id, name: tr.name, icon: tr.icon, muted: tr.muted,
         solo: tr.solo, vol: tr.vol, pan: tr.pan, type: tr.type, transpose: tr.transpose || 0, laneHeight: tr.laneHeight || null
@@ -12701,11 +12671,7 @@ saveState();
 
     async function edExportXML() {
       if (!edCur) { toast('ترانه‌ای باز نیست'); return; }
-      edCur.artist = $('edArtist')?.value || '';
-      edCur.title = $('edTitle')?.value || '';
-      edCur.timeSignature = $('edTimeSig')?.value || '4/4';
-      edCur.tempo = parseInt($('edTempo')?.value) || 120;
-      edCur.genre = $('edGenre')?.value || '';
+      SongMetadata.syncFromDom(edCur, {includeKey: false});
 
       const esc = (s) => String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
       let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
@@ -13630,10 +13596,7 @@ function edAttachChordDrag(el, idx) {
     function edCommit() {
   if (!edCur || isApplyingHistory) return;
 
-  edCur.artist = $('edArtist')?.value || '';
-  edCur.title = $('edTitle')?.value || '';
-  edCur.key = $('edKey')?.value || 'C';
-  edCur.keyMode = $('edKeyMode')?.value || 'maj';
+  SongMetadata.syncFromDom(edCur, {includeTimeSig: false, includeTempo: false, includeGenre: false});
   edCur.seqPoints = edSeqPoints;
 
   saveState();

@@ -1,0 +1,42 @@
+﻿<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <title>Akordyar — Characterization Tests</title>
+  <style>
+    body { font-family: Vazirmatn, sans-serif; padding: 20px; background: #1a1a2e; color: #eee; }
+    h1 { color: #0fa966; }
+    #result { margin-top: 20px; padding: 15px; border-radius: 8px; font-size: 1.2em; }
+    .pass { background: #0a3d1a; color: #0fa966; }
+    .fail { background: #3d0a0a; color: #ff4444; }
+  </style>
+</head>
+<body>
+  <h1>Akordyar — Characterization Tests</h1>
+  <p>Open console (F12) for detailed output.</p>
+  <div id="result">Running tests...</div>
+
+  <script src="../songDocumentModel.js"></script>
+  <script src="../sharedEngine.js"></script>
+  <script src="../performanceStore.js"></script>
+  <script src="characterization-tests.js"></script>
+  <script>
+    // Wait a moment for tests to finish
+    setTimeout(function() {
+      var r = window.__testResults;
+      var el = document.getElementById('result');
+      if (r) {
+        if (r.failed === 0) {
+          el.className = 'pass';
+          el.textContent = 'ALL ' + r.passed + ' TESTS PASSED';
+        } else {
+          el.className = 'fail';
+          el.textContent = r.passed + ' passed, ' + r.failed + ' FAILED — check console';
+        }
+      } else {
+        el.textContent = 'No test results found.';
+      }
+    }, 100);
+  </script>
+</body>
+</html>
