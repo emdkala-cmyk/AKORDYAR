@@ -26,7 +26,7 @@ SongDocumentModel  |  SharedEngine (parse, align, transpose, highlight)
     |
 Renderers: PlayerView / SingerView / EmbeddedPerformance
     |
-Core: AudioManager, ProjectStore, FileSystemBridge, AudioFileLoader
+Core: Meter | MusicTheory | AudioManager | ProjectStore | FileSystemBridge | AudioFileLoader
     |
 Platform: Electron (preload.js + IPC) / Web
 ```
@@ -105,7 +105,7 @@ Most UI updates are direct DOM, not through store->renderer.
 ## 7. Target Architecture (Desired)
 
 ```
-Core Domain (SongDocument, Chord, Key, TimeSignature)
+Core Domain (Meter, SongDocument, Chord, Key, TimeSignature)
     |
 Application Services (SharedEngine, AudioManager)
     |

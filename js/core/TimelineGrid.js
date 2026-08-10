@@ -4,40 +4,17 @@
  * No dependency on edCur or DAW globals.
  * All required state passed explicitly via arguments.
  */
+/**
+ * TimelineGrid — grid configuration, lane grid drawing, ruler rendering.
+ *
+ * No dependency on edCur or DAW globals.
+ * All required state passed explicitly via arguments.
+ * Math delegation: Meter.js (pure, no DOM).
+ */
 var TimelineGrid = (function() {
 
   function getTimeSignatureGridConfig(timeSignature, bpm) {
-    const parts = (timeSignature || '4/4').split('/');
-    const numerator = parseInt(parts[0]) || 4;
-    const denominator = parseInt(parts[1]) || 4;
-
-    let beatUnit;
-    let subdivisionsPerBeat;
-
-    switch(denominator) {
-      case 2: beatUnit = 'half'; subdivisionsPerBeat = 4; break;
-      case 4: beatUnit = 'quarter'; subdivisionsPerBeat = 4; break;
-      case 8: beatUnit = 'eighth'; subdivisionsPerBeat = 2; break;
-      case 16: beatUnit = 'sixteenth'; subdivisionsPerBeat = 1; break;
-      default: beatUnit = 'quarter'; subdivisionsPerBeat = 4;
-    }
-
-    const baseBeatDur = 60 / (bpm || 120);
-    const beatDuration = baseBeatDur * (4 / denominator);
-    const measureDuration = numerator * beatDuration;
-    const beatsPerMeasure = numerator;
-    const unitsPerMeasure = numerator;
-
-    return {
-      numerator,
-      denominator,
-      beatUnit,
-      beatsPerMeasure,
-      subdivisionsPerBeat,
-      unitsPerMeasure,
-      beatDuration,
-      measureDuration
-    };
+    return window.Meter.getMeterConfig(timeSignature, bpm);
   }
 
   /**
@@ -51,14 +28,15 @@ var TimelineGrid = (function() {
     var sig = opts.timeSignature || "4/4";
     var bpm = opts.bpm || 120;
     var dur = opts.durationInSeconds || 0;
-    var config = getTimeSignatureGridConfig(sig, bpm);
+    var M = window.Meter;
+    var config = M.getMeterConfig(sig, bpm);
     var beats = [];
     var downbeats = [];
     var measureCount = Math.ceil(dur / config.measureDuration);
 
     for (var m = 0; m < measureCount; m++) {
       for (var b = 0; b < config.beatsPerMeasure; b++) {
-        var time = (m * config.measureDuration) + (b * config.beatDuration);
+        var time = M.barBeatToTime(m + 1, b + 1, sig, bpm);
         beats.push({
           measure: m,
           beat: b,

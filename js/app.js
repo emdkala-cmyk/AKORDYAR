@@ -548,7 +548,7 @@ globalScope.DAW = {
       }
 
       if (currentBeat !== metroBeat) {
-        playClick(currentBeat % beatsPerBar === 0);
+        playClick(window.Meter.isStrongBeat(currentBeat % beatsPerBar, sig));
         metroBeat = currentBeat;
       }
     }
@@ -1542,21 +1542,13 @@ function undo() {
     function timeToBarBeat(seconds) {
       const bpm = edCur?.tempo || 120;
       const sig = edCur?.timeSignature || '4/4';
-      const config = getTimeSignatureGridConfig(sig, bpm);
-      const beatsPerBar = config.beatsPerMeasure;
-      const beatDur = config.beatDuration; // seconds per beat (واحد مخرج)
-      const barDur = config.measureDuration; // seconds per bar
-      const totalBeats = Math.floor(seconds / beatDur);
-      const bar = Math.floor(totalBeats / beatsPerBar) + 1;
-      const beat = (totalBeats % beatsPerBar) + 1;
-      return { bar, beat, beatDur, barDur, beatsPerBar };
+      return window.Meter.timeToBarBeat(seconds, sig, bpm);
     }
 
     function barBeatToTime(bar, beat) {
       const bpm = edCur?.tempo || 120;
       const sig = edCur?.timeSignature || '4/4';
-      const config = getTimeSignatureGridConfig(sig, bpm);
-      return ((bar - 1) * config.measureDuration) + ((beat - 1) * config.beatDuration);
+      return window.Meter.barBeatToTime(bar, beat, sig, bpm);
     }
 
     function drawLaneGrid(canvas) {

@@ -10,7 +10,7 @@
 | window globals set in app.js | 32 |
 | Characterization tests | 139/139 passed |
 | Project test files | 5 (characterization-tests.js, test-chord-flats.js, test-shared-engine.js, test-extractLaminorAkordyarLines.js, parser-test.js) |
-| js/core modules | 11 |
+| js/core modules | 12 (incl. Meter) |
 | DomainBridge sync points | 10 (all migrated) |
 
 ### Sensitive behaviors (locked by characterization tests)
