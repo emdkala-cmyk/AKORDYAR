@@ -1577,7 +1577,6 @@ function undo() {
         tempo: edCur?.tempo,
         timeSignature: edCur?.timeSignature,
         pxPerSec: DAW.pxPerSecond,
-        rulerEl: timeline-ruler,
         rulerEl: $('timeline-ruler'),
         labelsEl: $('ruler-labels'),
         tlInnerEl: $('tl-inner'),
