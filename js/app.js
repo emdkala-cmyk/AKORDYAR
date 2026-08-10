@@ -6672,7 +6672,7 @@ document.addEventListener('DOMContentLoaded', () => {
       // خودکار بزرگ کردن تایم‌لاین بر اساس عرض صفحه نمایش
       const visibleTime = scroll.clientWidth / newPps;
       ensureTimelineFits(visibleTime + 10);
-      DAW.clips.forEach(c => refreshClipWaveImage(c)); renderAll(); scroll.scrollLeft = Math.max(0, timeToX(anchorTime) - rel);
+      DAW.clips.forEach(c => refreshClipWaveImage(c)); requestRenderAll(); scroll.scrollLeft = Math.max(0, timeToX(anchorTime) - rel);
       updateZoomFontScale();
     }
 
