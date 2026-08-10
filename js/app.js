@@ -349,50 +349,8 @@ globalScope.DAW = {
      * @param {string} timeSignature - رشته Time Signature مثل '4/4', '3/4', '6/8'
      * @returns {object} شامل numerator, denominator, beatUnit, beatsPerMeasure, subdivisionsPerBeat, unitsPerMeasure, measureDuration, beatDuration
      */
-    function getTimeSignatureGridConfig(timeSignature, bpm = 120) {
-      const parts = (timeSignature || '4/4').split('/');
-      const numerator = parseInt(parts[0]) || 4;
-      const denominator = parseInt(parts[1]) || 4;
-      
-      // محاسبه واحد ضرب بر اساس مخرج
-      // مخرج 4 = quarter note, مخرج 8 = eighth note, مخرج 2 = half note
-      let beatUnit;
-      let subdivisionsPerBeat; // تعداد subdivisionهای استاندارد برای هر ضرب
-      
-      switch(denominator) {
-        case 2: beatUnit = 'half'; subdivisionsPerBeat = 4; break;
-        case 4: beatUnit = 'quarter'; subdivisionsPerBeat = 4; break;
-        case 8: beatUnit = 'eighth'; subdivisionsPerBeat = 2; break;
-        case 16: beatUnit = 'sixteenth'; subdivisionsPerBeat = 1; break;
-        default: beatUnit = 'quarter'; subdivisionsPerBeat = 4;
-      }
-      
-      // مدت زمان یک ضرب بر اساس مخرج Time Signature
-      // فرمول: beatDuration = (60 / bpm) * (4 / denominator)
-      // برای مخرج 4: beatDuration = 60/bpm (quarter note)
-      // برای مخرج 8: beatDuration = (60/bpm) * 0.5 = 30/bpm (eighth note)
-      // برای مخرج 2: beatDuration = (60/bpm) * 2 = 120/bpm (half note)
-      const baseBeatDur = 60 / bpm;
-      const beatDuration = baseBeatDur * (4 / denominator);
-      
-      // مدت زمان یک میزان
-      const measureDuration = numerator * beatDuration;
-      
-      // برای میزان‌های مرکب مثل 6/8، 9/8، 12/8 معمولاً ضرب اصلی گروهی از واحدهاست
-      // اما برای سادگی گرید، همان تعداد واحد در میزان را برمی‌گردانیم
-      const beatsPerMeasure = numerator;
-      const unitsPerMeasure = numerator; // تعداد واحدهای مخرج در هر میزان
-      
-      return {
-        numerator,
-        denominator,
-        beatUnit,
-        beatsPerMeasure,
-        subdivisionsPerBeat,
-        unitsPerMeasure,
-        beatDuration,
-        measureDuration
-      };
+    function getTimeSignatureGridConfig(timeSignature, bpm) {
+      return TimelineGrid.getTimeSignatureGridConfig(timeSignature, bpm || 120);
     }
 
     function toggleSnap() {
@@ -1602,176 +1560,29 @@ function undo() {
     }
 
     function drawLaneGrid(canvas) {
-      const total = getProjectEnd();
-      const w = Math.min(Math.ceil(timeToX(total)), 20000); // محدودیت عرض
-      // Read height from parent lane's --lane-h (per-lane) or fall back to global
-      const parentLane = canvas.closest('.track-lane');
-      const h = (parentLane ? parseInt(getComputedStyle(parentLane).getPropertyValue('--lane-h')) : null) || parseInt(getComputedStyle(document.documentElement).getPropertyValue('--lane-h')) || 64;
-      canvas.width = w; canvas.height = h; canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
-      const ctx = canvas.getContext('2d'); ctx.clearRect(0, 0, w, h);
-      const bpm = edCur?.tempo || 120;
-      const sig = edCur?.timeSignature || '4/4';
-      const config = getTimeSignatureGridConfig(sig, bpm);
-      const beatsPerBar = config.beatsPerMeasure;
-      const beatDur = config.beatDuration;
-      const barDur = config.measureDuration;
-      const pxPerSec = DAW.pxPerSecond;
-
-      // محدود کردن تعداد خطوط برای جلوگیری از سفید شدن
-      const maxLines = 500;
-
-      // Draw bar lines (strong)
-      ctx.strokeStyle = 'rgba(255,255,255,0.12)';
-      ctx.lineWidth = 1;
-      let barCount = 0;
-      for (let bar = 1; bar * barDur <= total && barCount < maxLines; bar++) {
-        const x = Math.round(timeToX(bar * barDur)) + 0.5;
-        if (x > w) break;
-        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
-        barCount++;
-      }
-
-      // Draw beat lines (thin) - only when zoomed in enough
-      if (pxPerSec > 10) {
-        ctx.strokeStyle = 'rgba(255,255,255,0.04)';
-        ctx.lineWidth = 1;
-        let beatCount = 0;
-        for (let beat = 0; beat * beatDur <= total && beatCount < maxLines; beat++) {
-          if (beat % beatsPerBar === 0) continue;
-          const x = Math.round(timeToX(beat * beatDur)) + 0.5;
-          if (x > w) break;
-          ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
-          beatCount++;
-        }
-      }
-
-      // Draw sub-beat lines only when zoomed in enough
-      if (pxPerSec > 40) {
-        const subBeatDur = beatDur / config.subdivisionsPerBeat;
-        ctx.strokeStyle = 'rgba(255,255,255,0.02)';
-        let subCount = 0;
-        for (let sub = 0; sub * subBeatDur <= total && subCount < maxLines; sub++) {
-          if (sub % config.subdivisionsPerBeat === 0) continue;
-          const x = Math.round(timeToX(sub * subBeatDur)) + 0.5;
-          if (x > w) break;
-          ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
-          subCount++;
-        }
-      }
+      TimelineGrid.drawLaneGrid(canvas, {
+        total: getProjectEnd(),
+        timeToX: timeToX,
+        tempo: edCur?.tempo,
+        timeSignature: edCur?.timeSignature,
+        pxPerSec: DAW.pxPerSecond
+      });
     }
 
     function renderRuler() {
       const total = getProjectEnd();
-      DAW.timelineDuration = total;
-      const width = Math.ceil(timeToX(total));
-      $('tl-inner').style.width = width + 'px';
-      $('lanes-container').style.width = width + 'px';
-      $('timeline-ruler').style.width = width + 'px';
-
-      // حذف کانواس‌های قبلی
-      $('timeline-ruler').querySelectorAll('canvas').forEach(c => c.remove());
-
-      const labels = $('ruler-labels');
-      labels.innerHTML = '';
-
-      const bpm = edCur?.tempo || 120;
-      const sig = edCur?.timeSignature || '4/4';
-      const config = getTimeSignatureGridConfig(sig, bpm);
-      const beatsPerBar = config.beatsPerMeasure;
-      const beatDur = config.beatDuration;
-      const barDur = config.measureDuration;
-      const pxPerSec = DAW.pxPerSecond;
-
-      // [DEBUG] Time Signature timing verification
-      if (!renderRuler._lastLog || renderRuler._lastLog.sig !== sig || renderRuler._lastLog.bpm !== bpm) {
-        console.log('[TIME SIGNATURE TIMING]', {
-          sig, bpm,
-          numerator: config.numerator,
-          denominator: config.denominator,
-          beatDuration: config.beatDuration,
-          measureDuration: config.measureDuration,
-          beatWidthPx: config.beatDuration * pxPerSec,
-          measureWidthPx: config.measureDuration * pxPerSec
-        });
-        renderRuler._lastLog = { sig, bpm };
-      }
-
-      // محاسبه اینکه هر چند میزان شماره نشون بده (بر اساس زوم)
-      const pxPerBar = barDur * pxPerSec;
-      let barStep;
-      if (pxPerBar > 120) barStep = 1;       // زیاد زوم: هر میزان
-      else if (pxPerBar > 60) barStep = 2;    // زوم متوسط: هر ۲ میزان
-      else if (pxPerBar > 30) barStep = 4;    // زوم کم: هر ۴ میزان
-      else if (pxPerBar > 15) barStep = 8;    // زوم خیلی کم: هر ۸ میزان
-      else if (pxPerBar > 8) barStep = 16;    // زوم خیلی خیلی کم: هر ۱۶ میزان
-      else barStep = 32;                       // زوم اوت زیاد: هر ۳۲ میزان
-
-      // کانواس tick های رولر
-      const rulerCanvas = document.createElement('canvas');
-      rulerCanvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;';
-      $('timeline-ruler').appendChild(rulerCanvas);
-      const cappedWidth = Math.min(width, 20000);
-      rulerCanvas.width = cappedWidth;
-      rulerCanvas.height = 32;
-      const rctx = rulerCanvas.getContext('2d');
-      rctx.clearRect(0, 0, cappedWidth, 32);
-
-      const showBeats = pxPerSec > 15;
-      const showSubBeats = pxPerSec > 50;
-
-      for (let bar = 1; bar * barDur <= total; bar++) {
-        const x = timeToX((bar - 1) * barDur);
-
-        // شماره میزان (فقط هر barStep میزان)
-        if ((bar - 1) % barStep === 0) {
-          const span = document.createElement('span');
-          span.className = 'ruler-tick-label major';
-          span.style.left = x + 'px';
-          span.textContent = bar;
-          labels.appendChild(span);
-        }
-
-        // خط میزان روی رولر (کم‌رنگ‌تر)
-        rctx.strokeStyle = 'rgba(74, 85, 104, 0.4)';
-        rctx.lineWidth = 1;
-        rctx.beginPath(); rctx.moveTo(x + 0.5, 22); rctx.lineTo(x + 0.5, 32); rctx.stroke();
-
-        // خط میزان روی lanes (خیلی کم‌رنگ)
-        // این توسط drawLaneGrid رسم میشه
-
-        // خطوط ضرب
-        if (showBeats) {
-          for (let beat = 1; beat < beatsPerBar; beat++) {
-            const bx = x + beat * beatDur * pxPerSec;
-            if (bx > cappedWidth) break;
-            rctx.strokeStyle = 'rgba(55, 65, 81, 0.3)';
-            rctx.lineWidth = 1;
-            rctx.beginPath(); rctx.moveTo(bx + 0.5, 26); rctx.lineTo(bx + 0.5, 32); rctx.stroke();
-
-            // شماره ضرب (فقط وقتی فضا کافی باشه)
-            if (pxPerBar > 40 && beatsPerBar <= 8) {
-              const bspan = document.createElement('span');
-              bspan.className = 'ruler-tick-label';
-              bspan.style.left = bx + 'px';
-              bspan.style.fontSize = '8px';
-              bspan.style.color = '#4B5563';
-              bspan.textContent = beat + 1;
-              labels.appendChild(bspan);
-            }
-          }
-        }
-
-        // ساب‌بیت (زوم خیلی زیاد)
-        if (showSubBeats) {
-          for (let sub = 1; sub < config.subdivisionsPerBeat; sub++) {
-            const sx = x + sub * (beatDur / config.subdivisionsPerBeat) * pxPerSec;
-            if (sx > cappedWidth) break;
-            rctx.strokeStyle = 'rgba(45, 55, 72, 0.25)';
-            rctx.lineWidth = 1;
-            rctx.beginPath(); rctx.moveTo(sx + 0.5, 28); rctx.lineTo(sx + 0.5, 32); rctx.stroke();
-          }
-        }
-      }
+      TimelineGrid.renderRuler({
+        total: total,
+        timeToX: timeToX,
+        tempo: edCur?.tempo,
+        timeSignature: edCur?.timeSignature,
+        pxPerSec: DAW.pxPerSecond,
+        rulerEl: timeline-ruler,
+        labelsEl: ruler-labels,
+        tlInnerEl: tl-inner,
+        lanesEl: lanes-container,
+        onDurationChange: function(t) { DAW.timelineDuration = t; }
+      });
     }
 
     function renderClips() {

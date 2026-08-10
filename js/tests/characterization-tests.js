@@ -644,6 +644,57 @@ assert(ue.undo()===null,'Undo: past beginning');
 
   // =========================================================================
 
+  // =========================================================================
+  // TimelineGrid — getTimeSignatureGridConfig characterization
+  // =========================================================================
+  section('TimelineGrid.getTimeSignatureGridConfig');
+  var TG = window.TimelineGrid;
+  if (TG) {
+    // 4/4 @ 120bpm
+    var cfg44 = TG.getTimeSignatureGridConfig('4/4', 120);
+    assert(cfg44.numerator === 4, '4/4 numerator=4');
+    assert(cfg44.denominator === 4, '4/4 denominator=4');
+    assert(cfg44.beatsPerMeasure === 4, '4/4 beatsPerMeasure=4');
+    assert(cfg44.beatUnit === 'quarter', '4/4 beatUnit=quarter');
+    assert(cfg44.beatDuration === 0.5, '4/4 beatDuration=0.5s');
+    assert(cfg44.measureDuration === 2.0, '4/4 measureDuration=2.0s');
+    assert(cfg44.subdivisionsPerBeat === 4, '4/4 subdivisionsPerBeat=4');
+
+    // 3/4 @ 120bpm
+    var cfg34 = TG.getTimeSignatureGridConfig('3/4', 120);
+    assert(cfg34.numerator === 3, '3/4 numerator=3');
+    assert(cfg34.denominator === 4, '3/4 denominator=4');
+    assert(cfg34.beatsPerMeasure === 3, '3/4 beatsPerMeasure=3');
+    assert(cfg34.beatDuration === 0.5, '3/4 beatDuration=0.5s');
+    assert(cfg34.measureDuration === 1.5, '3/4 measureDuration=1.5s');
+
+    // 6/8 @ 120bpm
+    var cfg68 = TG.getTimeSignatureGridConfig('6/8', 120);
+    assert(cfg68.numerator === 6, '6/8 numerator=6');
+    assert(cfg68.denominator === 8, '6/8 denominator=8');
+    assert(cfg68.beatsPerMeasure === 6, '6/8 beatsPerMeasure=6');
+    assert(cfg68.beatUnit === 'eighth', '6/8 beatUnit=eighth');
+    assert(cfg68.beatDuration === 0.25, '6/8 beatDuration=0.25s');
+    assert(cfg68.measureDuration === 1.5, '6/8 measureDuration=1.5s');
+    assert(cfg68.subdivisionsPerBeat === 2, '6/8 subdivisionsPerBeat=2');
+
+    // 4/4 @ 60bpm — slower tempo
+    var cfgSlow = TG.getTimeSignatureGridConfig('4/4', 60);
+    assert(cfgSlow.beatDuration === 1.0, '4/4@60 beatDuration=1.0s');
+    assert(cfgSlow.measureDuration === 4.0, '4/4@60 measureDuration=4.0s');
+
+    // 4/4 @ 240bpm — faster tempo
+    var cfgFast = TG.getTimeSignatureGridConfig('4/4', 240);
+    assert(cfgFast.beatDuration === 0.25, '4/4@240 beatDuration=0.25s');
+
+    // Default fallback
+    var cfgDef = TG.getTimeSignatureGridConfig(null, null);
+    assert(cfgDef.numerator === 4, 'default numerator=4');
+    assert(cfgDef.measureDuration === 2.0, 'default measureDuration=2.0s');
+  } else {
+    console.log('SKIP: TimelineGrid not loaded');
+  }
+
   // Summary
   // =========================================================================
   console.log('\n===== RESULTS: '+passed+'/'+(passed+failed)+' passed =====');
