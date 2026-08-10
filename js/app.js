@@ -14683,16 +14683,36 @@ if (
       'singerView': openLyricOnlyPopup,
       'playerView': (typeof openPlayerView === 'function') ? openPlayerView : openLyricPopup,
       'split': splitSelectedAtPlayhead, 'copy': copySelected, 'cut': cutSelected, 'paste': pasteClipboard,
+      'projectHubOpen': () => window.ProjectHub?.open(),
+      'archiveOpen': edOpenArchive,
+      'quickSearchOpen': () => window.openQuickSearchPanel(),
+      'archiveSave': () => edSaveToArchive().then(() => toast('ذخیره شد')),
+      'songNew': edNewSong,
+      'projectExport': edExportProject,
+      'autoImportOpen': openAutoImportModal,
+      'chordImportOpen': openImportChordModal,
+      'projectImport': edImportProject,
+      'arrangerOpen': openArrangerModal,
+      'songPrint': () => window.printSong(),
+      'shortcutsOpen': openShortcutModal,
+      'quickSearchClose': () => window.closeQuickSearchPanel(),
+      'quickSearchFilter': () => window.quickSearchFilter(),
+      'quickSearchClearInput': () => {
+        const input = document.getElementById('quickSearchInput');
+        if (input) input.value = '';
+        window.quickSearchFilter();
+      },
+      'quickSearchClearFilters': () => window.quickSearchClearFilters(),
     };
 
     let eventBindings = null;
 
     function initializeEventBindings() {
+      if (document.readyState === 'loading') return;
       if (eventBindings || typeof window.EventBindings !== 'function') return;
 
       eventBindings = new window.EventBindings({
         actions: ACTION_FUNCTIONS,
-        openArchive: edOpenArchive,
         onGlobalKeydownCapture: handleGlobalKeydownCapture,
         onGlobalKeydown: handleGlobalKeydown
       });

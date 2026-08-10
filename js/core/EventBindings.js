@@ -9,14 +9,12 @@ class EventBindings {
     documentRef = document,
     windowRef = window,
     actions = {},
-    openArchive = null,
     onGlobalKeydownCapture = null,
     onGlobalKeydown = null
   } = {}) {
     this.document = documentRef;
     this.window = windowRef;
     this.actions = actions;
-    this.openArchive = openArchive;
     this.onGlobalKeydownCapture = onGlobalKeydownCapture;
     this.onGlobalKeydown = onGlobalKeydown;
 
@@ -34,7 +32,8 @@ class EventBindings {
 
     this.initialized = true;
     this.bindTransportControls();
-    this.bindNavigation();
+    this.bindNavItems();
+    this.bindQuickSearchPanel();
     this.bindGlobalKeyboard();
 
     return this;
@@ -53,54 +52,64 @@ class EventBindings {
   }
 
   bindTransportControls() {
-    const transportBar = this.document.querySelector('.transport-bar');
-    const playButton = this.document.getElementById('play-btn');
+    const transportBar = this.document.querySelector(
+      '[data-event-group="transport"]'
+    );
 
-    if (transportBar) {
-      this.listen(transportBar, 'click', (event) => {
-        // Ctrl+Shift+Alt+click is reserved for button mapping in app.js.
-        if (event.ctrlKey && event.shiftKey && event.altKey) return;
+    if (!transportBar) return;
 
-        const button = event.target.closest('[data-action]');
-        if (!button || !transportBar.contains(button)) return;
+    this.listen(transportBar, 'click', (event) => {
+      // Ctrl+Shift+Alt+click is reserved for button mapping in app.js.
+      if (event.ctrlKey && event.shiftKey && event.altKey) return;
 
-        this.runAction(button.dataset.action, event, button);
-      });
-    }
+      const button = event.target.closest('[data-action]');
+      if (!button || !transportBar.contains(button)) return;
 
-    // Some layouts use #play-btn without a data-action attribute.
-    const playHandledByDelegation =
-      transportBar &&
-      playButton &&
-      transportBar.contains(playButton) &&
-      playButton.hasAttribute('data-action');
-
-    if (playButton && !playHandledByDelegation) {
-      this.listen(playButton, 'click', (event) => {
-        this.runAction('play', event, playButton);
-      });
-    }
+      this.runAction(button.dataset.action, event, button);
+    });
   }
 
-  bindNavigation() {
-    if (typeof this.openArchive !== 'function') return;
+  bindNavItems() {
+    const navigation = this.document.querySelector(
+      '[data-event-group="navigation"]'
+    );
 
-    const nav = this.document.querySelector('.nav-bar');
-    if (!nav) return;
+    if (!navigation) return;
 
-    this.listen(nav, 'click', (event) => {
-      const item = event.target.closest('.nav-item');
-      if (!item || !nav.contains(item)) return;
+    this.listen(navigation, 'click', (event) => {
+      const item = event.target.closest(
+        '.nav-list .nav-item[data-command], .nav-grid .nav-item[data-command]'
+      );
 
-      const title = (item.getAttribute('title') || '').toLowerCase();
-      const text = (item.textContent || '').trim().toLowerCase();
-      const isArchive =
-        title.includes('archive') ||
-        title.includes('آرشیو') ||
-        text.includes('archive') ||
-        text.includes('آرشیو');
+      if (!item || !navigation.contains(item)) return;
 
-      if (isArchive) this.openArchive(event, item);
+      this.runAction(item.dataset.command, event, item);
+    });
+  }
+
+  bindQuickSearchPanel() {
+    const panel = this.document.getElementById('quickSearchPanel');
+    if (!panel) return;
+
+    this.listen(panel, 'click', (event) => {
+      const control = event.target.closest('button[data-command]');
+      if (!control || !panel.contains(control)) return;
+
+      this.runAction(control.dataset.command, event, control);
+    });
+
+    this.listen(panel, 'input', (event) => {
+      const control = event.target.closest('input[data-command]');
+      if (!control || !panel.contains(control)) return;
+
+      this.runAction(control.dataset.command, event, control);
+    });
+
+    this.listen(panel, 'change', (event) => {
+      const control = event.target.closest('select[data-command]');
+      if (!control || !panel.contains(control)) return;
+
+      this.runAction(control.dataset.command, event, control);
     });
   }
 
