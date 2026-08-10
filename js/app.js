@@ -374,6 +374,27 @@ globalScope.DAW = {
         ? new window.AudioContextService()
         : null;
 
+    // Safe bridge for MetronomeScheduler: the look-ahead scheduler reserves
+    // metronome clicks ahead of time in audioCtx.currentTime, decoupling them
+    // from the RAF transport loop (fixes stutter during zoom/scroll).
+    let metronomeSchedulerBridge = null;
+    function getMetronomeSchedulerBridge() {
+      if (metronomeSchedulerBridge) return metronomeSchedulerBridge;
+      if (
+        typeof window.MetronomeScheduler !== 'function' ||
+        !audioContextServiceBridge
+      ) return null;
+      metronomeSchedulerBridge = new window.MetronomeScheduler({
+        audioContextService: audioContextServiceBridge,
+        metronomeEngine: metronomeEngineBridge,
+        getMeterConfig: getTimeSignatureGridConfig,
+        isStrongBeat: window.Meter && typeof window.Meter.isStrongBeat === 'function'
+          ? window.Meter.isStrongBeat
+          : () => false
+      });
+      return metronomeSchedulerBridge;
+    }
+
     function toggleSnap() {
       snapEnabled = !snapEnabled;
       $('snapBtn').classList.toggle('active', snapEnabled);
@@ -488,74 +509,37 @@ globalScope.DAW = {
     }
     function startMetronome() {
       stopMetronome();
-      // مترونوم با پلی هد سینک میشه - نیازی به setTimeout جداگانه نیست
-      // ضرب از حلقه tick اصلی پخش میشه
       const _mbpm = parseInt($('edTempo')?.value) || 120;
       const _msig = $('edTimeSig')?.value || '4/4';
+      // Look-ahead scheduler: reserves clicks ahead of time in audioCtx.currentTime.
+      // This decouples metronome timing from the RAF loop (fixes zoom/scroll stutter).
+      const scheduler = getMetronomeSchedulerBridge();
+      if (scheduler) {
+        scheduler.start({
+          bpm: _mbpm,
+          timeSignature: _msig,
+          startTime: (audioContextServiceBridge.getContext()?.currentTime) || 0,
+          soundType: APP_SETTINGS.metroSound || 'classic'
+        });
+        return;
+      }
+      // Legacy fallback: beat transitions tracked from the RAF tick loop.
       const _mcfg = getTimeSignatureGridConfig(_msig, _mbpm);
       if (metronomeEngineBridge) metronomeEngineBridge.start();
       metroBeat = -1; // force first tick to always click
     }
     function stopMetronome() {
+      const scheduler = getMetronomeSchedulerBridge();
+      if (scheduler) scheduler.stop();
       if (metronomeEngineBridge) metronomeEngineBridge.stop();
       metroTimer = null;
       metroBeat = 0;
     }
     function playClick(isAccent) {
-      // Safe bridge: delegate to AudioContextService when available.
-      // The legacy path remains as a fallback for backward compatibility.
-      if (audioContextServiceBridge) {
-        audioContextServiceBridge.playClick(isAccent, APP_SETTINGS.metroSound || 'classic');
-        return;
-      }
-
-      ensureAudioCtx();
-      const ctx = DAW.audioCtx;
-      const t = ctx.currentTime;
-      const type = APP_SETTINGS.metroSound || 'classic';
-      const vol = isAccent ? 0.35 : 0.2;
-
-      if (type === 'wood') {
-        // Woodblock — short percussive knock (noise burst + resonance)
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = 'sine'; osc.frequency.value = isAccent ? 800 : 600;
-        gain.gain.setValueAtTime(vol * 0.6, t);
-        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.03);
-        osc.connect(gain); gain.connect(ctx.destination);
-        osc.start(t); osc.stop(t + 0.03);
-      } else if (type === 'beep') {
-        // Electronic beep — sine wave ping
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = 'sine'; osc.frequency.value = isAccent ? 1200 : 900;
-        gain.gain.setValueAtTime(vol, t);
-        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
-        osc.connect(gain); gain.connect(ctx.destination);
-        osc.start(t); osc.stop(t + 0.08);
-      } else if (type === 'click') {
-        // Soft click — very short noise burst
-        const buf = ctx.createBuffer(1, ctx.sampleRate * 0.015, ctx.sampleRate);
-        const data = buf.getChannelData(0);
-        for (let i = 0; i < data.length; i++) {
-          data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (ctx.sampleRate * 0.003));
-        }
-        const src = ctx.createBufferSource();
-        const gain = ctx.createGain();
-        src.buffer = buf;
-        gain.gain.setValueAtTime(isAccent ? vol : vol * 0.6, t);
-        src.connect(gain); gain.connect(ctx.destination);
-        src.start(t);
-      } else {
-        // Classic (default) — sharp square wave tick
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = 'square'; osc.frequency.value = isAccent ? 1000 : 600;
-        gain.gain.setValueAtTime(vol, t);
-        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
-        osc.connect(gain); gain.connect(ctx.destination);
-        osc.start(t); osc.stop(t + 0.05);
-      }
+      // Proxy: all click synthesis (oscillators/gains) is delegated to
+      // AudioContextService. app.js no longer builds Web Audio nodes directly.
+      if (!audioContextServiceBridge) return;
+      audioContextServiceBridge.playClick(isAccent, APP_SETTINGS.metroSound || 'classic');
     }
 
     // تابع کمکی برای چک کردن ضرب در حلقه پخش
@@ -2406,7 +2390,9 @@ sels.forEach(c => {
         }
 
         updatePlayheadUI();
-        checkMetronomeTick(DAW.playhead);
+        // Look-ahead scheduler runs independently of RAF. Only fall back to
+        // RAF-based beat checking when the scheduler is unavailable.
+        if (!getMetronomeSchedulerBridge()) checkMetronomeTick(DAW.playhead);
         const scroll = $('tl-scroll'); const x = timeToX(DAW.playhead);
         if (DAW.playheadMode === 'center') {
           // Stationary: keep playhead visually at center by scrolling

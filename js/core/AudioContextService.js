@@ -3,8 +3,10 @@
  *
  * Responsibilities:
  *  - Lazily create / resume an AudioContext (no forced creation at load time).
- *  - Provide a `playClick(isAccent, soundType)` method that synthesises the
- *    metronome tick without touching DAW, DOM or transport state.
+ *  - Provide `playClick(isAccent, soundType)` that synthesises the metronome
+ *    tick at the current time, and `playClickAt(isAccent, soundType, when)`
+ *    that schedules a tick at an exact AudioContext time (used by the
+ *    look-ahead scheduler).
  *
  * During safe extraction this service is exposed on `window.AudioContextService`
  * and consumed through an adapter in app.js so the legacy path stays intact.
@@ -66,7 +68,7 @@ class AudioContextService {
   }
 
   /**
-   * Synthesise the metronome click.
+   * Synthesise the metronome click at the current AudioContext time.
    *
    * @param {boolean} isAccent
    * @param {string} [soundType='classic'] — 'classic' | 'wood' | 'beep' | 'click'
@@ -75,8 +77,25 @@ class AudioContextService {
   playClick(isAccent, soundType = 'classic') {
     const ctx = this.getContext();
     if (!ctx) return false;
+    return this.playClickAt(isAccent, soundType, ctx.currentTime);
+  }
 
-    const t = ctx.currentTime;
+  /**
+   * Synthesise the metronome click at an exact AudioContext time.
+   * This is the scheduling entry point used by the look-ahead scheduler so
+   * clicks are reserved ahead of time in `audioCtx.currentTime` rather than
+   * being triggered from the RAF loop (which causes stutter on zoom/scroll).
+   *
+   * @param {boolean} isAccent
+   * @param {string} [soundType='classic'] — 'classic' | 'wood' | 'beep' | 'click'
+   * @param {number} when — AudioContext time (seconds) at which to play
+   * @returns {boolean} true when a sound was scheduled
+   */
+  playClickAt(isAccent, soundType = 'classic', when) {
+    const ctx = this.getContext();
+    if (!ctx) return false;
+
+    const t = Number.isFinite(when) ? when : ctx.currentTime;
     const type = soundType || 'classic';
     const vol = isAccent ? 0.35 : 0.2;
     const dest = this._destination();
@@ -127,7 +146,7 @@ class AudioContextService {
 
       return true;
     } catch (err) {
-      console.warn('[AudioContextService] playClick failed:', err);
+      console.warn('[AudioContextService] playClickAt failed:', err);
       return false;
     }
   }
