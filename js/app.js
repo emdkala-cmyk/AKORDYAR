@@ -353,6 +353,19 @@ globalScope.DAW = {
       return TimelineGrid.getTimeSignatureGridConfig(timeSignature, bpm || 120);
     }
 
+    // Safe bridge: app.js keeps transport/audio/DOM ownership while the
+    // extracted engine tracks beat transitions. The legacy path remains as a
+    // fallback for backward compatibility.
+    const metronomeEngineBridge =
+      typeof window.MetronomeEngine === 'function' &&
+      window.Meter &&
+      typeof window.Meter.isStrongBeat === 'function'
+        ? new window.MetronomeEngine({
+            getMeterConfig: getTimeSignatureGridConfig,
+            isStrongBeat: window.Meter.isStrongBeat
+          })
+        : null;
+
     function toggleSnap() {
       snapEnabled = !snapEnabled;
       $('snapBtn').classList.toggle('active', snapEnabled);
@@ -472,9 +485,14 @@ globalScope.DAW = {
       const _mbpm = parseInt($('edTempo')?.value) || 120;
       const _msig = $('edTimeSig')?.value || '4/4';
       const _mcfg = getTimeSignatureGridConfig(_msig, _mbpm);
+      if (metronomeEngineBridge) metronomeEngineBridge.start();
       metroBeat = -1; // force first tick to always click
     }
-    function stopMetronome() { metroTimer = null; metroBeat = 0; }
+    function stopMetronome() {
+      if (metronomeEngineBridge) metronomeEngineBridge.stop();
+      metroTimer = null;
+      metroBeat = 0;
+    }
     function playClick(isAccent) {
       ensureAudioCtx();
       const ctx = DAW.audioCtx;
@@ -547,6 +565,20 @@ globalScope.DAW = {
         checkMetronomeTick._lastLog = { sig, bpm };
       }
 
+      if (metronomeEngineBridge) {
+        const beatEvent = metronomeEngineBridge.nextBeat(playheadTime, {
+          bpm,
+          timeSignature: sig
+        });
+
+        if (beatEvent) {
+          playClick(beatEvent.isAccent);
+          metroBeat = beatEvent.beatIndex;
+        }
+        return;
+      }
+
+      // Backward-compatible fallback when MetronomeEngine is unavailable.
       if (currentBeat !== metroBeat) {
         playClick(window.Meter.isStrongBeat(currentBeat % beatsPerBar, sig));
         metroBeat = currentBeat;
