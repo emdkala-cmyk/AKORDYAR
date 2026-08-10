@@ -7290,7 +7290,10 @@ document.addEventListener('DOMContentLoaded', () => {
       // Update selected lyrics editor chord
 if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
   edSelectedChords.forEach(i => {
-    if (edCur.chords[i]) edCur.chords[i].name = name;
+    if (edCur.chords[i]) {
+      edCur.chords[i].name = name;
+      edSyncBaseChordName(i);
+    }
   });
   edRenderChords();
   edCommit();
@@ -7303,12 +7306,13 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
         const seqIdx = edCur.chords.length - edSeqPoints.length + edSeqCursor;
         if (edCur.chords[seqIdx]) {
           edCur.chords[seqIdx].name = name;
+          edSyncBaseChordName(seqIdx);
           edCommit(); edRenderChords();
           if (edSeqCursor < edSeqPoints.length - 1) {
             edSeqCursor++;
           } else {
             const seqStart = edCur.chords.length - edSeqPoints.length;
-            edCur.chords = edCur.chords.filter((c, i) => i < seqStart || c.name);
+            edFilterChordsWithBase((c, i) => i < seqStart || c.name);
             edSeqChordingActive = false;
             edSeqPoints = []; edCur.seqPoints = [];
             edCommit(); edRenderChords();
@@ -13160,6 +13164,58 @@ saveState();
       return null; // auto
     }
 
+    function edBaseNameFromDisplayed(name) {
+      const transpose = Number(edCur?.transpose) || 0;
+      return transpose && name ? edTransposeChord(name, -transpose) : (name || '');
+    }
+
+    function edSyncBaseChordName(index) {
+      if (!edCur || !edCur.chords[index]) return;
+      if (!Array.isArray(edCur.baseChordNames)) edCur.baseChordNames = [];
+      edCur.baseChordNames[index] = edBaseNameFromDisplayed(edCur.chords[index].name);
+    }
+
+    function edRemoveChordAt(index) {
+      if (!edCur || index < 0 || index >= edCur.chords.length) return;
+      edCur.chords.splice(index, 1);
+      if (Array.isArray(edCur.baseChordNames)) edCur.baseChordNames.splice(index, 1);
+    }
+
+    function edFilterChordsWithBase(predicate) {
+      if (!edCur || !Array.isArray(edCur.chords)) return;
+      const baseNames = Array.isArray(edCur.baseChordNames) ? edCur.baseChordNames : [];
+      const nextChords = [];
+      const nextBaseNames = [];
+      edCur.chords.forEach((chord, index) => {
+        if (!predicate(chord, index)) return;
+        nextChords.push(chord);
+        const baseName = baseNames[index];
+        nextBaseNames.push(
+          typeof baseName === 'string' && (baseName.trim() || !chord?.name)
+            ? baseName
+            : edBaseNameFromDisplayed(chord?.name || '')
+        );
+      });
+      edCur.chords = nextChords;
+      edCur.baseChordNames = nextBaseNames;
+    }
+
+    function edEnsureBaseChordNamesAligned() {
+      if (!edCur) return [];
+      const chords = Array.isArray(edCur.chords) ? edCur.chords : [];
+      if (!Array.isArray(edCur.baseChordNames)) edCur.baseChordNames = [];
+      if (edCur.baseChordNames.length > chords.length) {
+        edCur.baseChordNames.splice(chords.length);
+      }
+      chords.forEach((ch, index) => {
+        const baseName = edCur.baseChordNames[index];
+        if (typeof baseName !== 'string' || ((ch?.name || '') && !baseName.trim())) {
+          edCur.baseChordNames[index] = edBaseNameFromDisplayed(ch?.name || '');
+        }
+      });
+      return edCur.baseChordNames;
+    }
+
     // ===== دیز/بمل/خودکار selector =====
     // Persist accidental preference and inject a small dropdown into the header.
     function initAccidentalSelector() {
@@ -13422,7 +13478,7 @@ function edRenderChords(immediate) {
         const pos = absToLineChar(newText, best); item.lineIndex = pos.lineIndex; item.charIndex = pos.charIndex; item.anchorType = 'OnCharacter';
       }
       edCur.chords.forEach(ch => remapItem(ch));
-      edCur.chords = edCur.chords.filter(ch => ch.lineIndex >= 0);
+      edFilterChordsWithBase(ch => ch.lineIndex >= 0);
     }
 
     if ($('editor')) {
@@ -13541,7 +13597,7 @@ function edAttachChordDrag(el, idx) {
           if (!wasDrag) return;
           const wrapRect = $('editorWrap').getBoundingClientRect();
           if (ev.clientX < wrapRect.left || ev.clientX > wrapRect.right || ev.clientY < wrapRect.top || ev.clientY > wrapRect.bottom) {
-            edSelectedChords.sort((a,b)=>b-a).forEach(i => edCur.chords.splice(i,1)); edSelectedChords = [];
+            edSelectedChords.sort((a,b)=>b-a).forEach(i => edRemoveChordAt(i)); edSelectedChords = [];
           } else {
             function findNearestChar(lineEl, mouseX) {
               const text = lineEl.textContent.replace(/\u200B/g,''); if (!text.length) return 0;
@@ -13556,7 +13612,7 @@ function edAttachChordDrag(el, idx) {
             const anchorLine=$('editor').children[anchorOrig.lineIndex];
             const anchorNewChar=findNearestChar(anchorLine, ev.clientX);
             const charDelta=anchorNewChar-anchorOrig.charIndex;
-            edSelectedChords.forEach(i => { const c=edCur.chords[i]; if(!c)return; const lineEl=$('editor').children[c.lineIndex]; const textLen=lineEl?lineEl.textContent.replace(/\u200B/g,'').length:0; let newChar=c.charIndex+charDelta; newChar=Math.max(0,Math.min(newChar,textLen)); if(isCopy){edCur.chords.push({lineIndex:c.lineIndex,charIndex:newChar,anchorType:newChar<=0?'LineStart':newChar>=textLen?'LineEnd':'OnCharacter',name:c.name});}else{c.charIndex=newChar;c.anchorType=newChar<=0?'LineStart':newChar>=textLen?'LineEnd':'OnCharacter';} });
+            edSelectedChords.forEach(i => { const c=edCur.chords[i]; if(!c)return; const lineEl=$('editor').children[c.lineIndex]; const textLen=lineEl?lineEl.textContent.replace(/\u200B/g,'').length:0; let newChar=c.charIndex+charDelta; newChar=Math.max(0,Math.min(newChar,textLen)); if(isCopy){edCur.chords.push({lineIndex:c.lineIndex,charIndex:newChar,anchorType:newChar<=0?'LineStart':newChar>=textLen?'LineEnd':'OnCharacter',name:c.name});if(!Array.isArray(edCur.baseChordNames))edCur.baseChordNames=[];edCur.baseChordNames.push(edBaseNameFromDisplayed(c.name));}else{c.charIndex=newChar;c.anchorType=newChar<=0?'LineStart':newChar>=textLen?'LineEnd':'OnCharacter';} });
           }
           edRenderChords();
           edCommit();
@@ -13958,9 +14014,9 @@ if ($('edDoBoth')) {
       // Keep baseChordNames in sync with chord edits
       if (!edCur.baseChordNames) edCur.baseChordNames = [];
       if (edChordIdx !== null && edCur.chords[edChordIdx]) {
-        edCur.baseChordNames[edChordIdx] = name;
+        edSyncBaseChordName(edChordIdx);
       } else if (edPendingAnchor) {
-        edCur.baseChordNames.push(name);
+        edCur.baseChordNames.push(edBaseNameFromDisplayed(name));
       }
       edPendingAnchor = null; edChordIdx = null;
       edCloseChordModal(); edRenderChords(); edCommit();
@@ -13971,7 +14027,7 @@ if ($('edDoBoth')) {
           edRenderChords();
         } else {
           const seqStart = edCur.chords.length - edSeqPoints.length;
-          edCur.chords = edCur.chords.filter((c, i) => i < seqStart || c.name);
+          edFilterChordsWithBase((c, i) => i < seqStart || c.name);
           edSeqChordingActive = false;
           edSeqPoints = []; edCur.seqPoints = [];
           edCommit(); edRenderChords();
@@ -13981,8 +14037,7 @@ if ($('edDoBoth')) {
     }
     function edDeleteChord() {
       if (edChordIdx !== null && edCur) {
-        edCur.chords.splice(edChordIdx, 1);
-        if (edCur.baseChordNames) edCur.baseChordNames.splice(edChordIdx, 1);
+        edRemoveChordAt(edChordIdx);
       }
       edCloseChordModal(); edRenderChords(); edCommit();
     }
@@ -14090,7 +14145,7 @@ if ($('edDoBoth')) {
     // TRANSPOSE: always compute from baseChordNames (never from already-transposed chords)
     function applyTranspose(newTranspose) {
       if (!edCur || edCur.editorLocked) return;
-      const names = edCur.baseChordNames || [];
+      const names = edEnsureBaseChordNamesAligned();
       edCur.chords.forEach((ch, i) => {
         const baseName = (i < names.length) ? names[i] : ch.name;
         if (baseName) ch.name = edTransposeChord(baseName, newTranspose);
@@ -14113,7 +14168,7 @@ if ($('edDoBoth')) {
       const origKey = edCur.originalKey || edCur.key;
       const delta = keyDelta(origKey, newKey);
       // Restore original names first, then apply new key
-      const names = edCur.baseChordNames || [];
+      const names = edEnsureBaseChordNamesAligned();
       edCur.chords.forEach((ch, i) => {
         const baseName = (i < names.length) ? names[i] : ch.name;
         if (baseName) ch.name = edTransposeChord(baseName, delta);
@@ -14133,6 +14188,7 @@ if ($('edDoBoth')) {
       if (!edCur) return;
       const oldOrigKey = edCur.originalKey || edCur.key;
       const delta = keyDelta(oldOrigKey, newKey);
+      edEnsureBaseChordNamesAligned();
       // Update baseChordNames
       if (delta && edCur.baseChordNames.length) {
         edCur.baseChordNames = edCur.baseChordNames.map(name => name ? edTransposeChord(name, delta) : name);
@@ -14446,7 +14502,7 @@ if (
 
   edSelectedChords
     .sort((a,b) => b-a)
-    .forEach(i => edCur.chords.splice(i,1));
+    .forEach(i => edRemoveChordAt(i));
 
   edSelectedChords = [];
   edRenderChords();
@@ -14459,7 +14515,10 @@ if (
     function edNavigateChord(dir) {
       if (edChordIdx === null || !edCur) return;
       const newName = $('chordManual')?.value?.trim();
-      if (newName && edCur.chords[edChordIdx]) edCur.chords[edChordIdx].name = newName;
+      if (newName && edCur.chords[edChordIdx]) {
+        edCur.chords[edChordIdx].name = newName;
+        edSyncBaseChordName(edChordIdx);
+      }
       const newIdx = edChordIdx + dir;
       if (newIdx >= 0 && newIdx < edCur.chords.length) {
         edChordIdx = newIdx;

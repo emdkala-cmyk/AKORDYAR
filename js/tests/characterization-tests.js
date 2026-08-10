@@ -595,6 +595,54 @@ assert(ue.undo()===null,'Undo: past beginning');
   assert(ec6.transpose === 0, 'SM: defaults transpose');
 
   // =========================================================================
+  // 17. Manual chord edit after transpose
+  // =========================================================================
+  section('17. Transpose stale-state regression');
+  var transposeState = {
+    transpose: 1,
+    chords: [{name:'C#'}, {name:'A#'}],
+    baseChordNames: ['C', 'A']
+  };
+
+  function syncEditedBaseChord(state, index) {
+    state.baseChordNames[index] = SE.transposeChordName(
+      state.chords[index].name,
+      -(state.transpose || 0)
+    );
+  }
+
+  function alignBaseChordNames(state) {
+    if (!Array.isArray(state.baseChordNames)) state.baseChordNames = [];
+    if (state.baseChordNames.length > state.chords.length) {
+      state.baseChordNames.splice(state.chords.length);
+    }
+    state.chords.forEach(function(chord, index) {
+      var baseName = state.baseChordNames[index];
+      if (typeof baseName !== 'string' || (chord.name && !baseName.trim())) {
+        state.baseChordNames[index] = SE.transposeChordName(
+          chord.name,
+          -(state.transpose || 0)
+        );
+      }
+    });
+    return state.baseChordNames;
+  }
+
+  transposeState.chords[1].name = 'G';
+  syncEditedBaseChord(transposeState, 1);
+  var editedBaseName = transposeState.baseChordNames[1];
+  var alignedBaseNames = alignBaseChordNames(transposeState);
+  assert(alignedBaseNames[1] === editedBaseName, 'Transpose guard preserves manually edited chord source');
+
+  transposeState.transpose = 2;
+  transposeState.chords = transposeState.chords.map(function(chord, index) {
+    return {
+      name: SE.transposeChordName(alignedBaseNames[index], transposeState.transpose)
+    };
+  });
+  assert(transposeState.chords[1].name === 'G#', 'Manual G edit remains source for next transpose');
+
+  // =========================================================================
 
   // Summary
   // =========================================================================
