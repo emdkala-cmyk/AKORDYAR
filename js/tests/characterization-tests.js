@@ -53,6 +53,10 @@
   assert(SE.transposeChordName('Am7',2)==='Bm7','Am7+2 -> Bm7 (suffix preserved)');
   // Flat preference
   assert(SE.transposeChordName('C',-2,false)==='Bb','C-2 with preferSharp=false -> Bb');
+  assert(SE.transposeChordName('C#',1,false)==='Db','C#+1 with preferFlat -> Db');
+  assert(SE.transposeChordName('C#/F',1,false)==='Db/Gb','C#/F +1 with preferFlat keeps slash converted');
+  assert(SE.transposeChordName('C',1,false)==='Db','Key-flat style conversion keeps C as Db');
+  assert(SE.convertAccidentals('C#/F',true)==='Db/Gb','Slash chord sharp→flat conversion keeps slash note flat');
 
   // =========================================================================
   // 3. SongDocument round-trip

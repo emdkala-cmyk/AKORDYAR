@@ -141,6 +141,10 @@ var TransposeService = (function() {
     return null;
   }
 
+  function keySignaturePreference(keyName) {
+    return detectKeyAccidentalPreference(keyName);
+  }
+
   /**
    * Transpose a single note name by semitones.
    *
@@ -280,7 +284,8 @@ var TransposeService = (function() {
     transposeChordName,
     transposeKeyName,
     convertAccidentals,
-    keyDelta
+    keyDelta,
+    keySignaturePreference
   };
 
 })();

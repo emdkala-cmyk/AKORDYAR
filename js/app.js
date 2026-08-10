@@ -13149,6 +13149,14 @@ saveState();
         if (ED_ACCIDENTAL_PREF === 'sharp') return true;
         if (ED_ACCIDENTAL_PREF === 'flat') return false;
       }
+      if (typeof window.TransposeService === 'object' && window.TransposeService && typeof window.TransposeService.keySignaturePreference === 'function') {
+        const key = edCur?.originalKey || edCur?.key;
+        const fromKey = key ? (key.endsWith('m') ? key.slice(0, -1) : key) : null;
+        if (fromKey) {
+          const preference = window.TransposeService.keySignaturePreference(fromKey);
+          if (preference === true || preference === false) return preference;
+        }
+      }
       return null; // auto
     }
 
