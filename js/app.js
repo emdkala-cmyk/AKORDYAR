@@ -8839,8 +8839,9 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
     }
     loadMidiMaps();
 
-    // Global shortcut capture for editing
-    window.addEventListener('keydown', (e) => {
+    // Global shortcut capture for editing.
+    // EventBindings is responsible for registering this handler.
+    function handleGlobalKeydownCapture(e) {
       // Skip if editing a shortcut
       if (_editingShortcutId) {
         e.preventDefault(); e.stopPropagation();
@@ -8871,9 +8872,11 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
       if (e.ctrlKey && e.shiftKey && e.altKey) {
         e.preventDefault(); e.stopPropagation();
       }
-    }, true);
+    }
 
-    window.addEventListener('keydown', (e) => {
+    // Main global shortcuts handler.
+    // EventBindings is responsible for registering this handler.
+    function handleGlobalKeydown(e) {
       // Skip if editing a shortcut
       if (_editingShortcutId) return;
       const tag = (e.target && e.target.tagName) || '';
@@ -8942,7 +8945,7 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
         if (syncActive) { exitSyncMode(); const tab = $('tab-sync'); if (tab) tab.classList.remove('active-teal'); return; }
         clearSelection();
       }
-    });
+    }
 
     /* ===================== INIT & INTERACTIONS ===================== */
     function init() {
@@ -14681,6 +14684,34 @@ if (
       'playerView': (typeof openPlayerView === 'function') ? openPlayerView : openLyricPopup,
       'split': splitSelectedAtPlayhead, 'copy': copySelected, 'cut': cutSelected, 'paste': pasteClipboard,
     };
+
+    let eventBindings = null;
+
+    function initializeEventBindings() {
+      if (eventBindings || typeof window.EventBindings !== 'function') return;
+
+      eventBindings = new window.EventBindings({
+        actions: ACTION_FUNCTIONS,
+        openArchive: edOpenArchive,
+        onGlobalKeydownCapture: handleGlobalKeydownCapture,
+        onGlobalKeydown: handleGlobalKeydown
+      });
+
+      eventBindings.init();
+    }
+
+    // Supports either script load order without exposing app internals globally.
+    window.addEventListener(
+      'akordyar:event-bindings-ready',
+      initializeEventBindings,
+      { once: true }
+    );
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initializeEventBindings, { once: true });
+    } else {
+      initializeEventBindings();
+    }
 
     // Detect Ctrl+Shift+Alt + Click on any button with data-action
     document.addEventListener('mousedown', (e) => {
