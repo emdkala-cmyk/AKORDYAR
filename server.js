@@ -12,6 +12,37 @@ function normalizeServerText(text) {
     .replace(/^\n+/, '')
     .replace(/\n+$/, '');
 }
+const crypto = require('crypto');
+
+function inspectRuntimeAppJs() {
+  const appJsPath = path.join(__dirname, 'js', 'app.js');
+
+  try {
+    const buffer = fs.readFileSync(appJsPath);
+
+    const hash = crypto
+      .createHash('sha256')
+      .update(buffer)
+      .digest('hex');
+
+    const text = buffer.toString('utf8');
+
+    console.log('[APP.JS RUNTIME DIAGNOSTIC]', {
+      path: appJsPath,
+      bytes: buffer.length,
+      sha256: hash,
+      startsWith: text.slice(0, 280),
+      hasHealthyMusicNote: text.includes('🎵'),
+      hasMojibakeMusicNote: text.includes('ðŸŽµ'),
+      hasHealthyPersian: text.includes('تشخیص صحیح محیط الکترون'),
+      hasMojibakePersian: /Ø.|Ù./.test(text)
+    });
+  } catch (error) {
+    console.error('[APP.JS RUNTIME DIAGNOSTIC FAILED]', error);
+  }
+}
+
+inspectRuntimeAppJs();
 
 // ---------- Laminor helpers ----------
 

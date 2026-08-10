@@ -269,6 +269,16 @@ const PerformanceStore = (() => {
     emit('playbackStateChanged', state.playbackState);
   }
 
+  /**
+   * ریست کامل store به حالت اولیه (برای load پروژه جدید)
+   */
+  function resetStore() {
+    state.songDocument = null;
+    Object.assign(state.keyState, { originalKey: 'C', currentKey: 'C', transpose: 0, mode: 'major' });
+    Object.assign(state.playbackState, { time: 0, isPlaying: false });
+    Object.assign(state.highlightState, { activeLineId: null, activeTokenId: null, activeChordId: null, doneLines: new Set() });
+  }
+
   return {
     getState,
     getSerializableState,
@@ -277,6 +287,7 @@ const PerformanceStore = (() => {
     unsubscribe,
     setSongDocument,
     updateSongContent,
+    resetStore,
     setKeyState,
     setPlaybackState,
     setHighlightState,

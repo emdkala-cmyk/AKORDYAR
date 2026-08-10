@@ -1,8 +1,20 @@
 /**
- * preload.js
- * پل ارتباطی بین Electron Main و Renderer Process
- * امنیت را با contextIsolation فراهم می‌کند
- */
+* preload.js
+ * Bridge between Electron Main and Renderer Process.
+ * 
+ * Architecture: contextIsolation + contextBridge (secure pattern)
+ * 
+ * IPC Channels (Main → Renderer):
+ *   menu-new-song, menu-open-project, menu-save, menu-save-as,
+ *   menu-export, menu-import, menu-play-pause, menu-stop,
+ *   menu-go-to-start, menu-go-to-end, menu-arranger, menu-archive,
+ *   menu-midi-settings, menu-preferences
+ * 
+ * Renderer → Main (via electronAPI):
+ *   checkFileExists, readAudioFile, readFileUtf8, writeFile,
+ *   resolvePath, getProjectDir, showSaveDialog, showOpenDialog,
+ *   readDir, prepareRecordings
+*/
 
 const { contextBridge, ipcRenderer } = require('electron');
 

@@ -92,6 +92,8 @@
 
 const SongDocumentModel = (() => {
 
+  const CURRENT_SCHEMA_VERSION = 1;
+
   /**
    * ساخت SongDocument از edCur (مدل فعلی پروژه)
    * @param {any} edCur
@@ -138,8 +140,31 @@ const SongDocumentModel = (() => {
       rawChords:    rawChords,
       lines:        lines,
       sections:     [],
-      cues:         cues
+      cues:         cues,
+      schemaVersion: CURRENT_SCHEMA_VERSION
     };
+  }
+
+  /**
+   * مهاجرت (migrate) یک SongDocument از schema قدیمی به جدید.
+   * @param {SongDocument} doc
+   * @returns {SongDocument}
+   */
+  function migrate(doc) {
+    if (!doc) return doc;
+    const version = doc.schemaVersion || 0;
+    let result = doc;
+
+    // Version 0 → 1: add schemaVersion, ensure lines have id/index
+    if (version < 1) {
+      result.schemaVersion = 1;
+      (result.lines || []).forEach((line, i) => {
+        if (!line.id) line.id = 'ln' + i;
+        if (line.index == null) line.index = i;
+      });
+    }
+
+    return result;
   }
 
   /**
@@ -162,7 +187,7 @@ const SongDocumentModel = (() => {
     return JSON.parse(JSON.stringify(doc));
   }
 
-  return { buildSongDocumentFromEdCur, writeToEdCur, clone };
+  return { CURRENT_SCHEMA_VERSION, buildSongDocumentFromEdCur, writeToEdCur, clone, migrate };
 
 })();
 
