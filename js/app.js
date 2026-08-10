@@ -1578,9 +1578,10 @@ function undo() {
         timeSignature: edCur?.timeSignature,
         pxPerSec: DAW.pxPerSecond,
         rulerEl: timeline-ruler,
-        labelsEl: ruler-labels,
-        tlInnerEl: tl-inner,
-        lanesEl: lanes-container,
+        rulerEl: $('timeline-ruler'),
+        labelsEl: $('ruler-labels'),
+        tlInnerEl: $('tl-inner'),
+        lanesEl: $('lanes-container'),
         onDurationChange: function(t) { DAW.timelineDuration = t; }
       });
     }
