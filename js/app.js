@@ -2298,8 +2298,8 @@ sels.forEach(c => {
     }
 
     function seekTransport(t, keepPlaying = true, noSnap = false) {
-      DAW.playhead = clamp(roundMs(noSnap ? t : snapTime(t)), 0, getProjectEnd());
-      if (DAW.isPlaying) { DAW.playOriginPerf = performance.now(); DAW.playOriginTime = DAW.playhead; }
+      DAW.playhead = PlayheadMath.clamp(roundMs(noSnap ? t : snapTime(t)), getProjectEnd());
+      if (DAW.isPlaying) { var _ori = PlayheadMath.createOrigin(performance.now(), DAW.playhead); DAW.playOriginPerf = _ori.playOriginPerf; DAW.playOriginTime = _ori.playOriginTime; }
       updatePlayheadUI(); if (DAW.isPlaying && !DAW.isScrubbing) scheduleAllFromPlayhead(); else stopAllVoices();
     }
 
@@ -2335,7 +2335,7 @@ sels.forEach(c => {
 
     function startTransport() {
       ensureAudioCtx();
-      DAW.isPlaying = true; DAW.isScrubbing = false; DAW.playOriginPerf = performance.now(); DAW.playOriginTime = DAW.playhead;
+      DAW.isPlaying = true; DAW.isScrubbing = false; var _ori = PlayheadMath.createOrigin(performance.now(), DAW.playhead); DAW.playOriginPerf = _ori.playOriginPerf; DAW.playOriginTime = _ori.playOriginTime;
       $('play-btn').style.color = 'var(--accent-neon-pink)'; scheduleAllFromPlayhead();
 
       // Update perf play button
@@ -2346,14 +2346,15 @@ sels.forEach(c => {
 
       const tick = () => {
         if (!DAW.isPlaying) return;
-        if (!DAW.isScrubbing) DAW.playhead = DAW.playOriginTime + (performance.now() - DAW.playOriginPerf) / 1000;
+        if (!DAW.isScrubbing) DAW.playhead = PlayheadMath.getElapsed(performance.now(), DAW.playOriginPerf, DAW.playOriginTime);
 
-        // Loop A-B: if playhead reaches B, jump back to A
+        // Loop A-B: if playhead reaches B, jump back to A (math delegated to PlayheadMath)
         if (DAW.loopEnabled && !DAW.isRecording && DAW.playhead >= DAW.loopB) {
-          const overshoot = DAW.playhead - DAW.loopB;
-          DAW.playhead = DAW.loopA + overshoot;
-          DAW.playOriginPerf = performance.now();
-          DAW.playOriginTime = DAW.playhead;
+          var looped = PlayheadMath.applyLoop(DAW.playhead, DAW.loopEnabled, DAW.loopA, DAW.loopB);
+          DAW.playhead = looped.playhead;
+          var ori = PlayheadMath.createOrigin(performance.now(), DAW.playhead);
+          DAW.playOriginPerf = ori.playOriginPerf;
+          DAW.playOriginTime = ori.playOriginTime;
           scheduleAllFromPlayhead();
         }
 
@@ -2474,7 +2475,7 @@ sels.forEach(c => {
         toast('🔢 شمارش: ' + countInBars + ' میزان');
         const countInTick = () => {
           if (countBeat >= totalBeats) {
-            DAW.isPlaying = true; DAW.isScrubbing = false; DAW.playOriginPerf = performance.now(); DAW.playOriginTime = DAW.playhead;
+            DAW.isPlaying = true; DAW.isScrubbing = false; var _ori = PlayheadMath.createOrigin(performance.now(), DAW.playhead); DAW.playOriginPerf = _ori.playOriginPerf; DAW.playOriginTime = _ori.playOriginTime;
             $('play-btn').style.color = 'var(--accent-neon-pink)'; scheduleAllFromPlayhead();
             if (DAW.rafId) cancelAnimationFrame(DAW.rafId); DAW.rafId = requestAnimationFrame(tick);
             return;
@@ -2490,7 +2491,7 @@ sels.forEach(c => {
         return;
       }
 
-      DAW.isPlaying = true; DAW.isScrubbing = false; DAW.playOriginPerf = performance.now(); DAW.playOriginTime = DAW.playhead;
+      DAW.isPlaying = true; DAW.isScrubbing = false; var _ori = PlayheadMath.createOrigin(performance.now(), DAW.playhead); DAW.playOriginPerf = _ori.playOriginPerf; DAW.playOriginTime = _ori.playOriginTime;
       $('play-btn').style.color = 'var(--accent-neon-pink)'; scheduleAllFromPlayhead();
       if (DAW.rafId) cancelAnimationFrame(DAW.rafId); DAW.rafId = requestAnimationFrame(tick);
     }
@@ -6513,8 +6514,8 @@ document.addEventListener('DOMContentLoaded', () => {
       console.log(`[Arranger] Audio clips: ${loadedClips.length}/${audioClips.length} loaded` + (missingClips.length > 0 ? `, ${missingClips.length} missing: ${missingClips.map(c=>c.fileName||c.bufferKey).join(', ')}` : ''));
 
       DAW.playhead = 0;
-      DAW.playOriginPerf = performance.now();
-      DAW.playOriginTime = 0;
+      var _ori2 = PlayheadMath.createOrigin(performance.now(), 0); DAW.playOriginPerf = _ori2.playOriginPerf;
+      DAW.playOriginTime = _ori2.playOriginTime;
       scheduleAllFromPlayhead();
 
       undoStack = []; undoIndex = -1; PERF.lastSerializedState = '';
