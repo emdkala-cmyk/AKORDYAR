@@ -13190,8 +13190,8 @@ saveState();
 
     function edShiftNote(n, semi) {
       if (!n) return n;
-      if (typeof window.SharedEngine === 'object' && window.SharedEngine) {
-        return window.SharedEngine.transposeNote(n, semi, resolveAccidentalPreference());
+      if (typeof window.TransposeService === 'object' && window.TransposeService && typeof window.TransposeService.transposeNote === 'function') {
+        return window.TransposeService.transposeNote(n, semi, resolveAccidentalPreference());
       }
       // fallback (legacy) — never reachable if sharedEngine loaded first
       const map = NOTE_SEMITONE || {'C':0,'C#':1,'Db':1,'D':2,'D#':3,'Eb':3,'E':4,'F':5,'F#':6,'Gb':6,'G':7,'G#':8,'Ab':8,'A':9,'A#':10,'Bb':10,'B':11};
@@ -13211,8 +13211,8 @@ saveState();
     }
     function edTransposeChord(name, semi) {
       if (!semi || !name) return name;
-      if (typeof window.SharedEngine === 'object' && window.SharedEngine) {
-        return window.SharedEngine.transposeChordName(name, semi, resolveAccidentalPreference());
+      if (typeof window.TransposeService === 'object' && window.TransposeService && typeof window.TransposeService.transposeChordName === 'function') {
+        return window.TransposeService.transposeChordName(name, semi, resolveAccidentalPreference());
       }
       // fallback (legacy)
       return name.split('/').map(part => part.replace(/^([A-G][b#]?)/, (_,root) => edShiftNote(root,semi))).join('/');
@@ -13983,8 +13983,8 @@ if ($('edDoBoth')) {
     let _edSyncingKey = false; // flag to prevent onchange during programmatic key update
     function edTransposeKeyName(key, semitones) {
       if (!key || !semitones) return key;
-      if (typeof window.SharedEngine === 'object' && window.SharedEngine) {
-        return window.SharedEngine.transposeKeyName(key, semitones, resolveAccidentalPreference());
+      if (typeof window.TransposeService === 'object' && window.TransposeService && typeof window.TransposeService.transposeKeyName === 'function') {
+        return window.TransposeService.transposeKeyName(key, semitones, resolveAccidentalPreference());
       }
       // fallback (legacy)
       const idx = ED_SEMITONE[key];
@@ -14005,9 +14005,9 @@ if ($('edDoBoth')) {
     // If chords currently use sharps → convert to flats; if flats → convert to sharps.
     function edToggleAccidental() {
       if (!edCur || edCur.editorLocked) { toast('🔒 ویرایشگر قفل است'); return; }
-      const cc = typeof window.SharedEngine === 'object' && window.SharedEngine &&
-        typeof window.SharedEngine.convertAccidentals === 'function'
-        ? window.SharedEngine.convertAccidentals
+      const cc = typeof window.TransposeService === 'object' && window.TransposeService &&
+        typeof window.TransposeService.convertAccidentals === 'function'
+        ? window.TransposeService.convertAccidentals
         : null;
       if (!cc) { toast('موتور آکورد در دسترس نیست'); return; }
 
@@ -14038,8 +14038,8 @@ if ($('edDoBoth')) {
     // ===== CENTRAL KEY/TRANSPOSE FUNCTIONS =====
     function keyToSemi(key) { return ED_SEMITONE[key] != null ? ED_SEMITONE[key] : -1; }
     function keyDelta(fromKey, toKey) {
-      if (typeof window.SharedEngine === 'object' && window.SharedEngine) {
-        return window.SharedEngine.keyDelta(fromKey, toKey);
+      if (typeof window.TransposeService === 'object' && window.TransposeService && typeof window.TransposeService.keyDelta === 'function') {
+        return window.TransposeService.keyDelta(fromKey, toKey);
       }
       return ((keyToSemi(toKey) - keyToSemi(fromKey)) % 12 + 12) % 12;
     }
