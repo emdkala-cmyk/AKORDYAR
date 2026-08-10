@@ -376,7 +376,7 @@
       <div class="settings-panel mv-window">
         <div class="settings-head mv-head">
           <div class="settings-title">⚙️ تنظیمات برنامه</div>
-          <button class="settings-close" onclick="closeSettings()">✕</button>
+          <button class="settings-close" onclick="closeSettings()"><span class="ir-icon" data-ir="✕" aria-hidden="true"></span></button>
         </div>
         <div class="settings-body">
           <div class="settings-group">
@@ -429,7 +429,7 @@
   <div class="midi-monitor" id="midiMonitor">
     <div class="midi-monitor-header" id="midiMonitorHeader">
       <span><span class="midi-status-dot disconnected" id="midiStatusDot"></span>MIDI Monitor</span>
-      <button onclick="toggleMidiMonitor()">✕</button>
+      <button onclick="toggleMidiMonitor()"><span class="ir-icon" data-ir="✕" aria-hidden="true"></span></button>
     </div>
     <div class="midi-chord-info" id="midiChordInfo" style="display:none;">
       <div class="chord-name" id="midiChordName">—</div>
@@ -471,7 +471,7 @@
     <div class="import-panel">
       <div class="import-panel-header">
         <h3>🎵 وارد کردن ترانه از وبسایت / متن</h3>
-        <button onclick="closeImportChordModal()">✕</button>
+        <button onclick="closeImportChordModal()"><span class="ir-icon" data-ir="✕" aria-hidden="true"></span></button>
       </div>
       <div class="import-panel-body">
         <label>لینک وبسایت (اختیاری - لامینور، گیتاروست و...)</label>
@@ -609,7 +609,7 @@
       <div class="archive-toolbar" style="flex-shrink:0;">
         <div class="archive-search-wrap">
           <input type="text" id="archiveSearch" placeholder="جستجو: نام، خواننده، گام، متن..." aria-label="جستجوی ترانه">
-          <button class="archive-search-clear" id="archiveSearchClear" onclick="$('archiveSearch').value='';archApplyFilters();" aria-label="پاک کردن جستجو">✕</button>
+          <button class="archive-search-clear" id="archiveSearchClear" onclick="$('archiveSearch').value='';archApplyFilters();" aria-label="پاک کردن جستجو"><span class="ir-icon" data-ir="✕" aria-hidden="true"></span></button>
         </div>
         <div class="atb-sep"></div>
         <div class="atb-group">
@@ -683,7 +683,7 @@
     <div class="archive-edit-box">
       <div class="archive-edit-header">
         <h4>✏️ ویرایش مشخصات ترانه</h4>
-        <button onclick="archEditClose()">✕</button>
+        <button onclick="archEditClose()"><span class="ir-icon" data-ir="✕" aria-hidden="true"></span></button>
       </div>
       <div class="archive-edit-body">
         <div class="ae-field"><label>عنوان</label><input type="text" id="aeTitle"></div>
@@ -731,7 +731,7 @@
     <div class="shortcut-panel">
       <div class="shortcut-panel-header">
         <h3>⌨️ شرتکات (Keyboard Shortcuts)</h3>
-        <button onclick="closeShortcutModal()">✕</button>
+        <button onclick="closeShortcutModal()"><span class="ir-icon" data-ir="✕" aria-hidden="true"></span></button>
       </div>
       <div class="shortcut-list" id="shortcutList"></div>
       <div class="shortcut-panel-footer">
@@ -821,7 +821,7 @@
     </div>
     <div class="arr-perf-setlist" id="perfSetlist"></div>
     <div class="arr-perf-section-nav" id="perfSectionNav"></div>
-    <div class="arr-perf-note-badge" id="perfNoteBadge"><span class="note-close" onclick="this.parentElement.classList.remove('show')">✕</span><span id="perfNoteText"></span></div>
+    <div class="arr-perf-note-badge" id="perfNoteBadge"><span class="note-close" onclick="this.parentElement.classList.remove('show')"><span class="ir-icon" data-ir="✕" aria-hidden="true"></span></span><span id="perfNoteText"></span></div>
     <div class="arr-perf-footer">
       <button class="perf-nav-btn" onclick="perfNextSong()" title="بعدی">⏭</button>
       <button class="perf-nav-btn" onclick="perfRestartSong()" title="شروع مجدد">🔄</button>
@@ -1077,11 +1077,11 @@
   <div id="quickSearchPanel" class="quick-search-panel" style="display:none;">
     <div class="qsp-header" id="quickSearchHeader">
       <span class="qsp-title">جستجوی سریع ترانه‌ها</span>
-      <button class="qsp-close" onclick="closeQuickSearchPanel()" title="بستن">✕</button>
+      <button class="qsp-close" onclick="closeQuickSearchPanel()" title="بستن"><span class="ir-icon" data-ir="✕" aria-hidden="true"></span></button>
     </div>
     <div class="qsp-search">
       <input type="text" id="quickSearchInput" placeholder="جستجو: نام، خواننده، متن..." oninput="quickSearchFilter()">
-      <button class="qsp-clear" id="quickSearchClear" onclick="document.getElementById('quickSearchInput').value='';quickSearchFilter();">✕</button>
+      <button class="qsp-clear" id="quickSearchClear" onclick="document.getElementById('quickSearchInput').value='';quickSearchFilter();"><span class="ir-icon" data-ir="✕" aria-hidden="true"></span></button>
     </div>
     <!-- Advanced Filters -->
     <div class="qsp-filters" id="quickSearchFilters">
@@ -1095,4 +1095,14 @@
   </div>
 
 </body>
+<script>
+(function(){
+  var els=document.querySelectorAll('.ir-icon[data-ir]');
+  for(var i=0;i<els.length;i++){
+    els[i].innerHTML=IconRegistry.get(els[i].getAttribute('data-ir'));
+  }
+})();
+</script>
 </html>
+        <button class="mixer-close" onclick="toggleMixer()" title="بستن"><span class="ir-icon" data-ir="✕" aria-hidden="true"></span></button>
+            <button class="asc-clear" id="artistSearchClear" onclick="$('artistSearchInput').value='';archFilterArtists();" aria-label="پاک کردن"><span class="ir-icon" data-ir="✕" aria-hidden="true"></span></button>
