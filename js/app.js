@@ -366,6 +366,14 @@ globalScope.DAW = {
           })
         : null;
 
+    // Safe bridge for AudioContextService: app.js keeps DAW.audioCtx ownership
+    // while the extracted service synthesises the metronome click. The legacy
+    // path remains as a fallback for backward compatibility.
+    const audioContextServiceBridge =
+      typeof window.AudioContextService === 'function'
+        ? new window.AudioContextService()
+        : null;
+
     function toggleSnap() {
       snapEnabled = !snapEnabled;
       $('snapBtn').classList.toggle('active', snapEnabled);
@@ -494,6 +502,13 @@ globalScope.DAW = {
       metroBeat = 0;
     }
     function playClick(isAccent) {
+      // Safe bridge: delegate to AudioContextService when available.
+      // The legacy path remains as a fallback for backward compatibility.
+      if (audioContextServiceBridge) {
+        audioContextServiceBridge.playClick(isAccent, APP_SETTINGS.metroSound || 'classic');
+        return;
+      }
+
       ensureAudioCtx();
       const ctx = DAW.audioCtx;
       const t = ctx.currentTime;
