@@ -40,7 +40,47 @@ var TimelineGrid = (function() {
     };
   }
 
-  function drawLaneGrid(canvas, opts) {
+  /**
+   * Build a complete grid structure of measures, beats, and downbeats.
+   * Pure function - no DOM or global dependency.
+   *
+   * @param {{ timeSignature: string, bpm: number, durationInSeconds: number }} opts
+   * @returns {{ config: object, measures: number[], beats: object[], downbeats: number[] }}
+   */
+  function getGridStructure(opts) {
+    var sig = opts.timeSignature || "4/4";
+    var bpm = opts.bpm || 120;
+    var dur = opts.durationInSeconds || 0;
+    var config = getTimeSignatureGridConfig(sig, bpm);
+    var beats = [];
+    var downbeats = [];
+    var measureCount = Math.ceil(dur / config.measureDuration);
+
+    for (var m = 0; m < measureCount; m++) {
+      for (var b = 0; b < config.beatsPerMeasure; b++) {
+        var time = (m * config.measureDuration) + (b * config.beatDuration);
+        beats.push({
+          measure: m,
+          beat: b,
+          time: time
+        });
+      }
+    }
+
+    for (var m2 = 0; m2 < measureCount; m2++) {
+      downbeats.push(m2 * config.measureDuration);
+    }
+
+    var measures = [];
+    for (var m3 = 0; m3 < measureCount; m3++) {
+      measures.push(m3);
+    }
+
+    return { config: config, measures: measures, beats: beats, downbeats: downbeats };
+  }
+
+
+    function drawLaneGrid(canvas, opts) {
     const total = opts.total;
     const timeToX = opts.timeToX;
     const bpm = opts.tempo || 120;
@@ -214,6 +254,7 @@ var TimelineGrid = (function() {
 
   return {
     getTimeSignatureGridConfig: getTimeSignatureGridConfig,
+    getGridStructure: getGridStructure,
     drawLaneGrid: drawLaneGrid,
     renderRuler: renderRuler
   };

@@ -695,6 +695,41 @@ assert(ue.undo()===null,'Undo: past beginning');
     console.log('SKIP: TimelineGrid not loaded');
   }
 
+  // =========================================================================
+  // TimelineGrid - getGridStructure characterization
+  // =========================================================================
+  section('TimelineGrid.getGridStructure');
+
+  // 4/4 @ 120bpm, 8 seconds = 4 measures
+  var gs44 = TG.getGridStructure({ timeSignature: '4/4', bpm: 120, durationInSeconds: 8 });
+  assert(gs44.config.numerator === 4, 'gs44 config numerator=4');
+  assert(gs44.measures.length === 4, 'gs44 4 measures for 8s');
+  assert(gs44.beats.length === 16, 'gs44 16 beats (4m x 4b)');
+  assert(gs44.downbeats.length === 4, 'gs44 4 downbeats');
+  assert(gs44.downbeats[0] === 0, 'gs44 downbeat[0]=0');
+  assert(gs44.downbeats[1] === 2, 'gs44 downbeat[1]=2');
+  assert(gs44.beats[0].measure === 0 && gs44.beats[0].beat === 0 && gs44.beats[0].time === 0, 'gs44 beat[0]');
+  assert(gs44.beats[15].measure === 3 && gs44.beats[15].beat === 3, 'gs44 beat[15] m=3,b=3');
+
+  // 3/4 @ 120bpm, 6 seconds = 4 measures
+  var gs34 = TG.getGridStructure({ timeSignature: '3/4', bpm: 120, durationInSeconds: 6 });
+  assert(gs34.measures.length === 4, 'gs34 4 measures for 6s');
+  assert(gs34.beats.length === 12, 'gs34 12 beats (4m x 3b)');
+  assert(gs34.downbeats[0] === 0, 'gs34 downbeat[0]=0');
+  assert(gs34.downbeats[2] === 3.0, 'gs34 downbeat[2]=3.0');
+
+  // 6/8 @ 120bpm, 3 seconds = 2 measures
+  var gs68 = TG.getGridStructure({ timeSignature: '6/8', bpm: 120, durationInSeconds: 3 });
+  assert(gs68.measures.length === 2, 'gs68 2 measures for 3s');
+  assert(gs68.beats.length === 12, 'gs68 12 beats (2m x 6b)');
+  assert(gs68.config.beatUnit === 'eighth', 'gs68 beatUnit=eighth');
+  assert(gs68.beats[6].measure === 1 && gs68.beats[6].beat === 0, 'gs68 beat[6] is downbeat of m2');
+
+  // default fallback
+  var gsDef = TG.getGridStructure({ durationInSeconds: 4 });
+  assert(gsDef.config.measureDuration === 2.0, 'gsDef default 4/4@120 measure=2s');
+  assert(gsDef.measures.length === 2, 'gsDef 2 measures');
+
   // Summary
   // =========================================================================
   console.log('\n===== RESULTS: '+passed+'/'+(passed+failed)+' passed =====');
