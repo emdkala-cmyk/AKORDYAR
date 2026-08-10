@@ -141,6 +141,24 @@ tests.push(() => {
   passCount++;
 });
 
+// 3b. Negative startTime is clamped to 0 (AudioParam times must be non-negative)
+tests.push(() => {
+  const { fakeCtx, service } = setup();
+  const sched = new MetronomeScheduler({
+    audioContextService: service,
+    getMeterConfig, isStrongBeat: () => true,
+    timer: makeFakeTimer().fn
+  });
+  // startTime = -2.1181 (playhead ahead of ctx.currentTime)
+  assert.strictEqual(sched.start({ bpm: 120, timeSignature: '4/4', startTime: -2.1181 }), true);
+  assert.strictEqual(sched.getState().startTime, -2.1181); // engine keeps original
+  // First beat was scheduled at clamped t=0, then advanced by beatDuration.
+  // All scheduled AudioParam times are non-negative (no RangeError).
+  assert.strictEqual(sched.getState().nextNoteTime, 0.5);
+  assert.ok(fakeCtx._oscs.length >= 1, 'first beat scheduled at t=0 without RangeError');
+  passCount++;
+});
+
 // 4. Look-ahead loop reserves beats within the window (Chris Wilson pattern)
 tests.push(() => {
   const { fakeCtx, service } = setup();
@@ -219,10 +237,17 @@ tests.push(() => {
   passCount++;
 });
 
-// 7. stop() cancels the timer and stops the engine
+// 7. stop() cancels the timer, stops the engine, and calls stopAll on the service
 tests.push(() => {
   const { fakeCtx, service, engine } = setup();
   const timer = makeFakeTimer();
+  let stopAllCalled = false;
+  const origStopAll = service.stopAll;
+  service.stopAll = function () {
+    stopAllCalled = true;
+    if (origStopAll) origStopAll.call(this);
+  };
+
   const sched = new MetronomeScheduler({
     audioContextService: service,
     metronomeEngine: engine,
@@ -236,6 +261,7 @@ tests.push(() => {
   assert.strictEqual(sched.running, false);
   assert.strictEqual(engine.running, false);
   assert.strictEqual(sched.getState().hasTimer, false);
+  assert.strictEqual(stopAllCalled, true, 'stop() must call stopAll() on the service');
   passCount++;
 });
 

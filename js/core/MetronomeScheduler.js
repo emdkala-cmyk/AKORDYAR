@@ -43,10 +43,15 @@ class MetronomeScheduler {
     this.isStrongBeat = isStrongBeat;
     this.lookahead = lookahead;
     this.scheduleAheadTime = scheduleAheadTime;
-    this._timer = timer || (typeof setTimeout === 'function' ? setTimeout : null);
+
+    // Wrap setTimeout in an arrow function so it's always called with a
+    // safe context (avoids "Illegal invocation" when `this._timer(...)` is
+    // invoked as a method of `this`).
+    this._timer = timer || ((fn, ms) => setTimeout(fn, ms));
+    this._clearTimer = (id) => clearTimeout(id);
 
     this.running = false;
-    this._timerId = null;
+    this._timerID = null;
     this._nextNoteTime = 0;
     this._currentBeat = 0;
     this._startTime = 0;
@@ -55,6 +60,14 @@ class MetronomeScheduler {
     this._beatDuration = 0.5;
     this._beatsPerMeasure = 4;
     this._soundType = 'classic';
+
+    // Bind all internal methods to `this` so context is never lost.
+    this.start = this.start.bind(this);
+    this.stop = this.stop.bind(this);
+    this._scheduleNext = this._scheduleNext.bind(this);
+    this._scheduleBeat = this._scheduleBeat.bind(this);
+    this._advanceBeat = this._advanceBeat.bind(this);
+    this.getState = this.getState.bind(this);
   }
 
   /**
@@ -87,8 +100,13 @@ class MetronomeScheduler {
     this._beatDuration = config.beatDuration;
     this._beatsPerMeasure = config.beatsPerMeasure || 4;
 
+    // The AudioContext time for beat 0. This can be negative if the
+    // playhead is ahead of ctx.currentTime (e.g. audioCtx just created).
+    // We clamp `_nextNoteTime` to >= 0 because AudioParam times must be
+    // non-negative. The MetronomeEngine still tracks playhead time from
+    // `_startTime` so beat counting stays correct.
     this._startTime = startTime !== null ? startTime : ctx.currentTime;
-    this._nextNoteTime = this._startTime;
+    this._nextNoteTime = Math.max(0, this._startTime);
     this._currentBeat = 0;
     this.running = true;
 
@@ -100,14 +118,20 @@ class MetronomeScheduler {
 
   /**
    * Stop the scheduler and cancel any pending timer.
+   * Also stops any audio nodes already scheduled in the AudioContext so
+   * no pending metronome clicks ring out after stopping.
    */
   stop() {
     this.running = false;
-    if (this._timerId !== null) {
-      if (typeof clearTimeout === 'function') clearTimeout(this._timerId);
-      this._timerId = null;
+    if (this._timerID !== null) {
+      this._clearTimer(this._timerID);
+      this._timerID = null;
     }
     if (this.metronomeEngine) this.metronomeEngine.stop();
+    // Kill all pending/active metronome audio nodes immediately.
+    if (this.audioContextService && typeof this.audioContextService.stopAll === 'function') {
+      this.audioContextService.stopAll();
+    }
   }
 
   /**
@@ -120,14 +144,16 @@ class MetronomeScheduler {
     if (!ctx) return;
 
     // Reserve every beat that is within the look-ahead window.
+    // `this._nextNoteTime` is guaranteed non-negative because we clamped it
+    // in start() and only ever increment it by beatDuration.
     while (this._nextNoteTime < ctx.currentTime + this.scheduleAheadTime) {
       this._scheduleBeat(this._currentBeat, this._nextNoteTime);
       this._advanceBeat();
     }
 
-    if (this._timer) {
-      this._timerId = this._timer(() => this._scheduleNext(), this.lookahead);
-    }
+    // `this._timer` is an arrow-function wrapper around setTimeout, so
+    // calling it as `this._timer(...)` never triggers "Illegal invocation".
+    this._timerID = this._timer(() => this._scheduleNext(), this.lookahead);
   }
 
   /**
@@ -177,7 +203,7 @@ class MetronomeScheduler {
       currentBeat: this._currentBeat,
       startTime: this._startTime,
       soundType: this._soundType,
-      hasTimer: !!this._timerId
+      hasTimer: !!this._timerID
     };
   }
 }

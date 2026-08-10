@@ -515,12 +515,20 @@ globalScope.DAW = {
       // This decouples metronome timing from the RAF loop (fixes zoom/scroll stutter).
       const scheduler = getMetronomeSchedulerBridge();
       if (scheduler) {
+        // Start the metronome from the current playhead position so it stays
+        // in sync with the transport. `startTime` is the AudioContext time at
+        // which beat 0 should sound: ctx.currentTime - DAW.playhead.
+        const _ctxNow = audioContextServiceBridge.getContext()?.currentTime || 0;
+        const _playhead = Number.isFinite(DAW.playhead) ? DAW.playhead : 0;
         scheduler.start({
           bpm: _mbpm,
           timeSignature: _msig,
-          startTime: (audioContextServiceBridge.getContext()?.currentTime) || 0,
+          startTime: _ctxNow - _playhead,
           soundType: APP_SETTINGS.metroSound || 'classic'
         });
+        // Mark the metronome as running so pauseTransport()/stopTransport()
+        // will call stopMetronome() (which stops the scheduler + audio nodes).
+        metroTimer = true;
         return;
       }
       // Legacy fallback: beat transitions tracked from the RAF tick loop.

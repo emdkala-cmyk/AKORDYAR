@@ -23,6 +23,10 @@ class AudioContextService {
     this._ctx = null;
     this._masterGain = null;
 
+    // Track all active audio source nodes so we can stop them on demand
+    // (e.g. when the metronome is stopped mid-playback).
+    this._activeNodes = new Set();
+
     // For Node tests we inject a fake destination.
     this._externalDestination = destination;
   }
@@ -110,6 +114,7 @@ class AudioContextService {
         gain.gain.setValueAtTime(vol * 0.6, t);
         gain.gain.exponentialRampToValueAtTime(0.001, t + 0.03);
         osc.connect(gain); gain.connect(dest);
+        this._trackNode(osc);
         osc.start(t); osc.stop(t + 0.03);
       } else if (type === 'beep') {
         // Electronic beep — sine wave ping
@@ -119,6 +124,7 @@ class AudioContextService {
         gain.gain.setValueAtTime(vol, t);
         gain.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
         osc.connect(gain); gain.connect(dest);
+        this._trackNode(osc);
         osc.start(t); osc.stop(t + 0.08);
       } else if (type === 'click') {
         // Soft click — very short noise burst
@@ -132,6 +138,7 @@ class AudioContextService {
         src.buffer = buf;
         gain.gain.setValueAtTime(isAccent ? vol : vol * 0.6, t);
         src.connect(gain); gain.connect(dest);
+        this._trackNode(src);
         src.start(t);
       } else {
         // Classic (default) — sharp square wave tick
@@ -141,6 +148,7 @@ class AudioContextService {
         gain.gain.setValueAtTime(vol, t);
         gain.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
         osc.connect(gain); gain.connect(dest);
+        this._trackNode(osc);
         osc.start(t); osc.stop(t + 0.05);
       }
 
@@ -149,6 +157,40 @@ class AudioContextService {
       console.warn('[AudioContextService] playClickAt failed:', err);
       return false;
     }
+  }
+
+  /**
+   * Register a source node so it can be stopped on demand.
+   * The node is removed from tracking once it has finished playing.
+   *
+   * @param {AudioNode} node
+   */
+  _trackNode(node) {
+    if (!node) return;
+    this._activeNodes.add(node);
+    // Auto-remove from tracking once the node naturally stops.
+    if (node && typeof node.onended === 'function') {
+      node.onended = () => this._activeNodes.delete(node);
+    }
+  }
+
+  /**
+   * Stop all currently scheduled/playing metronome nodes immediately.
+   * Used when the metronome is stopped so no pending clicks ring out.
+   */
+  stopAll() {
+    const now = this._ctx ? this._ctx.currentTime : 0;
+    this._activeNodes.forEach(node => {
+      try {
+        if (node && typeof node.stop === 'function') {
+          node.stop(now);
+        }
+      } catch (_) { /* node already stopped */ }
+      try {
+        if (node && typeof node.disconnect === 'function') node.disconnect();
+      } catch (_) { /* noop */ }
+    });
+    this._activeNodes.clear();
   }
 
   /**
