@@ -1972,6 +1972,7 @@ function undo() {
       '♫': '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>',
       '🏷': '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>',
     };
+    if (typeof IconRegistry !== 'undefined') { Object.assign(ICON_SVG_MAP, IconRegistry.getAll()); }
     function getIconSvg(icon) { return ICON_SVG_MAP[icon] || icon; }
 
     const INSTRUMENT_ICONS = ['🎤','🎸','🎹','🎺','🎻','🥁','🎷','🎵','🎶','🎼','🎙️','🎧','📡','🎛️','⏺','♫','🏷'];
