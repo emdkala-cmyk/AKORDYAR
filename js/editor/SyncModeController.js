@@ -29,6 +29,17 @@ class SyncModeController {
     getLyricPopup,
     getLyricOnlyPopup,
     getChordLinePopup,
+    seqState = null,
+    edRenderChords,
+    edCommit,
+    saveState,
+    renderAll,
+    uid,
+    roundMs,
+    ensureTimelineFits,
+    timeToX,
+    formatTime,
+    openChordLinePopup,
     logger = console
   } = {}) {
     if (!state) {
@@ -61,7 +72,27 @@ class SyncModeController {
     this.getLyricOnlyPopup = typeof getLyricOnlyPopup === 'function' ? getLyricOnlyPopup : () => null;
     this.getChordLinePopup = typeof getChordLinePopup === 'function' ? getChordLinePopup : () => null;
 
+    // Commit 2b — seq/CL: accessor روی letهای app.js (edSeqModeActive، edClMarkers و…)
+    this.seqState = seqState;
+    this.edRenderChords = typeof edRenderChords === 'function' ? edRenderChords : () => {};
+    this.edCommit = typeof edCommit === 'function' ? edCommit : () => {};
+    this.saveState = typeof saveState === 'function' ? saveState : () => {};
+    this.renderAll = typeof renderAll === 'function' ? renderAll : () => {};
+    this.uid = typeof uid === 'function' ? uid : (p) => `${p}_0`;
+    this.roundMs = typeof roundMs === 'function' ? roundMs : (v) => Math.round(v * 1000) / 1000;
+    this.ensureTimelineFits = typeof ensureTimelineFits === 'function' ? ensureTimelineFits : () => {};
+    this.timeToX = typeof timeToX === 'function' ? timeToX : (v) => v;
+    this.formatTime = typeof formatTime === 'function' ? formatTime : () => '';
+    this.openChordLinePopup = typeof openChordLinePopup === 'function' ? openChordLinePopup : () => {};
+
     this.logger = logger || console;
+  }
+
+  _requireSeqState() {
+    if (!this.seqState) {
+      throw new Error('SyncModeController: seqState تزریق نشده است — bridge در app.js را بررسی کنید.');
+    }
+    return this.seqState;
   }
 
   formatSyncTime(t) {
@@ -339,6 +370,144 @@ class SyncModeController {
     if (state.tapKeyHandler) { window.removeEventListener('keydown', state.tapKeyHandler); state.tapKeyHandler = null; }
     if (state.watch) { cancelAnimationFrame(state.watch); state.watch = null; }
     this.edSaveSong();
+  }
+
+  /* ===== Commit 2b: Sequential chords (آکورد ترتیبی) ===== */
+
+  edToggleSeqMode() {
+    const ss = this._requireSeqState();
+    const edCur = this.getEdCur();
+    ss.seqModeActive = !ss.seqModeActive;
+    if (ss.seqModeActive) {
+      ss.seqPoints = []; edCur.seqPoints = [];
+      ss.chordingActive = false;
+      this.$('edSeqToggle').classList.add('active');
+      this.toast(this.t('selectPointsActive'));
+    } else {
+      this.$('edSeqToggle').classList.remove('active');
+      edCur.seqPoints = ss.seqPoints; this.edRenderChords(); this.edCommit();
+    }
+  }
+
+  edStartSeqChording() {
+    const ss = this._requireSeqState();
+    if (ss.seqPoints.length === 0) { this.toast(this.t('selectPointsFirst')); return; }
+    ss.seqModeActive = false; this.$('edSeqToggle').classList.remove('active');
+    ss.chordingActive = true; ss.seqCursor = 0;
+    const edCur = this.getEdCur();
+    ss.seqPoints.forEach(sp => { edCur.chords.push({ ...sp, name: '' }); });
+    this.edRenderChords();
+    this.edCommit();
+
+    this.toast(this.t('chordingStarted'));
+  }
+
+  edSeqNavigate(dir) {
+    const ss = this._requireSeqState();
+    if (!ss.chordingActive) return;
+    ss.seqCursor = Math.max(0, Math.min(ss.seqPoints.length - 1, ss.seqCursor + dir));
+    this.edRenderChords();
+  }
+
+  /* ===== Sequential: حالت کورد لاین (نقطه‌گذاری با آهنگ روی تایم لاین) ===== */
+
+  edUpdateClCount() {
+    const ss = this._requireSeqState();
+    const c = this.$('edClCount'); if (c) c.textContent = ss.clMarkers.length ? String(ss.clMarkers.length) : '';
+  }
+
+  edRenderClMarkers() {
+    const ss = this._requireSeqState();
+    const lanes = this.$('lanes-container'); if (!lanes) return;
+    let overlay = this.$('clMarkersOverlay');
+    if (!overlay) { overlay = document.createElement('div'); overlay.id = 'clMarkersOverlay'; overlay.className = 'cl-markers-overlay'; lanes.appendChild(overlay); }
+    overlay.innerHTML = '';
+    if (!ss.clMarkers.length) { overlay.style.display = 'none'; return; }
+    overlay.style.display = '';
+    ss.clMarkers.forEach((m, i) => {
+      const mk = document.createElement('div');
+      mk.className = 'cl-tap-marker' + (ss.clTapActive ? ' armed' : '');
+      mk.style.left = this.timeToX(m.time) + 'px';
+      const badge = document.createElement('div');
+      badge.className = 'cl-tap-badge';
+      badge.textContent = i + 1;
+      badge.title = 'نقطه ' + (i + 1) + ' — ' + this.formatTime(m.time) + ' (کلیک = حذف)';
+      badge.addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); if (i >= 0 && i < ss.clMarkers.length) { ss.clMarkers.splice(i, 1); this.edRenderClMarkers(); this.edUpdateClCount(); } });
+      mk.appendChild(badge); overlay.appendChild(mk);
+    });
+  }
+
+  edSetSeqMode(mode) {
+    const ss = this._requireSeqState();
+    ss.clMode = (mode === 'chord');
+    const ly = this.$('edSeqModeLyrics'), ch = this.$('edSeqModeChord');
+    if (ly) ly.classList.toggle('active', !ss.clMode);
+    if (ch) ch.classList.toggle('active', ss.clMode);
+    const lt = this.$('edSeqLyricsTools'), ct = this.$('edSeqChordTools');
+    if (lt) lt.style.display = ss.clMode ? 'none' : '';
+    if (ct) ct.style.display = ss.clMode ? '' : 'none';
+    // هنگام رفتن به کورد لاین، حالت انتخاب نقطه روی متن (لایرس) را ببند
+    if (ss.clMode && ss.seqModeActive) this.edToggleSeqMode();
+    if (!ss.clMode) { ss.clTapActive = false; const b = this.$('edClStart'); if (b) b.classList.remove('active'); }
+    this.edRenderClMarkers();
+    // Open Chord Line popup when switching to chord mode
+    if (ss.clMode) this.openChordLinePopup();
+  }
+
+  edToggleClTap() {
+    const ss = this._requireSeqState();
+    ss.clTapActive = !ss.clTapActive;
+    const b = this.$('edClStart'); if (b) b.classList.toggle('active', ss.clTapActive);
+    this.edRenderClMarkers(); this.edUpdateClCount();
+    this.toast(ss.clTapActive ? 'نقطه‌گذاری کورد لاین فعال شد — آهنگ را پخش کن و هر بار تعویض آکورد، کلید ۰ را بزن' : 'نقطه‌گذاری متوقف شد');
+  }
+
+  edClTap() {
+    const ss = this._requireSeqState();
+    if (!ss.clTapActive) { this.toast('اول روی ⏺ کلیک کن تا نقطه‌گذاری با آهنگ فعال شود'); return; }
+    if (!this.DAW || typeof this.DAW.playhead !== 'number') return;
+    const t = this.roundMs(Math.max(0, this.DAW.playhead));
+    ss.clMarkers.push({ time: t });
+    this.ensureTimelineFits(t + 6);
+    this.edRenderClMarkers(); this.edUpdateClCount();
+  }
+
+  edClUndoMarker() {
+    const ss = this._requireSeqState();
+    if (!ss.clMarkers.length) { this.toast('نقطه‌ای برای حذف نیست'); return; }
+    ss.clMarkers.pop(); this.edRenderClMarkers(); this.edUpdateClCount();
+  }
+
+  edClClearMarkers() {
+    const ss = this._requireSeqState();
+    if (!ss.clMarkers.length) return;
+    ss.clMarkers = []; this.edRenderClMarkers(); this.edUpdateClCount(); this.toast('همه نقاط پاک شد');
+  }
+
+  edClApplyMarkers() {
+    const ss = this._requireSeqState();
+    if (!ss.clMarkers.length) { this.toast('اول با آهنگ نقطه‌گذاری کن (دکمه ⏺ و کلید ۰)'); return; }
+    const edCur = this.getEdCur();
+    const lyrics = (edCur?.chords || []).filter(c => c && c.name && String(c.name).trim() !== '');
+    if (lyrics.length === 0) { this.toast('آکوردی در بخش لایرس نیست تا کپی شود'); return; }
+    if (lyrics.length !== ss.clMarkers.length) {
+      this.toast('⚠️ تعداد آکوردهای لایرس (' + lyrics.length + ') با تعداد نقاط تایم‌لاین (' + ss.clMarkers.length + ') یکی نیست — اول تعداد را برابر کن');
+      return;
+    }
+    const chordTrack = this.DAW.tracks.find(t => t.type === 'chord');
+    if (!chordTrack) { this.toast('ترک کورد لاین پیدا نشد'); return; }
+    // آکوردها در edCur.chords به ترتیب موسیقایی ذخیره شده‌اند (از بیت اول تا آخر)
+    // Chord Line فقط جهت نمایش LTR دارد — ترتیب موسیقایی باید حفظ شود
+    ss.clMarkers.forEach((m, i) => {
+      this.DAW.clips.push({ id: this.uid('c'), type: 'chord', trackId: chordTrack.id, name: lyrics[i].name, start: this.roundMs(m.time), duration: 2, color: '#9F7AEA' });
+    });
+    const lastT = ss.clMarkers[ss.clMarkers.length - 1].time;
+    ss.clMarkers = []; ss.clTapActive = false;
+    const b = this.$('edClStart'); if (b) b.classList.remove('active');
+    this.edRenderClMarkers(); this.edUpdateClCount();
+    this.ensureTimelineFits(lastT + 6);
+    this.saveState(); this.renderAll(); this.edSaveSong();
+    this.toast('✔ ' + lyrics.length + ' آکورد لایرس به کورد لاین (تایم‌لاین) کپی شد');
   }
 
   // Wire up sync buttons
