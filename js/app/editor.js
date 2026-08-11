@@ -206,7 +206,7 @@ document.addEventListener('DOMContentLoaded', () => {
       isRecordingChords = false; currentRecordingClipId = null;
 
       edCur = JSON.parse(JSON.stringify(song));
-      window.edCur = edCur; // sync global reference after loading song
+      window.EdCurAdapter?.setEdCur?.(edCur); // sync legacy reference after loading song
       // Ø§Ú¯Ø± lyrics Ø®Ø§Ù„ÛŒÙ‡ ÙˆÙ„ÛŒ rawText Ø¯Ø§Ø±ÛŒÙ…ØŒ parse Ú©Ù†
       if (typeof ensureSongParsed === 'function') ensureSongParsed(edCur);
       if (!edCur.styles) edCur.styles = {};
@@ -2322,7 +2322,7 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
 
       // --- Apply parsed result to edCur (no post-parse mutations) ---
       if (!edCur) edCur = edBlankSong();
-      window.edCur = edCur; // sync global reference after ensuring song exists
+      window.EdCurAdapter?.setEdCur?.(edCur); // sync legacy reference after ensuring song exists
       edCur.lyrics = parsedResult.lyrics;
       edCur.chords = parsedResult.chords;
 
@@ -3051,7 +3051,7 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
     const ED_TENS = ['','add9','9','11','13','b9','#9','#11','b13'];
 
     let edCur = null;
-    window.edCur = edCur; // expose to global scope for projecthub.js and other modules
+    window.EdCurAdapter?.setEdCur?.(edCur); // expose legacy reference through the adapter
     let edUndoStack = [], edRedoStack = [];
     let edChordIdx = null, edPendingAnchor = null;
     let edTransposing = 0;
@@ -3092,7 +3092,7 @@ function edBlankSong() {
       const saved = localStorage.getItem('ed_current_song');
       if (saved) { try { edCur = JSON.parse(saved); } catch(e) { edCur = null; } }
       if (!edCur) edCur = edBlankSong();
-      window.edCur = edCur; // sync global reference
+      window.EdCurAdapter?.setEdCur?.(edCur); // sync legacy reference
       if (!edCur.styles) edCur.styles = {};
       if (!edCur.lineColors) edCur.lineColors = [];
       if (!edCur.chordVersions) edCur.chordVersions = [];

@@ -12,7 +12,8 @@
  * 4. iframe.contentWindow.print() ÙØ±Ø§Ø®ÙˆØ§Ù†ÛŒ Ù…ÛŒâ€ŒØ´ÙˆØ¯ Ùˆ iframe Ø¨Ø¹Ø¯ Ø§Ø² Ú†Ø§Ù¾ Ø­Ø°Ù Ù…ÛŒâ€ŒØ´ÙˆØ¯
  */
 function printSong() {
-  if (!edCur) { toast('Ø§Ø¨ØªØ¯Ø§ ÛŒÚ© ØªØ±Ø§Ù†Ù‡ Ø¨Ø§Ø² Ú©Ù†ÛŒØ¯'); return; }
+  const song = window.EdCurAdapter?.getEdCur?.() || null;
+  if (!song) { toast('Ø§Ø¨ØªØ¯Ø§ ÛŒÚ© ØªØ±Ø§Ù†Ù‡ Ø¨Ø§Ø² Ú©Ù†ÛŒØ¯'); return; }
   if (printSong._active) return;
   printSong._active = true;
 
@@ -32,17 +33,17 @@ function printSong() {
     pc.innerHTML = '';
 
     // â”€â”€â”€ Ù‡Ø¯Ø± Ú†Ø§Ù¾ â”€â”€â”€
-    const st = edCur.styles || {};
+    const st = song.styles || {};
     const hdr = document.createElement('div'); hdr.className = 'print-header';
     const ttl = document.createElement('div'); ttl.className = 'title';
     const sub = document.createElement('div'); sub.className = 'sub';
-    const dk = edCur.transpose ? (edTransposeKeyName(edCur.originalKey || edCur.key, edCur.transpose) || edCur.key) : edCur.key;
-    const ks = dk + (edCur.keyMode === 'min' ? 'm' : '');
+    const dk = song.transpose ? (edTransposeKeyName(song.originalKey || song.key, song.transpose) || song.key) : song.key;
+    const ks = dk + (song.keyMode === 'min' ? 'm' : '');
     const sp = [];
-    if (edCur.artist) sp.push(edCur.artist);
-    if (edCur.key) sp.push((currentLang === 'fa' ? 'Ú¯Ø§Ù…: ' : 'Key: ') + ks);
-    if (edCur.transpose) sp.push((currentLang === 'fa' ? 'ØªØ±Ù†Ø³Ù¾ÙˆØ² ' : 'Transpose ') + (edCur.transpose > 0 ? '+' : '') + edCur.transpose);
-    ttl.textContent = edCur.title || t('untitled');
+    if (song.artist) sp.push(song.artist);
+    if (song.key) sp.push((currentLang === 'fa' ? 'Ú¯Ø§Ù…: ' : 'Key: ') + ks);
+    if (song.transpose) sp.push((currentLang === 'fa' ? 'ØªØ±Ù†Ø³Ù¾ÙˆØ² ' : 'Transpose ') + (song.transpose > 0 ? '+' : '') + song.transpose);
+    ttl.textContent = song.title || t('untitled');
     sub.textContent = sp.join('  â€¢  ');
     hdr.appendChild(ttl); hdr.appendChild(sub);
     pc.appendChild(hdr);
@@ -65,7 +66,7 @@ function printSong() {
       'text-align:' + (st.align || 'center') + ';';
     lyrics.style.unicodeBidi = 'plaintext';
     // Ø§Ø¹Ù…Ø§Ù„ Ø±Ù†Ú¯ Ø®Ø·ÙˆØ·
-    const lc = edCur.lineColors || [];
+    const lc = song.lineColors || [];
     Array.from(lyrics.children).forEach(function(c, i) {
       if (lc[i]) c.style.color = lc[i];
     });
@@ -89,7 +90,7 @@ function printSong() {
     const MARGIN = 5;
     const wrapRect = wrap.getBoundingClientRect();
 
-    (edCur.chords || []).forEach(function(ch, idx) {
+    (song.chords || []).forEach(function(ch, idx) {
       if (!ch.name) return;
       const lineEl = lyrics.children[ch.lineIndex];
       if (!lineEl) return;
@@ -140,7 +141,7 @@ function printSong() {
     const doPrint = function() {
       try {
         if (isElectron && window.electronAPI && window.electronAPI.printHtml) {
-          const safeTitle = (edCur.title || t('untitled')).replace(/</g, '&lt;').replace(/>/g, '&gt;');
+          const safeTitle = (song.title || t('untitled')).replace(/</g, '&lt;').replace(/>/g, '&gt;');
           const html = '<!DOCTYPE html>\n<html dir="rtl" lang="fa">\n<head>\n<meta charset="UTF-8">\n<title>' + safeTitle + '</title>\n<style>\n'
             + '*{box-sizing:border-box;margin:0;padding:0;}\n'
             + 'body{font-family:\'Vazirmatn\',\'Tahoma\',sans-serif;background:#fff;color:#000;padding:20px;direction:rtl;}\n'

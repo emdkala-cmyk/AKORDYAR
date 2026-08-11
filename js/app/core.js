@@ -925,7 +925,7 @@ function attachHistoryService() {
     DAW: DAW,
     PERF: PERF,
     getEdCur: () => edCur,
-    setEdCur: (v) => { edCur = v; window.edCur = v; },
+    setEdCur: (v) => { edCur = v; window.EdCurAdapter?.setEdCur?.(v); },
     getEdSeqPoints: () => edSeqPoints,
     setEdSeqPoints: (v) => { edSeqPoints = v; },
     clearEdTimers: () => {
@@ -1069,11 +1069,11 @@ function applyState(stateStr) {
     if (state.edCur) {
       const keepId = edCur?.id;
       edCur = state.edCur;
-      window.edCur = edCur; // sync global reference after loading state
+      window.EdCurAdapter?.setEdCur?.(edCur); // sync legacy reference after loading state
       if (keepId != null) edCur.id = keepId;
     } else {
       edCur = null;
-      window.edCur = null; // sync global reference when edCur is null
+      window.EdCurAdapter?.setEdCur?.(null); // sync legacy reference when edCur is null
     }
 
     edSeqPoints = Array.isArray(state.edSeqPoints)
