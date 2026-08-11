@@ -4484,7 +4484,7 @@ function edBlankSong() {
       });
       wrap.appendChild(label);
       wrap.appendChild(sel);
-      header.appendChild(wrap);
+      host.appendChild(wrap);
     }
 
     function edShiftNote(n, semi) {

@@ -607,13 +607,21 @@
 
     // ===== صفحه شروع: باز شدن خودکار Hub هنگام لود برنامه =====
     // فقط بار اول (نه بعد از بستن و باز کردن)
-    if (isStartup) {
+    const isElectronRuntime = Boolean(
+      typeof window !== 'undefined' &&
+      window.electronAPI &&
+      window.electronAPI.isElectron
+    );
+
+    if (isStartup && !isElectronRuntime) {
       isStartup = false;
       // کمی تأخیر تا app.js کاملاً لود شود
       setTimeout(() => {
         openHub();
         console.log('[ProjectHub] Startup screen shown');
       }, 400);
+    } else {
+      isStartup = false;
     }
 
     console.log('[ProjectHub] Initialized ✓');
