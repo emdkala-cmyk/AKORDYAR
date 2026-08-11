@@ -18,7 +18,7 @@ class ClipboardService {
       cp.relStart = c.start - minStart;
       return cp;
     });
-    this.toast(\ \);
+    this.toast(this.DAW.clipboard.length + ' ' + this.t('clipsCopied'));
   }
 
   cutSelected() {
