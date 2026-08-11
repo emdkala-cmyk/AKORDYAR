@@ -10,22 +10,40 @@
 
 let _songDocument = null;
 
+function getRuntimeStateAdapter() {
+  return window.RuntimeStateAdapter || null;
+}
+
+function getRuntimeDAW() {
+  return getRuntimeStateAdapter()?.getDAW?.() || null;
+}
+
+function getRuntimePerformanceStore() {
+  return getRuntimeStateAdapter()?.getPerformanceStore?.() || null;
+}
+
+function getCurrentSong() {
+  return window.EdCurAdapter?.getEdCur?.() || null;
+}
+
 /* ═══════════════════════════════════════════════
    rebuildSongDocumentFromEdCur
    ═══════════════════════════════════════════════ */
 
 function rebuildSongDocumentFromEdCur() {
-  if (typeof edCur === 'undefined' || !edCur) return;
+  const song = getCurrentSong();
+  const store = getRuntimePerformanceStore();
+  if (!song) return;
   if (!window.SongDocumentModel || !window.SharedEngine) return;
 
-  _songDocument = SongDocumentModel.buildSongDocumentFromEdCur(edCur);
-  _songDocument = SharedEngine.processSong(_songDocument);
+  _songDocument = window.SongDocumentModel.buildSongDocumentFromEdCur(song);
+  _songDocument = window.SharedEngine.processSong(_songDocument);
 
-  if (window.PerformanceStore) {
-    PerformanceStore.setSongDocument(_songDocument);
+  if (store) {
+    store.setSongDocument(_songDocument);
 
     // ریست هایلایت برای آهنگ جدید
-    PerformanceStore.setHighlightState({
+    store.setHighlightState({
       activeLineId: null,
       activeTokenId: null,
       activeChordId: null,
@@ -45,9 +63,10 @@ function onPerformanceSongChanged(embeddedContainer) {
     rebuildSongDocumentFromEdCur();
   }
 
-  if (!window.PerformanceStore) return;
+  const store = getRuntimePerformanceStore();
+  if (!store) return;
 
-  const st = PerformanceStore.getState();
+  const st = store.getState();
   const hl = st.highlightState || null;
   const vsEmb = (st.viewStates && st.viewStates.embeddedPerformanceView) || {};
 
@@ -83,20 +102,22 @@ window.onPerformanceSongChanged = onPerformanceSongChanged;
    ═══════════════════════════════════════════════ */
 
 function syncViewStylesFromEdCur() {
-  if (typeof edCur === 'undefined' || !edCur) return;
-  if (!window.PerformanceStore) return;
-  const vs = edCur.viewStyles || {};
-  PerformanceStore.setViewState('singerView', vs.singerView || {});
-  PerformanceStore.setViewState('playerView', vs.playerView || {});
-  PerformanceStore.setViewState('embeddedPerformanceView', vs.embeddedPerformanceView || {});
+  const song = getCurrentSong();
+  const store = getRuntimePerformanceStore();
+  if (!song || !store) return;
+  const vs = song.viewStyles || {};
+  store.setViewState('singerView', vs.singerView || {});
+  store.setViewState('playerView', vs.playerView || {});
+  store.setViewState('embeddedPerformanceView', vs.embeddedPerformanceView || {});
 }
 
 function syncViewStylesToEdCur() {
-  if (typeof edCur === 'undefined' || !edCur) return;
-  if (!window.PerformanceStore) return;
-  edCur.viewStyles = edCur.viewStyles || {};
+  const song = getCurrentSong();
+  const store = getRuntimePerformanceStore();
+  if (!song || !store) return;
+  song.viewStyles = song.viewStyles || {};
   ['singerView', 'playerView', 'embeddedPerformanceView'].forEach(key => {
-    edCur.viewStyles[key] = PerformanceStore.getViewState(key) || {};
+    song.viewStyles[key] = store.getViewState(key) || {};
   });
 }
 
@@ -110,22 +131,24 @@ let _lastPerfSyncTime = 0;
 function startPlaybackSync() {
   if (_perfBridgeRafId) return;
   const tick = () => {
-    if (typeof DAW === 'undefined') {
+    const daw = getRuntimeDAW();
+    const store = getRuntimePerformanceStore();
+    if (!daw) {
       _perfBridgeRafId = requestAnimationFrame(tick);
       return;
     }
     const now = performance.now();
     if (now - _lastPerfSyncTime > 33) {
       _lastPerfSyncTime = now;
-      if (window.PerformanceStore && window.SharedEngine && _songDocument) {
-        PerformanceStore.setPlaybackState({
-          time: DAW.playhead || 0,
-          isPlaying: !!DAW.isPlaying
+      if (store && window.SharedEngine && _songDocument) {
+        store.setPlaybackState({
+          time: daw.playhead || 0,
+          isPlaying: !!daw.isPlaying
         });
-        const hl = SharedEngine.computeHighlight(
-          PerformanceStore.getState().playbackState, _songDocument
+        const hl = window.SharedEngine.computeHighlight(
+          store.getState().playbackState, _songDocument
         );
-        PerformanceStore.setHighlightState(hl);
+        store.setHighlightState(hl);
       }
     }
     _perfBridgeRafId = requestAnimationFrame(tick);
@@ -155,9 +178,10 @@ function ensurePerformanceChannel() {
     const data = event && event.data;
     if (!data || !data.type) return;
     if (data.type === 'performanceState') {
-      if (!window.PerformanceStore) return;
-      if (typeof PerformanceStore.hydrateState === 'function') {
-        PerformanceStore.hydrateState(data.payload);
+      const store = getRuntimePerformanceStore();
+      if (!store) return;
+      if (typeof store.hydrateState === 'function') {
+        store.hydrateState(data.payload);
       }
     }
   });
@@ -166,8 +190,9 @@ function ensurePerformanceChannel() {
 }
 
 function publishPerformanceState() {
-  if (typeof BroadcastChannel === 'undefined' || !window.PerformanceStore) return;
-  const payload = PerformanceStore.getSerializableState();
+  const store = getRuntimePerformanceStore();
+  if (typeof BroadcastChannel === 'undefined' || !store) return;
+  const payload = store.getSerializableState();
   const snapshot = JSON.stringify(payload);
   if (snapshot === _lastBroadcastSnapshot) return;
   _lastBroadcastSnapshot = snapshot;
@@ -178,12 +203,13 @@ function publishPerformanceState() {
 }
 
 function wirePerformanceBroadcasts() {
-  if (!window.PerformanceStore) return;
-  PerformanceStore.subscribe('contentUpdated', publishPerformanceState);
-  PerformanceStore.subscribe('keyChanged', publishPerformanceState);
-  PerformanceStore.subscribe('playbackStateChanged', publishPerformanceState);
-  PerformanceStore.subscribe('highlightChanged', publishPerformanceState);
-  PerformanceStore.subscribe('viewStateChanged', publishPerformanceState);
+  const store = getRuntimePerformanceStore();
+  if (!store) return;
+  store.subscribe('contentUpdated', publishPerformanceState);
+  store.subscribe('keyChanged', publishPerformanceState);
+  store.subscribe('playbackStateChanged', publishPerformanceState);
+  store.subscribe('highlightChanged', publishPerformanceState);
+  store.subscribe('viewStateChanged', publishPerformanceState);
 }
 
 /* ═══════════════════════════════════════════════
@@ -201,13 +227,16 @@ function _clearSingerUnsubs() {
 }
 
 function openSingerView() {
+  const store = getRuntimePerformanceStore();
+  if (!store) return;
+
   if (_singerPopup && !_singerPopup.closed) {
     _singerPopup.focus();
     // Full render با سند فعلی
     try {
       const root = _singerPopup.document.getElementById('singer-root');
-      if (root && window.PerformanceStore && window.SingerViewRenderer) {
-        const st = PerformanceStore.getState();
+      if (root && window.SingerViewRenderer) {
+        const st = store.getState();
         SingerViewRenderer.renderSingerView(
           st.songDocument, st.highlightState, st.viewStates.singerView, root
         );
@@ -240,8 +269,8 @@ function openSingerView() {
 
   function renderSingerFull() {
     if (!_singerPopup || _singerPopup.closed || !root) return;
-    if (!window.PerformanceStore || !window.SingerViewRenderer) return;
-    const st = PerformanceStore.getState();
+    if (!window.SingerViewRenderer) return;
+    const st = store.getState();
     SingerViewRenderer.renderSingerView(
       st.songDocument, st.highlightState, st.viewStates.singerView, root
     );
@@ -249,8 +278,8 @@ function openSingerView() {
 
   function renderSingerHighlight() {
     if (!_singerPopup || _singerPopup.closed || !root) return;
-    if (!window.PerformanceStore || !window.SingerViewRenderer) return;
-    const st = PerformanceStore.getState();
+    if (!window.SingerViewRenderer) return;
+    const st = store.getState();
     SingerViewRenderer.updateSingerHighlight(
       st.highlightState, st.viewStates.singerView, root
     );
@@ -260,12 +289,12 @@ function openSingerView() {
   if (typeof publishPerformanceState === 'function') publishPerformanceState();
 
   // contentUpdated = full render (تعویض آهنگ)
-  _singerUnsubs.push(PerformanceStore.subscribe('contentUpdated', renderSingerFull));
-  _singerUnsubs.push(PerformanceStore.subscribe('keyChanged', renderSingerFull));
-  _singerUnsubs.push(PerformanceStore.subscribe('viewStateChanged', renderSingerFull));
+  _singerUnsubs.push(store.subscribe('contentUpdated', renderSingerFull));
+  _singerUnsubs.push(store.subscribe('keyChanged', renderSingerFull));
+  _singerUnsubs.push(store.subscribe('viewStateChanged', renderSingerFull));
   // highlight/playback = فقط update
-  _singerUnsubs.push(PerformanceStore.subscribe('highlightChanged', renderSingerHighlight));
-  _singerUnsubs.push(PerformanceStore.subscribe('playbackStateChanged', renderSingerHighlight));
+  _singerUnsubs.push(store.subscribe('highlightChanged', renderSingerHighlight));
+  _singerUnsubs.push(store.subscribe('playbackStateChanged', renderSingerHighlight));
 
   startPlaybackSync();
 
@@ -307,10 +336,12 @@ let _embeddedUnsubs = [];
 
 function attachEmbeddedView(containerEl) {
   _embeddedContainer = containerEl;
+  const store = getRuntimePerformanceStore();
+  if (!store) return;
 
   function renderEmbeddedFull() {
     if (!_embeddedContainer) return;
-    const st = PerformanceStore.getState();
+    const st = store.getState();
     EmbeddedPerformanceRenderer.renderEmbeddedPerformanceView(
       st.songDocument, st.highlightState,
       st.viewStates.embeddedPerformanceView, _embeddedContainer
@@ -319,7 +350,7 @@ function attachEmbeddedView(containerEl) {
 
   function renderEmbeddedHighlight() {
     if (!_embeddedContainer) return;
-    const st = PerformanceStore.getState();
+    const st = store.getState();
     EmbeddedPerformanceRenderer.updateEmbeddedHighlight(
       st.highlightState,
       st.viewStates.embeddedPerformanceView, _embeddedContainer
@@ -328,10 +359,10 @@ function attachEmbeddedView(containerEl) {
 
   renderEmbeddedFull();
   _embeddedUnsubs.push(
-    PerformanceStore.subscribe('contentUpdated', renderEmbeddedFull),
-    PerformanceStore.subscribe('keyChanged', renderEmbeddedFull),
-    PerformanceStore.subscribe('highlightChanged', renderEmbeddedHighlight),
-    PerformanceStore.subscribe('viewStateChanged', (ev) => {
+    store.subscribe('contentUpdated', renderEmbeddedFull),
+    store.subscribe('keyChanged', renderEmbeddedFull),
+    store.subscribe('highlightChanged', renderEmbeddedHighlight),
+    store.subscribe('viewStateChanged', (ev) => {
       if (ev.viewId === 'embeddedPerformanceView') renderEmbeddedFull();
     })
   );
@@ -360,12 +391,15 @@ function detachEmbeddedView() {
    ═══════════════════════════════════════════════ */
 
 function _forceRenderOpenPopupsFull() {
+  const store = getRuntimePerformanceStore();
+  if (!store) return;
+
   // Singer
   try {
     if (_singerPopup && !_singerPopup.closed) {
       const root = _singerPopup.document.getElementById('singer-root');
-      if (root && window.PerformanceStore && window.SingerViewRenderer) {
-        const st = PerformanceStore.getState();
+      if (root && window.SingerViewRenderer) {
+        const st = store.getState();
         SingerViewRenderer.renderSingerView(
           st.songDocument, st.highlightState, st.viewStates.singerView, root
         );
@@ -376,8 +410,8 @@ function _forceRenderOpenPopupsFull() {
   try {
     if (_playerPopup && !_playerPopup.closed) {
       const root = _playerPopup.document.getElementById('player-root');
-      if (root && window.PerformanceStore && window.PlayerViewRenderer) {
-        const st = PerformanceStore.getState();
+      if (root && window.PlayerViewRenderer) {
+        const st = store.getState();
         PlayerViewRenderer.renderPlayerView(
           st.songDocument, st.highlightState, st.viewStates.playerView, root
         );

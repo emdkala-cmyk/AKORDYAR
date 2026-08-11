@@ -683,6 +683,7 @@ const PERF = {
   pendingRenderAll: false,
   pendingSyncPanelRender: false
 };
+globalScope.PERF = PERF;
 
 function rafThrottle(fn) {
   let scheduled = false;
@@ -759,6 +760,7 @@ const requestRenderSyncLyrics = debounce(() => { renderSyncLyrics(); }, 120);
       isRecording: false, recRafId: null, recAnalyser: null, recStream: null, recMediaRecorder: null,
       recStartTime: 0, recEndTime: 0, recPeaks: [], recLaneId: null
     };
+    globalScope.DAW = DAW;
 
     let undoStack = [], undoIndex = -1, isApplyingHistory = false;
     let activeMidiNotes = new Set(), midiTimeout = null, isRecordingChords = false, currentRecordingClipId = null;
