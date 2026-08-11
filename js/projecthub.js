@@ -17,6 +17,14 @@
   /* ---------- Helpers ---------- */
   const $ = (id) => document.getElementById(id);
 
+  function getCurrentSong() {
+    return window.EdCurAdapter?.getEdCur?.() || null;
+  }
+
+  function getRuntimeDAW() {
+    return window.RuntimeStateAdapter?.getDAW?.() || null;
+  }
+
   function escH(s) {
     const d = document.createElement('div');
     d.textContent = String(s ?? '');
@@ -349,31 +357,33 @@
     // توجه: عنوان ترانه ست نمیشود — قالب فقط ساختار DAW را تنظیم میکند
     const cfg = template.config;
     try {
-      if (edCur) {
-        if (cfg.tempo) edCur.tempo = cfg.tempo;
-        if (cfg.key) edCur.key = cfg.key;
-        if (cfg.keyMode) edCur.keyMode = cfg.keyMode;
-        if (cfg.genre) edCur.genre = cfg.genre;
+      const song = getCurrentSong();
+      const daw = getRuntimeDAW();
+      if (song) {
+        if (cfg.tempo) song.tempo = cfg.tempo;
+        if (cfg.key) song.key = cfg.key;
+        if (cfg.keyMode) song.keyMode = cfg.keyMode;
+        if (cfg.genre) song.genre = cfg.genre;
         // اطمینان از باز بودن ویرایشگر
-        edCur.editorLocked = false;
+        song.editorLocked = false;
       }
 
       // ۴) تنظیم ترک‌های DAW بر اساس قالب
-      if (cfg.tracks && Array.isArray(cfg.tracks) && typeof DAW !== 'undefined') {
-        DAW.tracks = JSON.parse(JSON.stringify(cfg.tracks));
+      if (cfg.tracks && Array.isArray(cfg.tracks) && daw) {
+        daw.tracks = JSON.parse(JSON.stringify(cfg.tracks));
         if (typeof ensureAudioCtx === 'function') ensureAudioCtx();
-        DAW.tracks.forEach(t => {
-          if (t.type === 'audio' && DAW.audioCtx) {
-            t._pannerNode = DAW.audioCtx.createStereoPanner();
-            t._gainNode = DAW.audioCtx.createGain();
+        daw.tracks.forEach(t => {
+          if (t.type === 'audio' && daw.audioCtx) {
+            t._pannerNode = daw.audioCtx.createStereoPanner();
+            t._gainNode = daw.audioCtx.createGain();
             t._pannerNode.connect(t._gainNode);
-            t._gainNode.connect(DAW.masterGain);
+            t._gainNode.connect(daw.masterGain);
           }
         });
       }
 
       // ۵) تنظیم طول تایم‌لاین
-      if (cfg.timelineDuration) DAW.timelineDuration = cfg.timelineDuration;
+      if (cfg.timelineDuration && daw) daw.timelineDuration = cfg.timelineDuration;
 
       // ۶) به‌روزرسانی UI
       if (typeof edSyncToolbar === 'function') edSyncToolbar();
