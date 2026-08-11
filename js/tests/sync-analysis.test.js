@@ -1,5 +1,7 @@
 ﻿// js/tests/sync-analysis.test.js
 (function () {
+  const SyncAnalysis = require('../editor/SyncAnalysis.js');
+
   function assert(cond, msg) {
     if (!cond) throw new Error(msg);
   }
@@ -39,10 +41,6 @@
     assert(!k3.ok, 'key case 3 should fail');
 
     console.log('sync-analysis tests passed');
-  }
-
-  if (typeof SyncAnalysis === 'undefined') {
-    throw new Error('SyncAnalysis is not loaded');
   }
 
   run();

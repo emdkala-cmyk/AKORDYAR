@@ -190,4 +190,8 @@
     detectKeyFromChords
   };
 
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = global.SyncAnalysis;
+  }
+
 })(typeof window !== 'undefined' ? window : globalThis);

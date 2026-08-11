@@ -268,9 +268,11 @@ tests.push(() => {
 // 8. getState() reflects scheduler state
 tests.push(() => {
   const { fakeCtx, service } = setup();
+  const timer = makeFakeTimer();
   const sched = new MetronomeScheduler({
     audioContextService: service,
-    getMeterConfig, isStrongBeat: () => true
+    getMeterConfig, isStrongBeat: () => true,
+    timer: timer.fn
   });
   const s0 = sched.getState();
   assert.strictEqual(s0.running, false);
@@ -284,6 +286,7 @@ tests.push(() => {
   assert.strictEqual(s1.timeSignature, '3/4');
   assert.strictEqual(s1.beatDuration, 0.4); // 60/150
   assert.strictEqual(s1.beatsPerMeasure, 3);
+  sched.stop();
   passCount++;
 });
 
