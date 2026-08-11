@@ -26,8 +26,13 @@
     let _archSearchIndex = null;
 
     function resetPerformanceSerialization() {
-      const perf = window.RuntimeStateAdapter?.getPERF?.();
-      if (perf) perf.lastSerializedState = '';
+      window.ArchiveRuntimeAdapter?.resetPerformanceSerialization?.();
+    }
+
+    function getArchiveDAW() {
+      const daw = window.ArchiveRuntimeAdapter?.getDAW?.();
+      if (!daw) throw new Error('ArchiveRuntimeAdapter: DAW is unavailable');
+      return daw;
     }
 
     // --- Storage (IndexedDB — ظرفیت بالا + کش همگام) ---
@@ -215,14 +220,15 @@
 
     // --- Shared Load Project Data ---
     async function loadProjectData(data, options = {}) {
+      const daw = getArchiveDAW();
       if (!data || typeof data !== 'object') throw new Error('داده پروژه نامعتبر است');
       pauseTransport(); stopAllVoices();
-      DAW.clips = []; DAW.sections = []; DAW.selectedIds.clear(); DAW.selectedSectionIds = new Set();
-      DAW.bufferCache.clear(); DAW.waveCache.clear();
-      DAW.loopEnabled = false; DAW.loopA = 0; DAW.loopB = 10;
+      daw.clips = []; daw.sections = []; daw.selectedIds.clear(); daw.selectedSectionIds = new Set();
+      daw.bufferCache.clear(); daw.waveCache.clear();
+      daw.loopEnabled = false; daw.loopA = 0; daw.loopB = 10;
       isRecordingChords = false; currentRecordingClipId = null;
       edCur = JSON.parse(JSON.stringify(data));
-      window.EdCurAdapter?.setEdCur?.(edCur); // sync legacy reference through the adapter
+      window.ArchiveRuntimeAdapter?.setSong?.(edCur);
       if (!edCur.styles) edCur.styles = {};
       const defaults = { tSize:38,tColor:'#0fa966',tFont:'Vazirmatn',tBold:true,align:'center', cSize:38,cColor:'#e6aa28',cFont:'JetBrains Mono' };
       Object.keys(defaults).forEach(k => { if (edCur.styles[k] === undefined) edCur.styles[k] = defaults[k]; });
@@ -244,9 +250,9 @@
         edCur.baseChordNames = (edCur.chords || []).map(ch => ch.name || '');
       }
       // Tracks
-      if (edCur._dawTracks) { DAW.tracks = JSON.parse(JSON.stringify(edCur._dawTracks)); }
+      if (edCur._dawTracks) { daw.tracks = JSON.parse(JSON.stringify(edCur._dawTracks)); }
       else {
-        DAW.tracks = [
+        daw.tracks = [
           { id:'t0',name:'Chord Line',icon:'♫',type:'chord' },
           { id:'t0s',name:'Section',icon:'🏷',type:'section' },
           { id:'t1',name:'Vocals',icon:'🎤',type:'audio',muted:false,solo:false,vol:0.8,pan:0,transpose:0 },
@@ -256,32 +262,32 @@
           { id:'t5',name:'Drums',icon:'🥁',type:'audio',muted:false,solo:false,vol:0.8,pan:0,transpose:0 }
         ];
       }
-      if (edCur._dawClips) DAW.clips = JSON.parse(JSON.stringify(edCur._dawClips));
-      if (edCur._dawSections) DAW.sections = JSON.parse(JSON.stringify(edCur._dawSections)); else DAW.sections = [];
+      if (edCur._dawClips) daw.clips = JSON.parse(JSON.stringify(edCur._dawClips));
+      if (edCur._dawSections) daw.sections = JSON.parse(JSON.stringify(edCur._dawSections)); else daw.sections = [];
       updateNextIdFromClips();
-      const _oldS = DAW.clips.filter(c => c.type === 'section');
-      if (_oldS.length > 0) { _oldS.forEach(c => { DAW.sections.push({ id:c.id,trackId:c.trackId,label:c.name,start:c.start,duration:c.duration,color:c.color }); }); DAW.clips = DAW.clips.filter(c => c.type !== 'section'); }
-      if (edCur._dawLoop) { DAW.loopEnabled = !!edCur._dawLoop.loopEnabled; DAW.loopA = edCur._dawLoop.loopA||0; DAW.loopB = edCur._dawLoop.loopB||10; }
+      const _oldS = daw.clips.filter(c => c.type === 'section');
+      if (_oldS.length > 0) { _oldS.forEach(c => { daw.sections.push({ id:c.id,trackId:c.trackId,label:c.name,start:c.start,duration:c.duration,color:c.color }); }); daw.clips = daw.clips.filter(c => c.type !== 'section'); }
+      if (edCur._dawLoop) { daw.loopEnabled = !!edCur._dawLoop.loopEnabled; daw.loopA = edCur._dawLoop.loopA||0; daw.loopB = edCur._dawLoop.loopB||10; }
       ensureAudioCtx();
-      DAW.tracks.forEach(t => { if (t.type === 'audio') { if (t.transpose===undefined) t.transpose=0; t._pannerNode=DAW.audioCtx.createStereoPanner(); t._gainNode=DAW.audioCtx.createGain(); t._pannerNode.connect(t._gainNode); t._gainNode.connect(DAW.masterGain); updateTrackMix(t.id); } });
+      daw.tracks.forEach(t => { if (t.type === 'audio') { if (t.transpose===undefined) t.transpose=0; t._pannerNode=daw.audioCtx.createStereoPanner(); t._gainNode=daw.audioCtx.createGain(); t._pannerNode.connect(t._gainNode); t._gainNode.connect(daw.masterGain); updateTrackMix(t.id); } });
       // Audio from IndexedDB (only embedded)
       try {
         await loadAudioBlobsForProject(edCur.id);
-        DAW.clips.forEach(c => { if (c.type!=='chord'&&c.bufferKey&&DAW.bufferCache.has(c.bufferKey)) { const b=DAW.bufferCache.get(c.bufferKey); c.sourceDuration=b.duration; c._peaks=peaksFromBuffer(b,2000); refreshClipWaveImage(c); } });
+        daw.clips.forEach(c => { if (c.type!=='chord'&&c.bufferKey&&daw.bufferCache.has(c.bufferKey)) { const b=daw.bufferCache.get(c.bufferKey); c.sourceDuration=b.duration; c._peaks=peaksFromBuffer(b,2000); refreshClipWaveImage(c); } });
       } catch(e) { console.warn('IndexedDB load error:', e); }
       // Audio from file paths and directory (linked files)
-      const missingAudio = DAW.clips.filter(c => c.type!=='chord'&&c.bufferKey&&!DAW.bufferCache.has(c.bufferKey));
+      const missingAudio = daw.clips.filter(c => c.type!=='chord'&&c.bufferKey&&!daw.bufferCache.has(c.bufferKey));
       if (missingAudio.length > 0 && edCur._audioPaths?.length > 0) {
         // اول از filePath (Electron) لود کن
         if (isElectron && window.electronAPI) {
           for (const ap of edCur._audioPaths) {
             if (!ap.filePath) continue;
-            const clip = DAW.clips.find(c => c.type!=='chord' && c.bufferKey === ap.bufferKey);
-            if (!clip || DAW.bufferCache.has(clip.bufferKey)) continue;
+            const clip = daw.clips.find(c => c.type!=='chord' && c.bufferKey === ap.bufferKey);
+            if (!clip || daw.bufferCache.has(clip.bufferKey)) continue;
             try {
               console.log('[LINK] Loading from path:', ap.filePath);
               const audioBuffer = await loadAudioFromHardDrive(ap.filePath);
-              DAW.bufferCache.set(clip.bufferKey, audioBuffer);
+              daw.bufferCache.set(clip.bufferKey, audioBuffer);
               clip.sourceDuration = audioBuffer.duration;
               clip._peaks = peaksFromBuffer(audioBuffer, 2000);
               clip._filePath = ap.filePath;
@@ -292,7 +298,7 @@
           }
         }
         // لود از FileHandle ذخیره‌شده در IndexedDB
-        const stillAfterPath2 = DAW.clips.filter(c => c.type!=='chord'&&c.bufferKey&&!DAW.bufferCache.has(c.bufferKey));
+        const stillAfterPath2 = daw.clips.filter(c => c.type!=='chord'&&c.bufferKey&&!daw.bufferCache.has(c.bufferKey));
         if (stillAfterPath2.length > 0) {
           for (const clip of stillAfterPath2) {
             try {
@@ -302,7 +308,7 @@
               if (perm !== 'granted') continue;
               const file = await handle.getFile();
               const { buffer } = await decodeFileToBuffer(file);
-              DAW.bufferCache.set(clip.bufferKey, buffer);
+              daw.bufferCache.set(clip.bufferKey, buffer);
               clip.sourceDuration = buffer.duration;
               clip._peaks = peaksFromBuffer(buffer, 2000);
               refreshClipWaveImage(clip);
@@ -311,17 +317,17 @@
           }
         }
         // بعد از پوشه ذخیره‌شده لود کن
-        const stillMissing = DAW.clips.filter(c => c.type!=='chord'&&c.bufferKey&&!DAW.bufferCache.has(c.bufferKey));
+        const stillMissing = daw.clips.filter(c => c.type!=='chord'&&c.bufferKey&&!daw.bufferCache.has(c.bufferKey));
         if (stillMissing.length > 0) {
           let dh = _audioDirHandle;
           if (!dh) { try { await loadDirHandle(); dh = _audioDirHandle; } catch(_){} }
           if (!dh) { try { dh = await window.showDirectoryPicker({mode:'read'}); await saveDirHandle(dh); } catch(_){} }
-          if (dh) { try { const perm = await dh.requestPermission({mode:'read'}); if (perm==='granted') { for (const ap of edCur._audioPaths) { const clip = DAW.clips.find(c=>c.type!=='chord'&&c.bufferKey===ap.bufferKey); if (!clip||DAW.bufferCache.has(clip.bufferKey)) continue; for (const n of [ap.fileName,ap.fileName?ap.fileName.replace(/\.[^.]+$/,''):'']) { if (!n) continue; try { const fh=await dh.getFileHandle(n); const f=await fh.getFile(); const {buffer}=await decodeFileToBuffer(f); DAW.bufferCache.set(clip.bufferKey,buffer); clip.sourceDuration=buffer.duration; clip._peaks=peaksFromBuffer(buffer,2000); refreshClipWaveImage(clip); break; } catch(_){} } } } } catch(_){} }
+          if (dh) { try { const perm = await dh.requestPermission({mode:'read'}); if (perm==='granted') { for (const ap of edCur._audioPaths) { const clip = daw.clips.find(c=>c.type!=='chord'&&c.bufferKey===ap.bufferKey); if (!clip||daw.bufferCache.has(clip.bufferKey)) continue; for (const n of [ap.fileName,ap.fileName?ap.fileName.replace(/\.[^.]+$/,''):'']) { if (!n) continue; try { const fh=await dh.getFileHandle(n); const f=await fh.getFile(); const {buffer}=await decodeFileToBuffer(f); daw.bufferCache.set(clip.bufferKey,buffer); clip.sourceDuration=buffer.duration; clip._peaks=peaksFromBuffer(buffer,2000); refreshClipWaveImage(clip); break; } catch(_){} } } } } catch(_){} }
         }
       }
       undoStack=[]; undoIndex=-1; resetPerformanceSerialization();
       edSyncToolbar(); edRenderEditor(true); renderAll(); saveState();
-      const loopBtn=$('loopToggleBtn'); if (loopBtn) loopBtn.classList.toggle('loop-active',DAW.loopEnabled);
+      const loopBtn=$('loopToggleBtn'); if (loopBtn) loopBtn.classList.toggle('loop-active',daw.loopEnabled);
       initHighlightEffect();
       // === Performance Architecture v2: sync SongDocument ===
       if (typeof rebuildSongDocumentFromEdCur === 'function') rebuildSongDocumentFromEdCur();
@@ -331,16 +337,17 @@
 
     // --- Save To Archive ---
     async function edSaveToArchive() {
+      const daw = getArchiveDAW();
       if (!edCur) return;
       SongMetadata.syncFromDom(edCur);
       edCur.artistKey = archArtistKey(edCur.artist);
-      edCur._dawTracks = DAW.tracks.map(t => ({ id:t.id,name:t.name,icon:t.icon,muted:t.muted,solo:t.solo,vol:t.vol,pan:t.pan,type:t.type,transpose:t.transpose||0 }));
-      edCur._dawClips = DAW.clips.map(c => { const cp={...c}; delete cp._peaks; delete cp.waveUrl; delete cp._fileHandle; delete cp._originalBlob; return cp; });
-      edCur._dawSections = (DAW.sections||[]).map(s=>({...s}));
-      edCur._dawLoop = { loopEnabled:DAW.loopEnabled, loopA:DAW.loopA, loopB:DAW.loopB };
+      edCur._dawTracks = daw.tracks.map(t => ({ id:t.id,name:t.name,icon:t.icon,muted:t.muted,solo:t.solo,vol:t.vol,pan:t.pan,type:t.type,transpose:t.transpose||0 }));
+      edCur._dawClips = daw.clips.map(c => { const cp={...c}; delete cp._peaks; delete cp.waveUrl; delete cp._fileHandle; delete cp._originalBlob; return cp; });
+      edCur._dawSections = (daw.sections||[]).map(s=>({...s}));
+      edCur._dawLoop = { loopEnabled:daw.loopEnabled, loopA:daw.loopA, loopB:daw.loopB };
       if (typeof saveCurrentVersion==='function') saveCurrentVersion();
       edCur._audioPaths = [];
-      for (const clip of DAW.clips) {
+      for (const clip of daw.clips) {
         if (clip.type==='chord'||!clip.name) continue;
         edCur._audioPaths.push({
           bufferKey:clip.bufferKey,
@@ -839,7 +846,7 @@
       copy.updatedAt = new Date().toISOString();
       const songs = edGetAllSongs(); songs.unshift(copy); edSetAllSongs(songs);
       edCur = copy;
-      window.EdCurAdapter?.setEdCur?.(edCur); // sync legacy reference through the adapter
+      window.ArchiveRuntimeAdapter?.setSong?.(edCur);
       toast('نسخه قابل ویرایش ساخته شد');
     }
 
@@ -1668,6 +1675,7 @@ function archUpdateActiveFilters() {
       archResetAutoScroll();
     }
     async function edNewSong() {
+      const daw = getArchiveDAW();
       if (edCur && undoStack.length > 1) {
         if (confirm(t('saveSong') + '?')) await edSaveToArchive();
       }
@@ -1675,26 +1683,26 @@ function archUpdateActiveFilters() {
 stopAllVoices();
 
 edCur = edBlankSong();
-window.EdCurAdapter?.setEdCur?.(edCur); // sync legacy reference through the adapter
+window.ArchiveRuntimeAdapter?.setSong?.(edCur);
 
 undoStack = [];
 undoIndex = -1;
 resetPerformanceSerialization();
 
-DAW.clips = [];
-DAW.sections = [];
-DAW.selectedIds.clear();
-DAW.selectedSectionIds = new Set();
-DAW.bufferCache.clear();
-DAW.waveCache.clear();
-DAW.loopEnabled = false;
-DAW.loopA = 0;
-DAW.loopB = 10;
+daw.clips = [];
+daw.sections = [];
+daw.selectedIds.clear();
+daw.selectedSectionIds = new Set();
+daw.bufferCache.clear();
+daw.waveCache.clear();
+daw.loopEnabled = false;
+daw.loopA = 0;
+daw.loopB = 10;
 isRecordingChords = false;
 currentRecordingClipId = null;
 
 // Reset tracks to defaults
-DAW.tracks = [
+daw.tracks = [
   { id: 't0', name: 'Chord Line', icon: '♫', type: 'chord' },
   { id: 't1', name: 'Vocals', icon: '🎤', type: 'audio', muted: false, solo: false, vol: 0.8, pan: 0, transpose: 0 },
   { id: 't2', name: 'Guitar', icon: '🎸', type: 'audio', muted: false, solo: false, vol: 0.8, pan: 0, transpose: 0 },
@@ -1703,16 +1711,16 @@ DAW.tracks = [
   { id: 't5', name: 'Drums', icon: '🥁', type: 'audio', muted: false, solo: false, vol: 0.8, pan: 0, transpose: 0 }
 ];
 ensureAudioCtx();
-DAW.tracks.forEach(t => {
+daw.tracks.forEach(t => {
   if (t.type === 'audio') {
-    t._pannerNode = DAW.audioCtx.createStereoPanner();
-    t._gainNode = DAW.audioCtx.createGain();
+    t._pannerNode = daw.audioCtx.createStereoPanner();
+    t._gainNode = daw.audioCtx.createGain();
     t._pannerNode.connect(t._gainNode);
-    t._gainNode.connect(DAW.masterGain);
+    t._gainNode.connect(daw.masterGain);
   }
 });
-DAW.timelineDuration = 120;
-DAW.pxPerSecond = 70;
+daw.timelineDuration = 120;
+daw.pxPerSecond = 70;
 
 if ($('edArtist')) $('edArtist').value = '';
 if ($('edTitle')) $('edTitle').value = '';
@@ -1758,26 +1766,27 @@ saveState();
     }
 
     async function edExportProject() {
+      const daw = getArchiveDAW();
       if (!edCur) { toast('ترانه‌ای باز نیست'); return; }
       try {
       SongMetadata.syncFromDom(edCur);
-      edCur._dawTracks = DAW.tracks.map(tr => ({
+      edCur._dawTracks = daw.tracks.map(tr => ({
         id: tr.id, name: tr.name, icon: tr.icon, muted: tr.muted,
         solo: tr.solo, vol: tr.vol, pan: tr.pan, type: tr.type, transpose: tr.transpose || 0, laneHeight: tr.laneHeight || null
       }));
-      edCur._dawClips = DAW.clips.map(c => {
+      edCur._dawClips = daw.clips.map(c => {
         const cp = { ...c }; delete cp._peaks; delete cp.waveUrl; delete cp._fileHandle; delete cp._originalBlob; return cp;
       });
-      edCur._dawSections = (DAW.sections || []).map(s => ({ ...s }));
-      edCur._dawLoop = { loopEnabled: DAW.loopEnabled, loopA: DAW.loopA, loopB: DAW.loopB };
+      edCur._dawSections = (daw.sections || []).map(s => ({ ...s }));
+      edCur._dawLoop = { loopEnabled: daw.loopEnabled, loopA: daw.loopA, loopB: daw.loopB };
 
       // فقط کلیپ‌های کپی‌شده رمزگذاری بشن
       const audioData = {};
-      const audioClips = DAW.clips.filter(c => c.type !== 'chord' && c.bufferKey && c._embedded);
+      const audioClips = daw.clips.filter(c => c.type !== 'chord' && c.bufferKey && c._embedded);
       if (audioClips.length > 0) {
         let idx = 0;
         for (const clip of audioClips) {
-          const buffer = DAW.bufferCache.get(clip.bufferKey);
+          const buffer = daw.bufferCache.get(clip.bufferKey);
           if (!buffer) continue;
           idx++;
           toast(`رمزگذاری صدا ${idx}/${audioClips.length}...`);
@@ -1797,7 +1806,7 @@ saveState();
       }
       edCur._embeddedAudio = audioData;
 
-      const linkedCount = DAW.clips.filter(c => c.type !== 'chord' && c.bufferKey && !c._embedded).length;
+      const linkedCount = daw.clips.filter(c => c.type !== 'chord' && c.bufferKey && !c._embedded).length;
       const defaultName = (edCur.title || 'ترانه جدید') + '.json';
       const data = JSON.stringify(edCur);
       const blob = new Blob([data], { type: 'application/json' });
@@ -1882,6 +1891,7 @@ saveState();
 
     // Import — loads metadata, then asks user to select audio files
     function edImportProject() {
+      const daw = getArchiveDAW();
       const input = $('import-file-input');
       input.value = '';
       input.onchange = async (e) => {
@@ -1896,10 +1906,10 @@ saveState();
             const data = JSON.parse(text);
             if (!data || typeof data !== 'object') throw new Error('Invalid');
             pauseTransport(); stopAllVoices();
-            DAW.clips = []; DAW.sections = []; DAW.selectedIds.clear(); DAW.selectedSectionIds = new Set(); DAW.bufferCache.clear(); DAW.waveCache.clear();
-            DAW.loopEnabled = false; DAW.loopA = 0; DAW.loopB = 10;
+            daw.clips = []; daw.sections = []; daw.selectedIds.clear(); daw.selectedSectionIds = new Set(); daw.bufferCache.clear(); daw.waveCache.clear();
+            daw.loopEnabled = false; daw.loopA = 0; daw.loopB = 10;
             edCur = data;
-            window.EdCurAdapter?.setEdCur?.(edCur); // sync legacy reference through the adapter
+            window.ArchiveRuntimeAdapter?.setSong?.(edCur);
             if (!edCur.styles) edCur.styles = {};
             const defaults = { tSize:38,tColor:'#0fa966',tFont:'Vazirmatn',tBold:true,align:'center', cSize:38,cColor:'#e6aa28',cFont:'JetBrains Mono' };
             Object.keys(defaults).forEach(k => { if (edCur.styles[k] === undefined) edCur.styles[k] = defaults[k]; });
@@ -1916,42 +1926,42 @@ saveState();
               _importParsed = null;
             }
 
-            if (edCur._dawTracks) DAW.tracks = JSON.parse(JSON.stringify(edCur._dawTracks));
-            if (edCur._dawClips) DAW.clips = JSON.parse(JSON.stringify(edCur._dawClips));
-            if (edCur._dawSections) DAW.sections = JSON.parse(JSON.stringify(edCur._dawSections)); else DAW.sections = [];
+            if (edCur._dawTracks) daw.tracks = JSON.parse(JSON.stringify(edCur._dawTracks));
+            if (edCur._dawClips) daw.clips = JSON.parse(JSON.stringify(edCur._dawClips));
+            if (edCur._dawSections) daw.sections = JSON.parse(JSON.stringify(edCur._dawSections)); else daw.sections = [];
             updateNextIdFromClips();
-            // Migrate any old section clips from DAW.clips to DAW.sections
-            const _impOldSections = DAW.clips.filter(c => c.type === 'section');
+            // Migrate any old section clips from daw.clips to daw.sections
+            const _impOldSections = daw.clips.filter(c => c.type === 'section');
             if (_impOldSections.length > 0) {
-              _impOldSections.forEach(c => { DAW.sections.push({ id: c.id, trackId: c.trackId, label: c.name, start: c.start, duration: c.duration, color: c.color }); });
-              DAW.clips = DAW.clips.filter(c => c.type !== 'section');
+              _impOldSections.forEach(c => { daw.sections.push({ id: c.id, trackId: c.trackId, label: c.name, start: c.start, duration: c.duration, color: c.color }); });
+              daw.clips = daw.clips.filter(c => c.type !== 'section');
             }
-            if (edCur._dawLoop) { DAW.loopEnabled = !!edCur._dawLoop.loopEnabled; DAW.loopA = edCur._dawLoop.loopA||0; DAW.loopB = edCur._dawLoop.loopB||10; }
+            if (edCur._dawLoop) { daw.loopEnabled = !!edCur._dawLoop.loopEnabled; daw.loopA = edCur._dawLoop.loopA||0; daw.loopB = edCur._dawLoop.loopB||10; }
             ensureAudioCtx();
-            DAW.tracks.forEach(tr => {
+            daw.tracks.forEach(tr => {
               if (tr.type === 'audio') {
                 if (tr.transpose === undefined) tr.transpose = 0;
-                tr._pannerNode = DAW.audioCtx.createStereoPanner(); tr._gainNode = DAW.audioCtx.createGain();
-                tr._pannerNode.connect(tr._gainNode); tr._gainNode.connect(DAW.masterGain); updateTrackMix(tr.id);
+                tr._pannerNode = daw.audioCtx.createStereoPanner(); tr._gainNode = daw.audioCtx.createGain();
+                tr._pannerNode.connect(tr._gainNode); tr._gainNode.connect(daw.masterGain); updateTrackMix(tr.id);
               }
             });
             undoStack = []; undoIndex = -1; resetPerformanceSerialization();
             edSyncToolbar(); edRenderEditor(true);
             initHighlightEffect();
             const loopBtn = $('loopToggleBtn');
-            if (loopBtn) loopBtn.classList.toggle('loop-active', DAW.loopEnabled);
+            if (loopBtn) loopBtn.classList.toggle('loop-active', daw.loopEnabled);
 
             // First: try loading audio from IndexedDB (same browser/session)
-            const audioClips = DAW.clips.filter(c => c.type !== 'chord');
+            const audioClips = daw.clips.filter(c => c.type !== 'chord');
             if (audioClips.length > 0) {
               try {
                 await loadAudioBlobsForProject(edCur.id);
               } catch(e) {}
 
               // Re-create waveforms for clips that have buffers
-              DAW.clips.forEach(c => {
-                if (c.type !== 'chord' && c.bufferKey && DAW.bufferCache.has(c.bufferKey)) {
-                  const buffer = DAW.bufferCache.get(c.bufferKey);
+              daw.clips.forEach(c => {
+                if (c.type !== 'chord' && c.bufferKey && daw.bufferCache.has(c.bufferKey)) {
+                  const buffer = daw.bufferCache.get(c.bufferKey);
                   c.sourceDuration = buffer.duration;
                   c._peaks = peaksFromBuffer(buffer, 2000);
                   refreshClipWaveImage(c);
@@ -1959,7 +1969,7 @@ saveState();
               });
 
               // Second: restore from embedded audio in backup file
-              const stillMissing = audioClips.filter(c => c.bufferKey && !DAW.bufferCache.has(c.bufferKey));
+              const stillMissing = audioClips.filter(c => c.bufferKey && !daw.bufferCache.has(c.bufferKey));
               if (stillMissing.length > 0 && edCur._embeddedAudio && Object.keys(edCur._embeddedAudio).length > 0) {
                 ensureAudioCtx();
                 let restored = 0;
@@ -1973,7 +1983,7 @@ saveState();
                       buf = await decodeWebMToBuffer(audioData);
                     } else if (embedded.format === 'float32-b64') {
                       const numCh = embedded.channels || 1;
-                      buf = DAW.audioCtx.createBuffer(numCh, embedded.length, embedded.sampleRate);
+                      buf = daw.audioCtx.createBuffer(numCh, embedded.length, embedded.sampleRate);
                       for (let i = 0; i < numCh; i++) {
                         const chBytes = base64ToUint8(embedded.data[i]);
                         buf.getChannelData(i).set(new Float32Array(chBytes.buffer));
@@ -1986,11 +1996,11 @@ saveState();
                       for (let j = 0; j < int16.length; j++) float32[j] = int16[j] < 0 ? int16[j] / 0x8000 : int16[j] / 0x7FFF;
                       const upsampled = resampleFloat32(float32, embedded.sampleRate, embedded.originalSampleRate || embedded.sampleRate);
                       const ch = embedded.originalChannels || 1;
-                      buf = DAW.audioCtx.createBuffer(ch, upsampled.length, embedded.originalSampleRate || embedded.sampleRate);
+                      buf = daw.audioCtx.createBuffer(ch, upsampled.length, embedded.originalSampleRate || embedded.sampleRate);
                       for (let c = 0; c < ch; c++) buf.getChannelData(c).set(upsampled);
                     } else if (embedded.format === 'int16b64') {
                       const channels = Array.isArray(embedded.data) ? embedded.data : [embedded.data];
-                      buf = DAW.audioCtx.createBuffer(channels.length, embedded.length, embedded.sampleRate);
+                      buf = daw.audioCtx.createBuffer(channels.length, embedded.length, embedded.sampleRate);
                       channels.forEach((chB64, i) => {
                         if (i < buf.numberOfChannels) {
                           const bytes = base64ToUint8(chB64);
@@ -2002,10 +2012,10 @@ saveState();
                       });
                     } else {
                       const chData = Array.isArray(embedded.data) ? embedded.data : [embedded.data];
-                      buf = DAW.audioCtx.createBuffer(chData.length, embedded.length, embedded.sampleRate);
+                      buf = daw.audioCtx.createBuffer(chData.length, embedded.length, embedded.sampleRate);
                       chData.forEach((ch, i) => { if (i < buf.numberOfChannels && ch) buf.getChannelData(i).set(new Float32Array(ch)); });
                     }
-                    DAW.bufferCache.set(clip.bufferKey, buf);
+                    daw.bufferCache.set(clip.bufferKey, buf);
                     clip.sourceDuration = buf.duration;
                     clip._peaks = peaksFromBuffer(buf, 2000);
                     refreshClipWaveImage(clip);
@@ -2017,18 +2027,18 @@ saveState();
               }
 
               // Third: if still missing, try loading from file paths then directory
-              const stillMissing2 = audioClips.filter(c => c.bufferKey && !DAW.bufferCache.has(c.bufferKey));
+              const stillMissing2 = audioClips.filter(c => c.bufferKey && !daw.bufferCache.has(c.bufferKey));
               if (stillMissing2.length > 0 && edCur._audioPaths && edCur._audioPaths.length > 0) {
                 // اول از filePath (Electron) لود کن
                 if (isElectron && window.electronAPI) {
                   for (const ap of edCur._audioPaths) {
                     if (!ap.filePath) continue;
-                    const clip = DAW.clips.find(c => c.type !== 'chord' && c.bufferKey === ap.bufferKey);
-                    if (!clip || DAW.bufferCache.has(clip.bufferKey)) continue;
+                    const clip = daw.clips.find(c => c.type !== 'chord' && c.bufferKey === ap.bufferKey);
+                    if (!clip || daw.bufferCache.has(clip.bufferKey)) continue;
                     try {
                       console.log('[LINK] Import: Loading from path:', ap.filePath);
                       const audioBuffer = await loadAudioFromHardDrive(ap.filePath);
-                      DAW.bufferCache.set(clip.bufferKey, audioBuffer);
+                      daw.bufferCache.set(clip.bufferKey, audioBuffer);
                       clip.sourceDuration = audioBuffer.duration;
                       clip._peaks = peaksFromBuffer(audioBuffer, 2000);
                       clip._filePath = ap.filePath;
@@ -2039,7 +2049,7 @@ saveState();
                   }
                 }
                 // لود از FileHandle ذخیره‌شده در IndexedDB
-                const stillAfterPath3 = audioClips.filter(c => c.bufferKey && !DAW.bufferCache.has(c.bufferKey));
+                const stillAfterPath3 = audioClips.filter(c => c.bufferKey && !daw.bufferCache.has(c.bufferKey));
                 if (stillAfterPath3.length > 0) {
                   for (const clip of stillAfterPath3) {
                     try {
@@ -2049,7 +2059,7 @@ saveState();
                       if (perm !== 'granted') continue;
                       const file = await handle.getFile();
                       const { buffer } = await decodeFileToBuffer(file);
-                      DAW.bufferCache.set(clip.bufferKey, buffer);
+                      daw.bufferCache.set(clip.bufferKey, buffer);
                       clip.sourceDuration = buffer.duration;
                       clip._peaks = peaksFromBuffer(buffer, 2000);
                       refreshClipWaveImage(clip);
@@ -2058,7 +2068,7 @@ saveState();
                   }
                 }
                 // بعد از پوشه لود کن
-                const stillMissing3 = audioClips.filter(c => c.bufferKey && !DAW.bufferCache.has(c.bufferKey));
+                const stillMissing3 = audioClips.filter(c => c.bufferKey && !daw.bufferCache.has(c.bufferKey));
                 if (stillMissing3.length > 0) {
                   let dirHandle = _audioDirHandle;
                   if (!dirHandle) { try { await loadDirHandle(); dirHandle = _audioDirHandle; } catch(_){} }
@@ -2073,8 +2083,8 @@ saveState();
                     if (perm === 'granted') {
                       const notFound = [];
                       for (const ap of edCur._audioPaths) {
-                        const clip = DAW.clips.find(c => c.type !== 'chord' && c.bufferKey === ap.bufferKey);
-                        if (!clip || DAW.bufferCache.has(clip.bufferKey)) continue;
+                        const clip = daw.clips.find(c => c.type !== 'chord' && c.bufferKey === ap.bufferKey);
+                        if (!clip || daw.bufferCache.has(clip.bufferKey)) continue;
                         const candidates = [ap.fileName, ap.fileName ? ap.fileName.replace(/\.[^.]+$/, '') : ''];
                         let loaded = false;
                         for (const name of candidates) {
@@ -2083,7 +2093,7 @@ saveState();
                             const fileHandle = await dirHandle.getFileHandle(name);
                             const file = await fileHandle.getFile();
                             const { buffer } = await decodeFileToBuffer(file);
-                            DAW.bufferCache.set(clip.bufferKey, buffer);
+                            daw.bufferCache.set(clip.bufferKey, buffer);
                             clip.sourceDuration = buffer.duration;
                             clip._peaks = peaksFromBuffer(buffer, 2000);
                             refreshClipWaveImage(clip);
@@ -2103,9 +2113,9 @@ saveState();
             }
 
             // Re-create waveforms for all clips that have buffers
-            DAW.clips.forEach(c => {
-              if (c.type !== 'chord' && c.bufferKey && DAW.bufferCache.has(c.bufferKey) && !c._peaks) {
-                const buffer = DAW.bufferCache.get(c.bufferKey);
+            daw.clips.forEach(c => {
+              if (c.type !== 'chord' && c.bufferKey && daw.bufferCache.has(c.bufferKey) && !c._peaks) {
+                const buffer = daw.bufferCache.get(c.bufferKey);
                 c.sourceDuration = buffer.duration;
                 c._peaks = peaksFromBuffer(buffer, 2000);
                 refreshClipWaveImage(c);
@@ -2176,7 +2186,7 @@ saveState();
             const file = await fileHandle.getFile();
             const { buffer } = await decodeFileToBuffer(file);
             const bufKey = 'dir_' + name;
-            DAW.bufferCache.set(bufKey, buffer);
+            getArchiveDAW().bufferCache.set(bufKey, buffer);
             clip.bufferKey = bufKey;
             clip.sourceDuration = buffer.duration;
             clip._peaks = peaksFromBuffer(buffer, 2000);

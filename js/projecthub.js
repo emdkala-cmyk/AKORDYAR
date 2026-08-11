@@ -18,11 +18,11 @@
   const $ = (id) => document.getElementById(id);
 
   function getCurrentSong() {
-    return window.EdCurAdapter?.getEdCur?.() || null;
+    return window.ArchiveRuntimeAdapter?.getSong?.() || null;
   }
 
   function getRuntimeDAW() {
-    return window.RuntimeStateAdapter?.getDAW?.() || null;
+    return window.ArchiveRuntimeAdapter?.getDAW?.() || null;
   }
 
   function escH(s) {
