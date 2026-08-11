@@ -344,6 +344,15 @@ globalScope.DAW = {
     let snapEnabled = true;
     let snapValue = 0.25; // seconds (default: 1/4 beat)
 
+    /**
+     * getTimeSignatureGridConfig - تبدیل Time Signature به مشخصات گرید
+     * @param {string} timeSignature - رشته Time Signature مثل '4/4', '3/4', '6/8'
+     * @returns {object} شامل numerator, denominator, beatUnit, beatsPerMeasure, subdivisionsPerBeat, unitsPerMeasure, measureDuration, beatDuration
+     */
+    function getTimeSignatureGridConfig(timeSignature, bpm) {
+      return TimelineGrid.getTimeSignatureGridConfig(timeSignature, bpm || 120);
+    }
+
     function toggleSnap() {
       snapEnabled = !snapEnabled;
       $('snapBtn').classList.toggle('active', snapEnabled);
@@ -352,11 +361,7 @@ globalScope.DAW = {
 
     function snapTime(time) {
       if (!snapEnabled) return time;
-      const bpm = edCur?.tempo || 120;
-      const sig = edCur?.timeSignature || '4/4';
-      const beatsPerBar = parseInt(sig.split('/')[0]);
-      const beatDur = 60 / bpm;
-      // Snap to nearest grid point
+      // Snap to nearest grid point using snapValue set by applyQuantize
       return Math.round(time / snapValue) * snapValue;
     }
 
@@ -367,15 +372,18 @@ globalScope.DAW = {
 
     function applyQuantize(preset) {
       const bpm = edCur?.tempo || 120;
-      const beatDur = 60 / bpm;
+      const sig = edCur?.timeSignature || '4/4';
+      const config = getTimeSignatureGridConfig(sig, bpm);
+      const beatDur = config.beatDuration; // مدت واحد مخرج (سیاه در x/4، چنگ در x/8)
+      const barDur = config.measureDuration; // مدت زمان یک میزان بر اساس Time Signature فعال
 
       switch(preset) {
-        case '1/1': snapValue = beatDur * 4; break; // 1 bar
-        case '1/2': snapValue = beatDur * 2; break; // half bar
-        case '1/4': snapValue = beatDur; break;     // 1 beat
-        case '1/8': snapValue = beatDur / 2; break; // half beat
-        case '1/16': snapValue = beatDur / 4; break; // quarter beat
-        case '1/32': snapValue = beatDur / 8; break; // 1/8 beat
+        case '1/1': snapValue = barDur; break;           // 1 bar (بر اساس Time Signature فعال)
+        case '1/2': snapValue = barDur / 2; break;       // half bar
+        case '1/4': snapValue = beatDur; break;          // 1 beat
+        case '1/8': snapValue = beatDur / 2; break;      // half beat
+        case '1/16': snapValue = beatDur / 4; break;     // quarter beat
+        case '1/32': snapValue = beatDur / 8; break;     // 1/8 beat
         case 'triplet': snapValue = beatDur / 3; break;
         case 'dotted': snapValue = beatDur * 1.5; break;
         default: snapValue = beatDur;
@@ -420,9 +428,10 @@ globalScope.DAW = {
 
       const bpm = edCur?.tempo || 120;
       const sig = edCur?.timeSignature || '4/4';
-      const beatsPerBar = parseInt(sig.split('/')[0]);
-      const beatDur = 60 / bpm;
-      const barDur = beatDur * beatsPerBar;
+      const config = getTimeSignatureGridConfig(sig, bpm);
+      const beatsPerBar = config.beatsPerMeasure;
+      const beatDur = config.beatDuration; // مدت واحد مخرج (سیاه در x/4، چنگ در x/8)
+      const barDur = config.measureDuration;
 
       // محاسبه گام گرید بر اساس پریست فعلی
       // snapValue در applyQuantize تنظیم می‌شود (مثلاً 1/1 = barDur، 1/2 = barDur/2، 1/4 = beatDur)
@@ -460,19 +469,60 @@ globalScope.DAW = {
       stopMetronome();
       // مترونوم با پلی هد سینک میشه - نیازی به setTimeout جداگانه نیست
       // ضرب از حلقه tick اصلی پخش میشه
-      metroBeat = Math.floor(DAW.playhead / (60 / (parseInt($('edTempo')?.value) || 120)));
+      const _mbpm = parseInt($('edTempo')?.value) || 120;
+      const _msig = $('edTimeSig')?.value || '4/4';
+      const _mcfg = getTimeSignatureGridConfig(_msig, _mbpm);
+      metroBeat = -1; // force first tick to always click
     }
     function stopMetronome() { metroTimer = null; metroBeat = 0; }
     function playClick(isAccent) {
       ensureAudioCtx();
-      const osc = DAW.audioCtx.createOscillator();
-      const gain = DAW.audioCtx.createGain();
-      osc.connect(gain); gain.connect(DAW.audioCtx.destination);
-      osc.frequency.value = isAccent ? 1000 : 600;
-      osc.type = 'square';
-      gain.gain.setValueAtTime(isAccent ? 0.3 : 0.15, DAW.audioCtx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, DAW.audioCtx.currentTime + 0.05);
-      osc.start(); osc.stop(DAW.audioCtx.currentTime + 0.05);
+      const ctx = DAW.audioCtx;
+      const t = ctx.currentTime;
+      const type = APP_SETTINGS.metroSound || 'classic';
+      const vol = isAccent ? 0.35 : 0.2;
+
+      if (type === 'wood') {
+        // Woodblock — short percussive knock (noise burst + resonance)
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine'; osc.frequency.value = isAccent ? 800 : 600;
+        gain.gain.setValueAtTime(vol * 0.6, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.03);
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.start(t); osc.stop(t + 0.03);
+      } else if (type === 'beep') {
+        // Electronic beep — sine wave ping
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine'; osc.frequency.value = isAccent ? 1200 : 900;
+        gain.gain.setValueAtTime(vol, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.start(t); osc.stop(t + 0.08);
+      } else if (type === 'click') {
+        // Soft click — very short noise burst
+        const buf = ctx.createBuffer(1, ctx.sampleRate * 0.015, ctx.sampleRate);
+        const data = buf.getChannelData(0);
+        for (let i = 0; i < data.length; i++) {
+          data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (ctx.sampleRate * 0.003));
+        }
+        const src = ctx.createBufferSource();
+        const gain = ctx.createGain();
+        src.buffer = buf;
+        gain.gain.setValueAtTime(isAccent ? vol : vol * 0.6, t);
+        src.connect(gain); gain.connect(ctx.destination);
+        src.start(t);
+      } else {
+        // Classic (default) — sharp square wave tick
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'square'; osc.frequency.value = isAccent ? 1000 : 600;
+        gain.gain.setValueAtTime(vol, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.start(t); osc.stop(t + 0.05);
+      }
     }
 
     // تابع کمکی برای چک کردن ضرب در حلقه پخش
@@ -480,11 +530,25 @@ globalScope.DAW = {
       if (!metroActive || !DAW.isPlaying) return;
       const bpm = parseInt($('edTempo')?.value) || 120;
       const sig = $('edTimeSig')?.value || '4/4';
-      const beatsPerBar = parseInt(sig.split('/')[0]);
-      const beatDur = 60 / bpm;
+      const config = getTimeSignatureGridConfig(sig, bpm);
+      const beatsPerBar = config.beatsPerMeasure;
+      const beatDur = config.beatDuration;
       const currentBeat = Math.floor(playheadTime / beatDur);
+
+      // [DEBUG] Metronome timing verification (log once per sig/bpm change)
+      if (!checkMetronomeTick._lastLog || checkMetronomeTick._lastLog.sig !== sig || checkMetronomeTick._lastLog.bpm !== bpm) {
+        console.log('[METRONOME TIMING]', {
+          sig, bpm,
+          numerator: config.numerator,
+          denominator: config.denominator,
+          beatDuration: config.beatDuration,
+          measureDuration: config.measureDuration
+        });
+        checkMetronomeTick._lastLog = { sig, bpm };
+      }
+
       if (currentBeat !== metroBeat) {
-        playClick(currentBeat % beatsPerBar === 0);
+        playClick(window.Meter.isStrongBeat(currentBeat % beatsPerBar, sig));
         metroBeat = currentBeat;
       }
     }
@@ -1478,178 +1542,39 @@ function undo() {
     function timeToBarBeat(seconds) {
       const bpm = edCur?.tempo || 120;
       const sig = edCur?.timeSignature || '4/4';
-      const beatsPerBar = parseInt(sig.split('/')[0]);
-      const beatDur = 60 / bpm; // seconds per beat
-      const barDur = beatDur * beatsPerBar; // seconds per bar
-      const totalBeats = Math.floor(seconds / beatDur);
-      const bar = Math.floor(totalBeats / beatsPerBar) + 1;
-      const beat = (totalBeats % beatsPerBar) + 1;
-      return { bar, beat, beatDur, barDur, beatsPerBar };
+      return window.Meter.timeToBarBeat(seconds, sig, bpm);
     }
 
     function barBeatToTime(bar, beat) {
       const bpm = edCur?.tempo || 120;
       const sig = edCur?.timeSignature || '4/4';
-      const beatsPerBar = parseInt(sig.split('/')[0]);
-      const beatDur = 60 / bpm;
-      return ((bar - 1) * beatsPerBar + (beat - 1)) * beatDur;
+      return window.Meter.barBeatToTime(bar, beat, sig, bpm);
     }
 
     function drawLaneGrid(canvas) {
-      const total = getProjectEnd();
-      const w = Math.min(Math.ceil(timeToX(total)), 20000); // محدودیت عرض
-      // Read height from parent lane's --lane-h (per-lane) or fall back to global
-      const parentLane = canvas.closest('.track-lane');
-      const h = (parentLane ? parseInt(getComputedStyle(parentLane).getPropertyValue('--lane-h')) : null) || parseInt(getComputedStyle(document.documentElement).getPropertyValue('--lane-h')) || 64;
-      canvas.width = w; canvas.height = h; canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
-      const ctx = canvas.getContext('2d'); ctx.clearRect(0, 0, w, h);
-      const bpm = edCur?.tempo || 120;
-      const sig = edCur?.timeSignature || '4/4';
-      const beatsPerBar = parseInt(sig.split('/')[0]);
-      const beatDur = 60 / bpm;
-      const barDur = beatDur * beatsPerBar;
-      const pxPerSec = DAW.pxPerSecond;
-
-      // محدود کردن تعداد خطوط برای جلوگیری از سفید شدن
-      const maxLines = 500;
-
-      // Draw bar lines (strong)
-      ctx.strokeStyle = 'rgba(255,255,255,0.12)';
-      ctx.lineWidth = 1;
-      let barCount = 0;
-      for (let bar = 1; bar * barDur <= total && barCount < maxLines; bar++) {
-        const x = Math.round(timeToX(bar * barDur)) + 0.5;
-        if (x > w) break;
-        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
-        barCount++;
-      }
-
-      // Draw beat lines (thin) - only when zoomed in enough
-      if (pxPerSec > 10) {
-        ctx.strokeStyle = 'rgba(255,255,255,0.04)';
-        ctx.lineWidth = 1;
-        let beatCount = 0;
-        for (let beat = 0; beat * beatDur <= total && beatCount < maxLines; beat++) {
-          if (beat % beatsPerBar === 0) continue;
-          const x = Math.round(timeToX(beat * beatDur)) + 0.5;
-          if (x > w) break;
-          ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
-          beatCount++;
-        }
-      }
-
-      // Draw sub-beat lines only when zoomed in enough
-      if (pxPerSec > 40) {
-        const subBeatDur = beatDur / 4;
-        ctx.strokeStyle = 'rgba(255,255,255,0.02)';
-        let subCount = 0;
-        for (let sub = 0; sub * subBeatDur <= total && subCount < maxLines; sub++) {
-          if (sub % 4 === 0) continue;
-          const x = Math.round(timeToX(sub * subBeatDur)) + 0.5;
-          if (x > w) break;
-          ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
-          subCount++;
-        }
-      }
+      TimelineGrid.drawLaneGrid(canvas, {
+        total: getProjectEnd(),
+        timeToX: timeToX,
+        tempo: edCur?.tempo,
+        timeSignature: edCur?.timeSignature,
+        pxPerSec: DAW.pxPerSecond
+      });
     }
 
     function renderRuler() {
       const total = getProjectEnd();
-      DAW.timelineDuration = total;
-      const width = Math.ceil(timeToX(total));
-      $('tl-inner').style.width = width + 'px';
-      $('lanes-container').style.width = width + 'px';
-      $('timeline-ruler').style.width = width + 'px';
-
-      // حذف کانواس‌های قبلی
-      $('timeline-ruler').querySelectorAll('canvas').forEach(c => c.remove());
-
-      const labels = $('ruler-labels');
-      labels.innerHTML = '';
-
-      const bpm = edCur?.tempo || 120;
-      const sig = edCur?.timeSignature || '4/4';
-      const beatsPerBar = parseInt(sig.split('/')[0]);
-      const beatDur = 60 / bpm;
-      const barDur = beatDur * beatsPerBar;
-      const pxPerSec = DAW.pxPerSecond;
-
-      // محاسبه اینکه هر چند میزان شماره نشون بده (بر اساس زوم)
-      const pxPerBar = barDur * pxPerSec;
-      let barStep;
-      if (pxPerBar > 120) barStep = 1;       // زیاد زوم: هر میزان
-      else if (pxPerBar > 60) barStep = 2;    // زوم متوسط: هر ۲ میزان
-      else if (pxPerBar > 30) barStep = 4;    // زوم کم: هر ۴ میزان
-      else if (pxPerBar > 15) barStep = 8;    // زوم خیلی کم: هر ۸ میزان
-      else if (pxPerBar > 8) barStep = 16;    // زوم خیلی خیلی کم: هر ۱۶ میزان
-      else barStep = 32;                       // زوم اوت زیاد: هر ۳۲ میزان
-
-      // کانواس tick های رولر
-      const rulerCanvas = document.createElement('canvas');
-      rulerCanvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;';
-      $('timeline-ruler').appendChild(rulerCanvas);
-      const cappedWidth = Math.min(width, 20000);
-      rulerCanvas.width = cappedWidth;
-      rulerCanvas.height = 32;
-      const rctx = rulerCanvas.getContext('2d');
-      rctx.clearRect(0, 0, cappedWidth, 32);
-
-      const showBeats = pxPerSec > 15;
-      const showSubBeats = pxPerSec > 50;
-
-      for (let bar = 1; bar * barDur <= total; bar++) {
-        const x = timeToX((bar - 1) * barDur);
-
-        // شماره میزان (فقط هر barStep میزان)
-        if ((bar - 1) % barStep === 0) {
-          const span = document.createElement('span');
-          span.className = 'ruler-tick-label major';
-          span.style.left = x + 'px';
-          span.textContent = bar;
-          labels.appendChild(span);
-        }
-
-        // خط میزان روی رولر (کم‌رنگ‌تر)
-        rctx.strokeStyle = 'rgba(74, 85, 104, 0.4)';
-        rctx.lineWidth = 1;
-        rctx.beginPath(); rctx.moveTo(x + 0.5, 22); rctx.lineTo(x + 0.5, 32); rctx.stroke();
-
-        // خط میزان روی lanes (خیلی کم‌رنگ)
-        // این توسط drawLaneGrid رسم میشه
-
-        // خطوط ضرب
-        if (showBeats) {
-          for (let beat = 1; beat < beatsPerBar; beat++) {
-            const bx = x + beat * beatDur * pxPerSec;
-            if (bx > cappedWidth) break;
-            rctx.strokeStyle = 'rgba(55, 65, 81, 0.3)';
-            rctx.lineWidth = 1;
-            rctx.beginPath(); rctx.moveTo(bx + 0.5, 26); rctx.lineTo(bx + 0.5, 32); rctx.stroke();
-
-            // شماره ضرب (فقط وقتی فضا کافی باشه)
-            if (pxPerBar > 40 && beatsPerBar <= 8) {
-              const bspan = document.createElement('span');
-              bspan.className = 'ruler-tick-label';
-              bspan.style.left = bx + 'px';
-              bspan.style.fontSize = '8px';
-              bspan.style.color = '#4B5563';
-              bspan.textContent = beat + 1;
-              labels.appendChild(bspan);
-            }
-          }
-        }
-
-        // ساب‌بیت (زوم خیلی زیاد)
-        if (showSubBeats) {
-          for (let sub = 1; sub < 4; sub++) {
-            const sx = x + sub * (beatDur / 4) * pxPerSec;
-            if (sx > cappedWidth) break;
-            rctx.strokeStyle = 'rgba(45, 55, 72, 0.25)';
-            rctx.lineWidth = 1;
-            rctx.beginPath(); rctx.moveTo(sx + 0.5, 28); rctx.lineTo(sx + 0.5, 32); rctx.stroke();
-          }
-        }
-      }
+      TimelineGrid.renderRuler({
+        total: total,
+        timeToX: timeToX,
+        tempo: edCur?.tempo,
+        timeSignature: edCur?.timeSignature,
+        pxPerSec: DAW.pxPerSecond,
+        rulerEl: $('timeline-ruler'),
+        labelsEl: $('ruler-labels'),
+        tlInnerEl: $('tl-inner'),
+        lanesEl: $('lanes-container'),
+        onDurationChange: function(t) { DAW.timelineDuration = t; }
+      });
     }
 
     function renderClips() {
@@ -1816,6 +1741,18 @@ function undo() {
       else if ($('live-chord')) $('live-chord').textContent = 'None';
     }
 
+    function autoScrollToPlayhead() {
+      const scroll = $('tl-scroll');
+      if (!scroll) return;
+      const x = timeToX(DAW.playhead);
+      const margin = 80;
+      if (x < scroll.scrollLeft + margin) {
+        scroll.scrollLeft = Math.max(0, x - margin);
+      } else if (x > scroll.scrollLeft + scroll.clientWidth - margin) {
+        scroll.scrollLeft = Math.max(0, x - scroll.clientWidth + margin);
+      }
+    }
+
     function updateHud() { $('clip-count').textContent = String(DAW.clips.length + (DAW.sections || []).length); }
 
     // ===== ICON PICKER =====
@@ -1838,6 +1775,7 @@ function undo() {
       '♫': '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>',
       '🏷': '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>',
     };
+    if (typeof IconRegistry !== 'undefined') { Object.assign(ICON_SVG_MAP, IconRegistry.getAll()); }
     function getIconSvg(icon) { return ICON_SVG_MAP[icon] || icon; }
 
     const INSTRUMENT_ICONS = ['🎤','🎸','🎹','🎺','🎻','🥁','🎷','🎵','🎶','🎼','🎙️','🎧','📡','🎛️','⏺','♫','🏷'];
@@ -2360,8 +2298,8 @@ sels.forEach(c => {
     }
 
     function seekTransport(t, keepPlaying = true, noSnap = false) {
-      DAW.playhead = clamp(roundMs(noSnap ? t : snapTime(t)), 0, getProjectEnd());
-      if (DAW.isPlaying) { DAW.playOriginPerf = performance.now(); DAW.playOriginTime = DAW.playhead; }
+      DAW.playhead = PlayheadMath.clamp(roundMs(noSnap ? t : snapTime(t)), getProjectEnd());
+      if (DAW.isPlaying) { var _ori = PlayheadMath.createOrigin(performance.now(), DAW.playhead); DAW.playOriginPerf = _ori.playOriginPerf; DAW.playOriginTime = _ori.playOriginTime; }
       updatePlayheadUI(); if (DAW.isPlaying && !DAW.isScrubbing) scheduleAllFromPlayhead(); else stopAllVoices();
     }
 
@@ -2397,7 +2335,7 @@ sels.forEach(c => {
 
     function startTransport() {
       ensureAudioCtx();
-      DAW.isPlaying = true; DAW.isScrubbing = false; DAW.playOriginPerf = performance.now(); DAW.playOriginTime = DAW.playhead;
+      DAW.isPlaying = true; DAW.isScrubbing = false; var _ori = PlayheadMath.createOrigin(performance.now(), DAW.playhead); DAW.playOriginPerf = _ori.playOriginPerf; DAW.playOriginTime = _ori.playOriginTime;
       $('play-btn').style.color = 'var(--accent-neon-pink)'; scheduleAllFromPlayhead();
 
       // Update perf play button
@@ -2408,14 +2346,15 @@ sels.forEach(c => {
 
       const tick = () => {
         if (!DAW.isPlaying) return;
-        if (!DAW.isScrubbing) DAW.playhead = DAW.playOriginTime + (performance.now() - DAW.playOriginPerf) / 1000;
+        if (!DAW.isScrubbing) DAW.playhead = PlayheadMath.getElapsed(performance.now(), DAW.playOriginPerf, DAW.playOriginTime);
 
-        // Loop A-B: if playhead reaches B, jump back to A
+        // Loop A-B: if playhead reaches B, jump back to A (math delegated to PlayheadMath)
         if (DAW.loopEnabled && !DAW.isRecording && DAW.playhead >= DAW.loopB) {
-          const overshoot = DAW.playhead - DAW.loopB;
-          DAW.playhead = DAW.loopA + overshoot;
-          DAW.playOriginPerf = performance.now();
-          DAW.playOriginTime = DAW.playhead;
+          var looped = PlayheadMath.applyLoop(DAW.playhead, DAW.loopEnabled, DAW.loopA, DAW.loopB);
+          DAW.playhead = looped.playhead;
+          var ori = PlayheadMath.createOrigin(performance.now(), DAW.playhead);
+          DAW.playOriginPerf = ori.playOriginPerf;
+          DAW.playOriginTime = ori.playOriginTime;
           scheduleAllFromPlayhead();
         }
 
@@ -2527,15 +2466,16 @@ sels.forEach(c => {
       if (countInBars > 0 && metroActive) {
         const bpm = parseInt($('edTempo')?.value) || 120;
         const sig = $('edTimeSig')?.value || '4/4';
-        const beatsPerBar = parseInt(sig.split('/')[0]);
-        const beatDur = 60 / bpm;
+        const config = getTimeSignatureGridConfig(sig, bpm);
+        const beatsPerBar = config.beatsPerMeasure;
+        const beatDur = config.beatDuration;
         let countBeat = 0;
         const totalBeats = countInBars * beatsPerBar;
         $('play-btn').style.color = 'var(--accent-cyan-glow)';
         toast('🔢 شمارش: ' + countInBars + ' میزان');
         const countInTick = () => {
           if (countBeat >= totalBeats) {
-            DAW.isPlaying = true; DAW.isScrubbing = false; DAW.playOriginPerf = performance.now(); DAW.playOriginTime = DAW.playhead;
+            DAW.isPlaying = true; DAW.isScrubbing = false; var _ori = PlayheadMath.createOrigin(performance.now(), DAW.playhead); DAW.playOriginPerf = _ori.playOriginPerf; DAW.playOriginTime = _ori.playOriginTime;
             $('play-btn').style.color = 'var(--accent-neon-pink)'; scheduleAllFromPlayhead();
             if (DAW.rafId) cancelAnimationFrame(DAW.rafId); DAW.rafId = requestAnimationFrame(tick);
             return;
@@ -2551,7 +2491,7 @@ sels.forEach(c => {
         return;
       }
 
-      DAW.isPlaying = true; DAW.isScrubbing = false; DAW.playOriginPerf = performance.now(); DAW.playOriginTime = DAW.playhead;
+      DAW.isPlaying = true; DAW.isScrubbing = false; var _ori = PlayheadMath.createOrigin(performance.now(), DAW.playhead); DAW.playOriginPerf = _ori.playOriginPerf; DAW.playOriginTime = _ori.playOriginTime;
       $('play-btn').style.color = 'var(--accent-neon-pink)'; scheduleAllFromPlayhead();
       if (DAW.rafId) cancelAnimationFrame(DAW.rafId); DAW.rafId = requestAnimationFrame(tick);
     }
@@ -2931,6 +2871,9 @@ sels.forEach(c => {
         } else { toast('تغییر دستگاه خروجی پشتیبانی نمی‌شود'); }
       } catch(_) { toast('تغییر دستگاه خروجی پشتیبانی نمی‌شود'); }
     }
+    function applyMetroSound(val) {
+      APP_SETTINGS.metroSound = val; saveSettings();
+    }
     function applySettingsToggles() {
       const metro = $('setMetronome').checked;
       if (metro !== metroActive) toggleMetronome();
@@ -2946,6 +2889,7 @@ sels.forEach(c => {
       loadSettings();
       if ($('setTheme')) $('setTheme').value = APP_SETTINGS.theme || 'dark';
       if (APP_SETTINGS.accent && $('setAccent')) $('setAccent').value = APP_SETTINGS.accent;
+      if ($('setMetroSound')) $('setMetroSound').value = APP_SETTINGS.metroSound || 'classic';
       if ($('setMetronome')) $('setMetronome').checked = !!metroActive;
       if ($('setReturnToStart')) $('setReturnToStart').checked = !!returnToStartOnPause;
       if ($('setSizeLock')) $('setSizeLock').checked = !!_sizeLocked;
@@ -3417,7 +3361,7 @@ sels.forEach(c => {
       const doc = _chordLinePopup.document;
       const title = edCur.title || 'بدون نام';
       const artist = edCur.artist || '';
-      const keyStr = (edCur.key || 'C') + ((edCur.keyMode || 'maj') === 'min' ? 'm' : '');
+      const keyStr = SongMetadata.getDisplayKey(edCur);
       const tSize = edCur.styles?.tSize || 38;
       const tColor = edCur.styles?.tColor || '#0fa966';
       const tFont = edCur.styles?.tFont || 'Vazirmatn';
@@ -6570,8 +6514,8 @@ document.addEventListener('DOMContentLoaded', () => {
       console.log(`[Arranger] Audio clips: ${loadedClips.length}/${audioClips.length} loaded` + (missingClips.length > 0 ? `, ${missingClips.length} missing: ${missingClips.map(c=>c.fileName||c.bufferKey).join(', ')}` : ''));
 
       DAW.playhead = 0;
-      DAW.playOriginPerf = performance.now();
-      DAW.playOriginTime = 0;
+      var _ori2 = PlayheadMath.createOrigin(performance.now(), 0); DAW.playOriginPerf = _ori2.playOriginPerf;
+      DAW.playOriginTime = _ori2.playOriginTime;
       scheduleAllFromPlayhead();
 
       undoStack = []; undoIndex = -1; PERF.lastSerializedState = '';
@@ -6729,7 +6673,7 @@ document.addEventListener('DOMContentLoaded', () => {
       // خودکار بزرگ کردن تایم‌لاین بر اساس عرض صفحه نمایش
       const visibleTime = scroll.clientWidth / newPps;
       ensureTimelineFits(visibleTime + 10);
-      DAW.clips.forEach(c => refreshClipWaveImage(c)); renderAll(); scroll.scrollLeft = Math.max(0, timeToX(anchorTime) - rel);
+      DAW.clips.forEach(c => refreshClipWaveImage(c)); requestRenderAll(); scroll.scrollLeft = Math.max(0, timeToX(anchorTime) - rel);
       updateZoomFontScale();
     }
 
@@ -7150,7 +7094,10 @@ document.addEventListener('DOMContentLoaded', () => {
       // Update selected lyrics editor chord
 if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
   edSelectedChords.forEach(i => {
-    if (edCur.chords[i]) edCur.chords[i].name = name;
+    if (edCur.chords[i]) {
+      edCur.chords[i].name = name;
+      edSyncBaseChordName(i);
+    }
   });
   edRenderChords();
   edCommit();
@@ -7163,12 +7110,13 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
         const seqIdx = edCur.chords.length - edSeqPoints.length + edSeqCursor;
         if (edCur.chords[seqIdx]) {
           edCur.chords[seqIdx].name = name;
+          edSyncBaseChordName(seqIdx);
           edCommit(); edRenderChords();
           if (edSeqCursor < edSeqPoints.length - 1) {
             edSeqCursor++;
           } else {
             const seqStart = edCur.chords.length - edSeqPoints.length;
-            edCur.chords = edCur.chords.filter((c, i) => i < seqStart || c.name);
+            edFilterChordsWithBase((c, i) => i < seqStart || c.name);
             edSeqChordingActive = false;
             edSeqPoints = []; edCur.seqPoints = [];
             edCommit(); edRenderChords();
@@ -8891,8 +8839,9 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
     }
     loadMidiMaps();
 
-    // Global shortcut capture for editing
-    window.addEventListener('keydown', (e) => {
+    // Global shortcut capture for editing.
+    // EventBindings is responsible for registering this handler.
+    function handleGlobalKeydownCapture(e) {
       // Skip if editing a shortcut
       if (_editingShortcutId) {
         e.preventDefault(); e.stopPropagation();
@@ -8923,9 +8872,11 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
       if (e.ctrlKey && e.shiftKey && e.altKey) {
         e.preventDefault(); e.stopPropagation();
       }
-    }, true);
+    }
 
-    window.addEventListener('keydown', (e) => {
+    // Main global shortcuts handler.
+    // EventBindings is responsible for registering this handler.
+    function handleGlobalKeydown(e) {
       // Skip if editing a shortcut
       if (_editingShortcutId) return;
       const tag = (e.target && e.target.tagName) || '';
@@ -8954,7 +8905,7 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
         if ($('chord-modal')?.classList.contains('show')) return;
         // If chords are selected in editor, let the chord handler deal with it
         if (edSelectedChords.length > 0 && edCur) return;
-        const barDur = 60 / (parseInt($('edTempo')?.value) || 120) * parseInt(($('edTimeSig')?.value || '4/4').split('/')[0]);
+        const barDur = getTimeSignatureGridConfig(($('edTimeSig')?.value || '4/4'), (parseInt($('edTempo')?.value) || 120)).measureDuration;
         const step = e.shiftKey ? barDur : 0.05;
         e.preventDefault();
         seekTransport(DAW.playhead + (e.code === 'ArrowRight' ? step : -step), true, true);
@@ -8994,7 +8945,7 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
         if (syncActive) { exitSyncMode(); const tab = $('tab-sync'); if (tab) tab.classList.remove('active-teal'); return; }
         clearSelection();
       }
-    });
+    }
 
     /* ===================== INIT & INTERACTIONS ===================== */
     function init() {
@@ -9241,7 +9192,19 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
     if (DAW.selectedPlayhead) {
       // Start dragging the selected playhead
       const startX = e.clientX; const origTime = DAW.playhead;
-      const onMove = (ev) => { seekTransport(Math.max(0, origTime + xToTime(ev.clientX - startX)), false); };
+      const startY = e.clientY; const origPxPerSec = DAW.pxPerSecond;
+      const onMove = (ev) => {
+        const dx = ev.clientX - startX;
+        seekTransport(Math.max(0, origTime + xToTime(dx)), false);
+        // Cubase-style vertical zoom: up = zoom in, down = zoom out
+        const dy = startY - ev.clientY;
+        if (Math.abs(dy) > 3) {
+          const zoomFactor = 1 + dy * 0.002;
+          setZoom(clamp(origPxPerSec * zoomFactor, 4, 800), ev.clientX);
+        }
+        // Auto-scroll timeline
+        autoScrollToPlayhead();
+      };
       const onUp = () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
       document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp);
     }
@@ -9276,7 +9239,18 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
 
   seekTransport(clientToTime(e.clientX), true);
 
-        const move = (ev) => seekTransport(clientToTime(ev.clientX), true);
+        const scrubStartX = e.clientX; const scrubStartY = e.clientY; const scrubOrigPxPerSec = DAW.pxPerSecond;
+        const move = (ev) => {
+          seekTransport(clientToTime(ev.clientX), true);
+          // Cubase-style vertical zoom: up = zoom in, down = zoom out
+          const dy = scrubStartY - ev.clientY;
+          if (Math.abs(dy) > 3) {
+            const zoomFactor = 1 + dy * 0.002;
+            setZoom(clamp(scrubOrigPxPerSec * zoomFactor, 4, 800), ev.clientX);
+          }
+          // Auto-scroll timeline
+          autoScrollToPlayhead();
+        };
         const up = () => { document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up); };
         document.addEventListener('mousemove', move); document.addEventListener('mouseup', up);
       };
@@ -10579,11 +10553,7 @@ function edBlankSong() {
     async function edExportProjectFull() {
       if (!edCur) { toast('ترانه‌ای باز نیست'); return; }
       try {
-      edCur.artist = $('edArtist')?.value || '';
-      edCur.title = $('edTitle')?.value || '';
-      edCur.timeSignature = $('edTimeSig')?.value || '4/4';
-      edCur.tempo = parseInt($('edTempo')?.value) || 120;
-      edCur.genre = $('edGenre')?.value || '';
+      SongMetadata.syncFromDom(edCur, {includeKey: false});
 
       edCur._dawTracks = DAW.tracks.map(tr => ({
         id: tr.id, name: tr.name, icon: tr.icon, muted: tr.muted,
@@ -10656,14 +10626,8 @@ function edBlankSong() {
     async function edSaveSong() {
   if (!edCur) return;
 
-  edCur.artist = $('edArtist')?.value || '';
+  SongMetadata.syncFromDom(edCur);
   edCur.artistKey = archArtistKey(edCur.artist);
-  edCur.title = $('edTitle')?.value || '';
-  edCur.timeSignature = $('edTimeSig')?.value || '4/4';
-  edCur.tempo = parseInt($('edTempo')?.value) || 120;
-  edCur.genre = $('edGenre')?.value || '';
-  edCur.key = $('edKey')?.value || edCur.key || 'C';
-  edCur.keyMode = $('edKeyMode')?.value || edCur.keyMode || 'maj';
 
   edCur._dawTracks = DAW.tracks.map(t => ({
     id: t.id,
@@ -11036,14 +11000,8 @@ function edBlankSong() {
     // --- Save To Archive ---
     async function edSaveToArchive() {
       if (!edCur) return;
-      edCur.artist = $('edArtist')?.value || '';
+      SongMetadata.syncFromDom(edCur);
       edCur.artistKey = archArtistKey(edCur.artist);
-      edCur.title = $('edTitle')?.value || '';
-      edCur.timeSignature = $('edTimeSig')?.value || '4/4';
-      edCur.tempo = parseInt($('edTempo')?.value) || 120;
-      edCur.genre = $('edGenre')?.value || '';
-      edCur.key = $('edKey')?.value || edCur.key || 'C';
-      edCur.keyMode = $('edKeyMode')?.value || edCur.keyMode || 'maj';
       edCur._dawTracks = DAW.tracks.map(t => ({ id:t.id,name:t.name,icon:t.icon,muted:t.muted,solo:t.solo,vol:t.vol,pan:t.pan,type:t.type,transpose:t.transpose||0 }));
       edCur._dawClips = DAW.clips.map(c => { const cp={...c}; delete cp._peaks; delete cp.waveUrl; delete cp._fileHandle; delete cp._originalBlob; return cp; });
       edCur._dawSections = (DAW.sections||[]).map(s=>({...s}));
@@ -11098,16 +11056,8 @@ function edBlankSong() {
           if (parsed.timeSignature) song.timeSignature = parsed.timeSignature;
         } catch(e) { console.warn('[PARSE] ensureSongParsed failed:', e.message, song.title); }
       }
-      // Fix key format: 'Am' → key='A', keyMode='min'
-      if (song.key && song.key.endsWith('m') && song.keyMode !== 'min') {
-        const cleanKey = song.key.replace(/m$/, '');
-        if (typeof etIsValidNote === 'function' && etIsValidNote(cleanKey)) {
-          song.key = cleanKey;
-          song.keyMode = 'min';
-        }
-      }
       if (!song.timeSignature && song.rhythm) song.timeSignature = song.rhythm;
-      if (song.transpose == null) song.transpose = 0;
+      SongMetadata.normalize(song, etIsValidNote);
       return song;
     }
 
@@ -12471,13 +12421,7 @@ saveState();
     async function edExportProject() {
       if (!edCur) { toast('ترانه‌ای باز نیست'); return; }
       try {
-      edCur.artist = $('edArtist')?.value || '';
-      edCur.title = $('edTitle')?.value || '';
-      edCur.timeSignature = $('edTimeSig')?.value || '4/4';
-      edCur.tempo = parseInt($('edTempo')?.value) || 120;
-      edCur.genre = $('edGenre')?.value || '';
-      edCur.key = $('edKey')?.value || edCur.key || 'C';
-      edCur.keyMode = $('edKeyMode')?.value || edCur.keyMode || 'maj';
+      SongMetadata.syncFromDom(edCur);
       edCur._dawTracks = DAW.tracks.map(tr => ({
         id: tr.id, name: tr.name, icon: tr.icon, muted: tr.muted,
         solo: tr.solo, vol: tr.vol, pan: tr.pan, type: tr.type, transpose: tr.transpose || 0, laneHeight: tr.laneHeight || null
@@ -12539,11 +12483,7 @@ saveState();
 
     async function edExportXML() {
       if (!edCur) { toast('ترانه‌ای باز نیست'); return; }
-      edCur.artist = $('edArtist')?.value || '';
-      edCur.title = $('edTitle')?.value || '';
-      edCur.timeSignature = $('edTimeSig')?.value || '4/4';
-      edCur.tempo = parseInt($('edTempo')?.value) || 120;
-      edCur.genre = $('edGenre')?.value || '';
+      SongMetadata.syncFromDom(edCur, {includeKey: false});
 
       const esc = (s) => String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
       let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
@@ -13020,7 +12960,67 @@ saveState();
         if (ED_ACCIDENTAL_PREF === 'sharp') return true;
         if (ED_ACCIDENTAL_PREF === 'flat') return false;
       }
+      if (typeof window.TransposeService === 'object' && window.TransposeService && typeof window.TransposeService.keySignaturePreference === 'function') {
+        const key = edCur?.originalKey || edCur?.key;
+        const fromKey = key ? (key.endsWith('m') ? key.slice(0, -1) : key) : null;
+        if (fromKey) {
+          const preference = window.TransposeService.keySignaturePreference(fromKey);
+          if (preference === true || preference === false) return preference;
+        }
+      }
       return null; // auto
+    }
+
+    function edBaseNameFromDisplayed(name) {
+      const transpose = Number(edCur?.transpose) || 0;
+      return transpose && name ? edTransposeChord(name, -transpose) : (name || '');
+    }
+
+    function edSyncBaseChordName(index) {
+      if (!edCur || !edCur.chords[index]) return;
+      if (!Array.isArray(edCur.baseChordNames)) edCur.baseChordNames = [];
+      edCur.baseChordNames[index] = edBaseNameFromDisplayed(edCur.chords[index].name);
+    }
+
+    function edRemoveChordAt(index) {
+      if (!edCur || index < 0 || index >= edCur.chords.length) return;
+      edCur.chords.splice(index, 1);
+      if (Array.isArray(edCur.baseChordNames)) edCur.baseChordNames.splice(index, 1);
+    }
+
+    function edFilterChordsWithBase(predicate) {
+      if (!edCur || !Array.isArray(edCur.chords)) return;
+      const baseNames = Array.isArray(edCur.baseChordNames) ? edCur.baseChordNames : [];
+      const nextChords = [];
+      const nextBaseNames = [];
+      edCur.chords.forEach((chord, index) => {
+        if (!predicate(chord, index)) return;
+        nextChords.push(chord);
+        const baseName = baseNames[index];
+        nextBaseNames.push(
+          typeof baseName === 'string' && (baseName.trim() || !chord?.name)
+            ? baseName
+            : edBaseNameFromDisplayed(chord?.name || '')
+        );
+      });
+      edCur.chords = nextChords;
+      edCur.baseChordNames = nextBaseNames;
+    }
+
+    function edEnsureBaseChordNamesAligned() {
+      if (!edCur) return [];
+      const chords = Array.isArray(edCur.chords) ? edCur.chords : [];
+      if (!Array.isArray(edCur.baseChordNames)) edCur.baseChordNames = [];
+      if (edCur.baseChordNames.length > chords.length) {
+        edCur.baseChordNames.splice(chords.length);
+      }
+      chords.forEach((ch, index) => {
+        const baseName = edCur.baseChordNames[index];
+        if (typeof baseName !== 'string' || ((ch?.name || '') && !baseName.trim())) {
+          edCur.baseChordNames[index] = edBaseNameFromDisplayed(ch?.name || '');
+        }
+      });
+      return edCur.baseChordNames;
     }
 
     // ===== دیز/بمل/خودکار selector =====
@@ -13061,8 +13061,8 @@ saveState();
 
     function edShiftNote(n, semi) {
       if (!n) return n;
-      if (typeof window.SharedEngine === 'object' && window.SharedEngine) {
-        return window.SharedEngine.transposeNote(n, semi, resolveAccidentalPreference());
+      if (typeof window.TransposeService === 'object' && window.TransposeService && typeof window.TransposeService.transposeNote === 'function') {
+        return window.TransposeService.transposeNote(n, semi, resolveAccidentalPreference());
       }
       // fallback (legacy) — never reachable if sharedEngine loaded first
       const map = NOTE_SEMITONE || {'C':0,'C#':1,'Db':1,'D':2,'D#':3,'Eb':3,'E':4,'F':5,'F#':6,'Gb':6,'G':7,'G#':8,'Ab':8,'A':9,'A#':10,'Bb':10,'B':11};
@@ -13082,8 +13082,8 @@ saveState();
     }
     function edTransposeChord(name, semi) {
       if (!semi || !name) return name;
-      if (typeof window.SharedEngine === 'object' && window.SharedEngine) {
-        return window.SharedEngine.transposeChordName(name, semi, resolveAccidentalPreference());
+      if (typeof window.TransposeService === 'object' && window.TransposeService && typeof window.TransposeService.transposeChordName === 'function') {
+        return window.TransposeService.transposeChordName(name, semi, resolveAccidentalPreference());
       }
       // fallback (legacy)
       return name.split('/').map(part => part.replace(/^([A-G][b#]?)/, (_,root) => edShiftNote(root,semi))).join('/');
@@ -13285,7 +13285,7 @@ function edRenderChords(immediate) {
         const pos = absToLineChar(newText, best); item.lineIndex = pos.lineIndex; item.charIndex = pos.charIndex; item.anchorType = 'OnCharacter';
       }
       edCur.chords.forEach(ch => remapItem(ch));
-      edCur.chords = edCur.chords.filter(ch => ch.lineIndex >= 0);
+      edFilterChordsWithBase(ch => ch.lineIndex >= 0);
     }
 
     if ($('editor')) {
@@ -13404,7 +13404,7 @@ function edAttachChordDrag(el, idx) {
           if (!wasDrag) return;
           const wrapRect = $('editorWrap').getBoundingClientRect();
           if (ev.clientX < wrapRect.left || ev.clientX > wrapRect.right || ev.clientY < wrapRect.top || ev.clientY > wrapRect.bottom) {
-            edSelectedChords.sort((a,b)=>b-a).forEach(i => edCur.chords.splice(i,1)); edSelectedChords = [];
+            edSelectedChords.sort((a,b)=>b-a).forEach(i => edRemoveChordAt(i)); edSelectedChords = [];
           } else {
             function findNearestChar(lineEl, mouseX) {
               const text = lineEl.textContent.replace(/\u200B/g,''); if (!text.length) return 0;
@@ -13419,7 +13419,7 @@ function edAttachChordDrag(el, idx) {
             const anchorLine=$('editor').children[anchorOrig.lineIndex];
             const anchorNewChar=findNearestChar(anchorLine, ev.clientX);
             const charDelta=anchorNewChar-anchorOrig.charIndex;
-            edSelectedChords.forEach(i => { const c=edCur.chords[i]; if(!c)return; const lineEl=$('editor').children[c.lineIndex]; const textLen=lineEl?lineEl.textContent.replace(/\u200B/g,'').length:0; let newChar=c.charIndex+charDelta; newChar=Math.max(0,Math.min(newChar,textLen)); if(isCopy){edCur.chords.push({lineIndex:c.lineIndex,charIndex:newChar,anchorType:newChar<=0?'LineStart':newChar>=textLen?'LineEnd':'OnCharacter',name:c.name});}else{c.charIndex=newChar;c.anchorType=newChar<=0?'LineStart':newChar>=textLen?'LineEnd':'OnCharacter';} });
+            edSelectedChords.forEach(i => { const c=edCur.chords[i]; if(!c)return; const lineEl=$('editor').children[c.lineIndex]; const textLen=lineEl?lineEl.textContent.replace(/\u200B/g,'').length:0; let newChar=c.charIndex+charDelta; newChar=Math.max(0,Math.min(newChar,textLen)); if(isCopy){edCur.chords.push({lineIndex:c.lineIndex,charIndex:newChar,anchorType:newChar<=0?'LineStart':newChar>=textLen?'LineEnd':'OnCharacter',name:c.name});if(!Array.isArray(edCur.baseChordNames))edCur.baseChordNames=[];edCur.baseChordNames.push(edBaseNameFromDisplayed(c.name));}else{c.charIndex=newChar;c.anchorType=newChar<=0?'LineStart':newChar>=textLen?'LineEnd':'OnCharacter';} });
           }
           edRenderChords();
           edCommit();
@@ -13468,10 +13468,7 @@ function edAttachChordDrag(el, idx) {
     function edCommit() {
   if (!edCur || isApplyingHistory) return;
 
-  edCur.artist = $('edArtist')?.value || '';
-  edCur.title = $('edTitle')?.value || '';
-  edCur.key = $('edKey')?.value || 'C';
-  edCur.keyMode = $('edKeyMode')?.value || 'maj';
+  SongMetadata.syncFromDom(edCur, {includeTimeSig: false, includeTempo: false, includeGenre: false});
   edCur.seqPoints = edSeqPoints;
 
   saveState();
@@ -13824,9 +13821,9 @@ if ($('edDoBoth')) {
       // Keep baseChordNames in sync with chord edits
       if (!edCur.baseChordNames) edCur.baseChordNames = [];
       if (edChordIdx !== null && edCur.chords[edChordIdx]) {
-        edCur.baseChordNames[edChordIdx] = name;
+        edSyncBaseChordName(edChordIdx);
       } else if (edPendingAnchor) {
-        edCur.baseChordNames.push(name);
+        edCur.baseChordNames.push(edBaseNameFromDisplayed(name));
       }
       edPendingAnchor = null; edChordIdx = null;
       edCloseChordModal(); edRenderChords(); edCommit();
@@ -13837,7 +13834,7 @@ if ($('edDoBoth')) {
           edRenderChords();
         } else {
           const seqStart = edCur.chords.length - edSeqPoints.length;
-          edCur.chords = edCur.chords.filter((c, i) => i < seqStart || c.name);
+          edFilterChordsWithBase((c, i) => i < seqStart || c.name);
           edSeqChordingActive = false;
           edSeqPoints = []; edCur.seqPoints = [];
           edCommit(); edRenderChords();
@@ -13847,8 +13844,7 @@ if ($('edDoBoth')) {
     }
     function edDeleteChord() {
       if (edChordIdx !== null && edCur) {
-        edCur.chords.splice(edChordIdx, 1);
-        if (edCur.baseChordNames) edCur.baseChordNames.splice(edChordIdx, 1);
+        edRemoveChordAt(edChordIdx);
       }
       edCloseChordModal(); edRenderChords(); edCommit();
     }
@@ -13857,8 +13853,8 @@ if ($('edDoBoth')) {
     let _edSyncingKey = false; // flag to prevent onchange during programmatic key update
     function edTransposeKeyName(key, semitones) {
       if (!key || !semitones) return key;
-      if (typeof window.SharedEngine === 'object' && window.SharedEngine) {
-        return window.SharedEngine.transposeKeyName(key, semitones, resolveAccidentalPreference());
+      if (typeof window.TransposeService === 'object' && window.TransposeService && typeof window.TransposeService.transposeKeyName === 'function') {
+        return window.TransposeService.transposeKeyName(key, semitones, resolveAccidentalPreference());
       }
       // fallback (legacy)
       const idx = ED_SEMITONE[key];
@@ -13879,9 +13875,9 @@ if ($('edDoBoth')) {
     // If chords currently use sharps → convert to flats; if flats → convert to sharps.
     function edToggleAccidental() {
       if (!edCur || edCur.editorLocked) { toast('🔒 ویرایشگر قفل است'); return; }
-      const cc = typeof window.SharedEngine === 'object' && window.SharedEngine &&
-        typeof window.SharedEngine.convertAccidentals === 'function'
-        ? window.SharedEngine.convertAccidentals
+      const cc = typeof window.TransposeService === 'object' && window.TransposeService &&
+        typeof window.TransposeService.convertAccidentals === 'function'
+        ? window.TransposeService.convertAccidentals
         : null;
       if (!cc) { toast('موتور آکورد در دسترس نیست'); return; }
 
@@ -13912,8 +13908,8 @@ if ($('edDoBoth')) {
     // ===== CENTRAL KEY/TRANSPOSE FUNCTIONS =====
     function keyToSemi(key) { return ED_SEMITONE[key] != null ? ED_SEMITONE[key] : -1; }
     function keyDelta(fromKey, toKey) {
-      if (typeof window.SharedEngine === 'object' && window.SharedEngine) {
-        return window.SharedEngine.keyDelta(fromKey, toKey);
+      if (typeof window.TransposeService === 'object' && window.TransposeService && typeof window.TransposeService.keyDelta === 'function') {
+        return window.TransposeService.keyDelta(fromKey, toKey);
       }
       return ((keyToSemi(toKey) - keyToSemi(fromKey)) % 12 + 12) % 12;
     }
@@ -13956,7 +13952,7 @@ if ($('edDoBoth')) {
     // TRANSPOSE: always compute from baseChordNames (never from already-transposed chords)
     function applyTranspose(newTranspose) {
       if (!edCur || edCur.editorLocked) return;
-      const names = edCur.baseChordNames || [];
+      const names = edEnsureBaseChordNamesAligned();
       edCur.chords.forEach((ch, i) => {
         const baseName = (i < names.length) ? names[i] : ch.name;
         if (baseName) ch.name = edTransposeChord(baseName, newTranspose);
@@ -13979,7 +13975,7 @@ if ($('edDoBoth')) {
       const origKey = edCur.originalKey || edCur.key;
       const delta = keyDelta(origKey, newKey);
       // Restore original names first, then apply new key
-      const names = edCur.baseChordNames || [];
+      const names = edEnsureBaseChordNamesAligned();
       edCur.chords.forEach((ch, i) => {
         const baseName = (i < names.length) ? names[i] : ch.name;
         if (baseName) ch.name = edTransposeChord(baseName, delta);
@@ -13999,6 +13995,7 @@ if ($('edDoBoth')) {
       if (!edCur) return;
       const oldOrigKey = edCur.originalKey || edCur.key;
       const delta = keyDelta(oldOrigKey, newKey);
+      edEnsureBaseChordNamesAligned();
       // Update baseChordNames
       if (delta && edCur.baseChordNames.length) {
         edCur.baseChordNames = edCur.baseChordNames.map(name => name ? edTransposeChord(name, delta) : name);
@@ -14197,7 +14194,7 @@ if ($('edDoBoth')) {
     if ($('edTitle')) $('edTitle').oninput = () => { if (edCur) { edCur.title = $('edTitle').value; edRenderEditor(false); edSaveSong(); } };
     if ($('edKey')) $('edKey').onchange = () => { if (_edSyncingKey) return; if (!edCur) return; if (edCur.editorLocked) { toast('🔒 ویرایشگر قفل است'); $('edKey').value = edCur.key; return; } applyKeyChange($('edKey').value, $('edKeyMode')?.value || edCur.keyMode || 'maj'); };
     if ($('edKeyMode')) $('edKeyMode').onchange = () => { if (_edSyncingKey) return; if (edCur) { applyKeyChange(edCur.key, $('edKeyMode').value); } };
-    if ($('edTimeSig')) $('edTimeSig').onchange = () => { if (edCur) { edCur.timeSignature = $('edTimeSig').value; edSaveSong(); } };
+    if ($('edTimeSig')) $('edTimeSig').onchange = () => { if (edCur) { edCur.timeSignature = $('edTimeSig').value; edSaveSong(); renderTracks(); renderRuler(); renderClips(); } };
     if ($('edTempo')) $('edTempo').oninput = () => { if (edCur) { edCur.tempo = parseInt($('edTempo').value) || 120; edSaveSong(); } };
     if ($('edGenre')) $('edGenre').onchange = () => { if (edCur) { edCur.genre = $('edGenre').value; edSaveSong(); } };
 
@@ -14312,7 +14309,7 @@ if (
 
   edSelectedChords
     .sort((a,b) => b-a)
-    .forEach(i => edCur.chords.splice(i,1));
+    .forEach(i => edRemoveChordAt(i));
 
   edSelectedChords = [];
   edRenderChords();
@@ -14325,7 +14322,10 @@ if (
     function edNavigateChord(dir) {
       if (edChordIdx === null || !edCur) return;
       const newName = $('chordManual')?.value?.trim();
-      if (newName && edCur.chords[edChordIdx]) edCur.chords[edChordIdx].name = newName;
+      if (newName && edCur.chords[edChordIdx]) {
+        edCur.chords[edChordIdx].name = newName;
+        edSyncBaseChordName(edChordIdx);
+      }
       const newIdx = edChordIdx + dir;
       if (newIdx >= 0 && newIdx < edCur.chords.length) {
         edChordIdx = newIdx;
@@ -14683,7 +14683,55 @@ if (
       'singerView': openLyricOnlyPopup,
       'playerView': (typeof openPlayerView === 'function') ? openPlayerView : openLyricPopup,
       'split': splitSelectedAtPlayhead, 'copy': copySelected, 'cut': cutSelected, 'paste': pasteClipboard,
+      'projectHubOpen': () => window.ProjectHub?.open(),
+      'archiveOpen': edOpenArchive,
+      'quickSearchOpen': () => window.openQuickSearchPanel(),
+      'archiveSave': () => edSaveToArchive().then(() => toast('ذخیره شد')),
+      'songNew': edNewSong,
+      'projectExport': edExportProject,
+      'autoImportOpen': openAutoImportModal,
+      'chordImportOpen': openImportChordModal,
+      'projectImport': edImportProject,
+      'arrangerOpen': openArrangerModal,
+      'songPrint': () => window.printSong(),
+      'shortcutsOpen': openShortcutModal,
+      'quickSearchClose': () => window.closeQuickSearchPanel(),
+      'quickSearchFilter': () => window.quickSearchFilter(),
+      'quickSearchClearInput': () => {
+        const input = document.getElementById('quickSearchInput');
+        if (input) input.value = '';
+        window.quickSearchFilter();
+      },
+      'quickSearchClearFilters': () => window.quickSearchClearFilters(),
     };
+
+    let eventBindings = null;
+
+    function initializeEventBindings() {
+      if (document.readyState === 'loading') return;
+      if (eventBindings || typeof window.EventBindings !== 'function') return;
+
+      eventBindings = new window.EventBindings({
+        actions: ACTION_FUNCTIONS,
+        onGlobalKeydownCapture: handleGlobalKeydownCapture,
+        onGlobalKeydown: handleGlobalKeydown
+      });
+
+      eventBindings.init();
+    }
+
+    // Supports either script load order without exposing app internals globally.
+    window.addEventListener(
+      'akordyar:event-bindings-ready',
+      initializeEventBindings,
+      { once: true }
+    );
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initializeEventBindings, { once: true });
+    } else {
+      initializeEventBindings();
+    }
 
     // Detect Ctrl+Shift+Alt + Click on any button with data-action
     document.addEventListener('mousedown', (e) => {
@@ -14805,9 +14853,10 @@ if (
         const _glen = getProjectEnd();
         const _gbpm = edCur?.tempo || 120;
         const _gsig = edCur?.timeSignature || '4/4';
-        const _gbeatsPerBar = parseInt(_gsig.split('/')[0]);
-        const _gbeatDur = 60 / _gbpm;
-        const _gbarDur = _gbeatDur * _gbeatsPerBar;
+        const _gcfg = getTimeSignatureGridConfig(_gsig, _gbpm);
+        const _gbeatsPerBar = _gcfg.beatsPerMeasure;
+        const _gbeatDur = _gcfg.beatDuration;
+        const _gbarDur = _gcfg.measureDuration;
         const _gpxPerSec = DAW.pxPerSecond;
         const _gpxPerBar = _gbarDur * _gpxPerSec;
         let _gbarStep = 1;
@@ -14868,11 +14917,11 @@ if (
         }
         // ساب ضرب (زمانی که زوم خیلی زیاد است)
         if (_gpxPerSec > 40) {
-          const _gSubBeatDur = _gbeatDur / 4;
+          const _gSubBeatDur = _gbeatDur / _gcfg.subdivisionsPerBeat;
           _gctx.strokeStyle = 'rgba(255,255,255,0.02)';
           let _gSubCount = 0;
           for (let _sub = 0; _sub * _gSubBeatDur <= _glen && _gSubCount < 500; _sub++) {
-            if (_sub % 4 === 0) continue;
+            if (_sub % _gcfg.subdivisionsPerBeat === 0) continue;
             const _x = Math.round((_sub * _gSubBeatDur) * _gpxPerSec) + 0.5;
             if (_x > gridCanvas.width) break;
             _gctx.beginPath(); _gctx.moveTo(_x, 0); _gctx.lineTo(_x, gridCanvas.height); _gctx.stroke();
@@ -15232,340 +15281,180 @@ if (typeof window !== 'undefined') {
  */
 function printSong() {
   if (!edCur) { toast('ابتدا یک ترانه باز کنید'); return; }
-
-  // جلوگیری از چند چاپ هم‌زمان
   if (printSong._active) return;
   printSong._active = true;
 
-  const st = edCur.styles || {};
-  const cSize = st.cSize || 23;
-  const GAP = Math.max(10, cSize * 0.6);
-
   try {
-    // ─── ساخت کانتینر چاپ در سند اصلی ───
-    // این روش در Electron قطعاً کار می‌کند چون محتوا در DOM اصلی رندر می‌شود
-    // و window.print() محتوای رندر شده را چاپ می‌کند
-    let printContainer = document.getElementById('printContainer');
-    if (!printContainer) {
-      printContainer = document.createElement('div');
-      printContainer.id = 'printContainer';
-      document.body.appendChild(printContainer);
+    const editorEl = $('editor');
+    const chordLayerEl = $('chordLayer');
+    const editorWrapEl = $('editorWrap');
+    if (!editorEl || !chordLayerEl || !editorWrapEl) {
+      toast('خطا در دسترسی به ادیتور');
+      printSong._active = false;
+      return;
     }
-    printContainer.innerHTML = '';
+
+    // ─── ساخت کانتینر چاپ ───
+    let pc = document.getElementById('printContainer');
+    if (!pc) { pc = document.createElement('div'); pc.id = 'printContainer'; document.body.appendChild(pc); }
+    pc.innerHTML = '';
 
     // ─── هدر چاپ ───
-    const header = document.createElement('div');
-    header.className = 'print-header';
-    const titleEl = document.createElement('div');
-    titleEl.className = 'title';
-    const subEl = document.createElement('div');
-    subEl.className = 'sub';
-    header.appendChild(titleEl);
-    header.appendChild(subEl);
-    printContainer.appendChild(header);
+    const st = edCur.styles || {};
+    const hdr = document.createElement('div'); hdr.className = 'print-header';
+    const ttl = document.createElement('div'); ttl.className = 'title';
+    const sub = document.createElement('div'); sub.className = 'sub';
+    const dk = edCur.transpose ? (edTransposeKeyName(edCur.originalKey || edCur.key, edCur.transpose) || edCur.key) : edCur.key;
+    const ks = dk + (edCur.keyMode === 'min' ? 'm' : '');
+    const sp = [];
+    if (edCur.artist) sp.push(edCur.artist);
+    if (edCur.key) sp.push((currentLang === 'fa' ? 'گام: ' : 'Key: ') + ks);
+    if (edCur.transpose) sp.push((currentLang === 'fa' ? 'ترنسپوز ' : 'Transpose ') + (edCur.transpose > 0 ? '+' : '') + edCur.transpose);
+    ttl.textContent = edCur.title || t('untitled');
+    sub.textContent = sp.join('  •  ');
+    hdr.appendChild(ttl); hdr.appendChild(sub);
+    pc.appendChild(hdr);
 
-    // ─── محتوای چاپ ───
-    const wrap = document.createElement('div');
-    wrap.id = 'printWrap';
-    const content = document.createElement('div');
-    content.id = 'lyricContent';
-    const overlay = document.createElement('div');
-    overlay.id = 'chordOverlay';
-    wrap.appendChild(content);
-    wrap.appendChild(overlay);
-    printContainer.appendChild(wrap);
+    // ─── کلون محتوای ادیتور (متن + لایه آکورد) ───
+    const wrap = document.createElement('div'); wrap.id = 'printWrap';
+    const wrapW = editorWrapEl.offsetWidth;
 
-    // ─── داده‌های آکوردها (با اعمال ترنسپوز) ───
-    const chordData = (edCur.chords || []).map(ch => {
-      let name = ch.name || '';
-      if (name && edCur.transpose && edCur.originalKey) {
-        name = edTransposeChord(name, edCur.transpose);
-      }
-      return {
-        lineIndex: ch.lineIndex,
-        charIndex: ch.charIndex,
-        anchorType: ch.anchorType,
-        name: name,
-        color: ch.color || st.cColor || '#e6aa28'
-      };
-    }).filter(c => c.name && c.name.trim());
-
-    // ─── هدر ───
-    const displayKey = edCur.transpose ? (edTransposeKeyName(edCur.originalKey || edCur.key, edCur.transpose) || edCur.key) : edCur.key;
-    const keyStr = displayKey + (edCur.keyMode === 'min' ? 'm' : '');
-    const subParts = [];
-    if (edCur.artist) subParts.push(edCur.artist);
-    if (edCur.key) subParts.push((currentLang === 'fa' ? 'گام: ' : 'Key: ') + keyStr);
-    if (edCur.transpose) subParts.push((currentLang === 'fa' ? 'ترنسپوز ' : 'Transpose ') + (edCur.transpose > 0 ? '+' : '') + edCur.transpose);
-    titleEl.textContent = edCur.title || t('untitled');
-    subEl.textContent = subParts.join('  •  ');
-
-    // ─── رندر متن ───
-    const tFont = st.tFont || 'Vazirmatn';
+    // کلون متن
+    const lyrics = editorEl.cloneNode(true);
+    lyrics.id = 'lyricContent';
+    lyrics.removeAttribute('contenteditable');
+    lyrics.removeAttribute('spellcheck');
     const tSize = st.tSize || 23;
-    const tColor = st.tColor || '#0fa966';
-    const tBold = st.tBold ? 'bold' : 'normal';
-    const align = st.align || 'center';
-    const lineColors = edCur.lineColors || [];
-
-    const lines = (edCur.lyrics || '').split('\n');
-    lines.forEach(function(ln, li) {
-      const d = document.createElement('div');
-      d.className = 'eline';
-      d.setAttribute('data-line', String(li));
-      d.style.unicodeBidi = 'plaintext';
-      d.style.fontSize = tSize + 'px';
-      d.style.color = lineColors[li] || tColor;
-      d.style.fontFamily = tFont;
-      d.style.fontWeight = tBold;
-      d.style.textAlign = align;
-      d.style.lineHeight = '2.2';
-      d.textContent = ln || '\u200B';
-      content.appendChild(d);
+    lyrics.style.cssText = 'white-space:pre-wrap;word-break:break-word;line-height:2.3;padding-top:0;' +
+      'font-size:' + tSize + 'px;' +
+      'color:' + (st.tColor || '#0fa966') + ';' +
+      'font-family:' + (st.tFont || 'Vazirmatn') + ';' +
+      'font-weight:' + (st.tBold ? 'bold' : 'normal') + ';' +
+      'text-align:' + (st.align || 'center') + ';';
+    lyrics.style.unicodeBidi = 'plaintext';
+    // اعمال رنگ خطوط
+    const lc = edCur.lineColors || [];
+    Array.from(lyrics.children).forEach(function(c, i) {
+      if (lc[i]) c.style.color = lc[i];
     });
 
-    // ─── موقعیت‌یابی آکوردها ───
-    const drawChords = () => {
-      overlay.innerHTML = '';
+    const cSize = st.cSize || 23;
+    const GAP = Math.max(10, cSize * 0.6);
+    const chordPadTop = cSize + GAP;
 
-      const isRTL = document.documentElement.dir === 'rtl';
-      const MARGIN = 5;
+    wrap.style.cssText = 'position:relative;overflow:visible!important;width:' + wrapW + 'px;padding-top:' + chordPadTop + 'px;';
+    wrap.appendChild(lyrics);
+    pc.appendChild(wrap);
 
-      chordData.forEach(function(ch, idx) {
-        const lineEl = content.children[ch.lineIndex];
-        if (!lineEl) return;
+    // ایجاد لایه آکوردها تازه با محاسبه موقعیت از روی متن کلون‌شده (بدون offset اسکرول)
+    const chordOverlay = document.createElement('div');
+    chordOverlay.id = 'chordOverlay';
+    chordOverlay.style.cssText = 'position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none;z-index:10;overflow:visible!important;';
+    wrap.appendChild(chordOverlay); // باید قبل از ساخت آکوردها در DOM باشد تا offsetWidth کار کند
 
-        // محاسبه rect کاراکتر مورد نظر — همان منطق anchorRectIn
-        let rect = null;
-        const segs = [];
-        let total = 0;
-        const walker = document.createTreeWalker(lineEl, NodeFilter.SHOW_TEXT);
-        let node;
-        while (node = walker.nextNode()) {
-          segs.push({ node: node, start: total, len: node.textContent.length });
-          total += node.textContent.length;
-        }
-        if (segs.length) {
-          const len = total;
-          const r = document.createRange();
-          if (ch.anchorType === 'LineStart') {
-            const s = segs[0];
-            r.setStart(s.node, 0); r.setEnd(s.node, Math.min(1, s.len));
-            rect = r.getBoundingClientRect();
-          } else if (ch.anchorType === 'LineEnd') {
-            const s = segs[segs.length - 1];
-            const rp = Math.max(0, s.len - 1);
-            r.setStart(s.node, rp); r.setEnd(s.node, Math.min(rp + 1, s.len));
-            rect = r.getBoundingClientRect();
-          } else {
-            const ci = Math.min(ch.charIndex, Math.max(0, len - 1));
-            let s3 = null;
-            for (let k = 0; k < segs.length; k++) {
-              if (ci >= segs[k].start && ci < segs[k].start + segs[k].len) { s3 = segs[k]; break; }
-            }
-            if (!s3) s3 = segs[segs.length - 1];
-            const local = Math.max(0, ci - s3.start);
-            r.setStart(s3.node, Math.min(local, s3.len));
-            r.setEnd(s3.node, Math.min(local + 1, s3.len));
-            rect = r.getBoundingClientRect();
-          }
-        }
-        if (!rect) return;
+    const cColor = st.cColor || '#e6aa28';
+    const isRTL = window.getComputedStyle(lyrics).direction === 'rtl';
+    const MARGIN = 5;
+    const wrapRect = wrap.getBoundingClientRect();
 
-        const wrapRect = wrap.getBoundingClientRect();
-        const el = document.createElement('span');
-        el.className = 'chord-print';
-        el.textContent = ch.name;
-        el.style.fontSize = cSize + 'px';
-        el.style.color = ch.color || st.cColor || '#e6aa28';
-        el.style.fontFamily = st.cFont || 'JetBrains Mono';
-        el.style.fontWeight = 'bold';
+    (edCur.chords || []).forEach(function(ch, idx) {
+      if (!ch.name) return;
+      const lineEl = lyrics.children[ch.lineIndex];
+      if (!lineEl) return;
 
-        overlay.appendChild(el);
-        const elW = el.offsetWidth;
-        const elH = el.offsetHeight;
+      try {
+      // یافتن موقعیت کاراکتر با Range API (همان الگوریتم anchorRectIn)
+      const segs = [];
+      let total = 0, node;
+      const walker = document.createTreeWalker(lineEl, NodeFilter.SHOW_TEXT);
+      while (node = walker.nextNode()) { segs.push({ node: node, start: total, len: node.textContent.length }); total += node.textContent.length; }
+      if (!segs.length) return;
+      const len = total;
+      const r = document.createRange();
+      if (ch.anchorType === 'LineStart') { var s0 = segs[0]; r.setStart(s0.node, 0); r.setEnd(s0.node, Math.min(1, s0.len)); }
+      else if (ch.anchorType === 'LineEnd') { var sl = segs[segs.length - 1]; var p = Math.max(0, sl.len - 1); r.setStart(sl.node, p); r.setEnd(sl.node, Math.min(p + 1, sl.len)); }
+      else { var i = Math.min(ch.charIndex, Math.max(0, len - 1)); var sg = segs.find(function(x) { return i >= x.start && i < x.start + x.len; }) || segs[segs.length - 1]; var loc = Math.max(0, i - sg.start); r.setStart(sg.node, Math.min(loc, sg.len)); r.setEnd(sg.node, Math.min(loc + 1, sg.len)); }
 
-        let x;
-        if (ch.anchorType === 'LineStart') {
-          x = isRTL ? rect.right + MARGIN : rect.left - MARGIN;
-        } else if (ch.anchorType === 'LineEnd') {
-          x = isRTL ? rect.left - MARGIN : rect.right + MARGIN;
-        } else if (ch.anchorType === 'BetweenCharacters') {
-          x = rect.right;
-        } else {
-          x = (rect.left + rect.right) / 2;
-        }
+      var rect = r.getBoundingClientRect();
 
-        const top = rect.top - wrapRect.top - cSize - GAP;
+      var el = document.createElement('span');
+      el.className = 'chord';
+      el.textContent = ch.name;
+      el.style.cssText = 'font-size:' + cSize + 'px;color:' + (ch.color || cColor) + ';font-family:' + (st.cFont || 'JetBrains Mono') + ';position:absolute;font-weight:700;white-space:nowrap;';
 
-        el.style.top = top + 'px';
-        el.style.left = (x - wrapRect.left - elW / 2) + 'px';
+      var x;
+      if (ch.anchorType === 'LineStart') { x = isRTL ? rect.right + MARGIN : rect.left - MARGIN; }
+      else if (ch.anchorType === 'LineEnd') { x = isRTL ? rect.left - MARGIN : rect.right + MARGIN; }
+      else if (ch.anchorType === 'BetweenCharacters') { x = rect.right; }
+      else { x = (rect.left + rect.right) / 2; }
 
-        // خط اتصال آکورد به متن
-        const line = document.createElement('div');
-        line.className = 'chord-print-anchor';
-        line.style.left = (x - wrapRect.left) + 'px';
-        line.style.top = (top + elH) + 'px';
-        line.style.width = '2px';
-        line.style.height = Math.max(4, GAP) + 'px';
-        line.style.background = (ch.color || st.cColor || '#e6aa28');
-        overlay.appendChild(line);
-      });
+      chordOverlay.appendChild(el);
 
-      // جلوگیری از هم‌پوشانی افقی آکوردهای یک خط
-      const lineGroups = {};
-      chordData.forEach(function(ch, i) {
-        if (!lineGroups[ch.lineIndex]) lineGroups[ch.lineIndex] = [];
-        const chordEls = overlay.querySelectorAll('.chord-print');
-        if (chordEls[i]) {
-          lineGroups[ch.lineIndex].push(chordEls[i]);
-        }
-      });
-      Object.keys(lineGroups).forEach(function(li) {
-        const els = lineGroups[li];
-        els.sort(function(a, b) { return parseFloat(a.style.left) - parseFloat(b.style.left); });
-        for (let i = 1; i < els.length; i++) {
-          const prev = els[i - 1];
-          const curr = els[i];
-          const prevRight = parseFloat(prev.style.left) + prev.offsetWidth;
-          const currLeft = parseFloat(curr.style.left);
-          if (currLeft < prevRight + 8) {
-            curr.style.left = (prevRight + 8) + 'px';
-          }
-        }
-      });
-    };
+      var top = rect.top - wrapRect.top - cSize - GAP;
+      el.style.top = top + 'px';
+      el.style.left = (x - wrapRect.left - el.offsetWidth / 2) + 'px';
 
-    drawChords();
+      var line = document.createElement('div');
+      line.className = 'chord-anchor-line';
+      line.style.cssText = 'background:' + (ch.color || cColor) + ';opacity:.6;position:absolute;left:' + (x - wrapRect.left) + 'px;top:' + (top + cSize) + 'px;height:' + Math.max(4, GAP) + 'px;';
+      chordOverlay.appendChild(line);
 
-    // اگر فونت‌ها بعداً لود شدند، دوباره رسم کن
-    if (document.fonts && document.fonts.ready) {
-      document.fonts.ready.then(function() {
-        requestAnimationFrame(function() { requestAnimationFrame(drawChords); });
-      });
-    }
+      } catch (chErr) {
+        console.error('[Print] Error building chord idx=' + idx + ' name=' + (ch.name || '?') + ' lineIndex=' + ch.lineIndex + ' charIndex=' + ch.charIndex + ' anchorType=' + ch.anchorType, chErr);
+      }
+    });
 
     // ─── چاپ ───
-    // کمی صبر کن تا فونت‌ها لود شوند و بعد چاپ کن
-    setTimeout(function() {
+    const doPrint = function() {
       try {
-        // در محیط Electron از پنجره چاپ جداگانه استفاده کن
         if (isElectron && window.electronAPI && window.electronAPI.printHtml) {
-          // ساخت HTML کامل برای پنجره چاپ
-          const printHtmlContent = `<!DOCTYPE html>
-<html dir="rtl" lang="fa">
-<head>
-<meta charset="UTF-8">
-<title>${(edCur.title || t('untitled')).replace(/</g, '<').replace(/>/g, '>')}</title>
-<style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    font-family: 'Vazirmatn', 'Tahoma', sans-serif;
-    background: #fff;
-    color: #000;
-    padding: 20px;
-    direction: rtl;
-  }
-  .print-header {
-    text-align: center;
-    margin-bottom: 20px;
-    padding-bottom: 12px;
-    border-bottom: 2px solid #333;
-  }
-  .print-header .title {
-    font-size: 26px;
-    font-weight: 900;
-    color: #000;
-  }
-  .print-header .sub {
-    font-size: 13px;
-    color: #555;
-    margin-top: 4px;
-    font-weight: 400;
-  }
-  #printWrap {
-    position: relative;
-  }
-  #lyricContent {
-    line-height: 2.2;
-    white-space: pre-wrap;
-  }
-  #chordOverlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    pointer-events: none;
-    z-index: 10;
-  }
-  .eline {
-    white-space: pre-wrap;
-    word-break: break-word;
-  }
-  .chord-print {
-    position: absolute;
-    font-weight: 700;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-  }
-  .chord-print-anchor {
-    position: absolute;
-    height: 2px;
-    opacity: 0.5;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-  }
-  @media print {
-    body { padding: 0; }
-  }
-</style>
-</head>
-<body>
-${printContainer.innerHTML}
-</body>
-</html>`;
-
-          window.electronAPI.printHtml(printHtmlContent).then(function(res) {
-            if (!res || !res.success) {
-              console.error('[Print] Electron print error:', res);
-              toast('خطا در چاپ');
-            }
+          const safeTitle = (edCur.title || t('untitled')).replace(/</g, '&lt;').replace(/>/g, '&gt;');
+          const html = '<!DOCTYPE html>\n<html dir="rtl" lang="fa">\n<head>\n<meta charset="UTF-8">\n<title>' + safeTitle + '</title>\n<style>\n'
+            + '*{box-sizing:border-box;margin:0;padding:0;}\n'
+            + 'body{font-family:\'Vazirmatn\',\'Tahoma\',sans-serif;background:#fff;color:#000;padding:20px;direction:rtl;}\n'
+            + '.print-header{text-align:center;margin-bottom:16px;padding-bottom:12px;border-bottom:2px solid #333;}\n'
+            + '.print-header .title{font-size:26px;font-weight:900;color:#000;}\n'
+            + '.print-header .sub{font-size:13px;color:#555;margin-top:4px;font-weight:400;}\n'
+            + '#printWrap{position:relative;overflow:visible!important;}\n'
+            + '#lyricContent{white-space:pre-wrap;word-break:break-word;line-height:2.3;}\n'
+            + '#chordOverlay{position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none;z-index:10;overflow:visible!important;}\n'
+            + '.eline{white-space:pre-wrap;word-break:break-word;margin-bottom:4px;}\n'
+            + '.chord,.chord-print{position:absolute;font-weight:700;white-space:nowrap;-webkit-print-color-adjust:exact;print-color-adjust:exact;}\n'
+            + '.chord-anchor-line,.chord-print-anchor{position:absolute;opacity:0.4;-webkit-print-color-adjust:exact;print-color-adjust:exact;}\n'
+            + '@media print{body{padding:0;}}\n</style>\n</head>\n<body>\n' + pc.innerHTML + '\n</body>\n</html>';
+          window.electronAPI.printHtml(html).then(function(res) {
+            if (!res || !res.success) { console.error('[Print] Error:', res); toast('خطا در چاپ'); }
           }).catch(function(err) {
-            console.error('[Print] Electron print error:', err);
-            toast('خطا در چاپ');
+            console.error('[Print] Error:', err); toast('خطا در چاپ');
           }).finally(function() {
-            if (printContainer && printContainer.parentNode) {
-              printContainer.parentNode.removeChild(printContainer);
-            }
+            if (pc && pc.parentNode) pc.parentNode.removeChild(pc);
             printSong._active = false;
           });
         } else {
-          // در مرورگر معمولی از window.print استفاده کن
+          pc.style.cssText = 'position:absolute;top:0;left:0;width:100%;background:#fff;z-index:99999;visibility:visible;';
           window.focus();
           window.print();
-          // بعد از چاپ، کانتینر را پاک کن
           setTimeout(function() {
-            if (printContainer && printContainer.parentNode) {
-              printContainer.parentNode.removeChild(printContainer);
-            }
+            if (pc && pc.parentNode) pc.parentNode.removeChild(pc);
             printSong._active = false;
           }, 1000);
         }
       } catch (e) {
         console.error('[Print] Error:', e);
         toast('خطا در چاپ');
-        if (printContainer && printContainer.parentNode) {
-          printContainer.parentNode.removeChild(printContainer);
-        }
+        if (pc && pc.parentNode) pc.parentNode.removeChild(pc);
         printSong._active = false;
       }
-    }, 300);
+    };
+
+    // کمی تأخیر برای اطمینان از کلون کامل
+    setTimeout(doPrint, 150);
+
   } catch (e) {
     console.error('[Print] Error building content:', e);
     toast('خطا در آماده‌سازی چاپ');
-    const pc = document.getElementById('printContainer');
-    if (pc && pc.parentNode) pc.parentNode.removeChild(pc);
+    const px = document.getElementById('printContainer');
+    if (px && px.parentNode) px.parentNode.removeChild(px);
     printSong._active = false;
   }
 }
