@@ -18,90 +18,13 @@ if (isElectron) {
   console.log('[App] Browser mode detected.');
 }
 
+
 // ==========================================
-// PART 2: Audio Import & Hard Drive Auto-Load (GLOBAL FUNCTIONS)
+// PART 2: Audio Import & Hard Drive Auto-Load
 // ==========================================
-// این توابع در global scope تعریف می‌شن تا از هر جایی قابل دسترسی باشن.
-// قبلاً اشتباهاً داخل یک template literal بودن که باعث می‌شد تعریف نشن.
-
-/**
- * خواندن مستقیم فایل صوتی از روی هارد بدون پنجره انتخاب فایل (مخصوص نسخه نصبی)
- *
- * این تابع از window.electronAPI.readAudioFile استفاده می‌کنه که از طریق IPC
- * به main process وصل می‌شه. قبلاً از fs.readFileSync استفاده می‌شد که با
- * contextIsolation:true در دسترس نیست.
- */
-async function loadAudioFromHardDrive(filePath) {
-  if (!isElectron || !window.electronAPI) {
-    throw new Error("این قابلیت فقط در نسخه نصبی دسکتاپ فعال است.");
-  }
-  if (!window.electronAPI.checkFileExists) {
-    throw new Error("electronAPI.checkFileExists موجود نیست — preload.js رو بررسی کنید");
-  }
-
-  // بررسی وجود فایل از طریق IPC
-  let exists = false;
-  try {
-    exists = await window.electronAPI.checkFileExists(filePath);
-  } catch (checkError) {
-    console.warn('[Audio Load] Error checking file existence:', checkError.message);
-    exists = false;
-  }
-
-  if (!exists) {
-    // اگر فایل در مسیر مطلق پیدا نشد، خطای ملایم بده
-    throw new Error("FILE_NOT_FOUND:" + filePath);
-  }
-
-  // خواندن فایل از طریق IPC (به‌صورت ArrayBuffer)
-  if (!window.electronAPI.readAudioFile) {
-    throw new Error("electronAPI.readAudioFile موجود نیست — preload.js رو بررسی کنید");
-  }
-  
-  let arrayBuffer;
-  try {
-    arrayBuffer = await window.electronAPI.readAudioFile(filePath);
-  } catch (readError) {
-    console.error('[Audio Load] Error reading file:', readError.message);
-    throw new Error("READ_ERROR:" + readError.message);
-  }
-
-  // دیکود کردن
-  ensureAudioCtx();
-  try {
-    return await DAW.audioCtx.decodeAudioData(arrayBuffer);
-  } catch (decodeError) {
-    console.error('[Audio Load] Error decoding audio:', decodeError.message);
-    throw new Error("DECODE_ERROR:" + decodeError.message);
-  }
-}
-/**
- * توابع کمکی برای جایگزینی require('path')
- * (چون require در renderer با contextIsolation:true در دسترس نیست)
- */
-function pathDirname(filePath) {
-  if (!filePath) return null;
-  // نرمال‌سازی backslash ویندوز به slash
-  const normalized = String(filePath).replace(/\\/g, '/');
-  const lastSlash = normalized.lastIndexOf('/');
-  if (lastSlash < 0) return null;
-  return normalized.substring(0, lastSlash);
-}
-
-function pathJoin(dir, relativePath) {
-  if (!dir) return relativePath;
-  if (!relativePath) return dir;
-  const normalizedDir = String(dir).replace(/[\\/]+$/, '');
-  const normalizedRel = String(relativePath).replace(/^[\\/]+/, '');
-  return normalizedDir + '/' + normalizedRel;
-}
-
-// اطمینان از اینکه توابع در global scope قابل دسترسی هستن
-if (typeof window !== 'undefined') {
-  window.loadAudioFromHardDrive = loadAudioFromHardDrive;
-  window.pathDirname = pathDirname;
-  window.pathJoin = pathJoin;
-}
+// منطق loadAudioFromHardDrive / pathDirname / pathJoin / handleAudioImport /
+// loadProject / resolveClipAudio به js/core/ProjectAudioService.js منتقل شده است.
+// wrapperهای سازگاری بلافاصله بعد از ensureAudioCtx() تعریف شده‌اند.
 
 /**
  * customPrompt — جایگزین window.prompt که در الکترون پشتیبانی نمی‌شه
@@ -915,6 +838,99 @@ const requestRenderSyncLyrics = debounce(() => { renderSyncLyrics(); }, 120);
       if (DAW.audioCtx.state === 'suspended') DAW.audioCtx.resume().catch(() => {});
       return DAW.audioCtx;
     }
+
+// ==========================================
+// ProjectAudioService Bridge
+// مالکیت state و AudioContext همچنان با app.js / DAW است.
+// ==========================================
+const projectAudioServiceBridge =
+  typeof window.ProjectAudioService === 'function'
+    ? new window.ProjectAudioService({
+        state: DAW,
+
+        isElectron: Boolean(
+          typeof isElectron !== 'undefined' &&
+          isElectron
+        ),
+
+        getElectronAPI: () =>
+          typeof window !== 'undefined'
+            ? window.electronAPI || null
+            : null,
+
+        ensureAudioCtx,
+
+        renderTimeline: () => {
+          if (typeof renderTimeline === 'function') {
+            renderTimeline();
+          }
+        },
+
+        getLoadingIndicator: () =>
+          typeof document !== 'undefined'
+            ? document.getElementById('loading-indicator')
+            : null,
+
+        logger: console
+      })
+    : null;
+
+function requireProjectAudioService() {
+  if (!projectAudioServiceBridge) {
+    throw new Error(
+      'ProjectAudioService در دسترس نیست. ترتیب scriptها در Akordyar.html را بررسی کنید.'
+    );
+  }
+
+  return projectAudioServiceBridge;
+}
+
+// ==========================================
+// ProjectAudioService thin wrappers
+// برای سازگاری با call-siteهای قدیمی در app.js
+// ==========================================
+
+async function loadAudioFromHardDrive(filePath) {
+  return requireProjectAudioService()
+    .loadAudioFromHardDrive(filePath);
+}
+
+function pathDirname(filePath) {
+  return requireProjectAudioService()
+    .pathDirname(filePath);
+}
+
+function pathJoin(dir, relativePath) {
+  return requireProjectAudioService()
+    .pathJoin(dir, relativePath);
+}
+
+async function handleAudioImport(file, copyToProject = false) {
+  return requireProjectAudioService()
+    .handleAudioImport(file, copyToProject);
+}
+
+async function loadProject(projectData, projectFilePath = null) {
+  return requireProjectAudioService()
+    .loadProject(projectData, projectFilePath);
+}
+
+async function resolveClipAudio(clip, projectFilePath = null) {
+  return requireProjectAudioService()
+    .resolveClipAudio(clip, projectFilePath);
+}
+
+// حفظ APIهای global قدیمی برای بخش‌های دیگر پروژه و ابزارهای legacy.
+if (typeof window !== 'undefined') {
+  window.loadAudioFromHardDrive =
+    loadAudioFromHardDrive;
+
+  window.pathDirname =
+    pathDirname;
+
+  window.pathJoin =
+    pathJoin;
+}
 
     const timeToX = (t) => t * DAW.pxPerSecond;
     const xToTime = (x) => x / DAW.pxPerSecond;
@@ -4199,185 +4215,11 @@ body.hl-pulse .popup-sync-line.active::before { content: ''; position: absolute;
       _lyricPopup.document.body.appendChild(sc);
       // Override _pCfg with saved Player View settings (not editor defaults)
       _lyricPopup._pCfg = { cSize: _pvSettings.cSize, cColor: _pvSettings.cColor, cFont: 'JetBrains Mono' };
-      // ==========================================
-// PART 2: Audio Import & Hard Drive Auto-Load
-// ==========================================
-// NOTE: loadAudioFromHardDrive, pathDirname, pathJoin در بالای فایل (global scope) تعریف شدن.
-// اینجا فقط توابع دیگه مرتبط با audio import قرار می‌گیرن.
 
-/**
- * مدیریت افزودن فایل صوتی جدید به پروژه
- */
-async function handleAudioImport(file, copyToProject = false) {
-  const absolutePath = isElectron ? file.path : null;
-
-  const newTrack = {
-    id: 'track_' + Date.now(),
-    name: file.name,
-    isCopied: copyToProject,
-    filePath: copyToProject ? null : absolutePath,
-    volume: 1.0,
-    pan: 0,
-    isMuted: false,
-    clips: []
-  };
-
-  const arrayBuffer = await file.arrayBuffer();
-  ensureAudioCtx();
-  const audioBuffer = await DAW.audioCtx.decodeAudioData(arrayBuffer);
-  
-  newTrack.clips.push({
-    id: 'clip_' + Date.now(),
-    startTime: 0,
-    offset: 0,
-    duration: audioBuffer.duration,
-    buffer: audioBuffer
-  });
-
-  if (audioBuffer.duration > DAW.projectDuration) {
-    DAW.projectDuration = audioBuffer.duration;
-  }
-
-  DAW.tracks.push(newTrack);
-  if (typeof renderTimeline === 'function') renderTimeline();
-}
 // ==========================================
 // PART 3: Project Load & Audio Export (WAV)
 // ==========================================
-
-/**
- * بارگذاری پروژه و لود اتوماتیک فایل‌های صوتی از مسیر ذخیره‌شده
- */
-async function loadProject(projectData, projectFilePath = null) {
-  const loader = document.getElementById('loading-indicator');
-  if (loader) loader.style.display = 'block';
-
-  // پاک‌سازی وضعیت فعلی
-  DAW.pool = {};
-  DAW.bufferCache.clear();
-  DAW.tracks = [];
-  DAW.clips = [];
-  
-  // بازیابی اطلاعات پروژه
-  DAW.project = projectData.project || {};
-  DAW.projectRoot = projectFilePath ? pathDirname(projectFilePath) : null;
-  
-  // بازیابی Pool کلیپ‌ها
-  if (projectData.pool) {
-    DAW.pool = projectData.pool;
-  }
-  
-  // بازیابی ترک‌ها و کلیپ‌ها
-  DAW.tracks = projectData.tracks || [];
-  DAW.clips = projectData.clips || [];
-  DAW.sections = projectData.sections || [];
-  DAW.edCur = projectData.edCur || null;
-  DAW.edSeqPoints = projectData.edSeqPoints || [];
-
-  // لود کردن فایل‌های صوتی برای هر کلیپ در Pool
-  for (const [clipId, clip] of Object.entries(DAW.pool)) {
-    try {
-      await resolveClipAudio(clip, projectFilePath);
-    } catch (error) {
-      console.warn(`فایل صوتی برای کلیپ ${clipId} پیدا نشد:`, error.message);
-      clip.runtime = { loaded: false, error: error.message };
-    }
-  }
-
-  // همچنین کلیپ‌های قدیمی که ممکن است در tracks باشند را لود کن
-  for (const clip of DAW.clips) {
-    if (clip.type !== 'chord' && clip.relativePath && !DAW.bufferCache.has(clip.id)) {
-      try {
-        // ساخت یک شیء clip موقت برای resolveClipAudio
-        const tempClip = {
-          id: clip.id || `clip_${Date.now()}`,
-          fileName: clip.fileName || clip.name,
-          relativePath: clip.relativePath,
-          storage: { mode: 'copy', projectPath: clip.relativePath }
-        };
-        await resolveClipAudio(tempClip, projectFilePath);
-        // کپی بافر به کلیپ اصلی
-        const buffer = DAW.bufferCache.get(tempClip.id);
-        if (buffer) {
-          DAW.bufferCache.set(clip.id || tempClip.id, buffer);
-        }
-      } catch (e) {
-        console.warn('لود کلیپ قدیمی شکست خورد:', e.message);
-      }
-    }
-  }
-
-  DAW.projectDuration = projectData.projectDuration || 0;
-  if (typeof renderTimeline === 'function') renderTimeline();
-  if (loader) loader.style.display = 'none';
-}
-
-/**
- * تابع مرکزی برای Resolve و Load فایل‌های صوتی
- */
-async function resolveClipAudio(clip, projectFilePath = null) {
-  let filePath = null;
-  
-  // بررسی حالت‌های مختلف ذخیره‌سازی
-  if (clip.storage && clip.storage.mode === 'copy') {
-    // حالت کپی: فایل در پوشه پروژه است
-    const projRoot = projectFilePath ? pathDirname(projectFilePath) : DAW.projectRoot;
-    if (!projRoot || !clip.storage.projectPath) {
-      throw new Error(`Project root is missing for clip: ${clip.id}`);
-    }
-    filePath = (window.electronAPI?.resolvePath)
-               ? await window.electronAPI.resolvePath(projRoot, clip.storage.projectPath)
-               : pathJoin(projRoot, clip.storage.projectPath);
-  } else if (clip.storage && clip.storage.mode === 'reference') {
-    // حالت رفرنس: مسیر خارجی
-    filePath = clip.storage.externalPath;
-  } else if (clip.relativePath) {
-    // حالت جدید: مسیر نسبی
-    const projRoot = projectFilePath ? pathDirname(projectFilePath) : DAW.projectRoot;
-    if (projRoot) {
-      filePath = (window.electronAPI?.resolvePath)
-                 ? await window.electronAPI.resolvePath(projRoot, clip.relativePath)
-                 : pathJoin(projRoot, clip.relativePath);
-    }
-  } else if (clip._filePath) {
-    // سازگاری با نسخه قدیمی
-    filePath = clip._filePath;
-  } else if (clip.filePath) {
-    filePath = clip.filePath;
-  }
-  
-  if (!filePath) {
-    throw new Error(`No audio path for clip: ${clip.id || 'unknown'}`);
-  }
-  
-  // خواندن فایل صوتی از طریق Electron API
-  let arrayBuffer;
-  if (window.electronAPI?.readAudioFile) {
-    arrayBuffer = await window.electronAPI.readAudioFile(filePath);
-  } else {
-    throw new Error('Electron API not available for reading audio files');
-  }
-  
-  if (!arrayBuffer) {
-    throw new Error(`Failed to read audio file: ${filePath}`);
-  }
-  
-  // دیکد کردن AudioBuffer
-  const audioCtx = DAW.audioCtx || (DAW.audioCtx = new (window.AudioContext || window.webkitAudioContext)());
-  const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer.slice(0));
-  
-  // ذخیره در کش با کلید پایدار clipId
-  DAW.bufferCache.set(clip.id, audioBuffer);
-  
-  // آپدیت وضعیت runtime
-  clip.runtime = {
-    loaded: true,
-    resolvedPath: filePath,
-    loadedAt: Date.now()
-  };
-  
-  return audioBuffer;
-}
+// منطق load/resolve صوت پروژه به js/core/ProjectAudioService.js منتقل شده است.
 
 /**
  * تبدیل AudioBuffer به فرمت استاندارد WAV جهت ذخیره‌سازی
