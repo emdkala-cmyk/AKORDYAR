@@ -6,17 +6,21 @@
  */
 class EventBindings {
   constructor({
-    documentRef = document,
-    windowRef = window,
+    documentRef = typeof document !== 'undefined' ? document : null,
+    windowRef = typeof window !== 'undefined' ? window : null,
     actions = {},
     onGlobalKeydownCapture = null,
-    onGlobalKeydown = null
+    onGlobalKeydown = null,
+    onGlobalKeyup = null,
+    onGlobalMousedownCapture = null
   } = {}) {
     this.document = documentRef;
     this.window = windowRef;
     this.actions = actions;
     this.onGlobalKeydownCapture = onGlobalKeydownCapture;
     this.onGlobalKeydown = onGlobalKeydown;
+    this.onGlobalKeyup = onGlobalKeyup;
+    this.onGlobalMousedownCapture = onGlobalMousedownCapture;
 
     this.initialized = false;
     this.listeners = [];
@@ -35,6 +39,7 @@ class EventBindings {
     this.bindNavItems();
     this.bindQuickSearchPanel();
     this.bindGlobalKeyboard();
+    this.bindGlobalPointer();
 
     return this;
   }
@@ -126,6 +131,21 @@ class EventBindings {
     if (typeof this.onGlobalKeydown === 'function') {
       this.listen(this.window, 'keydown', this.onGlobalKeydown);
     }
+
+    if (typeof this.onGlobalKeyup === 'function') {
+      this.listen(this.window, 'keyup', this.onGlobalKeyup);
+    }
+  }
+
+  bindGlobalPointer() {
+    if (typeof this.onGlobalMousedownCapture === 'function') {
+      this.listen(
+        this.document,
+        'mousedown',
+        this.onGlobalMousedownCapture,
+        true
+      );
+    }
   }
 
   runAction(actionName, event, element) {
@@ -146,4 +166,8 @@ class EventBindings {
 if (typeof window !== 'undefined') {
   window.EventBindings = EventBindings;
   window.dispatchEvent(new CustomEvent('akordyar:event-bindings-ready'));
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = EventBindings;
 }

@@ -2534,6 +2534,10 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
       }
     }
 
+    function handleGlobalKeyup(e) {
+      if (e.key === 'Shift') $('cut-guide').style.display = 'none';
+    }
+
     /* ===================== INIT & INTERACTIONS ===================== */
     function init() {
       ensureAudioCtx();
@@ -2571,7 +2575,6 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
       lanes.addEventListener('mousemove', showGuide);
       scroll.addEventListener('mousemove', (e) => { if (e.shiftKey) showGuide(e); });
       lanes.addEventListener('mouseleave', () => { if (!$('tl-scroll').matches(':hover')) $('cut-guide').style.display = 'none'; });
-      window.addEventListener('keyup', (e) => { if (e.key === 'Shift') $('cut-guide').style.display = 'none'; });
 
     } // End init()
 
@@ -6120,6 +6123,15 @@ if (
 
     let eventBindings = null;
 
+    function handleGlobalMousedownCapture(e) {
+      if (!e.ctrlKey || !e.shiftKey || !e.altKey) return;
+      const btn = e.target.closest('[data-action]');
+      if (!btn) return;
+      e.preventDefault();
+      e.stopPropagation();
+      startMapping(btn.dataset.action, btn);
+    }
+
     function initializeEventBindings() {
       if (document.readyState === 'loading') return;
       if (eventBindings || typeof window.EventBindings !== 'function') return;
@@ -6127,7 +6139,9 @@ if (
       eventBindings = new window.EventBindings({
         actions: ACTION_FUNCTIONS,
         onGlobalKeydownCapture: handleGlobalKeydownCapture,
-        onGlobalKeydown: handleGlobalKeydown
+        onGlobalKeydown: handleGlobalKeydown,
+        onGlobalKeyup: handleGlobalKeyup,
+        onGlobalMousedownCapture: handleGlobalMousedownCapture
       });
 
       eventBindings.init();
@@ -6145,15 +6159,6 @@ if (
     } else {
       initializeEventBindings();
     }
-
-    // Detect Ctrl+Shift+Alt + Click on any button with data-action
-    document.addEventListener('mousedown', (e) => {
-      if (!e.ctrlKey || !e.shiftKey || !e.altKey) return;
-      const btn = e.target.closest('[data-action]');
-      if (!btn) return;
-      e.preventDefault(); e.stopPropagation();
-      startMapping(btn.dataset.action, btn);
-    }, true);
 
     function startMapping(actionId, el) {
       // Deactivate any active tools
