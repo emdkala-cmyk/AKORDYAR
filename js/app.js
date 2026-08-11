@@ -932,6 +932,30 @@ if (typeof window !== 'undefined') {
     pathJoin;
 }
 
+// ==========================================
+// Editor Domain module accessors (Commit 1)
+// ==========================================
+function requireLyricsParser() {
+  if (typeof window.LyricsParser !== 'object' || !window.LyricsParser) {
+    throw new Error('LyricsParser در دسترس نیست. ترتیب scriptها در Akordyar.html را بررسی کنید.');
+  }
+  return window.LyricsParser;
+}
+
+function requireLyricPositionMapper() {
+  if (typeof window.LyricPositionMapper !== 'object' || !window.LyricPositionMapper) {
+    throw new Error('LyricPositionMapper در دسترس نیست. ترتیب scriptها در Akordyar.html را بررسی کنید.');
+  }
+  return window.LyricPositionMapper;
+}
+
+function requireChordLineSyncService() {
+  if (typeof window.ChordLineSyncService !== 'object' || !window.ChordLineSyncService) {
+    throw new Error('ChordLineSyncService در دسترس نیست. ترتیب scriptها در Akordyar.html را بررسی کنید.');
+  }
+  return window.ChordLineSyncService;
+}
+
     const timeToX = (t) => t * DAW.pxPerSecond;
     const xToTime = (x) => x / DAW.pxPerSecond;
 
@@ -2967,15 +2991,8 @@ sels.forEach(c => {
       }
       
       // 2. Sort chords by spatial position from right to left (RTL reading order)
-      // For Persian text: index 0 is on the far right, higher indices go to the left
-      // So ascending sort (a.charIndex - b.charIndex) gives us right-to-left order
-      const lyricsChordsInSyncOrder = [...lyricsChords].sort((a, b) => {
-        if (a.lineIndex !== b.lineIndex) {
-          return a.lineIndex - b.lineIndex;
-        }
-        // Ascending order: smaller charIndex (right side) comes first
-        return a.charIndex - b.charIndex;
-      });
+      // منطق مرتب‌سازی به js/editor/ChordLineSyncService.js منتقل شده است.
+      const lyricsChordsInSyncOrder = requireChordLineSyncService().sortLyricsChordsForSync(lyricsChords);
       
       // 3. Get current Chord Line clips from DAW.clips (the actual source of truth)
       const chordTrack = DAW.tracks.find(t => t.type === 'chord');
@@ -2996,11 +3013,8 @@ sels.forEach(c => {
       
       // 4. Apply Lyrics chords to Chord Line from left to right
       // Only update the .name property of existing clips
-      let appliedCount = Math.min(lyricsChordsInSyncOrder.length, currentChordLineClips.length);
-      
-      for (let i = 0; i < appliedCount; i++) {
-        currentChordLineClips[i].name = lyricsChordsInSyncOrder[i].name;
-      }
+      // منطق اعمال به js/editor/ChordLineSyncService.js منتقل شده است.
+      const appliedCount = requireChordLineSyncService().applyChordNamesToClips(lyricsChordsInSyncOrder, currentChordLineClips);
       
       // 5. Update state and re-render
       edCur.hasManualChordLineEdits = false;
@@ -4795,20 +4809,8 @@ let syncTapKeyHandler = null;
     // Sequential chords (آکورد ترتیبی)
     function edRemapSeqPoints(oldText, newText) {
       if (!edCur?.seqPoints?.length) return;
-      function lineCharToAbs(text, li, ci) { const lines = text.split('\n'); let abs = 0; for (let i=0;i<li&&i<lines.length;i++) abs += lines[i].length+1; return abs + Math.min(ci, (lines[li]||'').length); }
-      function absToLineChar(text, abs) { const lines = text.split('\n'); let pos = abs; for (let i=0;i<lines.length;i++) { if (pos <= lines[i].length) return {lineIndex:i,charIndex:pos}; pos -= lines[i].length+1; } return {lineIndex:lines.length-1,charIndex:(lines[lines.length-1]||'').length}; }
-      function remapItem(item) {
-        if (item.anchorType === 'LineStart') { const nl = newText.split('\n'); item.lineIndex = Math.min(item.lineIndex, nl.length-1); item.charIndex = 0; return; }
-        if (item.anchorType === 'LineEnd') { const nl = newText.split('\n'); item.lineIndex = Math.min(item.lineIndex, nl.length-1); item.charIndex = (nl[item.lineIndex]||'').length; return; }
-        const abs = lineCharToAbs(oldText, item.lineIndex, item.charIndex);
-        const anchorChar = oldText[abs];
-        if (!anchorChar || anchorChar === '\n') { const cl = absToLineChar(newText, Math.min(abs, newText.length)); item.lineIndex = cl.lineIndex; item.charIndex = cl.charIndex; item.anchorType = 'OnCharacter'; return; }
-        let best = -1, bestD = Infinity, sf = 0;
-        while (sf < newText.length) { const f = newText.indexOf(anchorChar, sf); if (f === -1) break; const d = Math.abs(f-abs); if (d < bestD) { bestD = d; best = f; } if (f >= abs) break; sf = f+1; }
-        if (best === -1) { const cl = absToLineChar(newText, Math.min(abs, newText.length)); item.lineIndex = cl.lineIndex; item.charIndex = cl.charIndex; item.anchorType = 'OnCharacter'; return; }
-        const pos = absToLineChar(newText, best); item.lineIndex = pos.lineIndex; item.charIndex = pos.charIndex; item.anchorType = 'OnCharacter';
-      }
-      edCur.seqPoints.forEach(sp => remapItem(sp));
+      // منطق remap به js/editor/LyricPositionMapper.js منتقل شده است.
+      edCur.seqPoints.forEach(sp => requireLyricPositionMapper().remapAnchorToNewText(sp, oldText, newText));
       edCur.seqPoints = edCur.seqPoints.filter(p => p.lineIndex >= 0);
       if (edSeqModeActive) edSeqPoints = edCur.seqPoints;
     }
@@ -7361,24 +7363,8 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
     //
     // No proportional scaling. No word-boundary snapping.
     function mapChordColumnsToLyricIndices(chordLine, lyricLine, chordPositions) {
-      const lyricLen = lyricLine.length;
-      if (lyricLen === 0) return [];
-      const isRTL = hasPersian(lyricLine);
-      // Use expanded lyric width for accurate column mapping
-      const lyricExpanded = expandTabsForVisualColumns(lyricLine);
-      const lyricVisualWidth = lyricExpanded.length;
-      return chordPositions.map(function(ch) {
-        let charIdx;
-        if (isRTL) {
-          // RTL: end of chord token maps to text boundary from the right
-          charIdx = lyricVisualWidth - ch.endColumn;
-        } else {
-          // LTR: start of chord token maps directly
-          charIdx = ch.startColumn;
-        }
-        charIdx = Math.max(0, Math.min(charIdx, lyricLen));
-        return { name: ch.name, charIndex: charIdx };
-      });
+      // منطق به js/editor/LyricPositionMapper.js منتقل شده است.
+      return requireLyricPositionMapper().mapChordColumnsToLyricIndices(chordLine, lyricLine, chordPositions);
     }
 
     // Validate parsed song result in development mode.
@@ -8560,21 +8546,8 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
     }
 
     function parseChordLyricText(rawText) {
-      const lines = rawText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-      const chordRegex = /^[A-G][#b]?(m|maj|min|dim|aug|sus[24]?|add\d+|\/[A-G][#b]?|\d+)*(\s+[A-G][#b]?(m|maj|min|dim|aug|sus[24]?|add\d+|\/[A-G][#b]?|\d+)*)*\s*$/;
-      const result = { sections: [], allChords: new Set() };
-
-      for (const line of lines) {
-        const isChordLine = chordRegex.test(line.replace(/\s{2,}/g, ' ').trim());
-        if (isChordLine) {
-          const chords = line.match(/[A-G][#b]?(?:m|maj|min|dim|aug|sus[24]?|add\d+)?(?:\/[A-G][#b]?)?/g) || [];
-          chords.forEach(c => result.allChords.add(c));
-          result.sections.push({ type: 'chord', text: line, chords });
-        } else {
-          result.sections.push({ type: 'lyric', text: line });
-        }
-      }
-      return result;
+      // منطق به js/editor/LyricsParser.js منتقل شده است.
+      return requireLyricsParser().parseChordLyricText(rawText);
     }
 
     function showImportPreview(parsed) {
@@ -13154,20 +13127,8 @@ function edRenderChords(immediate) {
 
     function edRemapAnchors(oldText, newText) {
       if (oldText === newText || !edCur) return;
-      function lineCharToAbs(text, li, ci) { const lines = text.split('\n'); let abs = 0; for (let i=0; i<li && i<lines.length; i++) abs += lines[i].length + 1; return abs + Math.min(ci, (lines[li]||'').length); }
-      function absToLineChar(text, abs) { const lines = text.split('\n'); let pos = abs; for (let i=0;i<lines.length;i++) { if (pos <= lines[i].length) return {lineIndex:i,charIndex:pos}; pos -= lines[i].length+1; } return {lineIndex:lines.length-1,charIndex:(lines[lines.length-1]||'').length}; }
-      function remapItem(item) {
-        if (item.anchorType === 'LineStart') { const nl = newText.split('\n'); item.lineIndex = Math.min(item.lineIndex, nl.length-1); item.charIndex = 0; return; }
-        if (item.anchorType === 'LineEnd') { const nl = newText.split('\n'); item.lineIndex = Math.min(item.lineIndex, nl.length-1); item.charIndex = (nl[item.lineIndex]||'').length; return; }
-        const abs = lineCharToAbs(oldText, item.lineIndex, item.charIndex);
-        const anchorChar = oldText[abs];
-        if (!anchorChar || anchorChar === '\n') { const cl = absToLineChar(newText, Math.min(abs, newText.length)); item.lineIndex = cl.lineIndex; item.charIndex = cl.charIndex; item.anchorType = 'OnCharacter'; return; }
-        let best = -1, bestD = Infinity, sf = 0;
-        while (sf < newText.length) { const f = newText.indexOf(anchorChar, sf); if (f === -1) break; const d = Math.abs(f-abs); if (d < bestD) { bestD = d; best = f; } if (f >= abs) break; sf = f+1; }
-        if (best === -1) { const cl = absToLineChar(newText, Math.min(abs, newText.length)); item.lineIndex = cl.lineIndex; item.charIndex = cl.charIndex; item.anchorType = 'OnCharacter'; return; }
-        const pos = absToLineChar(newText, best); item.lineIndex = pos.lineIndex; item.charIndex = pos.charIndex; item.anchorType = 'OnCharacter';
-      }
-      edCur.chords.forEach(ch => remapItem(ch));
+      // منطق remap به js/editor/LyricPositionMapper.js منتقل شده است.
+      edCur.chords.forEach(ch => requireLyricPositionMapper().remapAnchorToNewText(ch, oldText, newText));
       edFilterChordsWithBase(ch => ch.lineIndex >= 0);
     }
 
