@@ -1,6 +1,6 @@
 /**
  * ClipboardService.js
- * منطق کپی، برش، چسباندن و تکثیر کلیپ‌ها.
+ * منطق کپی، برش، چسباندن، تکثیر و حذف کلیپ‌ها و سکشن‌ها.
  * استخراج شده از app.js جهت کاهش خطوط و سازماندهی کد.
  */
 class ClipboardService {
@@ -9,6 +9,34 @@ class ClipboardService {
     }
 
     get d() { return this.deps; }
+
+    deleteSelected() {
+        const { DAW, toast, t, stopAllVoices, saveState, renderAll, scheduleAllFromPlayhead } = this.d;
+        const clipIds = [...DAW.selectedIds];
+        const sectionIds = [...DAW.selectedSectionIds];
+
+        if (!clipIds.length && !sectionIds.length) {
+            toast(t('nothingSelected'));
+            return;
+        }
+
+        stopAllVoices();
+
+        if (clipIds.length) {
+            DAW.clips = DAW.clips.filter(c => !DAW.selectedIds.has(c.id));
+            DAW.selectedIds.clear();
+        }
+
+        if (sectionIds.length) {
+            DAW.sections = DAW.sections.filter(s => !DAW.selectedSectionIds.has(s.id));
+            DAW.selectedSectionIds.clear();
+        }
+
+        saveState();
+        renderAll();
+        if (DAW.isPlaying) scheduleAllFromPlayhead();
+        toast(t('deleted'));
+    }
 
     copySelected() {
         const sels = this.d.selectedClips();
@@ -32,7 +60,7 @@ class ClipboardService {
     cutSelected() {
         this.copySelected();
         if (this.d.DAW.clipboard && this.d.DAW.clipboard.length) {
-            this.d.deleteSelected();
+            this.deleteSelected();
             this.d.toast(this.d.t('cutDone'));
         }
     }

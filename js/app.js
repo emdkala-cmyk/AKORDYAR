@@ -2033,57 +2033,18 @@ function undo() {
      $('editor')?.blur();
 }
 
-    function deleteSelected() {
-      const clipIds = [...DAW.selectedIds];
-      const sectionIds = [...DAW.selectedSectionIds];
-      
-      if (!clipIds.length && !sectionIds.length) { 
-        toast(t('nothingSelected')); 
-        return; 
-      }
-      
-      stopAllVoices();
-      
-      // Delete selected clips
-      if (clipIds.length) {
-        DAW.clips = DAW.clips.filter(c => !DAW.selectedIds.has(c.id));
-        DAW.selectedIds.clear();
-      }
-      
-      // Delete selected sections
-      if (sectionIds.length) {
-        DAW.sections = DAW.sections.filter(s => !DAW.selectedSectionIds.has(s.id));
-        DAW.selectedSectionIds.clear();
-      }
-      
-      saveState(); 
-      renderAll();
-      if (DAW.isPlaying) scheduleAllFromPlayhead(); 
-      toast(t('deleted'));
-    }
-
-    // --- Clipboard Service Bridge ---
-    const clipboardService = new ClipboardService({
-      DAW,
-      selectedClips,
-      deleteSelected,
-      uid,
-      roundMs,
-      peaksFromBuffer,
-      refreshClipWaveImage,
-      ensureTimelineFits,
-      saveState,
-      renderAll,
-      scheduleAllFromPlayhead,
-      toast,
-      t,
-      edSaveSong
+    // --- Editor Service Bridge ---
+    const editorService = new ClipboardService({
+      DAW, selectedClips, uid, roundMs, peaksFromBuffer, refreshClipWaveImage,
+      ensureTimelineFits, saveState, renderAll, scheduleAllFromPlayhead, toast, t, edSaveSong,
+      stopAllVoices
     });
 
-    function copySelected() { clipboardService.copySelected(); }
-    function cutSelected() { clipboardService.cutSelected(); }
-    function pasteClipboard() { clipboardService.pasteClipboard(); }
-    function duplicateSelected() { clipboardService.duplicateSelected(); }
+    function deleteSelected() { editorService.deleteSelected(); }
+    function copySelected() { editorService.copySelected(); }
+    function cutSelected() { editorService.cutSelected(); }
+    function pasteClipboard() { editorService.pasteClipboard(); }
+    function duplicateSelected() { editorService.duplicateSelected(); }
     function splitClipAt(clip, atTime) {
       const t = roundMs(atTime); if (t <= clip.start + 0.01 || t >= clip.start + clip.duration - 0.01) return null;
       const leftDur = roundMs(t - clip.start); const rightDur = roundMs(clip.duration - leftDur);
