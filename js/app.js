@@ -1,4 +1,4 @@
-console.log("!!! APP_JS_LOADED_FROM_DISK !!!");
+﻿console.log("!!! APP_JS_LOADED_FROM_DISK !!!");
 // ==========================================
 // PART 1: Initialization & Electron Setup
 // ==========================================
@@ -545,27 +545,29 @@ globalScope.DAW = {
         return;
       }
 
-      const result = SyncAnalysis.detectTempoFromSyncTimes(edCur.syncTimes);
+      const result = SyncAnalysis.detectTempoFromSyncTimes(edCur.syncTimes, {
+        minDiff: 0.1,
+        maxDiff: 10,
+        minBpm: 60,
+        maxBpm: 180
+      });
+
       if (!result.ok) {
-        if (result.reason === 'insufficient_sync_points') {
-          toast('ابتدا سینک دستی را انجام دهید (حداقل ۲ لاین)');
-        } else if (result.reason === 'insufficient_intervals') {
-          toast('زمان‌های سینک کافی نیست');
-        } else {
-          toast('تمپو از روی سینک‌ها قابل تشخیص نیست');
-        }
+        toast('تمپو قابل تشخیص نبود');
         return;
       }
 
-      const tempoInput = $('edTempo');
-      if (tempoInput) tempoInput.value = String(result.tempo);
+      const bestBpm = result.bpm;
+
+      const tempoEl = $('edTempo');
+      if (tempoEl) tempoEl.value = bestBpm;
 
       if (edCur) {
-        edCur.tempo = result.tempo;
+        edCur.tempo = bestBpm;
         edSaveSong();
       }
 
-      toast(`تمپوی تشخیص داده شده: ${result.tempo} BPM (از ${result.intervals.length} لاین سینک)`);
+      toast(`تمپوی تشخیص داده شده: ${bestBpm} BPM (از ${result.intervals.length} لاین سینک)`);
     }
 
     // ===== KEY DETECTION FROM CHORDS =====
@@ -576,25 +578,30 @@ globalScope.DAW = {
       }
 
       const result = SyncAnalysis.detectKeyFromChords(edCur.chords);
+
       if (!result.ok) {
-        toast('گام از روی آکوردها قابل تشخیص نیست');
+        toast('گام قابل تشخیص نبود');
         return;
       }
 
-      const keyInput = $('edKey');
-      const modeInput = $('edKeyMode');
-      if (keyInput) keyInput.value = result.key;
-      if (modeInput) modeInput.value = result.mode;
+      const bestKey = result.key;
+      const bestMode = result.mode;
+
+      const keyEl = $('edKey');
+      const modeEl = $('edKeyMode');
+
+      if (keyEl) keyEl.value = bestKey;
+      if (modeEl) modeEl.value = bestMode;
 
       if (edCur) {
-        edCur.key = result.key;
-        edCur.keyMode = result.mode;
+        edCur.key = bestKey;
+        edCur.keyMode = bestMode;
         edSaveSong();
         edSyncToolbar();
         edRenderEditor();
       }
 
-      toast(`گام تشخیص داده شده: ${result.key} ${result.mode === 'maj' ? 'ماژور' : 'مینور'} (امتیاز: ${result.score})`);
+      toast(`گام تشخیص داده شده: ${bestKey} ${bestMode === 'maj' ? 'ماژور' : 'مینور'} (امتیاز: ${result.score})`);
     }
 
     function togglePanel(panel) {
@@ -12950,3 +12957,4 @@ function escapeHtml(text) {
   div.textContent = text;
   return div.innerHTML;
 }
+

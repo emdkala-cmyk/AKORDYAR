@@ -1,43 +1,49 @@
-﻿const assert = require('assert');
-const SyncAnalysis = require('../core/utils/SyncAnalysis');
-
-function test(name, fn) {
-  try {
-    fn();
-    console.log('ok - ' + name);
-  } catch (err) {
-    console.error('not ok - ' + name);
-    throw err;
+﻿// js/tests/sync-analysis.test.js
+(function () {
+  function assert(cond, msg) {
+    if (!cond) throw new Error(msg);
   }
-}
 
-test('detectTempoFromSyncTimes returns 120 for 0.5s intervals', () => {
-  const result = SyncAnalysis.detectTempoFromSyncTimes([0, 0.5, 1.0, 1.5, 2.0]);
-  assert.strictEqual(result.ok, true);
-  assert.strictEqual(result.tempo, 120);
-  assert.strictEqual(result.intervals.length, 3);
-});
+  function run() {
+    // Tempo
+    const t1 = SyncAnalysis.detectTempoFromSyncTimes([0.5, 1.0, 1.5, 2.0]);
+    assert(t1.ok, 'tempo case 1 should be ok');
+    assert(t1.bpm === 120, 'tempo case 1 expected 120, got ' + t1.bpm);
 
-test('detectTempoFromSyncTimes rejects too few sync points', () => {
-  const result = SyncAnalysis.detectTempoFromSyncTimes([1.25]);
-  assert.strictEqual(result.ok, false);
-  assert.strictEqual(result.reason, 'insufficient_sync_points');
-});
+    const t2 = SyncAnalysis.detectTempoFromSyncTimes([1.0, 2.0, 3.0, 4.0]);
+    assert(t2.ok, 'tempo case 2 should be ok');
+    assert(t2.bpm === 60, 'tempo case 2 expected 60, got ' + t2.bpm);
 
-test('detectKeyFromChords recognizes a C major-like set', () => {
-  const result = SyncAnalysis.detectKeyFromChords([
-    { name: 'C' },
-    { name: 'F' },
-    { name: 'G' },
-    { name: 'Cmaj7' }
-  ]);
-  assert.strictEqual(result.ok, true);
-  assert.strictEqual(result.key, 'C');
-  assert.strictEqual(result.mode, 'maj');
-});
+    const t3 = SyncAnalysis.detectTempoFromSyncTimes([1.0]);
+    assert(!t3.ok, 'tempo case 3 should fail');
 
-test('detectKeyFromChords rejects empty chord lists', () => {
-  const result = SyncAnalysis.detectKeyFromChords([]);
-  assert.strictEqual(result.ok, false);
-  assert.strictEqual(result.reason, 'no_recognized_chords');
-});
+    // Key
+    const k1 = SyncAnalysis.detectKeyFromChords([
+      { name: 'C' },
+      { name: 'G' },
+      { name: 'Am' },
+      { name: 'F' }
+    ]);
+    assert(k1.ok, 'key case 1 should be ok');
+    assert(k1.key === 'C', 'key case 1 expected C, got ' + k1.key);
+    assert(k1.mode === 'maj', 'key case 1 expected maj, got ' + k1.mode);
+
+    const k2 = SyncAnalysis.detectKeyFromChords([
+      { name: 'Am' },
+      { name: 'Dm' },
+      { name: 'E7' }
+    ]);
+    assert(k2.ok, 'key case 2 should be ok');
+
+    const k3 = SyncAnalysis.detectKeyFromChords([]);
+    assert(!k3.ok, 'key case 3 should fail');
+
+    console.log('sync-analysis tests passed');
+  }
+
+  if (typeof SyncAnalysis === 'undefined') {
+    throw new Error('SyncAnalysis is not loaded');
+  }
+
+  run();
+})();
