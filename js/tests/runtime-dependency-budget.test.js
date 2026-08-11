@@ -19,6 +19,8 @@ const archive = executableLines(read('js/archive/ArchiveModule.js'));
 const projectHub = executableLines(read('js/projecthub.js'));
 const performanceBridge = executableLines(read('js/performanceBridge.js'));
 const archiveRuntimeAdapter = read('js/archive/ArchiveRuntimeAdapter.js');
+const editor = executableLines(read('js/app/editor.js'));
+const search = executableLines(read('js/app/search.js'));
 
 assert.doesNotMatch(archive, /window\.edCur/);
 assert.doesNotMatch(archive, /\bPERF\b/);
@@ -27,6 +29,7 @@ assert.doesNotMatch(archive, /document\.addEventListener\(['"](?:click|mousemove
 assert.doesNotMatch(projectHub, /\bedCur\s*[.=]/);
 assert.doesNotMatch(projectHub, /\bDAW\s*\./);
 assert.doesNotMatch(projectHub, /typeof\s+DAW/);
+assert.doesNotMatch(projectHub, /document\.addEventListener\(['"]keydown['"]/);
 
 assert.doesNotMatch(performanceBridge, /window\.edCur/);
 assert.doesNotMatch(performanceBridge, /\bDAW\s*\./);
@@ -35,5 +38,8 @@ assert.doesNotMatch(performanceBridge, /\bPERF\s*\./);
 assert.match(archiveRuntimeAdapter, /getSong\(\)/);
 assert.match(archiveRuntimeAdapter, /getDAW\(\)/);
 assert.match(archiveRuntimeAdapter, /getPERF\(\)/);
+
+assert.doesNotMatch(search, /document\.addEventListener\(['"](?:mousemove|mouseup)['"]/);
+assert.doesNotMatch(editor, /document\.addEventListener\(['"](?:mousemove|mouseup)['"]/);
 
 console.log('Runtime dependency budget tests passed');

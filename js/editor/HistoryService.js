@@ -19,9 +19,19 @@
       this.ctx = ctx;
     }
 
+    getDAW() {
+      const ctx = this.ctx || {};
+      return typeof ctx.getDAW === 'function' ? ctx.getDAW() : ctx.DAW;
+    }
+
+    getPERF() {
+      const ctx = this.ctx || {};
+      return typeof ctx.getPERF === 'function' ? ctx.getPERF() : ctx.PERF;
+    }
+
     serializeState() {
       const ctx = this.ctx;
-      const DAW = ctx.DAW;
+      const DAW = this.getDAW();
       const edCur = ctx.getEdCur();
       const edSeqPoints = ctx.getEdSeqPoints();
 
@@ -76,11 +86,12 @@
 
     saveState() {
       const ctx = this.ctx;
+      const PERF = this.getPERF();
       if (this.isApplyingHistory) return;
 
       const state = this.serializeState();
 
-      if (state === ctx.PERF.lastSerializedState) {
+      if (state === PERF.lastSerializedState) {
         clearTimeout(ctx.getAutoSaveTimer());
         ctx.setAutoSaveTimer(setTimeout(() => ctx.edSaveSong(), this.autoSaveDelay));
         return;
@@ -94,7 +105,7 @@
       }
 
       this.undoIndex = this.undoStack.length - 1;
-      ctx.PERF.lastSerializedState = state;
+      PERF.lastSerializedState = state;
 
       clearTimeout(ctx.getAutoSaveTimer());
       ctx.setAutoSaveTimer(setTimeout(() => ctx.edSaveSong(), this.autoSaveDelay));
@@ -102,7 +113,8 @@
 
     applyState(stateStr) {
       const ctx = this.ctx;
-      const DAW = ctx.DAW;
+      const DAW = this.getDAW();
+      const PERF = this.getPERF();
       if (!stateStr) return;
 
       this.isApplyingHistory = true;
@@ -162,15 +174,15 @@
           }
         });
 
-        ctx.PERF.tracksVersion++;
-        ctx.PERF.clipsVersion++;
+        PERF.tracksVersion++;
+        PERF.clipsVersion++;
         ctx.renderAll();
 
         if (DAW.isPlaying) {
           ctx.scheduleAllFromPlayhead();
         }
 
-        ctx.PERF.lastSerializedState = stateStr;
+        PERF.lastSerializedState = stateStr;
       } finally {
         this.isApplyingHistory = false;
       }
@@ -206,11 +218,16 @@
   }
 
   const service = new HistoryService();
-  window.HistoryService = service;
-  window.requireHistoryService = () => {
-    if (!window.HistoryService) {
+  const runtimeGlobal = typeof window !== 'undefined' ? window : globalThis;
+  runtimeGlobal.HistoryService = service;
+  runtimeGlobal.requireHistoryService = () => {
+    if (!runtimeGlobal.HistoryService) {
       throw new Error('HistoryService not loaded! Load js/editor/HistoryService.js before app.js');
     }
-    return window.HistoryService;
+    return runtimeGlobal.HistoryService;
   };
+
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = service;
+  }
 })();

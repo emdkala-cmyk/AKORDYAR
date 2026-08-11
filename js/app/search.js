@@ -1,6 +1,7 @@
 ﻿// ===== Quick Search Panel Functions =====
 let _quickSearchDragging = false;
 let _quickSearchDragOffset = { x: 0, y: 0 };
+let _quickSearchPointerId = null;
 
 function openQuickSearchPanel() {
   const panel = document.getElementById('quickSearchPanel');
@@ -38,37 +39,50 @@ function setupQuickSearchDrag() {
   const header = document.getElementById('quickSearchHeader');
   const panel = document.getElementById('quickSearchPanel');
   if (!header || !panel) return;
-  
-  header.addEventListener('mousedown', (e) => {
+
+  if (header.dataset.dragBound === 'true') return;
+  header.dataset.dragBound = 'true';
+  header.style.touchAction = 'none';
+
+  const stopQuickSearchDrag = () => {
+    _quickSearchDragging = false;
+    _quickSearchPointerId = null;
+    panel.style.transition = '';
+  };
+
+  header.addEventListener('pointerdown', (e) => {
     if (e.target.closest('.qsp-close')) return;
+    if (e.button !== 0) return;
     _quickSearchDragging = true;
+    _quickSearchPointerId = e.pointerId;
     const rect = panel.getBoundingClientRect();
     _quickSearchDragOffset.x = e.clientX - rect.left;
     _quickSearchDragOffset.y = e.clientY - rect.top;
     panel.style.transition = 'none';
+    header.setPointerCapture?.(e.pointerId);
     e.preventDefault();
   });
-  
-  document.addEventListener('mousemove', (e) => {
-    if (!_quickSearchDragging) return;
+
+  header.addEventListener('pointermove', (e) => {
+    if (!_quickSearchDragging || e.pointerId !== _quickSearchPointerId) return;
     const x = e.clientX - _quickSearchDragOffset.x;
     const y = e.clientY - _quickSearchDragOffset.y;
-    
+
     // Boundary checks
     const maxX = window.innerWidth - panel.offsetWidth;
     const maxY = window.innerHeight - panel.offsetHeight;
-    
+
     panel.style.left = Math.max(0, Math.min(x, maxX)) + 'px';
     panel.style.top = Math.max(0, Math.min(y, maxY)) + 'px';
     panel.style.right = 'auto';
   });
-  
-  document.addEventListener('mouseup', () => {
-    if (_quickSearchDragging) {
-      _quickSearchDragging = false;
-      panel.style.transition = '';
-    }
+
+  header.addEventListener('pointerup', (e) => {
+    if (e.pointerId !== _quickSearchPointerId) return;
+    header.releasePointerCapture?.(e.pointerId);
+    stopQuickSearchDrag();
   });
+  header.addEventListener('pointercancel', stopQuickSearchDrag);
 }
 
 function quickSearchFilter() {

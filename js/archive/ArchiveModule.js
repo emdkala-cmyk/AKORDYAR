@@ -25,12 +25,20 @@
     let _archEventsBound = false;
     let _archSearchIndex = null;
 
+    function getArchiveRuntimeAdapter() {
+      const adapter = window.ArchiveRuntimeAdapter;
+      if (!adapter) {
+        throw new Error('ArchiveRuntimeAdapter is not loaded. Check Akordyar.html script order.');
+      }
+      return adapter;
+    }
+
     function resetPerformanceSerialization() {
-      window.ArchiveRuntimeAdapter?.resetPerformanceSerialization?.();
+      getArchiveRuntimeAdapter().resetPerformanceSerialization?.();
     }
 
     function getArchiveDAW() {
-      const daw = window.ArchiveRuntimeAdapter?.getDAW?.();
+      const daw = getArchiveRuntimeAdapter().getDAW?.();
       if (!daw) throw new Error('ArchiveRuntimeAdapter: DAW is unavailable');
       return daw;
     }
@@ -228,7 +236,7 @@
       daw.loopEnabled = false; daw.loopA = 0; daw.loopB = 10;
       isRecordingChords = false; currentRecordingClipId = null;
       edCur = JSON.parse(JSON.stringify(data));
-      window.ArchiveRuntimeAdapter?.setSong?.(edCur);
+      getArchiveRuntimeAdapter().setSong?.(edCur);
       if (!edCur.styles) edCur.styles = {};
       const defaults = { tSize:38,tColor:'#0fa966',tFont:'Vazirmatn',tBold:true,align:'center', cSize:38,cColor:'#e6aa28',cFont:'JetBrains Mono' };
       Object.keys(defaults).forEach(k => { if (edCur.styles[k] === undefined) edCur.styles[k] = defaults[k]; });
@@ -846,7 +854,7 @@
       copy.updatedAt = new Date().toISOString();
       const songs = edGetAllSongs(); songs.unshift(copy); edSetAllSongs(songs);
       edCur = copy;
-      window.ArchiveRuntimeAdapter?.setSong?.(edCur);
+      getArchiveRuntimeAdapter().setSong?.(edCur);
       toast('نسخه قابل ویرایش ساخته شد');
     }
 
@@ -1683,7 +1691,7 @@ function archUpdateActiveFilters() {
 stopAllVoices();
 
 edCur = edBlankSong();
-window.ArchiveRuntimeAdapter?.setSong?.(edCur);
+getArchiveRuntimeAdapter().setSong?.(edCur);
 
 undoStack = [];
 undoIndex = -1;
@@ -1909,7 +1917,7 @@ saveState();
             daw.clips = []; daw.sections = []; daw.selectedIds.clear(); daw.selectedSectionIds = new Set(); daw.bufferCache.clear(); daw.waveCache.clear();
             daw.loopEnabled = false; daw.loopA = 0; daw.loopB = 10;
             edCur = data;
-            window.ArchiveRuntimeAdapter?.setSong?.(edCur);
+            getArchiveRuntimeAdapter().setSong?.(edCur);
             if (!edCur.styles) edCur.styles = {};
             const defaults = { tSize:38,tColor:'#0fa966',tFont:'Vazirmatn',tBold:true,align:'center', cSize:38,cColor:'#e6aa28',cFont:'JetBrains Mono' };
             Object.keys(defaults).forEach(k => { if (edCur.styles[k] === undefined) edCur.styles[k] = defaults[k]; });

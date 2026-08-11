@@ -471,10 +471,12 @@
   function openHub() {
     const hub = $('projectHub');
     if (!hub) return;
+    if (!hub.hasAttribute('tabindex')) hub.tabIndex = -1;
     renderProjects();
     renderTemplates();
     renderArrangerPlaylists();
     hub.classList.add('show');
+    hub.focus({ preventScroll: true });
   }
 
   function closeHub() {
@@ -555,6 +557,7 @@
   function init() {
     const hub = $('projectHub');
     if (!hub) return;
+    if (!hub.hasAttribute('tabindex')) hub.tabIndex = -1;
 
     // Nav buttons
     hub.querySelectorAll('.nav-btn').forEach((btn) => {
@@ -609,7 +612,7 @@
     if (btnBrowse) btnBrowse.addEventListener('click', () => setActiveView('templates'));
 
     // Keyboard: Esc closes, Enter opens selected
-    document.addEventListener('keydown', (e) => {
+    hub.addEventListener('keydown', (e) => {
       if (!hub.classList.contains('show')) return;
       if (e.key === 'Escape') closeHub();
       else if (e.key === 'Enter' && selectedProjectId) openProject(selectedProjectId);
@@ -619,8 +622,7 @@
     // فقط بار اول (نه بعد از بستن و باز کردن)
     const isElectronRuntime = Boolean(
       typeof window !== 'undefined' &&
-      window.electronAPI &&
-      window.electronAPI.isElectron
+      window.RuntimeStateAdapter?.getElectronAPI?.()?.isElectron
     );
 
     if (isStartup && !isElectronRuntime) {

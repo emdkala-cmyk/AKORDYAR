@@ -2581,10 +2581,12 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
     // ===== TOOLBAR DRAG & DOCK =====
     (function() {
       let toolbarDragging = false, toolbarOffX = 0, toolbarOffY = 0;
+      let toolbarPointerId = null;
       const headerCtrl = $('headerCenterControls');
       const dragHandle = $('toolbarDragHandle');
       const pinBtn = $('toolbarPinBtn');
       if (!headerCtrl || !dragHandle || !pinBtn) return;
+      dragHandle.style.touchAction = 'none';
 
       // Right-click context menu
       const toolbarGroups = [
@@ -2697,7 +2699,7 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
       }
       window.toggleToolbarDock = toggleToolbarDock;
 
-      dragHandle.addEventListener('mousedown', (e) => {
+      dragHandle.addEventListener('pointerdown', (e) => {
         if (e.target.closest('.toolbar-pin-btn') || e.button !== 0) return;
         if (headerCtrl.classList.contains('dock-left') || headerCtrl.classList.contains('dock-right')) {
           headerCtrl.classList.remove('dock-left', 'dock-right');
@@ -2712,14 +2714,16 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
           pinBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>';
         }
         toolbarDragging = true;
+        toolbarPointerId = e.pointerId;
         const rect = headerCtrl.getBoundingClientRect();
         toolbarOffX = e.clientX - rect.left;
         toolbarOffY = e.clientY - rect.top;
+        dragHandle.setPointerCapture?.(e.pointerId);
         e.preventDefault();
       });
 
-      document.addEventListener('mousemove', (e) => {
-        if (!toolbarDragging) return;
+      dragHandle.addEventListener('pointermove', (e) => {
+        if (!toolbarDragging || e.pointerId !== toolbarPointerId) return;
         let x = e.clientX - toolbarOffX;
         let y = e.clientY - toolbarOffY;
         // Clamp to viewport
@@ -2729,9 +2733,11 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
         headerCtrl.style.transform = 'none';
       });
 
-      document.addEventListener('mouseup', (e) => {
-        if (!toolbarDragging) return;
+      dragHandle.addEventListener('pointerup', (e) => {
+        if (!toolbarDragging || e.pointerId !== toolbarPointerId) return;
+        dragHandle.releasePointerCapture?.(e.pointerId);
         toolbarDragging = false;
+        toolbarPointerId = null;
         const rect = headerCtrl.getBoundingClientRect();
         const snapThreshold = 40;
         if (rect.left < snapThreshold) {
@@ -2746,6 +2752,10 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
           pinBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>';
         }
       });
+      dragHandle.addEventListener('pointercancel', () => {
+        toolbarDragging = false;
+        toolbarPointerId = null;
+      });
     })(); // End toolbar IIFE
 
     // ===== Ruler & Playhead (global scope, uses global refs) =====
@@ -2753,6 +2763,25 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
       const lanes = $('lanes-container');
       const scroll = $('tl-scroll');
       if (!lanes || !scroll) return;
+
+      const startPointerDrag = (target, startEvent, onMove, onEnd = () => {}) => {
+        const pointerId = startEvent.pointerId;
+        target.setPointerCapture?.(pointerId);
+        const move = (event) => {
+          if (event.pointerId === pointerId) onMove(event);
+        };
+        const end = (event) => {
+          if (event.pointerId !== pointerId) return;
+          target.releasePointerCapture?.(pointerId);
+          target.removeEventListener('pointermove', move);
+          target.removeEventListener('pointerup', end);
+          target.removeEventListener('pointercancel', end);
+          onEnd(event);
+        };
+        target.addEventListener('pointermove', move);
+        target.addEventListener('pointerup', end);
+        target.addEventListener('pointercancel', end);
+      };
 
       // Scroll wheel zoom on timeline
       // Ctrl+Alt+wheel = vertical zoom (lane height)
@@ -2795,8 +2824,7 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
         // Auto-scroll timeline
         autoScrollToPlayhead();
       };
-      const onUp = () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
-      document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp);
+      startPointerDrag(e.currentTarget, e, onMove);
     }
     return;
   }
@@ -2841,22 +2869,21 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
           // Auto-scroll timeline
           autoScrollToPlayhead();
         };
-        const up = () => { document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up); };
-        document.addEventListener('mousemove', move); document.addEventListener('mouseup', up);
+        startPointerDrag(e.currentTarget, e, move);
       };
-      $('timeline-ruler').addEventListener('mousedown', beginScrub);
-      $('playhead-hit').addEventListener('mousedown', beginScrub);
+      $('timeline-ruler').addEventListener('pointerdown', beginScrub);
+      $('playhead-hit').addEventListener('pointerdown', beginScrub);
 
       // Timeline separator drag: drag up = lanes bigger, drag down = lanes smaller
       const sepEl = $('timelineSep');
       if (sepEl) {
-        sepEl.addEventListener('mousedown', (e) => {
+        sepEl.style.touchAction = 'none';
+        sepEl.addEventListener('pointerdown', (e) => {
           e.preventDefault();
           const startY = e.clientY;
           const origH = DAW.laneHeight;
           const onMove = (ev) => { const dy = startY - ev.clientY; setVerticalZoom(origH + dy * 0.5); };
-          const onUp = () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
-          document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp);
+          startPointerDrag(sepEl, e, onMove);
         });
       }
       
@@ -3011,7 +3038,8 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
       // Timeline resizable separator
       const sep = $('timelineSep');
       if (sep) {
-        sep.addEventListener('mousedown', e => {
+        sep.style.touchAction = 'none';
+        sep.addEventListener('pointerdown', e => {
           e.preventDefault();
           const startY = e.clientY;
           const grid = $('app-container') || document.querySelector('.app-container');
@@ -3021,8 +3049,7 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
             const newH = Math.max(120, Math.min(window.innerHeight - 200, startRow + delta));
             grid.style.gridTemplateRows = `75px 1fr 4px ${newH}px`;
           };
-          const up = () => { document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up); };
-          document.addEventListener('mousemove', move); document.addEventListener('mouseup', up);
+          startPointerDrag(sep, e, move);
         });
       }
       // Init sync UI
@@ -4781,7 +4808,8 @@ if ($('editorWrap')) {
 
     // -- Chord Drag --
 function edAttachChordDrag(el, idx) {
-  el.addEventListener('mousedown', e => {
+  el.style.touchAction = 'none';
+  el.addEventListener('pointerdown', e => {
     if (e.button !== 0) return;
     if (edCur && edCur.editorLocked) return;
 
@@ -4791,6 +4819,8 @@ function edAttachChordDrag(el, idx) {
 
     e.stopPropagation();
     e.preventDefault();
+    const pointerId = e.pointerId;
+    el.setPointerCapture?.(pointerId);
 
     if (e.detail === 2) {
       if (edCur && edCur.editorLocked) { toast('ویرایشگر قفل است'); return; }
@@ -4813,7 +4843,11 @@ function edAttachChordDrag(el, idx) {
           if (dragging) { pendingDx = ev.clientX - startX; if (!rafId) rafId = requestAnimationFrame(() => { const dx=pendingDx; rafId=null; snapshots.forEach(s => { s.el.style.left=(s.origLeft+dx)+'px'; }); }); }
         };
         const up = ev => {
-          document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up);
+          if (ev.pointerId !== pointerId) return;
+          el.releasePointerCapture?.(pointerId);
+          el.removeEventListener('pointermove', move);
+          el.removeEventListener('pointerup', up);
+          el.removeEventListener('pointercancel', up);
           if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
           const wasDrag = dragging; dragging = false; edChordDragActive = false;
           snapshots.forEach(s => { s.el.style.zIndex=''; s.el.style.opacity=''; s.el.style.pointerEvents=''; });
@@ -4841,7 +4875,9 @@ function edAttachChordDrag(el, idx) {
           edCommit();
 
         };
-        document.addEventListener('mousemove', move); document.addEventListener('mouseup', up);
+        el.addEventListener('pointermove', move);
+        el.addEventListener('pointerup', up);
+        el.addEventListener('pointercancel', up);
       });
     }
     // Redraw chords on window resize

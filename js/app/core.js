@@ -924,8 +924,8 @@ function attachHistoryService() {
   if (window.__historyAttached) return;
   window.__historyAttached = true;
   requireHistoryService().init({
-    DAW: DAW,
-    PERF: PERF,
+    getDAW: () => DAW,
+    getPERF: () => PERF,
     getEdCur: () => edCur,
     setEdCur: (v) => { edCur = v; window.EdCurAdapter?.setEdCur?.(v); },
     getEdSeqPoints: () => edSeqPoints,
@@ -4538,7 +4538,7 @@ let syncTapKeyHandler = null;
       syncModeControllerBridge = new window.SyncModeController({
             state: syncModeState,
             seqState: seqClState,
-            DAW,
+            getDAW: () => DAW,
             getEdCur: () => (typeof edCur !== 'undefined' ? edCur : null),
             $: (id) => $(id),
             t: (key) => t(key),

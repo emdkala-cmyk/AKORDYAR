@@ -17,6 +17,22 @@
 
     getPerformanceStore() {
       return globalScope.PerformanceStore || null;
+    },
+
+    getElectronAPI() {
+      return globalScope.electronAPI || null;
+    },
+
+    getDAWOrThrow() {
+      const daw = this.getDAW();
+      if (!daw) throw new Error('RuntimeStateAdapter: DAW is unavailable');
+      return daw;
+    },
+
+    getPERFOrThrow() {
+      const perf = this.getPERF();
+      if (!perf) throw new Error('RuntimeStateAdapter: PERF is unavailable');
+      return perf;
     }
   });
 

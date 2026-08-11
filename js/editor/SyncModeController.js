@@ -17,6 +17,7 @@ class SyncModeController {
   constructor({
     state,
     DAW,
+    getDAW,
     getEdCur,
     $,
     t,
@@ -47,7 +48,8 @@ class SyncModeController {
     if (!state) {
       throw new TypeError('SyncModeController requires a state accessor object');
     }
-    if (!DAW) {
+    const runtimeDAW = typeof getDAW === 'function' ? getDAW() : DAW;
+    if (!runtimeDAW) {
       throw new TypeError('SyncModeController requires the DAW reference');
     }
     if (typeof getEdCur !== 'function') {
@@ -58,7 +60,8 @@ class SyncModeController {
     }
 
     this.state = state;
-    this.DAW = DAW;
+    this.getDAW = typeof getDAW === 'function' ? getDAW : () => runtimeDAW;
+    this.DAW = runtimeDAW;
     this.getEdCur = getEdCur;
     this.$ = $;
 
