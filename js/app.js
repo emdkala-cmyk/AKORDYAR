@@ -4539,265 +4539,57 @@ document.addEventListener('DOMContentLoaded', () => {
 let lastSyncActiveLi = -999;
 let syncTapKeyHandler = null;
 
-    function formatSyncTime(t) { if (!Number.isFinite(t)) return '--:--.-'; const m = Math.floor(t / 60); const s = (t % 60).toFixed(1); return `${String(m).padStart(2,'0')}:${s.padStart(4,'0')}`; }
-    function createSyncLineEl(line, li, time) {
-  const d = document.createElement('div');
-  d.className = 'sline';
-  d.dataset.li = li;
+    /* ===== SYNC / LINE GUIDE — پل SyncModeController (Commit 2a) ===== */
+    // state همچنان متعلق به app.js است؛ کنترلر از طریق accessor می‌خواند/می‌نویسد.
+    const syncModeState = {
+      get active() { return syncActive; }, set active(v) { syncActive = v; },
+      get cursor() { return syncCursor; }, set cursor(v) { syncCursor = v; },
+      get history() { return syncHistory; }, set history(v) { syncHistory = v; },
+      get redoHistory() { return syncRedoHistory; }, set redoHistory(v) { syncRedoHistory = v; },
+      get watch() { return syncWatch; }, set watch(v) { syncWatch = v; },
+      get tapKeyHandler() { return syncTapKeyHandler; }, set tapKeyHandler(v) { syncTapKeyHandler = v; },
+      get lastActiveLi() { return lastSyncActiveLi; }, set lastActiveLi(v) { lastSyncActiveLi = v; }
+    };
 
-  const text = document.createElement('span');
-  text.className = 's-text';
-  text.textContent = line || ' ';
+    const syncModeControllerBridge =
+      typeof window.SyncModeController === 'function'
+        ? new window.SyncModeController({
+            state: syncModeState,
+            DAW,
+            getEdCur: () => (typeof edCur !== 'undefined' ? edCur : null),
+            $: (id) => $(id),
+            t: (key) => t(key),
+            toast: (msg) => toast(msg),
+            edSaveSong: () => edSaveSong(),
+            startTransport: () => startTransport(),
+            pauseTransport: () => pauseTransport(),
+            seekTransport: (time, keepPlaying) => seekTransport(time, keepPlaying),
+            getProjectEnd: () => getProjectEnd(),
+            getLyricPopup: () => (typeof _lyricPopup !== 'undefined' ? _lyricPopup : null),
+            getLyricOnlyPopup: () => (typeof _lyricOnlyPopup !== 'undefined' ? _lyricOnlyPopup : null),
+            getChordLinePopup: () => (typeof _chordLinePopup !== 'undefined' ? _chordLinePopup : null),
+            logger: console
+          })
+        : null;
 
-  const timeEl = document.createElement('span');
-  timeEl.className = 's-time';
-  timeEl.textContent = formatSyncTime(time);
-
-  d.appendChild(text);
-  d.appendChild(timeEl);
-  d.onclick = () => selectSyncLine(li);
-
-  return d;
-}
-
-    function renderSyncLyrics() {
-  const box = $('syncLyrics');
-  if (!box) return;
-
-  const lines = (edCur?.lyrics || '').split('\n');
-  const times = edCur?.syncTimes || [];
-  const existingCount = box.children.length;
-
-  // فقط وقتی تعداد خط‌ها عوض شده، rebuild کامل انجام بده
-  if (existingCount !== lines.length) {
-    const frag = document.createDocumentFragment();
-
-    lines.forEach((line, li) => {
-      frag.appendChild(createSyncLineEl(line, li, times[li]));
-    });
-
-    box.replaceChildren(frag);
-    selectSyncLine(syncCursor);
-    return;
-  }
-
-  // در حالت عادی فقط سطرهایی که لازم است آپدیت شوند
-  for (let li = 0; li < lines.length; li++) {
-    const row = box.children[li];
-    if (!row) continue;
-
-    if (row.dataset.li !== String(li)) {
-      row.dataset.li = li;
-      row.onclick = () => selectSyncLine(li);
-    }
-
-    const textEl = row.querySelector('.s-text');
-    const timeEl = row.querySelector('.s-time');
-
-    const nextText = lines[li] || ' ';
-    const nextTime = formatSyncTime(times[li]);
-
-    if (textEl && textEl.textContent !== nextText) {
-      textEl.textContent = nextText;
-    }
-
-    if (timeEl && timeEl.textContent !== nextTime) {
-      timeEl.textContent = nextTime;
-    }
-  }
-
-  selectSyncLine(syncCursor);
-}
-
-
-    function selectSyncLine(li) {
-  if (li < 0) li = 0;
-  syncCursor = li;
-
-  const rows = document.querySelectorAll('#syncLyrics .sline');
-  let selectedEl = null;
-
-  rows.forEach(el => {
-    const isSel = (+el.dataset.li === li);
-    if (el.classList.contains('selected') !== isSel) {
-      el.classList.toggle('selected', isSel);
-    }
-    if (isSel) selectedEl = el;
-  });
-
-  if (selectedEl) {
-    selectedEl.scrollIntoView({
-      behavior: 'smooth',
-      block: 'center'
-    });
-  }
-
-  const total = (edCur?.lyrics || '').split('\n').length;
-  const info = $('syncInfo');
-  if (info) {
-    info.textContent = `${t('linesOf')} ${li + 1} ${t('lineOf')} ${total}`;
-  }
-}
-
-
-    function syncTap() {
-      if (!syncActive) return;
-      const lines = (edCur?.lyrics || '').split('\n');
-      if (syncCursor >= lines.length) return;
-      const t = DAW.playhead;
-      syncHistory.push(JSON.stringify(edCur?.syncTimes || []));
-      syncRedoHistory = [];
-      if (!edCur.syncTimes) edCur.syncTimes = [];
-      edCur.syncTimes[syncCursor] = t;
-      // Skip empty lines
-      let next = syncCursor + 1;
-      while (next < lines.length && !lines[next].trim()) { edCur.syncTimes[next] = t; next++; }
-      syncCursor = next;
-      renderSyncLyrics();
-      if (syncCursor >= lines.length) {
-        toast(t('syncFinished'));
-        if (DAW.isPlaying) pauseTransport();
+    function requireSyncModeController() {
+      if (!syncModeControllerBridge) {
+        throw new Error('SyncModeController در دسترس نیست. ترتیب scriptها در Akordyar.html را بررسی کنید.');
       }
-      edSaveSong();
+      return syncModeControllerBridge;
     }
 
-    function updateSyncHighlight() {
-  const t = DAW.playhead;
-  const times = edCur?.syncTimes || [];
-  let activeLi = -1;
-
-  for (let i = 0; i < times.length; i++) {
-    const tm = times[i];
-    if (Number.isFinite(tm) && tm <= t) {
-      activeLi = i;
-    } else if (Number.isFinite(tm) && tm > t) {
-      break;
-    }
-  }
-
-  // === Performance Architecture v2: sync playback + highlight to Store ===
-  if (typeof PerformanceStore !== 'undefined' && typeof SharedEngine !== 'undefined' && typeof _songDocument !== 'undefined' && _songDocument) {
-    PerformanceStore.setPlaybackState({ time: t, isPlaying: !!DAW.isPlaying });
-    const hl = SharedEngine.computeHighlight(PerformanceStore.getState().playbackState, _songDocument);
-    PerformanceStore.setHighlightState(hl);
-  }
-
-  // اگر خط فعال عوض نشده، فقط در صورت نیاز تایم/پروگرس پنل را آپدیت کن
-  const changed = activeLi !== lastSyncActiveLi;
-  lastSyncActiveLi = activeLi;
-
-  // Highlight lines in main editor
-  const editorEl = $('editor');
-  if (editorEl) {
-    [...editorEl.children].forEach((el, li) => {
-      if (!el.classList.contains('eline')) return;
-
-      const isPlaying = (li === activeLi);
-      const isDone = Number.isFinite(times[li]) && times[li] < t && li !== activeLi;
-
-      if (changed || el.classList.contains('sync-playing') !== isPlaying) {
-        el.classList.toggle('sync-playing', isPlaying);
-      }
-
-      if (changed || el.classList.contains('sync-done') !== isDone) {
-        el.classList.toggle('sync-done', isDone);
-      }
-    });
-
-    // Center active line in editorWrap فقط وقتی خط عوض شد
-    if (changed && activeLi >= 0 && editorEl.children[activeLi]) {
-      const wrap = $('editorWrap');
-      if (wrap) {
-        const activeEl = editorEl.children[activeLi];
-        const wrapH = wrap.clientHeight;
-        const elTop = activeEl.offsetTop;
-        const elH = activeEl.offsetHeight;
-
-        wrap.scrollTo({
-          top: elTop - wrapH / 2 + elH / 2,
-          behavior: 'smooth'
-        });
-      }
-    }
-  }
-
-  // Update sync panel UI
-  if (syncActive) {
-    document.querySelectorAll('#syncLyrics .sline').forEach(el => {
-      const li = +el.dataset.li;
-
-      const isPlaying = (li === activeLi);
-      const isDone = Number.isFinite(times[li]) && times[li] < t && li !== activeLi;
-
-      if (changed || el.classList.contains('playing') !== isPlaying) {
-        el.classList.toggle('playing', isPlaying);
-      }
-
-      if (changed || el.classList.contains('done') !== isDone) {
-        el.classList.toggle('done', isDone);
-      }
-    });
-
-    const total = getProjectEnd();
-    if (total > 0) {
-      const fill = $('syncTimelineFill');
-      if (fill) fill.style.width = (t / total * 100) + '%';
-    }
-
-    const curTime = $('syncCurTime');
-    if (curTime) curTime.textContent = formatSyncTime(t);
-  }
-
-  // Sync highlight to popup windows (direct DOM update, not postMessage)
-  if (_lyricPopup && !_lyricPopup.closed && _lyricPopup._syncHighlight) {
-    _lyricPopup._syncHighlight();
-  }
-  if (_lyricOnlyPopup && !_lyricOnlyPopup.closed && _lyricOnlyPopup._syncHighlight) {
-    _lyricOnlyPopup._syncHighlight();
-  }
-  if (_chordLinePopup && !_chordLinePopup.closed && _chordLinePopup._syncHighlight) {
-    _chordLinePopup._syncHighlight();
-  }
-}
+    function renderSyncLyrics() { return requireSyncModeController().renderSyncLyrics(); }
+    function selectSyncLine(li) { return requireSyncModeController().selectSyncLine(li); }
+    function syncTap() { return requireSyncModeController().syncTap(); }
+    function updateSyncHighlight() { return requireSyncModeController().updateSyncHighlight(); }
 
 
-    // Sync tick loop
-    function syncTick() {
-  if (!syncActive) return;
 
-  updateSyncHighlight();
-  syncWatch = requestAnimationFrame(syncTick);
-}
-
-
-    function enterSyncMode() {
-      syncActive = true;
-      syncCursor = 0;
-      const lines = (edCur?.lyrics || '').split('\n');
-      while (syncCursor < lines.length && !lines[syncCursor].trim()) syncCursor++;
-      if (syncCursor >= lines.length) syncCursor = 0;
-      if (!edCur.syncTimes) edCur.syncTimes = [];
-      syncHistory = []; syncRedoHistory = [];
-      renderSyncLyrics();
-      $('syncSection').classList.add('show');
-      // Add Space key handler for sync tap
-      syncTapKeyHandler = (e) => {
-        if (e.code === 'Space' && e.ctrlKey && syncActive && !e.target.closest('input,textarea,[contenteditable]')) {
-          e.preventDefault(); syncTap();
-        }
-      };
-      window.addEventListener('keydown', syncTapKeyHandler);
-      // Start highlight tick
-      syncTick();
-    }
-
-    function exitSyncMode() {
-      syncActive = false;
-      $('syncSection').classList.remove('show');
-      if (syncTapKeyHandler) { window.removeEventListener('keydown', syncTapKeyHandler); syncTapKeyHandler = null; }
-      if (syncWatch) { cancelAnimationFrame(syncWatch); syncWatch = null; }
-      edSaveSong();
-    }
+    // Sync tick loop و ورود/خروج حالت سینک — wrapperهای SyncModeController
+    function syncTick() { return requireSyncModeController().syncTick(); }
+    function enterSyncMode() { return requireSyncModeController().enterSyncMode(); }
+    function exitSyncMode() { return requireSyncModeController().exitSyncMode(); }
 
     // Chord visibility toggle (editor only, independent of popup)
     if ($('edToggleChords')) $('edToggleChords').onclick = () => {
@@ -4960,58 +4752,8 @@ let syncTapKeyHandler = null;
 
     }, true);
 
-    // Wire up sync buttons
-    function initSyncUI() {
-      if ($('tab-sync')) $('tab-sync').onclick = () => {
-        const tab = $('tab-sync');
-        if (syncActive) { exitSyncMode(); tab.classList.remove('active-teal'); return; }
-        tab.classList.add('active-teal');
-        enterSyncMode();
-      };
-      if ($('syncExitBtn')) $('syncExitBtn').onclick = () => { exitSyncMode(); const tab = $('tab-sync'); if (tab) tab.classList.remove('active-teal'); };
-      if ($('syncPlayBtn')) $('syncPlayBtn').onclick = () => {
-        if (DAW.isPlaying) { pauseTransport(); $('syncPlayBtn').textContent = t('syncPlay'); } else { startTransport(); $('syncPlayBtn').textContent = t('syncPause'); }
-      };
-      if ($('syncTapBtn')) $('syncTapBtn').onclick = syncTap;
-      if ($('syncMinus')) $('syncMinus').onclick = () => {
-        if (!edCur?.syncTimes) return;
-        syncHistory.push(JSON.stringify(edCur.syncTimes)); syncRedoHistory = [];
-        let t = edCur.syncTimes[syncCursor]; if (!Number.isFinite(t)) t = DAW.playhead;
-        edCur.syncTimes[syncCursor] = Math.max(0, t - 0.1); renderSyncLyrics(); edSaveSong();
-      };
-      if ($('syncPlus')) $('syncPlus').onclick = () => {
-        if (!edCur?.syncTimes) return;
-        syncHistory.push(JSON.stringify(edCur.syncTimes)); syncRedoHistory = [];
-        let t = edCur.syncTimes[syncCursor]; if (!Number.isFinite(t)) t = DAW.playhead;
-        edCur.syncTimes[syncCursor] = t + 0.1; renderSyncLyrics(); edSaveSong();
-      };
-      if ($('syncDelBtn')) $('syncDelBtn').onclick = () => {
-        if (!edCur?.syncTimes) return;
-        syncHistory.push(JSON.stringify(edCur.syncTimes)); syncRedoHistory = [];
-        edCur.syncTimes[syncCursor] = undefined; renderSyncLyrics(); edSaveSong();
-      };
-      if ($('syncResetBtn')) $('syncResetBtn').onclick = () => {
-        if (!confirm('تمام زمان‌های سینک پاک شود؟')) return;
-        syncHistory.push(JSON.stringify(edCur?.syncTimes || [])); syncRedoHistory = [];
-        edCur.syncTimes = []; syncCursor = 0; renderSyncLyrics(); edSaveSong();
-      };
-      if ($('syncUndoBtn')) $('syncUndoBtn').onclick = () => {
-        if (!syncHistory.length) return;
-        syncRedoHistory.push(JSON.stringify(edCur?.syncTimes || []));
-        edCur.syncTimes = JSON.parse(syncHistory.pop()); renderSyncLyrics(); edSaveSong();
-      };
-      if ($('syncRedoBtn')) $('syncRedoBtn').onclick = () => {
-        if (!syncRedoHistory.length) return;
-        syncHistory.push(JSON.stringify(edCur?.syncTimes || []));
-        edCur.syncTimes = JSON.parse(syncRedoHistory.pop()); renderSyncLyrics(); edSaveSong();
-      };
-      if ($('syncTimeline')) $('syncTimeline').onclick = (e) => {
-        const rect = $('syncTimeline').getBoundingClientRect();
-        const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-        seekTransport(ratio * getProjectEnd(), true);
-        updateSyncHighlight();
-      };
-    }
+    // Wire up sync buttons — wrapper SyncModeController
+    function initSyncUI() { return requireSyncModeController().initSyncUI(); }
 
     /* ===== ARRANGER ===== */
     let arrangers = JSON.parse(localStorage.getItem('arrangers_v1') || '[]');
