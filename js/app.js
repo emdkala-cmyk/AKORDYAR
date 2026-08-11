@@ -954,6 +954,13 @@ function attachHistoryService() {
 attachHistoryService();
 
     const timeToX = (t) => t * DAW.pxPerSecond;
+    // WaveformService initialization
+    window.waveformService = new window.WaveformService({
+      getDAW: () => DAW,
+      ensureAudioCtx: () => ensureAudioCtx(),
+      clamp: (value, min, max) => clamp(value, min, max),
+      timeToX: (value) => timeToX(value)
+    });
     const xToTime = (x) => x / DAW.pxPerSecond;
 
     function getProjectEnd() { let end = 30; for (const c of DAW.clips) end = Math.max(end, c.start + c.duration); for (const s of (DAW.sections || [])) end = Math.max(end, s.start + s.duration); return Math.max(DAW.timelineDuration, end + 8); }
@@ -1169,35 +1176,20 @@ function undo() {
 }
 
 
-    async function decodeFileToBuffer(file) { ensureAudioCtx(); const ab = await file.arrayBuffer(); const copy = ab.slice(0); const buffer = await DAW.audioCtx.decodeAudioData(copy); return { buffer, arrayBuffer: ab }; }
+    async function decodeFileToBuffer(file) {
+      return window.waveformService.decodeFileToBuffer(file);
+    }
 
     function peaksFromBuffer(buffer, buckets = 2000) {
-      const ch = buffer.getChannelData(0); const block = Math.max(1, Math.floor(ch.length / buckets));
-      const peaks = new Float32Array(buckets);
-      for (let i = 0; i < buckets; i++) {
-        const start = i * block; let max = 0; const end = Math.min(ch.length, start + block);
-        for (let j = start; j < end; j++) { const v = Math.abs(ch[j]); if (v > max) max = v; }
-        peaks[i] = max;
-      }
-      return peaks;
+      return window.waveformService.peaksFromBuffer(buffer, buckets);
     }
+
     function drawWaveToCanvas(peaks, w, h) {
-      const canvas = document.createElement('canvas'); canvas.width = Math.max(2, Math.floor(w)); canvas.height = Math.max(2, Math.floor(h));
-      const ctx = canvas.getContext('2d'); ctx.clearRect(0, 0, canvas.width, canvas.height); const mid = canvas.height / 2; const n = peaks.length;
-      ctx.fillStyle = '#ffffff';
-      for (let i = 0; i < canvas.width; i++) {
-        const idx = Math.min(n - 1, Math.floor((i / canvas.width) * n)); const amp = peaks[idx] || 0;
-        const hh = Math.max(1, amp * (canvas.height * 0.86)); ctx.globalAlpha = 0.55; ctx.fillRect(i, mid - hh / 2, 1, hh);
-      }
-      return canvas.toDataURL('image/png');
+      return window.waveformService.drawWaveToCanvas(peaks, w, h);
     }
+
     function refreshClipWaveImage(clip) {
-      if (clip.type === 'chord' || !clip._peaks) return;
-      const full = clip._peaks; const a = clip.offset / Math.max(1e-6, clip.sourceDuration);
-      const b = (clip.offset + clip.duration) / Math.max(1e-6, clip.sourceDuration);
-      const i0 = Math.floor(clamp(a, 0, 1) * (full.length - 1)); const i1 = Math.max(i0 + 1, Math.floor(clamp(b, 0, 1) * (full.length - 1)));
-      const slice = full.slice(i0, i1 + 1); const w = Math.max(8, timeToX(clip.duration)); const key = `${clip.id}:${i0}:${i1}:${Math.round(w)}`;
-      if (DAW.waveCache.has(key)) clip.waveUrl = DAW.waveCache.get(key); else { clip.waveUrl = drawWaveToCanvas(slice, w, 52); DAW.waveCache.set(key, clip.waveUrl); }
+      return window.waveformService.refreshClipWaveImage(clip);
     }
 
     function updateTrackMix(trackId) {
