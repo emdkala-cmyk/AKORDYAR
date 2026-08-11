@@ -1,5 +1,6 @@
 const fs = require('fs');
-const path = 'js/app.js';
+// Grid logic now lives in the core application chunk.
+const path = 'js/app/core.js';
 let src = fs.readFileSync(path, 'utf8');
 
 const edits = [
