@@ -2082,6 +2082,7 @@ function undo() {
         saveState,
         renderAll,
         scheduleAllFromPlayhead,
+        stopAllVoices,
         toast,
         t,
         edSaveSong

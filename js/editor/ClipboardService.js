@@ -11,7 +11,15 @@ class ClipboardService {
     get d() { return this.deps; }
 
     deleteSelected() {
-        const { DAW, toast, t, stopAllVoices, saveState, renderAll, scheduleAllFromPlayhead } = this.d;
+        const {
+            DAW,
+            toast,
+            t,
+            stopAllVoices = () => {},
+            saveState,
+            renderAll,
+            scheduleAllFromPlayhead
+        } = this.d;
         const clipIds = [...DAW.selectedIds];
         const sectionIds = [...DAW.selectedSectionIds];
 
@@ -126,4 +134,10 @@ class ClipboardService {
     }
 }
 
-window.ClipboardService = ClipboardService;
+if (typeof window !== 'undefined') {
+    window.ClipboardService = ClipboardService;
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = ClipboardService;
+}
