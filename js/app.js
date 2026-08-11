@@ -856,18 +856,15 @@ function requireProjectAudioService() {
 // ==========================================
 
 async function loadAudioFromHardDrive(filePath) {
-  return requireProjectAudioService()
-    .loadAudioFromHardDrive(filePath);
+  return requireProjectAudioService().loadAudioFromHardDrive(filePath);
 }
 
 function pathDirname(filePath) {
-  return requireProjectAudioService()
-    .pathDirname(filePath);
+  return requireProjectAudioService().pathDirname(filePath);
 }
 
 function pathJoin(dir, relativePath) {
-  return requireProjectAudioService()
-    .pathJoin(dir, relativePath);
+  return requireProjectAudioService().pathJoin(dir, relativePath);
 }
 
 async function handleAudioImport(file, copyToProject = false) {
@@ -4268,11 +4265,25 @@ function renderTimeline() {
 document.addEventListener('DOMContentLoaded', () => {
   const audioInput = document.getElementById('audio-file-input');
   if (audioInput) {
-    audioInput.addEventListener('change', (e) => {
+    audioInput.addEventListener('change', async (e) => {
       const file = e.target.files[0];
-      if (file) {
-        const copy = confirm("آیا می‌خواهید فایل صوتی در پوشه پروژه کپی شود؟");
-        handleAudioImport(file, copy);
+
+      if (!file) {
+        return;
+      }
+
+      const copy = confirm("آیا می‌خواهید فایل صوتی در پوشه پروژه کپی شود؟");
+
+      try {
+        await handleAudioImport(file, copy);
+      } catch (error) {
+        console.error('[AudioImport] Failed to import audio file:', error);
+
+        if (typeof toast === 'function') {
+          toast('خطا در وارد کردن فایل صوتی');
+        }
+      } finally {
+        e.target.value = '';
       }
     });
   }
@@ -5942,11 +5953,25 @@ function renderTimeline() {
 document.addEventListener('DOMContentLoaded', () => {
   const audioInput = document.getElementById('audio-file-input');
   if (audioInput) {
-    audioInput.addEventListener('change', (e) => {
+    audioInput.addEventListener('change', async (e) => {
       const file = e.target.files[0];
-      if (file) {
-        const copy = confirm("آیا می‌خواهید فایل صوتی در پوشه پروژه کپی شود؟");
-        handleAudioImport(file, copy);
+
+      if (!file) {
+        return;
+      }
+
+      const copy = confirm("آیا می‌خواهید فایل صوتی در پوشه پروژه کپی شود؟");
+
+      try {
+        await handleAudioImport(file, copy);
+      } catch (error) {
+        console.error('[AudioImport] Failed to import audio file:', error);
+
+        if (typeof toast === 'function') {
+          toast('خطا در وارد کردن فایل صوتی');
+        }
+      } finally {
+        e.target.value = '';
       }
     });
   }
@@ -12957,4 +12982,3 @@ function escapeHtml(text) {
   div.textContent = text;
   return div.innerHTML;
 }
-
