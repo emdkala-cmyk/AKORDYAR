@@ -1,4 +1,4 @@
-﻿console.log("!!! APP_JS_LOADED_FROM_DISK !!!");
+console.log("!!! APP_JS_LOADED_FROM_DISK !!!");
 // ==========================================
 // PART 1: Initialization & Electron Setup
 // ==========================================
@@ -917,6 +917,41 @@ function requireChordLineSyncService() {
   }
   return window.ChordLineSyncService;
 }
+
+function attachHistoryService() {
+  if (window.__historyAttached) return;
+  window.__historyAttached = true;
+  requireHistoryService().init({
+    DAW: DAW,
+    PERF: PERF,
+    getEdCur: () => edCur,
+    setEdCur: (v) => { edCur = v; window.edCur = v; },
+    getEdSeqPoints: () => edSeqPoints,
+    setEdSeqPoints: (v) => { edSeqPoints = v; },
+    clearEdTimers: () => {
+      clearTimeout(edCommitTimer);
+      clearTimeout(edInputRenderTimer);
+      clearTimeout(edSaveTimer);
+    },
+    getAutoSaveTimer: () => _autoSaveTimer,
+    setAutoSaveTimer: (id) => { _autoSaveTimer = id; },
+    edSaveSong,
+    edSyncToolbar,
+    edRenderEditor,
+    updateNextIdFromClips,
+    ensureAudioCtx,
+    updateTrackMix,
+    peaksFromBuffer,
+    refreshClipWaveImage,
+    renderAll,
+    scheduleAllFromPlayhead,
+    edFlushPendingCommit,
+    edCommitTimerRef: () => edCommitTimer,
+    toast,
+    t
+  });
+}
+attachHistoryService();
 
     const timeToX = (t) => t * DAW.pxPerSecond;
     const xToTime = (x) => x / DAW.pxPerSecond;
@@ -2033,18 +2068,28 @@ function undo() {
      $('editor')?.blur();
 }
 
-    // --- Editor Service Bridge ---
-    const editorService = new ClipboardService({
-      DAW, selectedClips, uid, roundMs, peaksFromBuffer, refreshClipWaveImage,
-      ensureTimelineFits, saveState, renderAll, scheduleAllFromPlayhead, toast, t, edSaveSong,
-      stopAllVoices
+    // --- Clipboard Service Bridge ---
+    const clipboardService = new ClipboardService({
+      DAW,
+      selectedClips,
+      uid,
+      roundMs,
+      peaksFromBuffer,
+      refreshClipWaveImage,
+      ensureTimelineFits,
+      saveState,
+      renderAll,
+      scheduleAllFromPlayhead,
+      toast,
+      t,
+      edSaveSong
     });
 
-    function deleteSelected() { editorService.deleteSelected(); }
-    function copySelected() { editorService.copySelected(); }
-    function cutSelected() { editorService.cutSelected(); }
-    function pasteClipboard() { editorService.pasteClipboard(); }
-    function duplicateSelected() { editorService.duplicateSelected(); }
+    function deleteSelected() { clipboardService.deleteSelected(); }
+    function copySelected() { clipboardService.copySelected(); }
+    function cutSelected() { clipboardService.cutSelected(); }
+    function pasteClipboard() { clipboardService.pasteClipboard(); }
+    function duplicateSelected() { clipboardService.duplicateSelected(); }
     function splitClipAt(clip, atTime) {
       const t = roundMs(atTime); if (t <= clip.start + 0.01 || t >= clip.start + clip.duration - 0.01) return null;
       const leftDur = roundMs(t - clip.start); const rightDur = roundMs(clip.duration - leftDur);

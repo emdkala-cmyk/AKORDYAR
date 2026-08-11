@@ -622,7 +622,7 @@ function createWindow() {
     backgroundColor: '#0d1117',
     webPreferences: {
      nodeIntegration: true,
-     contextIsolation: false,
+     contextIsolation: true,
      webSecurity: false,
      preload: path.join(__dirname, 'preload.js')
     }
