@@ -558,7 +558,7 @@
           $('archiveSearchClear').classList.toggle('show', !!$('archiveSearch').value);
         });
         ['filterSig','filterGenre','filterTempo','filterKey','filterSort'].forEach(id => $(id).addEventListener('change', archApplyFilters));
-        document.addEventListener('click', (e) => { if (!e.target.closest('.archive-ctx-menu')&&!e.target.closest('.btn-menu')) $('archiveCtxMenu').classList.remove('show'); });
+        $('archiveModal').addEventListener('click', (e) => { if (!e.target.closest('.archive-ctx-menu')&&!e.target.closest('.btn-menu')) $('archiveCtxMenu').classList.remove('show'); });
         $('archiveModal').addEventListener('keydown', (e) => { if (e.key==='Escape') archClose(); });
         // Event delegation on archive list
         $('archiveList').addEventListener('click', archHandleListClick);
@@ -1614,7 +1614,7 @@ function archUpdateActiveFilters() {
           });
         }
         // Close artist context menu on click outside
-        document.addEventListener('click', (e) => { if (!e.target.closest('.artist-ctx-menu') && !e.target.closest('.artist-card-menu-btn')) $('artistCtxMenu').classList.remove('show'); });
+        $('archiveModal').addEventListener('click', (e) => { if (!e.target.closest('.artist-ctx-menu') && !e.target.closest('.artist-card-menu-btn')) $('artistCtxMenu').classList.remove('show'); });
         // Resizable divider for artist section
         const divider = $('artistResizeDivider');
         if (divider && !divider._archBound) {
