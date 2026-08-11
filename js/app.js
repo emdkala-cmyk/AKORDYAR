@@ -2062,49 +2062,28 @@ function undo() {
       toast(t('deleted'));
     }
 
-    function copySelected() {
-      const sels = selectedClips(); if (!sels.length) { toast(t('nothingSelected')); return; }
-      const minStart = Math.min(...sels.map(c => c.start));
-      DAW.clipboard = sels.map(c => { const cp = {...c}; delete cp._peaks; delete cp.waveUrl; cp.relStart = c.start - minStart; return cp; });
-      toast(`${DAW.clipboard.length} ${t('clipsCopied')}`);
-    }
+    // --- Clipboard Service Bridge ---
+    const clipboardService = new ClipboardService({
+      DAW,
+      selectedClips,
+      deleteSelected,
+      uid,
+      roundMs,
+      peaksFromBuffer,
+      refreshClipWaveImage,
+      ensureTimelineFits,
+      saveState,
+      renderAll,
+      scheduleAllFromPlayhead,
+      toast,
+      t,
+      edSaveSong
+    });
 
-    function cutSelected() { copySelected(); if (DAW.clipboard.length) { deleteSelected(); toast(t('cutDone')); } }
-
-    function pasteClipboard() {
-      if (!DAW.clipboard.length) { toast(t('clipboardEmpty')); return; }
-      const base = DAW.playhead; const newIds = [];
-      for (const src of DAW.clipboard) {
-        const clip = { ...src, id: uid('c'), start: roundMs(base + (src.relStart || 0)) };
-        if (clip.type === 'audio') { if (!DAW.bufferCache.has(clip.bufferKey)) continue; clip._peaks = peaksFromBuffer(DAW.bufferCache.get(clip.bufferKey), 2000); refreshClipWaveImage(clip); }
-        DAW.clips.push(clip); newIds.push(clip.id); ensureTimelineFits(clip.start + clip.duration + 5);
-      }
-      DAW.selectedIds = new Set(newIds); saveState(); renderAll(); if (DAW.isPlaying) scheduleAllFromPlayhead(); toast(t('pastedAtPlayhead'));
-      edSaveSong();
-    }
-
-    // CTRL+D: Duplicate selected (copy + paste immediately after)
-    function duplicateSelected() {
-      const sels = selectedClips();
-      if (!sels.length) { toast(t('nothingSelected')); return; }
-      const newIds = [];
-      sels.forEach(src => {
-        const clip = { ...src, id: uid('c'), start: roundMs(src.start + src.duration) };
-        if (clip.type === 'audio') {
-          if (!DAW.bufferCache.has(clip.bufferKey)) return;
-          clip._peaks = peaksFromBuffer(DAW.bufferCache.get(clip.bufferKey), 2000);
-          refreshClipWaveImage(clip);
-        }
-        DAW.clips.push(clip);
-        newIds.push(clip.id);
-        ensureTimelineFits(clip.start + clip.duration + 5);
-      });
-      DAW.selectedIds = new Set(newIds);
-      saveState(); renderAll();
-      if (DAW.isPlaying) scheduleAllFromPlayhead();
-      toast(newIds.length + ' کلیپ کپی شد');
-    }
-
+    function copySelected() { return clipboardService.copySelected(); }
+    function cutSelected() { return clipboardService.cutSelected(); }
+    function pasteClipboard() { return clipboardService.pasteClipboard(); }
+    function duplicateSelected() { return clipboardService.duplicateSelected(); }
     function splitClipAt(clip, atTime) {
       const t = roundMs(atTime); if (t <= clip.start + 0.01 || t >= clip.start + clip.duration - 0.01) return null;
       const leftDur = roundMs(t - clip.start); const rightDur = roundMs(clip.duration - leftDur);
