@@ -2,15 +2,15 @@
 // ==========================================
 // PART 1: Initialization & Electron Setup
 // ==========================================
-// â”€â”€â”€ ØªØ´Ø®ÛŒØµ ØµØ­ÛŒØ­ Ù…Ø­ÛŒØ· Ø§Ù„Ú©ØªØ±ÙˆÙ† â”€â”€â”€
-// Ù‚Ø¨Ù„Ø§Ù‹ Ø§Ø² process.versions.electron Ø§Ø³ØªÙØ§Ø¯Ù‡ Ù…ÛŒâ€ŒØ´Ø¯ Ú©Ù‡ Ø¨Ø§ contextIsolation:true
-// Ø¯Ø± Ø¯Ø³ØªØ±Ø³ Ù†ÛŒØ³Øª. Ø­Ø§Ù„Ø§ Ø§Ø² window.electronAPI (Ú©Ù‡ preload.js Ø³Øª Ù…ÛŒâ€ŒÚ©Ù†Ù‡) Ø§Ø³ØªÙØ§Ø¯Ù‡ Ù…ÛŒâ€ŒÚ©Ù†ÛŒÙ….
+// ─── تشخیص صحیح محیط الکترون ───
+// قبلاً از process.versions.electron استفاده می‌شد که با contextIsolation:true
+// در دسترس نیست. حالا از window.electronAPI (که preload.js ست می‌کنه) استفاده می‌کنیم.
 const isElectron = !!(typeof window !== 'undefined' && window.electronAPI && window.electronAPI.isElectron) ||
                    (typeof process !== 'undefined' && process.versions && !!process.versions.electron);
-// fs Ùˆ path Ø¯Ø± renderer Ø¨Ø§ contextIsolation:true Ø¯Ø± Ø¯Ø³ØªØ±Ø³ Ù†ÛŒØ³ØªÙ†.
-// Ø¨Ù‡â€ŒØ¬Ø§Ø´ Ø§Ø² window.electronAPI Ø§Ø³ØªÙØ§Ø¯Ù‡ Ù…ÛŒâ€ŒÚ©Ù†ÛŒÙ… Ú©Ù‡ IPC handlers Ø±Ùˆ ÙØ±Ø§Ù‡Ù… Ù…ÛŒâ€ŒÚ©Ù†Ù‡.
-const fs = null; // Ø§Ø³ØªÙØ§Ø¯Ù‡ Ù†Ù…ÛŒâ€ŒØ´Ù‡ â€” Ø¨Ù‡â€ŒØ¬Ø§Ø´ Ø§Ø² window.electronAPI.checkFileExists Ùˆ readAudioFile Ø§Ø³ØªÙØ§Ø¯Ù‡ Ù…ÛŒâ€ŒÚ©Ù†ÛŒÙ…
-const path = null; // Ø§Ø³ØªÙØ§Ø¯Ù‡ Ù†Ù…ÛŒâ€ŒØ´Ù‡ â€” Ø¨Ù‡â€ŒØ¬Ø§Ø´ Ø§Ø² window.electronAPI.resolvePath Ùˆ getProjectDir Ø§Ø³ØªÙØ§Ø¯Ù‡ Ù…ÛŒâ€ŒÚ©Ù†ÛŒÙ…
+// fs و path در renderer با contextIsolation:true در دسترس نیستن.
+// به‌جاش از window.electronAPI استفاده می‌کنیم که IPC handlers رو فراهم می‌کنه.
+const fs = null; // استفاده نمی‌شه — به‌جاش از window.electronAPI.checkFileExists و readAudioFile استفاده می‌کنیم
+const path = null; // استفاده نمی‌شه — به‌جاش از window.electronAPI.resolvePath و getProjectDir استفاده می‌کنیم
 
 if (isElectron) {
   console.log('[App] Electron mode detected. electronAPI available:', !!window.electronAPI);
@@ -22,16 +22,16 @@ if (isElectron) {
 // ==========================================
 // PART 2: Audio Import & Hard Drive Auto-Load
 // ==========================================
-// Ù…Ù†Ø·Ù‚ loadAudioFromHardDrive / pathDirname / pathJoin / handleAudioImport /
-// loadProject / resolveClipAudio Ø¨Ù‡ js/core/ProjectAudioService.js Ù…Ù†ØªÙ‚Ù„ Ø´Ø¯Ù‡ Ø§Ø³Øª.
-// wrapperÙ‡Ø§ÛŒ Ø³Ø§Ø²Ú¯Ø§Ø±ÛŒ Ø¨Ù„Ø§ÙØ§ØµÙ„Ù‡ Ø¨Ø¹Ø¯ Ø§Ø² ensureAudioCtx() ØªØ¹Ø±ÛŒÙ Ø´Ø¯Ù‡â€ŒØ§Ù†Ø¯.
+// منطق loadAudioFromHardDrive / pathDirname / pathJoin / handleAudioImport /
+// loadProject / resolveClipAudio به js/core/ProjectAudioService.js منتقل شده است.
+// wrapperهای سازگاری بلافاصله بعد از ensureAudioCtx() تعریف شده‌اند.
 
 /**
- * customPrompt â€” Ø¬Ø§ÛŒÚ¯Ø²ÛŒÙ† window.prompt Ú©Ù‡ Ø¯Ø± Ø§Ù„Ú©ØªØ±ÙˆÙ† Ù¾Ø´ØªÛŒØ¨Ø§Ù†ÛŒ Ù†Ù…ÛŒâ€ŒØ´Ù‡
+ * customPrompt — جایگزین window.prompt که در الکترون پشتیبانی نمی‌شه
  *
- * @param {string} message - Ù¾ÛŒØ§Ù… Ø¨Ù‡ Ú©Ø§Ø±Ø¨Ø±
- * @param {string} defaultValue - Ù…Ù‚Ø¯Ø§Ø± Ù¾ÛŒØ´â€ŒÙØ±Ø¶
- * @returns {Promise<string|null>} - Ù…Ù‚Ø¯Ø§Ø± ÙˆØ§Ø±Ø¯ Ø´Ø¯Ù‡ ÛŒØ§ null Ø§Ú¯Ù‡ Ú©Ù†Ø³Ù„ Ø¨Ø´Ù‡
+ * @param {string} message - پیام به کاربر
+ * @param {string} defaultValue - مقدار پیش‌فرض
+ * @returns {Promise<string|null>} - مقدار وارد شده یا null اگه کنسل بشه
  */
 function customPrompt(message, defaultValue = '') {
   return new Promise((resolve) => {
@@ -42,7 +42,7 @@ function customPrompt(message, defaultValue = '') {
     const cancelBtn = document.getElementById('customPromptCancel');
 
     if (!modal || !inputEl || !okBtn || !cancelBtn) {
-      // fallback Ø¨Ù‡ window.prompt Ø§Ú¯Ù‡ Ù…ÙˆØ¯Ø§Ù„ Ù…ÙˆØ¬ÙˆØ¯ Ù†Ø¨ÙˆØ¯
+      // fallback به window.prompt اگه مودال موجود نبود
       resolve(window.prompt(message, defaultValue));
       return;
     }
@@ -79,10 +79,10 @@ function customPrompt(message, defaultValue = '') {
 }
 if (typeof window !== 'undefined') window.customPrompt = customPrompt;
 
-// ØªØ´Ø®ÛŒØµ Ù…Ø­ÛŒØ· Ù…Ø±ÙˆØ±Ú¯Ø±/Ù¾Ù†Ø¬Ø±Ù‡ Ø§Ù„Ú©ØªØ±ÙˆÙ†
+// تشخیص محیط مرورگر/پنجره الکترون
 const isBrowser = typeof window !== 'undefined';
 
-// ØªØ¹Ø±ÛŒÙ Ø§ÛŒÙ…Ù† DAW Ø¬Ù‡Øª Ø¬Ù„ÙˆÚ¯ÛŒØ±ÛŒ Ø§Ø² Ø®Ø·Ø§ÛŒ window is not defined
+// تعریف ایمن DAW جهت جلوگیری از خطای window is not defined
 const globalScope = isBrowser ? window : global;
 
 globalScope.DAW = {
@@ -96,53 +96,53 @@ globalScope.DAW = {
     let currentLang = localStorage.getItem('appLang') || 'fa';
     const I18N = {
       fa: {
-        project: 'Ù¾Ø±ÙˆÚ˜Ù‡', archive: 'Ø¢Ø±Ø´ÛŒÙˆ Ø¢Ù‡Ù†Ú¯\u200CÙ‡Ø§', newSong: 'ØªØ±Ø§Ù†Ù‡ Ø¬Ø¯ÛŒØ¯', saveSong: 'Ø°Ø®ÛŒØ±Ù‡ ØªØ±Ø§Ù†Ù‡', arranger: 'Ø§Ø±Ù†Ø¬Ø± ØªØ±Ú©', print: 'Ú†Ø§Ù¾',
-        brand: 'ØªØ±Ø§Ù†Ù‡ Ø¢Ú©ÙˆØ±Ø¯', major: 'Ù…Ø§Ú˜ÙˆØ±', minor: 'Ù…ÛŒÙ†ÙˆØ±', textLabel: 'Ù…ØªÙ†:', chordLabel: 'Ø¢Ú©ÙˆØ±Ø¯:', seqLabel: 'ØªØ±ØªÛŒØ¨ÛŒ:',
-        settings: 'ØªÙ†Ø¸ÛŒÙ…Ø§Øª', artist: 'Ø®ÙˆØ§Ù†Ù†Ø¯Ù‡', artistPlaceholder: 'Ù†Ø§Ù… Ø®ÙˆØ§Ù†Ù†Ø¯Ù‡', songTitle: 'Ù†Ø§Ù… ØªØ±Ø§Ù†Ù‡', songTitlePlaceholder: 'Ù†Ø§Ù… ØªØ±Ø§Ù†Ù‡', playTime: 'Ø²Ù…Ø§Ù† Ù¾Ø®Ø´',
-        interactiveSwitches: 'Ø³ÙˆØ¦ÛŒÚ†\u200CÙ‡Ø§ÛŒ ØªØ¹Ø§Ù…Ù„ÛŒ', manualSync: 'ðŸ”— Ø³ÛŒÙ†Ú© Ø¯Ø³ØªÛŒ (Ù„Ø§ÛŒÙ† Ú¯Ø§ÛŒØ¯)', midiCtrl: 'ðŸŽ¹ Ù…ÛŒØ¯ÛŒ Ú©Ù†ØªØ±Ù„Ø± (MIDI)',
-        close: 'Ø¨Ø³ØªÙ†', play: 'Ù¾Ø®Ø´', tapLine: 'ðŸ‘† Ø«Ø¨Øª Ø§ÛŒÙ† Ø®Ø· (Ctrl+Space)', deleteTime: 'ðŸ—‘ Ø­Ø°Ù Ø²Ù…Ø§Ù†', reset: 'â†º Ø±ÛŒØ³Øª',
-        start: 'Ø§Ø¨ØªØ¯Ø§', pause: 'Ù…Ú©Ø«', stop: 'ØªÙˆÙ‚Ù', end: 'Ø§Ù†ØªÙ‡Ø§', fullscreenPopup: 'Ù¾Ù†Ø¬Ø±Ù‡ Ø¬Ø¯Ø§Ú¯Ø§Ù†Ù‡ ØªÙ…Ø§Ù… ØµÙØ­Ù‡',
-        untitled: 'Ø¨Ø¯ÙˆÙ† Ù†Ø§Ù…', chordEditor: 'ÙˆÛŒØ±Ø§ÛŒØ´Ú¯Ø± Ø¢Ú©ÙˆØ±Ø¯ (Chord Assistant)', cancel: 'Ø§Ù†ØµØ±Ø§Ù', delete: 'ðŸ—‘ Ø­Ø°Ù', confirm: 'Ø«Ø¨Øª',
-        manualType: 'ØªØ§ÛŒÙ¾ Ø¯Ø³ØªÛŒ:', placeOnTimeline: 'Ø«Ø¨Øª Ø±ÙˆÛŒ ØªØ§ÛŒÙ…\u200CÙ„Ø§ÛŒÙ†', editSongChord: 'ÙˆÛŒØ±Ø§ÛŒØ´ Ø¢Ú©ÙˆØ±Ø¯ ØªØ±Ø§Ù†Ù‡', confirmBtn: 'ØªØ£ÛŒÛŒØ¯',
-        archiveTitle: 'ðŸ“‚ Ø¢Ø±Ø´ÛŒÙˆ Ø¢Ù‡Ù†Ú¯\u200CÙ‡Ø§', archiveSearch: 'Ø¬Ø³ØªØ¬ÙˆÛŒ Ø®ÙˆØ§Ù†Ù†Ø¯Ù‡ ÛŒØ§ Ù†Ø§Ù… ØªØ±Ø§Ù†Ù‡...', arrangerTitle: 'ðŸŽ¼ Ø§Ø±Ù†Ø¬Ø± ØªØ±Ú©',
-        arrangerName: 'Ù†Ø§Ù… Ù¾Ù„ÛŒâ€ŒÙ„ÛŒØ³Øª', saveName: 'Ø°Ø®ÛŒØ±Ù‡', save: 'Ø°Ø®ÛŒØ±Ù‡', export: 'Ø§Ú©Ø³Ù¾ÙˆØ±Øª', perform: 'Ø§Ø¬Ø±Ø§', closeEditor: 'Ø¨Ø³ØªÙ†',
-        availableSongs: 'Ø¢Ù‡Ù†Ú¯\u200CÙ‡Ø§ÛŒ Ù…ÙˆØ¬ÙˆØ¯', setlist: 'Ø³Øª\u200CÙ„ÛŒØ³Øª (Ø¨Ú©Ø´ ÛŒØ§ â†‘â†“)', newAudioLine: 'ï¼‹ Ø®Ø· ØµÙˆØªÛŒ Ø¬Ø¯ÛŒØ¯', tracks: 'TRACKS',
-        zoom: 'Zoom', split: 'âœ‚ Split', cut: 'âœ‚ Cut', copy: 'â§‰ Copy', paste: 'ðŸ“‹ Paste', delClip: 'ðŸ—‘ Delete',
-        noArranger: 'Ù‡Ù†ÙˆØ² Ø§Ø±Ù†Ø¬Ø±ÛŒ Ù†Ø³Ø§Ø®ØªÙ‡\u200CØ§ÛŒØ¯.', newArranger: '+ Ø§Ø±Ù†Ø¬Ø± Ø¬Ø¯ÛŒØ¯', edit: 'âœï¸ ÙˆÛŒØ±Ø§ÛŒØ´', load: 'Ø¨Ø§Ø±Ú¯Ø°Ø§Ø±ÛŒ',
-        noSongs: 'ØªØ±Ø§Ù†Ù‡\u200CØ§ÛŒ Ø°Ø®ÛŒØ±Ù‡ Ù†Ø´Ø¯Ù‡', allInSetlist: 'Ù‡Ù…Ù‡ Ø¢Ù‡Ù†Ú¯\u200CÙ‡Ø§ Ø¯Ø± Ø³Øª\u200CÙ„ÛŒØ³Øª\u200CØ§Ù†Ø¯.', addFromLeft: 'Ø§Ø² Ø³ØªÙˆÙ† Ú†Ù¾ Ø¢Ù‡Ù†Ú¯ Ø§Ø¶Ø§ÙÙ‡ Ú©Ù†ÛŒØ¯.',
-        clickHint: 'Ú©Ù„ÛŒÚ© = ÙˆÛŒØ±Ø§ÛŒØ´Ú¯Ø± | Ø¯Ø§Ø¨Ù„\u200CÚ©Ù„ÛŒÚ© Ø±ÙˆÛŒ Ø¢Ú©ÙˆØ±Ø¯ = ÙˆÛŒØ±Ø§ÛŒØ´', loadHint: 'Ú©Ù„ÛŒÚ© Ø§Ø³Ù… Ù„Ø§ÛŒÙ† = Ù„ÙˆØ¯',
-        nothingUndo: 'Ø¹Ù…Ù„ÛŒ Ø¨Ø±Ø§ÛŒ Undo ÙˆØ¬ÙˆØ¯ Ù†Ø¯Ø§Ø±Ø¯', nothingRedo: 'Ø¹Ù…Ù„ÛŒ Ø¨Ø±Ø§ÛŒ Redo ÙˆØ¬ÙˆØ¯ Ù†Ø¯Ø§Ø±Ø¯',
-        selectCompleteChord: 'Ù„Ø·ÙØ§ ÛŒÚ© Ø¢Ú©ÙˆØ±Ø¯ Ú©Ø§Ù…Ù„ Ø§Ù†ØªØ®Ø§Ø¨ Ú©Ù†ÛŒØ¯', chordEditedTo: 'Ø¢Ú©ÙˆØ±Ø¯ ÙˆÛŒØ±Ø§ÛŒØ´ Ø´Ø¯ Ø¨Ù‡', chordPlaced: 'Ø¢Ú©ÙˆØ±Ø¯ Ø±ÙˆÛŒ Ù„Ø§ÛŒÙ† Ù‚Ø±Ø§Ø± Ú¯Ø±ÙØª',
-        newTrackAdded: 'Ù„Ø§ÛŒÙ† Ø¬Ø¯ÛŒØ¯ Ø§Ø¶Ø§ÙÙ‡ Ø´Ø¯', decoding: 'Ø¯Ø± Ø­Ø§Ù„ decode ØµØ¯Ø§...', loadedOk: 'Ù„ÙˆØ¯ OK:', loadFailed: 'Ù„ÙˆØ¯ Ù†Ø§Ù…ÙˆÙÙ‚',
-        nothingSelected: 'Ú†ÛŒØ²ÛŒ Ø§Ù†ØªØ®Ø§Ø¨ Ù†Ø´Ø¯Ù‡', deleted: 'Ø­Ø°Ù Ø´Ø¯', clipsCopied: 'Ú©Ù„ÛŒÙ¾ Ú©Ù¾ÛŒ Ø´Ø¯', cutDone: 'Ú©Ø§Øª Ø´Ø¯',
-        clipboardEmpty: 'Ú©Ù„ÛŒÙ¾\u200CØ¨ÙˆØ±Ø¯ Ø®Ø§Ù„ÛŒ Ø§Ø³Øª', pastedAtPlayhead: 'Ù¾ÛŒØ³Øª Ø±ÙˆÛŒ Ù¾Ù„ÛŒ\u200CÙ‡Ø¯', splitDone: 'Split Ø§Ù†Ø¬Ø§Ù… Ø´Ø¯',
-        noClipToCut: 'Ø¯Ø± Ø§ÛŒÙ† Ù†Ù‚Ø·Ù‡ Ú©Ù„ÛŒÙ¾ÛŒ Ø¨Ø±Ø§ÛŒ Cut Ù†Ø¨ÙˆØ¯', clipsCut: 'Cut: Ú©Ù„ÛŒÙ¾',
-        syncFinished: 'Ø³ÛŒÙ†Ú© Ø¨Ù‡ Ù¾Ø§ÛŒØ§Ù† Ø±Ø³ÛŒØ¯!', selectPointsActive: 'Ø­Ø§Ù„Øª Ø§Ù†ØªØ®Ø§Ø¨ Ù†Ù‚Ø§Ø· ÙØ¹Ø§Ù„ â€” Ø±ÙˆÛŒ Ù…ØªÙ† Ú©Ù„ÛŒÚ© Ú©Ù†ÛŒØ¯',
-        selectPointsFirst: 'Ø§ÙˆÙ„ Ù†Ù‚Ø§Ø· Ø±Ø§ Ø§Ù†ØªØ®Ø§Ø¨ Ú©Ù†ÛŒØ¯', chordingStarted: 'Ø¢Ú©ÙˆØ±Ø¯Ú¯Ø°Ø§Ø±ÛŒ Ø´Ø±ÙˆØ¹ Ø´Ø¯ â€” Ø¨Ø§ MIDI Ø¨Ø²Ù†ÛŒØ¯',
-        emptySetlist: 'Ø³Øª\u200CÙ„ÛŒØ³Øª Ø®Ø§Ù„ÛŒ Ø§Ø³Øª', arrangerStarted: 'Ø§Ø±Ù†Ø¬Ø± Ø´Ø±ÙˆØ¹ Ø´Ø¯ â€” Ù‡Ø± ØªØ±Ø§Ù†Ù‡ Ø¨Ø¹Ø¯ Ø§Ø² Ø§ØªÙ…Ø§Ù… Ù¾Ø®Ø´ØŒ Ø¨Ø¹Ø¯ÛŒ Ù„ÙˆØ¯ Ù…ÛŒØ´Ù‡',
-        arrangerFinished: 'Ø§Ø±Ù†Ø¬Ø± ØªÙ…Ø§Ù… Ø´Ø¯', focusMode: 'Ø­Ø§Ù„Øª ØªÙ…Ø±Ú©Ø² â€” ÙÙ‚Ø· Ù…ØªÙ† ØªØ±Ø§Ù†Ù‡', normalMode: 'Ø­Ø§Ù„Øª Ø¹Ø§Ø¯ÛŒ',
-        popupBlocked: 'Ù¾Ø§Ù¾\u200CØ¢Ù¾ Ø¨Ù„Ø§Ú© Ø´Ø¯ â€” Ø§Ø¬Ø§Ø²Ù‡ Ù¾Ø§Ù¾\u200CØ¢Ù¾ Ø±Ø§ ÙØ¹Ø§Ù„ Ú©Ù†ÛŒØ¯', midiConnected: 'MIDI Ù…ØªØµÙ„ Ø´Ø¯. Ú©ÛŒØ¨ÙˆØ±Ø¯ Ø±Ø§ Ø¨Ø²Ù†ÛŒØ¯...',
-        midiError: 'Ø®Ø·Ø§ Ø¯Ø± Ø§ØªØµØ§Ù„ MIDI', midiNotSupported: 'Ù…Ø±ÙˆØ±Ú¯Ø± Ø§Ø² MIDI Ù¾Ø´ØªÛŒØ¨Ø§Ù†ÛŒ Ù†Ù…ÛŒ\u200CÚ©Ù†Ø¯', midiDisconnected: 'MIDI Ù‚Ø·Ø¹ Ø´Ø¯',
-        dawReady: 'DAW Ø¢Ù…Ø§Ø¯Ù‡ Ø§Ø³Øª! Alt+Scroll = Ø²ÙˆÙ… | Shift+Click = Split | L = Loop',
-        chordRecOn: 'Ø¶Ø¨Ø· Ø¢Ú©ÙˆØ±Ø¯ Ø±ÙˆØ´Ù†! Ú©ÛŒØ¨ÙˆØ±Ø¯ Ù…ÛŒØ¯ÛŒ Ø±Ø§ Ø¨Ø²Ù†ÛŒØ¯', chordRecOff: 'Ø¶Ø¨Ø· Ø¢Ú©ÙˆØ±Ø¯ Ø®Ø§Ù…ÙˆØ´',
-        chordDone: 'Ø¢Ú©ÙˆØ±Ø¯Ú¯Ø°Ø§Ø±ÛŒ ØªÙ…Ø§Ù… Ø´Ø¯', songN: 'ØªØ±Ø§Ù†Ù‡', lineOf: 'Ø®Ø·', linesOf: 'Ø®Ø· Ø§Ø²',
-        syncExit: 'â—€ Ø¨Ø³ØªÙ†', syncPlay: 'â–¶ Ù¾Ø®Ø´', syncPause: 'â¸ ØªÙˆÙ‚Ù',
+        project: 'پروژه', archive: 'آرشیو آهنگ\u200Cها', newSong: 'ترانه جدید', saveSong: 'ذخیره ترانه', arranger: 'ارنجر ترک', print: 'چاپ',
+        brand: 'ترانه آکورد', major: 'ماژور', minor: 'مینور', textLabel: 'متن:', chordLabel: 'آکورد:', seqLabel: 'ترتیبی:',
+        settings: 'تنظیمات', artist: 'خواننده', artistPlaceholder: 'نام خواننده', songTitle: 'نام ترانه', songTitlePlaceholder: 'نام ترانه', playTime: 'زمان پخش',
+        interactiveSwitches: 'سوئیچ\u200Cهای تعاملی', manualSync: '🔗 سینک دستی (لاین گاید)', midiCtrl: '🎹 میدی کنترلر (MIDI)',
+        close: 'بستن', play: 'پخش', tapLine: '👆 ثبت این خط (Ctrl+Space)', deleteTime: '🗑 حذف زمان', reset: '↺ ریست',
+        start: 'ابتدا', pause: 'مکث', stop: 'توقف', end: 'انتها', fullscreenPopup: 'پنجره جداگانه تمام صفحه',
+        untitled: 'بدون نام', chordEditor: 'ویرایشگر آکورد (Chord Assistant)', cancel: 'انصراف', delete: '🗑 حذف', confirm: 'ثبت',
+        manualType: 'تایپ دستی:', placeOnTimeline: 'ثبت روی تایم\u200Cلاین', editSongChord: 'ویرایش آکورد ترانه', confirmBtn: 'تأیید',
+        archiveTitle: '📂 آرشیو آهنگ\u200Cها', archiveSearch: 'جستجوی خواننده یا نام ترانه...', arrangerTitle: '🎼 ارنجر ترک',
+        arrangerName: 'نام پلی‌لیست', saveName: 'ذخیره', save: 'ذخیره', export: 'اکسپورت', perform: 'اجرا', closeEditor: 'بستن',
+        availableSongs: 'آهنگ\u200Cهای موجود', setlist: 'ست\u200Cلیست (بکش یا ↑↓)', newAudioLine: '＋ خط صوتی جدید', tracks: 'TRACKS',
+        zoom: 'Zoom', split: '✂ Split', cut: '✂ Cut', copy: '⧉ Copy', paste: '📋 Paste', delClip: '🗑 Delete',
+        noArranger: 'هنوز ارنجری نساخته\u200Cاید.', newArranger: '+ ارنجر جدید', edit: '✏️ ویرایش', load: 'بارگذاری',
+        noSongs: 'ترانه\u200Cای ذخیره نشده', allInSetlist: 'همه آهنگ\u200Cها در ست\u200Cلیست\u200Cاند.', addFromLeft: 'از ستون چپ آهنگ اضافه کنید.',
+        clickHint: 'کلیک = ویرایشگر | دابل\u200Cکلیک روی آکورد = ویرایش', loadHint: 'کلیک اسم لاین = لود',
+        nothingUndo: 'عملی برای Undo وجود ندارد', nothingRedo: 'عملی برای Redo وجود ندارد',
+        selectCompleteChord: 'لطفا یک آکورد کامل انتخاب کنید', chordEditedTo: 'آکورد ویرایش شد به', chordPlaced: 'آکورد روی لاین قرار گرفت',
+        newTrackAdded: 'لاین جدید اضافه شد', decoding: 'در حال decode صدا...', loadedOk: 'لود OK:', loadFailed: 'لود ناموفق',
+        nothingSelected: 'چیزی انتخاب نشده', deleted: 'حذف شد', clipsCopied: 'کلیپ کپی شد', cutDone: 'کات شد',
+        clipboardEmpty: 'کلیپ\u200Cبورد خالی است', pastedAtPlayhead: 'پیست روی پلی\u200Cهد', splitDone: 'Split انجام شد',
+        noClipToCut: 'در این نقطه کلیپی برای Cut نبود', clipsCut: 'Cut: کلیپ',
+        syncFinished: 'سینک به پایان رسید!', selectPointsActive: 'حالت انتخاب نقاط فعال — روی متن کلیک کنید',
+        selectPointsFirst: 'اول نقاط را انتخاب کنید', chordingStarted: 'آکوردگذاری شروع شد — با MIDI بزنید',
+        emptySetlist: 'ست\u200Cلیست خالی است', arrangerStarted: 'ارنجر شروع شد — هر ترانه بعد از اتمام پخش، بعدی لود میشه',
+        arrangerFinished: 'ارنجر تمام شد', focusMode: 'حالت تمرکز — فقط متن ترانه', normalMode: 'حالت عادی',
+        popupBlocked: 'پاپ\u200Cآپ بلاک شد — اجازه پاپ\u200Cآپ را فعال کنید', midiConnected: 'MIDI متصل شد. کیبورد را بزنید...',
+        midiError: 'خطا در اتصال MIDI', midiNotSupported: 'مرورگر از MIDI پشتیبانی نمی\u200Cکند', midiDisconnected: 'MIDI قطع شد',
+        dawReady: 'DAW آماده است! Alt+Scroll = زوم | Shift+Click = Split | L = Loop',
+        chordRecOn: 'ضبط آکورد روشن! کیبورد میدی را بزنید', chordRecOff: 'ضبط آکورد خاموش',
+        chordDone: 'آکوردگذاری تمام شد', songN: 'ترانه', lineOf: 'خط', linesOf: 'خط از',
+        syncExit: '◀ بستن', syncPlay: '▶ پخش', syncPause: '⏸ توقف',
         
       },
       en: {
         project: 'Project', archive: 'Song Archive', newSong: 'New Song', saveSong: 'Save Song', arranger: 'Track Arranger', print: 'Print',
         brand: 'Chord Song', major: 'Major', minor: 'Minor', textLabel: 'Text:', chordLabel: 'Chord:', seqLabel: 'Seq:',
         settings: 'Settings', artist: 'Artist', artistPlaceholder: 'Artist name', songTitle: 'Song Title', songTitlePlaceholder: 'Song name', playTime: 'Play Time',
-        interactiveSwitches: 'Interactive Switches', manualSync: 'ðŸ”— Manual Sync (Line Guide)', midiCtrl: 'ðŸŽ¹ MIDI Controller',
-        close: 'Close', play: 'Play', tapLine: 'ðŸ‘† Tap This Line (Ctrl+Space)', deleteTime: 'ðŸ—‘ Delete Time', reset: 'â†º Reset',
+        interactiveSwitches: 'Interactive Switches', manualSync: '🔗 Manual Sync (Line Guide)', midiCtrl: '🎹 MIDI Controller',
+        close: 'Close', play: 'Play', tapLine: '👆 Tap This Line (Ctrl+Space)', deleteTime: '🗑 Delete Time', reset: '↺ Reset',
         start: 'Start', pause: 'Pause', stop: 'Stop', end: 'End', fullscreenPopup: 'Fullscreen Popup Window',
-        untitled: 'Untitled', chordEditor: 'Chord Editor (Chord Assistant)', cancel: 'Cancel', delete: 'ðŸ—‘ Delete', confirm: 'Confirm',
+        untitled: 'Untitled', chordEditor: 'Chord Editor (Chord Assistant)', cancel: 'Cancel', delete: '🗑 Delete', confirm: 'Confirm',
         manualType: 'Manual type:', placeOnTimeline: 'Place on Timeline', editSongChord: 'Edit Song Chord', confirmBtn: 'OK',
-        archiveTitle: 'ðŸ“‚ Song Archive', archiveSearch: 'Search artist or song name...', arrangerTitle: 'ðŸŽ¼ Track Arranger',
+        archiveTitle: '📂 Song Archive', archiveSearch: 'Search artist or song name...', arrangerTitle: '🎼 Track Arranger',
         arrangerName: 'Playlist name', saveName: 'Save', save: 'Save', export: 'Export', perform: 'Perform', closeEditor: 'Close',
-        availableSongs: 'Available Songs', setlist: 'Setlist (drag or â†‘â†“)', newAudioLine: 'ï¼‹ New Audio Line', tracks: 'TRACKS',
-        zoom: 'Zoom', split: 'âœ‚ Split', cut: 'âœ‚ Cut', copy: 'â§‰ Copy', paste: 'ðŸ“‹ Paste', delClip: 'ðŸ—‘ Delete',
-        noArranger: 'No arranger created yet.', newArranger: '+ New Arranger', edit: 'âœï¸ Edit', load: 'Load',
+        availableSongs: 'Available Songs', setlist: 'Setlist (drag or ↑↓)', newAudioLine: '＋ New Audio Line', tracks: 'TRACKS',
+        zoom: 'Zoom', split: '✂ Split', cut: '✂ Cut', copy: '⧉ Copy', paste: '📋 Paste', delClip: '🗑 Delete',
+        noArranger: 'No arranger created yet.', newArranger: '+ New Arranger', edit: '✏️ Edit', load: 'Load',
         noSongs: 'No songs saved', allInSetlist: 'All songs are in the setlist.', addFromLeft: 'Add songs from the left column.',
         clickHint: 'Click = Editor | Double-click chord = Edit', loadHint: 'Click track name = Load',
         nothingUndo: 'Nothing to Undo', nothingRedo: 'Nothing to Redo',
@@ -151,16 +151,16 @@ globalScope.DAW = {
         nothingSelected: 'Nothing selected', deleted: 'Deleted', clipsCopied: 'clips copied', cutDone: 'Cut',
         clipboardEmpty: 'Clipboard is empty', pastedAtPlayhead: 'Pasted at playhead', splitDone: 'Split done',
         noClipToCut: 'No clip to cut at this point', clipsCut: 'Cut: clips',
-        syncFinished: 'Sync finished!', selectPointsActive: 'Point selection active â€” click on text',
-        selectPointsFirst: 'Select points first', chordingStarted: 'Chording started â€” play MIDI',
-        emptySetlist: 'Setlist is empty', arrangerStarted: 'Arranger started â€” next song loads after current finishes',
-        arrangerFinished: 'Arranger finished', focusMode: 'Focus mode â€” lyrics only', normalMode: 'Normal mode',
-        popupBlocked: 'Popup blocked â€” please allow popups', midiConnected: 'MIDI connected. Play your keyboard...',
+        syncFinished: 'Sync finished!', selectPointsActive: 'Point selection active — click on text',
+        selectPointsFirst: 'Select points first', chordingStarted: 'Chording started — play MIDI',
+        emptySetlist: 'Setlist is empty', arrangerStarted: 'Arranger started — next song loads after current finishes',
+        arrangerFinished: 'Arranger finished', focusMode: 'Focus mode — lyrics only', normalMode: 'Normal mode',
+        popupBlocked: 'Popup blocked — please allow popups', midiConnected: 'MIDI connected. Play your keyboard...',
         midiError: 'MIDI connection error', midiNotSupported: 'Browser doesn\'t support MIDI', midiDisconnected: 'MIDI disconnected',
         dawReady: 'DAW ready! Alt+Scroll = Zoom | Shift+Click = Split | L = Loop',
         chordRecOn: 'Chord recording ON! Play MIDI keyboard', chordRecOff: 'Chord recording OFF',
         chordDone: 'Chording complete', songN: 'Song', lineOf: 'of', linesOf: 'line of',
-        syncExit: 'â—€ Close', syncPlay: 'â–¶ Play', syncPause: 'â¸ Pause',
+        syncExit: '◀ Close', syncPlay: '▶ Play', syncPause: '⏸ Pause',
       }
     };
     function t(key) { return I18N[currentLang]?.[key] || I18N['fa']?.[key] || key; }
@@ -208,10 +208,10 @@ globalScope.DAW = {
         detail = `CC${msg[1]} val:${msg[2]}`;
       } else if (status === 0xC0) {
         detail = `prog:${msg[1]}`;
-      } else if (msg[0] === 0xFA) detail = 'â–¶ START';
-      else if (msg[0] === 0xFC) detail = 'â¹ STOP';
-      else if (msg[0] === 0xFB) detail = 'â¯ CONTINUE';
-      else if (msg[0] === 0xF8) detail = 'â± CLOCK';
+      } else if (msg[0] === 0xFA) detail = '▶ START';
+      else if (msg[0] === 0xFC) detail = '⏹ STOP';
+      else if (msg[0] === 0xFB) detail = '⏯ CONTINUE';
+      else if (msg[0] === 0xF8) detail = '⏱ CLOCK';
 
       const now = new Date();
       const time = now.toLocaleTimeString('fa', { hour12: false });
@@ -268,9 +268,9 @@ globalScope.DAW = {
     let snapValue = 0.25; // seconds (default: 1/4 beat)
 
     /**
-     * getTimeSignatureGridConfig - ØªØ¨Ø¯ÛŒÙ„ Time Signature Ø¨Ù‡ Ù…Ø´Ø®ØµØ§Øª Ú¯Ø±ÛŒØ¯
-     * @param {string} timeSignature - Ø±Ø´ØªÙ‡ Time Signature Ù…Ø«Ù„ '4/4', '3/4', '6/8'
-     * @returns {object} Ø´Ø§Ù…Ù„ numerator, denominator, beatUnit, beatsPerMeasure, subdivisionsPerBeat, unitsPerMeasure, measureDuration, beatDuration
+     * getTimeSignatureGridConfig - تبدیل Time Signature به مشخصات گرید
+     * @param {string} timeSignature - رشته Time Signature مثل '4/4', '3/4', '6/8'
+     * @returns {object} شامل numerator, denominator, beatUnit, beatsPerMeasure, subdivisionsPerBeat, unitsPerMeasure, measureDuration, beatDuration
      */
     function getTimeSignatureGridConfig(timeSignature, bpm) {
       return TimelineGrid.getTimeSignatureGridConfig(timeSignature, bpm || 120);
@@ -321,7 +321,7 @@ globalScope.DAW = {
     function toggleSnap() {
       snapEnabled = !snapEnabled;
       $('snapBtn').classList.toggle('active', snapEnabled);
-      toast(snapEnabled ? 'Ø§Ø³Ù†Ù¾ ÙØ¹Ø§Ù„ Ø´Ø¯' : 'Ø§Ø³Ù†Ù¾ ØºÛŒØ±ÙØ¹Ø§Ù„ Ø´Ø¯');
+      toast(snapEnabled ? 'اسنپ فعال شد' : 'اسنپ غیرفعال شد');
     }
 
     function snapTime(time) {
@@ -339,11 +339,11 @@ globalScope.DAW = {
       const bpm = edCur?.tempo || 120;
       const sig = edCur?.timeSignature || '4/4';
       const config = getTimeSignatureGridConfig(sig, bpm);
-      const beatDur = config.beatDuration; // Ù…Ø¯Øª ÙˆØ§Ø­Ø¯ Ù…Ø®Ø±Ø¬ (Ø³ÛŒØ§Ù‡ Ø¯Ø± x/4ØŒ Ú†Ù†Ú¯ Ø¯Ø± x/8)
-      const barDur = config.measureDuration; // Ù…Ø¯Øª Ø²Ù…Ø§Ù† ÛŒÚ© Ù…ÛŒØ²Ø§Ù† Ø¨Ø± Ø§Ø³Ø§Ø³ Time Signature ÙØ¹Ø§Ù„
+      const beatDur = config.beatDuration; // مدت واحد مخرج (سیاه در x/4، چنگ در x/8)
+      const barDur = config.measureDuration; // مدت زمان یک میزان بر اساس Time Signature فعال
 
       switch(preset) {
-        case '1/1': snapValue = barDur; break;           // 1 bar (Ø¨Ø± Ø§Ø³Ø§Ø³ Time Signature ÙØ¹Ø§Ù„)
+        case '1/1': snapValue = barDur; break;           // 1 bar (بر اساس Time Signature فعال)
         case '1/2': snapValue = barDur / 2; break;       // half bar
         case '1/4': snapValue = beatDur; break;          // 1 beat
         case '1/8': snapValue = beatDur / 2; break;      // half beat
@@ -360,7 +360,7 @@ globalScope.DAW = {
       snapEnabled = true;
       $('snapBtn').classList.add('active');
 
-      toast(`Ú©ÙˆØ§Ù†ØªØ§ÛŒØ²: ${preset} (${(snapValue * 1000).toFixed(0)}ms)`);
+      toast(`کوانتایز: ${preset} (${(snapValue * 1000).toFixed(0)}ms)`);
       $('quantizeModal').classList.remove('show');
     }
 
@@ -372,22 +372,22 @@ globalScope.DAW = {
     });
 
     /**
-     * quantizeSelectedChords â€” Ú©ÙˆØ§Ù†ØªØ§ÛŒØ² Ø¢Ú©ÙˆØ±Ø¯Ù‡Ø§ÛŒ Ø§Ù†ØªØ®Ø§Ø¨â€ŒØ´Ø¯Ù‡ Ø¯Ø± Ú©ÙˆØ±Ø¯ Ù„Ø§ÛŒÙ†
+     * quantizeSelectedChords — کوانتایز آکوردهای انتخاب‌شده در کورد لاین
      *
-     * Ø¢Ú©ÙˆØ±Ø¯Ù‡Ø§ÛŒ Ø§Ù†ØªØ®Ø§Ø¨â€ŒØ´Ø¯Ù‡ (DAW.selectedIds) Ø±Ø§ Ø¨Ø± Ø§Ø³Ø§Ø³ Ù¾Ø±ÛŒØ³Øª Ú©ÙˆØ§Ù†ØªØ§ÛŒØ² ÙØ¹Ù„ÛŒ
-     * (snapValue) Ø¨Ù‡ Ù†Ø²Ø¯ÛŒÚ©â€ŒØªØ±ÛŒÙ† Ù†Ù‚Ø·Ù‡ Ú¯Ø±ÛŒØ¯ Ù…ÛŒâ€ŒÚ†Ø³Ø¨Ø§Ù†Ø¯.
+     * آکوردهای انتخاب‌شده (DAW.selectedIds) را بر اساس پریست کوانتایز فعلی
+     * (snapValue) به نزدیک‌ترین نقطه گرید می‌چسباند.
      *
-     * Ù…Ø«Ø§Ù„:
-     *   - Ù¾Ø±ÛŒØ³Øª 1/1 (ÛŒÚ© Ù…ÛŒØ²Ø§Ù†): Ø¢Ú©ÙˆØ±Ø¯Ù‡Ø§ Ø¨Ù‡ Ø§Ø¨ØªØ¯Ø§ÛŒ Ù…ÛŒØ²Ø§Ù† Ù…ÛŒâ€ŒÚ†Ø³Ø¨Ù†Ø¯
-     *   - Ù¾Ø±ÛŒØ³Øª 1/2 (Ù†ÛŒÙ… Ù…ÛŒØ²Ø§Ù†): Ø¢Ú©ÙˆØ±Ø¯Ù‡Ø§ Ø¨Ù‡ Ù†Ø²Ø¯ÛŒÚ©â€ŒØªØ±ÛŒÙ† Ø®Ø· Ù†ÛŒÙ… Ù…ÛŒØ²Ø§Ù† Ù…ÛŒâ€ŒÚ†Ø³Ø¨Ù†Ø¯
-     *   - Ù¾Ø±ÛŒØ³Øª 1/4 (ÛŒÚ© Ø¶Ø±Ø¨): Ø¢Ú©ÙˆØ±Ø¯Ù‡Ø§ Ø¨Ù‡ Ù†Ø²Ø¯ÛŒÚ©â€ŒØªØ±ÛŒÙ† Ø¶Ø±Ø¨ Ù…ÛŒâ€ŒÚ†Ø³Ø¨Ù†Ø¯
-     *   - Ùˆ ...
+     * مثال:
+     *   - پریست 1/1 (یک میزان): آکوردها به ابتدای میزان می‌چسبند
+     *   - پریست 1/2 (نیم میزان): آکوردها به نزدیک‌ترین خط نیم میزان می‌چسبند
+     *   - پریست 1/4 (یک ضرب): آکوردها به نزدیک‌ترین ضرب می‌چسبند
+     *   - و ...
      */
     function quantizeSelectedChords() {
-      // ÙÙ‚Ø· Ú©Ù„ÛŒÙ¾â€ŒÙ‡Ø§ÛŒ Ø¢Ú©ÙˆØ±Ø¯ (chord) Ø±Ø§ Ø§Ù†ØªØ®Ø§Ø¨ Ú©Ù†
+      // فقط کلیپ‌های آکورد (chord) را انتخاب کن
       const selectedChordClips = DAW.clips.filter(c => c.type === 'chord' && DAW.selectedIds.has(c.id));
       if (selectedChordClips.length === 0) {
-        toast('Ø¢Ú©ÙˆØ±Ø¯ÛŒ Ø¯Ø± Ú©ÙˆØ±Ø¯ Ù„Ø§ÛŒÙ† Ø§Ù†ØªØ®Ø§Ø¨ Ù†Ø´Ø¯Ù‡ Ø§Ø³Øª');
+        toast('آکوردی در کورد لاین انتخاب نشده است');
         return;
       }
 
@@ -395,21 +395,21 @@ globalScope.DAW = {
       const sig = edCur?.timeSignature || '4/4';
       const config = getTimeSignatureGridConfig(sig, bpm);
       const beatsPerBar = config.beatsPerMeasure;
-      const beatDur = config.beatDuration; // Ù…Ø¯Øª ÙˆØ§Ø­Ø¯ Ù…Ø®Ø±Ø¬ (Ø³ÛŒØ§Ù‡ Ø¯Ø± x/4ØŒ Ú†Ù†Ú¯ Ø¯Ø± x/8)
+      const beatDur = config.beatDuration; // مدت واحد مخرج (سیاه در x/4، چنگ در x/8)
       const barDur = config.measureDuration;
 
-      // Ù…Ø­Ø§Ø³Ø¨Ù‡ Ú¯Ø§Ù… Ú¯Ø±ÛŒØ¯ Ø¨Ø± Ø§Ø³Ø§Ø³ Ù¾Ø±ÛŒØ³Øª ÙØ¹Ù„ÛŒ
-      // snapValue Ø¯Ø± applyQuantize ØªÙ†Ø¸ÛŒÙ… Ù…ÛŒâ€ŒØ´ÙˆØ¯ (Ù…Ø«Ù„Ø§Ù‹ 1/1 = barDurØŒ 1/2 = barDur/2ØŒ 1/4 = beatDur)
+      // محاسبه گام گرید بر اساس پریست فعلی
+      // snapValue در applyQuantize تنظیم می‌شود (مثلاً 1/1 = barDur، 1/2 = barDur/2، 1/4 = beatDur)
       let gridStep = snapValue;
       if (!gridStep || gridStep <= 0) gridStep = beatDur;
 
-      // Ø¨Ø±Ø§ÛŒ Ù‡Ø± Ø¢Ú©ÙˆØ±Ø¯ Ø§Ù†ØªØ®Ø§Ø¨â€ŒØ´Ø¯Ù‡ØŒ start Ø±Ø§ Ø¨Ù‡ Ù†Ø²Ø¯ÛŒÚ©â€ŒØªØ±ÛŒÙ† Ù†Ù‚Ø·Ù‡ Ú¯Ø±ÛŒØ¯ Ø¨Ú†Ø³Ø¨Ø§Ù†
+      // برای هر آکورد انتخاب‌شده، start را به نزدیک‌ترین نقطه گرید بچسبان
       let quantizedCount = 0;
       selectedChordClips.forEach(clip => {
         const origStart = clip.start;
-        // Ú¯Ø±Ø¯ Ú©Ø±Ø¯Ù† Ø¨Ù‡ Ù†Ø²Ø¯ÛŒÚ©â€ŒØªØ±ÛŒÙ† Ù…Ø¶Ø±Ø¨ gridStep
+        // گرد کردن به نزدیک‌ترین مضرب gridStep
         const snapped = Math.round(origStart / gridStep) * gridStep;
-        // Ø¬Ù„ÙˆÚ¯ÛŒØ±ÛŒ Ø§Ø² Ù…Ù†ÙÛŒ Ø´Ø¯Ù†
+        // جلوگیری از منفی شدن
         clip.start = roundMs(Math.max(0, snapped));
         if (Math.abs(clip.start - origStart) > 0.001) quantizedCount++;
       });
@@ -418,15 +418,15 @@ globalScope.DAW = {
         saveState();
         renderClips();
         renderRuler();
-        toast(`Ú©ÙˆØ§Ù†ØªØ§ÛŒØ² Ø´Ø¯: ${quantizedCount} Ø¢Ú©ÙˆØ±Ø¯`);
+        toast(`کوانتایز شد: ${quantizedCount} آکورد`);
       } else {
-        toast('Ø¢Ú©ÙˆØ±Ø¯Ù‡Ø§ Ø§Ø² Ù‚Ø¨Ù„ Ø±ÙˆÛŒ Ú¯Ø±ÛŒØ¯ Ù‡Ø³ØªÙ†Ø¯');
+        toast('آکوردها از قبل روی گرید هستند');
       }
     }
 
     function toggleMetronome() {
       metroActive = !metroActive;
-      $('metroToggleBtn').textContent = metroActive ? 'ðŸ”Š' : 'ðŸ”‡';
+      $('metroToggleBtn').textContent = metroActive ? '🔊' : '🔇';
       if (metroActive && DAW.isPlaying) startMetronome();
       else stopMetronome();
     }
@@ -473,7 +473,7 @@ globalScope.DAW = {
       audioContextServiceBridge.playClick(isAccent, APP_SETTINGS.metroSound || 'classic');
     }
 
-    // ØªØ§Ø¨Ø¹ Ú©Ù…Ú©ÛŒ Ø¨Ø±Ø§ÛŒ Ú†Ú© Ú©Ø±Ø¯Ù† Ø¶Ø±Ø¨ Ø¯Ø± Ø­Ù„Ù‚Ù‡ Ù¾Ø®Ø´
+    // تابع کمکی برای چک کردن ضرب در حلقه پخش
     function checkMetronomeTick(playheadTime) {
       if (!metroActive || !DAW.isPlaying) return;
       const bpm = parseInt($('edTempo')?.value) || 120;
@@ -529,7 +529,7 @@ globalScope.DAW = {
         if (bpm >= 20 && bpm <= 300) {
           $('edTempo').value = bpm;
           if (edCur) { edCur.tempo = bpm; edSaveSong(); }
-          toast(`ØªÙ…Ù¾Ùˆ: ${bpm} BPM`);
+          toast(`تمپو: ${bpm} BPM`);
         }
       }
       // Reset if gap > 3 seconds
@@ -541,7 +541,7 @@ globalScope.DAW = {
     // ===== TEMPO DETECTION FROM SYNC =====
     function detectTempo() {
       if (!edCur || !edCur.syncTimes || edCur.syncTimes.length < 2) {
-        toast('Ø§Ø¨ØªØ¯Ø§ Ø³ÛŒÙ†Ú© Ø¯Ø³ØªÛŒ Ø±Ø§ Ø§Ù†Ø¬Ø§Ù… Ø¯Ù‡ÛŒØ¯ (Ø­Ø¯Ø§Ù‚Ù„ Û² Ù„Ø§ÛŒÙ†)');
+        toast('ابتدا سینک دستی را انجام دهید (حداقل ۲ لاین)');
         return;
       }
 
@@ -553,7 +553,7 @@ globalScope.DAW = {
       });
 
       if (!result.ok) {
-        toast('ØªÙ…Ù¾Ùˆ Ù‚Ø§Ø¨Ù„ ØªØ´Ø®ÛŒØµ Ù†Ø¨ÙˆØ¯');
+        toast('تمپو قابل تشخیص نبود');
         return;
       }
 
@@ -567,20 +567,20 @@ globalScope.DAW = {
         edSaveSong();
       }
 
-      toast(`ØªÙ…Ù¾ÙˆÛŒ ØªØ´Ø®ÛŒØµ Ø¯Ø§Ø¯Ù‡ Ø´Ø¯Ù‡: ${bestBpm} BPM (Ø§Ø² ${result.intervals.length} Ù„Ø§ÛŒÙ† Ø³ÛŒÙ†Ú©)`);
+      toast(`تمپوی تشخیص داده شده: ${bestBpm} BPM (از ${result.intervals.length} لاین سینک)`);
     }
 
     // ===== KEY DETECTION FROM CHORDS =====
     function detectKey() {
       if (!edCur || !edCur.chords || edCur.chords.length === 0) {
-        toast('Ø¢Ú©ÙˆØ±Ø¯ÛŒ Ø¨Ø±Ø§ÛŒ ØªØ´Ø®ÛŒØµ Ú¯Ø§Ù… ÙˆØ¬ÙˆØ¯ Ù†Ø¯Ø§Ø±Ø¯');
+        toast('آکوردی برای تشخیص گام وجود ندارد');
         return;
       }
 
       const result = SyncAnalysis.detectKeyFromChords(edCur.chords);
 
       if (!result.ok) {
-        toast('Ú¯Ø§Ù… Ù‚Ø§Ø¨Ù„ ØªØ´Ø®ÛŒØµ Ù†Ø¨ÙˆØ¯');
+        toast('گام قابل تشخیص نبود');
         return;
       }
 
@@ -601,7 +601,7 @@ globalScope.DAW = {
         edRenderEditor();
       }
 
-      toast(`Ú¯Ø§Ù… ØªØ´Ø®ÛŒØµ Ø¯Ø§Ø¯Ù‡ Ø´Ø¯Ù‡: ${bestKey} ${bestMode === 'maj' ? 'Ù…Ø§Ú˜ÙˆØ±' : 'Ù…ÛŒÙ†ÙˆØ±'} (Ø§Ù…ØªÛŒØ§Ø²: ${result.score})`);
+      toast(`گام تشخیص داده شده: ${bestKey} ${bestMode === 'maj' ? 'ماژور' : 'مینور'} (امتیاز: ${result.score})`);
     }
 
     function togglePanel(panel) {
@@ -624,7 +624,7 @@ globalScope.DAW = {
       currentLang = currentLang === 'fa' ? 'en' : 'fa';
       localStorage.setItem('appLang', currentLang);
       applyI18n();
-      toast(currentLang === 'fa' ? 'Ø²Ø¨Ø§Ù† ÙØ§Ø±Ø³ÛŒ' : 'English');
+      toast(currentLang === 'fa' ? 'زبان فارسی' : 'English');
     }
 
     const COLORS = ['#3FB8AF', '#3182CE', '#D69E2E', '#9F7AEA', '#ED64A6', '#48BB78', '#ED8936', '#00B5D8'];
@@ -753,7 +753,7 @@ const requestRenderSyncLyrics = debounce(() => { renderSyncLyrics(); }, 120);
       nextId: 100, bufferCache: new Map(), waveCache: new Map(),
       drag: null, marquee: null, editingChordClipId: null, selectedPlayhead: false,
       loopEnabled: false, loopA: 0, loopB: 10,
-      // Ø³ÛŒØ³ØªÙ… Ø¬Ø¯ÛŒØ¯ Pool Ø¨Ø±Ø§ÛŒ Ù…Ø¯ÛŒØ±ÛŒØª ÙØ§ÛŒÙ„â€ŒÙ‡Ø§ÛŒ ØµÙˆØªÛŒ
+      // سیستم جدید Pool برای مدیریت فایل‌های صوتی
       pool: {}, // clipId -> clip metadata
       projectRoot: null,
       isRecording: false, recRafId: null, recAnalyser: null, recStream: null, recMediaRecorder: null,
@@ -774,7 +774,7 @@ const requestRenderSyncLyrics = debounce(() => { renderSyncLyrics(); }, 120);
     const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
     const roundMs = (t) => Math.round(t * 1000) / 1000;
 
-    // Ø¢Ù¾Ø¯ÛŒØª nextId Ø¨Ø± Ø§Ø³Ø§Ø³ Ø¨Ø²Ø±Ú¯â€ŒØªØ±ÛŒÙ† ID Ù…ÙˆØ¬ÙˆØ¯ (Ø¬Ù„ÙˆÚ¯ÛŒØ±ÛŒ Ø§Ø² ØªØ¯Ø§Ø®Ù„ Ø¢ÛŒØ¯ÛŒ)
+    // آپدیت nextId بر اساس بزرگ‌ترین ID موجود (جلوگیری از تداخل آیدی)
     function updateNextIdFromClips() {
       const allIds = [...DAW.clips.map(c => c.id), ...(DAW.sections || []).map(s => s.id)];
       allIds.forEach(id => {
@@ -806,7 +806,7 @@ const requestRenderSyncLyrics = debounce(() => { renderSyncLyrics(); }, 120);
 
 // ==========================================
 // ProjectAudioService Bridge
-// Ù…Ø§Ù„Ú©ÛŒØª state Ùˆ AudioContext Ù‡Ù…Ú†Ù†Ø§Ù† Ø¨Ø§ app.js / DAW Ø§Ø³Øª.
+// مالکیت state و AudioContext همچنان با app.js / DAW است.
 // ==========================================
 const projectAudioServiceBridge =
   typeof window.ProjectAudioService === 'function'
@@ -843,7 +843,7 @@ const projectAudioServiceBridge =
 function requireProjectAudioService() {
   if (!projectAudioServiceBridge) {
     throw new Error(
-      'ProjectAudioService Ø¯Ø± Ø¯Ø³ØªØ±Ø³ Ù†ÛŒØ³Øª. ØªØ±ØªÛŒØ¨ scriptÙ‡Ø§ Ø¯Ø± Akordyar.html Ø±Ø§ Ø¨Ø±Ø±Ø³ÛŒ Ú©Ù†ÛŒØ¯.'
+      'ProjectAudioService در دسترس نیست. ترتیب scriptها در Akordyar.html را بررسی کنید.'
     );
   }
 
@@ -852,7 +852,7 @@ function requireProjectAudioService() {
 
 // ==========================================
 // ProjectAudioService thin wrappers
-// Ø¨Ø±Ø§ÛŒ Ø³Ø§Ø²Ú¯Ø§Ø±ÛŒ Ø¨Ø§ call-siteÙ‡Ø§ÛŒ Ù‚Ø¯ÛŒÙ…ÛŒ Ø¯Ø± app.js
+// برای سازگاری با call-siteهای قدیمی در app.js
 // ==========================================
 
 async function loadAudioFromHardDrive(filePath) {
@@ -882,7 +882,7 @@ async function resolveClipAudio(clip, projectFilePath = null) {
     .resolveClipAudio(clip, projectFilePath);
 }
 
-// Ø­ÙØ¸ APIÙ‡Ø§ÛŒ global Ù‚Ø¯ÛŒÙ…ÛŒ Ø¨Ø±Ø§ÛŒ Ø¨Ø®Ø´â€ŒÙ‡Ø§ÛŒ Ø¯ÛŒÚ¯Ø± Ù¾Ø±ÙˆÚ˜Ù‡ Ùˆ Ø§Ø¨Ø²Ø§Ø±Ù‡Ø§ÛŒ legacy.
+// حفظ APIهای global قدیمی برای بخش‌های دیگر پروژه و ابزارهای legacy.
 if (typeof window !== 'undefined') {
   window.loadAudioFromHardDrive =
     loadAudioFromHardDrive;
@@ -899,21 +899,21 @@ if (typeof window !== 'undefined') {
 // ==========================================
 function requireLyricsParser() {
   if (typeof window.LyricsParser !== 'object' || !window.LyricsParser) {
-    throw new Error('LyricsParser Ø¯Ø± Ø¯Ø³ØªØ±Ø³ Ù†ÛŒØ³Øª. ØªØ±ØªÛŒØ¨ scriptÙ‡Ø§ Ø¯Ø± Akordyar.html Ø±Ø§ Ø¨Ø±Ø±Ø³ÛŒ Ú©Ù†ÛŒØ¯.');
+    throw new Error('LyricsParser در دسترس نیست. ترتیب scriptها در Akordyar.html را بررسی کنید.');
   }
   return window.LyricsParser;
 }
 
 function requireLyricPositionMapper() {
   if (typeof window.LyricPositionMapper !== 'object' || !window.LyricPositionMapper) {
-    throw new Error('LyricPositionMapper Ø¯Ø± Ø¯Ø³ØªØ±Ø³ Ù†ÛŒØ³Øª. ØªØ±ØªÛŒØ¨ scriptÙ‡Ø§ Ø¯Ø± Akordyar.html Ø±Ø§ Ø¨Ø±Ø±Ø³ÛŒ Ú©Ù†ÛŒØ¯.');
+    throw new Error('LyricPositionMapper در دسترس نیست. ترتیب scriptها در Akordyar.html را بررسی کنید.');
   }
   return window.LyricPositionMapper;
 }
 
 function requireChordLineSyncService() {
   if (typeof window.ChordLineSyncService !== 'object' || !window.ChordLineSyncService) {
-    throw new Error('ChordLineSyncService Ø¯Ø± Ø¯Ø³ØªØ±Ø³ Ù†ÛŒØ³Øª. ØªØ±ØªÛŒØ¨ scriptÙ‡Ø§ Ø¯Ø± Akordyar.html Ø±Ø§ Ø¨Ø±Ø±Ø³ÛŒ Ú©Ù†ÛŒØ¯.');
+    throw new Error('ChordLineSyncService در دسترس نیست. ترتیب scriptها در Akordyar.html را بررسی کنید.');
   }
   return window.ChordLineSyncService;
 }
@@ -978,16 +978,16 @@ function attachHistoryService() {
     const copy = { ...c };
     delete copy._peaks;
     delete copy.waveUrl;
-    delete copy.buffer; // Ø­Ø°Ù buffer Ø§Ø² Ø°Ø®ÛŒØ±Ù‡â€ŒØ³Ø§Ø²ÛŒ
-    delete copy.audioBuffer; // Ø­Ø°Ù audioBuffer
-    delete copy._fileHandle; // Ø­Ø°Ù file handle
-    // ÙÙ‚Ø· Ù…Ø³ÛŒØ± Ù†Ø³Ø¨ÛŒ Ùˆ Ù†Ø§Ù… ÙØ§ÛŒÙ„ Ø¨Ø§Ù‚ÛŒ Ø¨Ù…Ø§Ù†Ø¯
+    delete copy.buffer; // حذف buffer از ذخیره‌سازی
+    delete copy.audioBuffer; // حذف audioBuffer
+    delete copy._fileHandle; // حذف file handle
+    // فقط مسیر نسبی و نام فایل باقی بماند
     return copy;
   });
 
   const sections = (DAW.sections || []).map(s => ({ ...s }));
   
-  // Ù¾Ø§Ú©â€ŒØ³Ø§Ø²ÛŒ pool Ø§Ø² Ø¯Ø§Ø¯Ù‡â€ŒÙ‡Ø§ÛŒ runtime Ù‚Ø¨Ù„ Ø§Ø² Ø°Ø®ÛŒØ±Ù‡
+  // پاک‌سازی pool از داده‌های runtime قبل از ذخیره
   const cleanPool = {};
   for (const [clipId, clip] of Object.entries(DAW.pool)) {
     const cleanClip = { ...clip };
@@ -1005,7 +1005,7 @@ function attachHistoryService() {
     project: {
       id: DAW.project?.id || '',
       name: DAW.project?.name || '',
-      projectRoot: undefined // Ù…Ø³ÛŒØ± Ù¾Ø±ÙˆÚ˜Ù‡ Ø°Ø®ÛŒØ±Ù‡ Ù†Ù…ÛŒâ€ŒØ´ÙˆØ¯ (Ù†Ø³Ø¨ÛŒ Ú©Ø§Ø± Ù…ÛŒâ€ŒÚ©Ù†Ø¯)
+      projectRoot: undefined // مسیر پروژه ذخیره نمی‌شود (نسبی کار می‌کند)
     },
     pool: cleanPool,
     tracks,
@@ -1258,7 +1258,7 @@ function undo() {
     <span
       class="t-icon"
       data-icon-pick="${tr.id}"
-      title="ØªØºÛŒÛŒØ± Ø¢ÛŒÚ©ÙˆÙ†"
+      title="تغییر آیکون"
     >${getIconSvg(tr.icon)}</span>
 
     <span class="t-label">${tr.name}</span>
@@ -1267,27 +1267,27 @@ function undo() {
       <button
         class="t-btn"
         data-chord-ver-prev=""
-        title="ÙˆØ±Ú˜Ù† Ù‚Ø¨Ù„ÛŒ"
+        title="ورژن قبلی"
         style="font-size:0.55rem;"
-      >â—€</button>
+      >◀</button>
 
       <span
         style="font-size:0.55rem;color:var(--accent-cyan-glow);min-width:46px;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center;font-family:'JetBrains Mono';cursor:pointer;"
         data-chord-ver-label=""
-        title="Ø¯ÙˆØ¨Ø§Ø± Ú©Ù„ÛŒÚ© Ø¨Ø±Ø§ÛŒ ØªØºÛŒÛŒØ± Ù†Ø§Ù… ÙˆØ±Ú˜Ù†"
+        title="دوبار کلیک برای تغییر نام ورژن"
       >${chordTarget.chordVersions[curVer] && chordTarget.chordVersions[curVer].name ? chordTarget.chordVersions[curVer].name : 'V' + (curVer + 1)}</span>
 
       <button
         class="t-btn"
         data-chord-ver-next=""
-        title="ÙˆØ±Ú˜Ù† Ø¨Ø¹Ø¯ÛŒ"
+        title="ورژن بعدی"
         style="font-size:0.55rem;"
-      >â–¶</button>
+      >▶</button>
 
       <button
         class="t-btn"
         data-chord-ver-add=""
-        title="ÙˆØ±Ú˜Ù† Ø¬Ø¯ÛŒØ¯"
+        title="ورژن جدید"
         style="font-size:0.55rem;"
       >+</button>
     </div>
@@ -1295,7 +1295,7 @@ function undo() {
     <button
       class="t-btn ${tr.locked ? 'on-lock' : ''}"
       data-lock="${tr.id}"
-      title="Ù‚ÙÙ„"
+      title="قفل"
     >
       <svg width="10" height="10" viewBox="0 0 24 24" fill="none"
         stroke="currentColor" stroke-width="2">
@@ -1307,7 +1307,7 @@ function undo() {
     <button
       class="t-btn ${isRecordingChords ? 'on-rec' : ''}"
       data-rec="chord"
-      title="Ø¶Ø¨Ø· Ø¢Ú©ÙˆØ±Ø¯"
+      title="ضبط آکورد"
     >
       <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
         <circle cx="12" cy="12" r="8"/>
@@ -1315,7 +1315,7 @@ function undo() {
     </button>
   `;
 
-  // â”€â”€ Ø§ØªØµØ§Ù„ Ø§Ø¨Ø²Ø§Ø±Ù‡Ø§ÛŒ Ú©ÙˆØ±Ø¯ Ù„Ø§ÛŒÙ† â”€â”€
+  // ── اتصال ابزارهای کورد لاین ──
   h.querySelector('[data-rec]').addEventListener('click', (e) => {
     e.stopPropagation();
     isRecordingChords = !isRecordingChords;
@@ -1328,7 +1328,7 @@ function undo() {
     saveState();
     renderTracks();
     renderClips();
-    toast(tr.locked ? 'ðŸ”’ Ø¢Ú©ÙˆØ±Ø¯Ù‡Ø§ÛŒ Ú©ÙˆØ±Ø¯ Ù„Ø§ÛŒÙ† Ù‚ÙÙ„ Ø´Ø¯' : 'ðŸ”“ Ø¢Ú©ÙˆØ±Ø¯Ù‡Ø§ÛŒ Ú©ÙˆØ±Ø¯ Ù„Ø§ÛŒÙ† Ø¨Ø§Ø² Ø´Ø¯');
+    toast(tr.locked ? '🔒 آکوردهای کورد لاین قفل شد' : '🔓 آکوردهای کورد لاین باز شد');
   });
   h.querySelector('[data-chord-ver-prev]')?.addEventListener('click', (e) => { e.stopPropagation(); switchChordVersion(-1); });
   h.querySelector('[data-chord-ver-next]')?.addEventListener('click', (e) => { e.stopPropagation(); switchChordVersion(1); });
@@ -1338,7 +1338,7 @@ function undo() {
   h.addEventListener('click', (e) => { if(!e.target.closest('button') && !e.target.closest('.t-icon') && !e.target.closest('[data-chord-ver-label]')) openChordEditor(); });
 
         } else if (tr.type === 'section') {
-            h.innerHTML = `<span class="t-icon" data-icon-pick="${tr.id}" title="ØªØºÛŒÛŒØ± Ø¢ÛŒÚ©ÙˆÙ†">${getIconSvg(tr.icon)}</span><span class="t-label">${tr.name}</span>`;
+            h.innerHTML = `<span class="t-icon" data-icon-pick="${tr.id}" title="تغییر آیکون">${getIconSvg(tr.icon)}</span><span class="t-label">${tr.name}</span>`;
             h.querySelector('[data-icon-pick]')?.addEventListener('click', (e) => { e.stopPropagation(); openIconPicker(tr); });
         } else {
           const panPct = ((tr.pan + 1) / 2) * 100;
@@ -1347,14 +1347,14 @@ function undo() {
           const panColor = tr.pan === 0 ? '#E2E8F0' : (tr.pan < 0 ? 'var(--accent-neon-pink)' : 'var(--accent-teal)');
           h.innerHTML = `
             <div class="track-name-top-row">
-              <span class="t-icon" data-icon-pick="${tr.id}" title="ØªØºÛŒÛŒØ± Ø¢ÛŒÚ©ÙˆÙ†">${getIconSvg(tr.icon)}</span>
+              <span class="t-icon" data-icon-pick="${tr.id}" title="تغییر آیکون">${getIconSvg(tr.icon)}</span>
               <span class="t-label" contenteditable="true" spellcheck="false" style="cursor:text;min-width:40px;outline:none;">${tr.name}</span>
-              <button class="t-btn" data-load="${tr.id}" title="Ù„ÙˆØ¯ Ø¢Ù‡Ù†Ú¯" style="font-size:0.7rem;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></button>
+              <button class="t-btn" data-load="${tr.id}" title="لود آهنگ" style="font-size:0.7rem;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></button>
             </div>
             <div class="track-name-bottom-row">
               <button class="t-btn ${tr.muted ? 'on' : ''}" data-mute="${tr.id}">M</button>
               <button class="t-btn ${tr.solo ? 'on-solo' : ''}" data-solo="${tr.id}">S</button>
-              <button class="t-btn ${tr.locked ? 'on-lock' : ''}" data-lock="${tr.id}" title="Ù‚ÙÙ„ ØªØ±Ú©"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></button>
+              <button class="t-btn ${tr.locked ? 'on-lock' : ''}" data-lock="${tr.id}" title="قفل ترک"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></button>
               <input type="range" class="t-vol" min="0" max="1" step="0.01" value="${tr.vol}" data-vol="${tr.id}">
               <div class="pan-wrap" data-pan-wrap="${tr.id}">
                   <div class="pan-track">
@@ -1367,9 +1367,9 @@ function undo() {
               </div>
               <input type="range" class="t-pan" min="-1" max="1" step="0.01" value="${tr.pan}" data-pan="${tr.id}">
               <div class="t-transpose">
-                <button class="t-trans-btn" data-trans-down="${tr.id}" title="Ø¨Ù…Ù„">â™­</button>
+                <button class="t-trans-btn" data-trans-down="${tr.id}" title="بمل">♭</button>
                 <span class="t-trans-val" data-trans-val="${tr.id}">${tr.transpose || 0}</span>
-                <button class="t-trans-btn" data-trans-up="${tr.id}" title="Ø¯ÛŒØ²">â™¯</button>
+                <button class="t-trans-btn" data-trans-up="${tr.id}" title="دیز">♯</button>
               </div>
             </div>`;
           // Editable track name
@@ -1383,8 +1383,8 @@ function undo() {
           h.querySelector('[data-icon-pick]')?.addEventListener('click', (e) => { e.stopPropagation(); openIconPicker(tr); });
           h.querySelector('[data-mute]').addEventListener('click', (e) => { e.stopPropagation(); tr.muted = !tr.muted; updateTrackMix(tr.id); renderAll(); if(DAW.isPlaying) scheduleAllFromPlayhead(); });
           h.querySelector('[data-solo]').addEventListener('click', (e) => { e.stopPropagation(); tr.solo = !tr.solo; DAW.tracks.forEach(t => updateTrackMix(t.id)); renderAll(); if(DAW.isPlaying) scheduleAllFromPlayhead(); });
-          h.querySelector('[data-lock]')?.addEventListener('click', (e) => { e.stopPropagation(); tr.locked = !tr.locked; saveState(); renderTracks(); renderClips(); toast(tr.locked ? 'ØªØ±Ú© Ù‚ÙÙ„ Ø´Ø¯' : 'ØªØ±Ú© Ø¨Ø§Ø² Ø´Ø¯'); });
-          // Ø¬Ù„ÙˆÚ¯ÛŒØ±ÛŒ Ø§Ø² Ø¯Ø±Ú¯ Ø´Ø¯Ù† Ù‡Ø¯Ø± Ø±ÙˆÛŒ Ø¯Ú©Ù…Ù‡â€ŒÙ‡Ø§ Ùˆ Ú©Ù†ØªØ±Ù„â€ŒÙ‡Ø§
+          h.querySelector('[data-lock]')?.addEventListener('click', (e) => { e.stopPropagation(); tr.locked = !tr.locked; saveState(); renderTracks(); renderClips(); toast(tr.locked ? 'ترک قفل شد' : 'ترک باز شد'); });
+          // جلوگیری از درگ شدن هدر روی دکمه‌ها و کنترل‌ها
           h.querySelectorAll('button, input, .pan-wrap, .t-transpose').forEach(el => { el.draggable = false; el.addEventListener('mousedown', (e) => e.stopPropagation()); });
           h.querySelector('[data-vol]').addEventListener('input', (e) => { e.stopPropagation(); tr.vol = +e.target.value; updateTrackMix(tr.id); });
           // Pan wrapper interaction
@@ -1446,9 +1446,9 @@ function undo() {
         }
         names.appendChild(h);
 
-        // Track drag reordering â€” ÙÙ‚Ø· Ø§Ø² Ù†ÙˆØ§Ø­ÛŒ Ø®Ø§Ù„ÛŒ Ù‡Ø¯Ø± Ù‚Ø§Ø¨Ù„ Ø¯Ø±Ú¯ Ø§Ø³Øª
+        // Track drag reordering — فقط از نواحی خالی هدر قابل درگ است
         h.addEventListener('mousedown', (e) => {
-          // Ø§Ú¯Ø± Ø±ÙˆÛŒ Ø¯Ú©Ù…Ù‡ØŒ Ø§Ø³Ù„Ø§ÛŒØ¯Ø±ØŒ Ù„ÛŒØ¨Ù„ØŒ Ù¾Ù† ÛŒØ§ ØªØ±Ù†Ù¾ÙˆØ² Ú©Ù„ÛŒÚ© Ø´Ø¯Ù‡ØŒ Ø¯Ø±Ú¯ ÙØ¹Ø§Ù„ Ù†Ø´ÙˆØ¯
+          // اگر روی دکمه، اسلایدر، لیبل، پن یا ترنپوز کلیک شده، درگ فعال نشود
           if (e.target.closest('button, input, .pan-wrap, .t-label, .t-transpose, .t-btn, .t-icon')) {
             h.draggable = false;
           } else {
@@ -1511,14 +1511,14 @@ function undo() {
         if (e.target.closest('.clip') || e.target.closest('.section-tag')) return;
         // Clear section selection on any empty-area click (all lanes)
         if (DAW.selectedSectionIds.size > 0) { DAW.selectedSectionIds.clear(); renderClips(); }
-        if (tr.locked) { toast('ðŸ”’ ØªØ±Ú© Ù‚ÙÙ„ Ø§Ø³Øª'); return; }
+        if (tr.locked) { toast('🔒 ترک قفل است'); return; }
 
         // Alt+Click on section track: create tag with styled modal
         if (tr.type === 'section' && e.altKey) {
           e.preventDefault(); e.stopPropagation();
           const t = clientToTime(e.clientX);
           // Use customPrompt for a styled modal instead of native prompt
-          customPrompt('Ù†Ø§Ù… Ø¨Ø®Ø´:', 'ÙˆØ±Ø³').then(name => {
+          customPrompt('نام بخش:', 'ورس').then(name => {
             if (name && name.trim()) {
               const sec = { id: uid('c'), trackId: tr.id, label: name.trim(), start: roundMs(t), duration: 4, color: '#3FB8AF' };
               DAW.sections.push(sec);
@@ -1553,7 +1553,7 @@ function undo() {
           e.preventDefault(); e.stopPropagation();
           const t = clientToTime(e.clientX);
           // Use customPrompt for a styled modal instead of native prompt
-          customPrompt('Ù†Ø§Ù… Ø¨Ø®Ø´:', 'ÙˆØ±Ø³').then(name => {
+          customPrompt('نام بخش:', 'ورس').then(name => {
             if (name && name.trim()) {
               const sec = { id: uid('c'), trackId: tr.id, label: name.trim(), start: roundMs(t), duration: 4, color: '#3FB8AF' };
               DAW.sections.push(sec);
@@ -1583,12 +1583,12 @@ function undo() {
         if (!DAW.clips.some(c => c.trackId === tr.id) && !(tr.type === 'section' && (DAW.sections || []).some(s => s.trackId === tr.id))) { 
           const hint = document.createElement('div'); 
           hint.className = 'empty-lane-hint' + (tr.type === 'section' ? ' section-hint' : ''); 
-          hint.textContent = tr.type === 'chord' ? t('clickHint') : (tr.type === 'section' ? 'Ø¯ÙˆØ¨Ø§Ø± Ú©Ù„ÛŒÚ© Ø¨Ø±Ø§ÛŒ Ø³Ø§Ø®Øª Ø¨Ø®Ø´' : t('loadHint')); 
+          hint.textContent = tr.type === 'chord' ? t('clickHint') : (tr.type === 'section' ? 'دوبار کلیک برای ساخت بخش' : t('loadHint'));
           if (tr.type === 'section') {
             hint.addEventListener('dblclick', (e) => {
               e.preventDefault(); e.stopPropagation();
               const t = clientToTime(e.clientX);
-              customPrompt('Ù†Ø§Ù… Ø¨Ø®Ø´:', 'ÙˆØ±Ø³').then(name => {
+              customPrompt('نام بخش:', 'ورس').then(name => {
                 if (name && name.trim()) {
                   const sec = { id: uid('c'), trackId: tr.id, label: name.trim(), start: roundMs(t), duration: 4, color: '#3FB8AF' };
                   DAW.sections.push(sec);
@@ -1714,7 +1714,7 @@ function undo() {
           if (sec._clickTimer && (now - (sec._clickTime || 0)) < 350 && dx < 5 && dy < 5) {
             clearTimeout(sec._clickTimer);
             sec._clickTimer = null;
-            // Double-click â†’ enter rename mode
+            // Double-click → enter rename mode
             el.contentEditable = 'true';
             el.focus();
             const range = document.createRange();
@@ -1739,7 +1739,7 @@ function undo() {
             return;
           }
 
-          // First click â†’ record position, start timer
+          // First click → record position, start timer
           sec._clickX = e.clientX;
           sec._clickY = e.clientY;
           sec._clickTime = now;
@@ -1823,28 +1823,28 @@ function undo() {
 
     // ===== ICON PICKER =====
     const ICON_SVG_MAP = {
-      'ðŸŽ¤': '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>',
-      'ðŸŽ¸': '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 2l-2 2c-1.5 1.5-4 1.5-5.5 0L11 6l-2-2c-1.5-1.5-4-1.5-5.5 0L2 4V20l2-2c1.5 1.5 4 1.5 5.5 0l1.5-1.5 2 2c1.5 1.5 4 1.5 5.5 0l2-2V2z"/><line x1="7" y1="11" x2="13" y2="17"/><line x1="11" y1="7" x2="17" y2="13"/></svg>',
-      'ðŸŽ¹': '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2"/><line x1="6" y1="2" x2="6" y2="14"/><line x1="10" y1="2" x2="10" y2="14"/><line x1="14" y1="2" x2="14" y2="14"/><line x1="18" y1="2" x2="18" y2="14"/><rect x="4" y="2" width="2" height="8" rx="1" fill="currentColor" opacity="0.3"/><rect x="8" y="2" width="2" height="8" rx="1" fill="currentColor" opacity="0.3"/><rect x="12" y="2" width="2" height="8" rx="1" fill="currentColor" opacity="0.3"/><rect x="16" y="2" width="2" height="8" rx="1" fill="currentColor" opacity="0.3"/></svg>',
-      'ðŸŽº': '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v8m0 0l4 4m-4-4l-4 4"/><circle cx="12" cy="18" r="4"/><path d="M8 22h8"/></svg>',
-      'ðŸŽ»': '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2v6m6-6v6"/><ellipse cx="12" cy="16" rx="6" ry="8"/><line x1="12" y1="8" x2="12" y2="24"/></svg>',
-      'ðŸ¥': '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="12" rx="10" ry="6"/><line x1="4" y1="6" x2="4" y2="18"/><line x1="20" y1="6" x2="20" y2="18"/><path d="M8 2l4 4m4-4l-4 4"/></svg>',
-      'ðŸŽ·': '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2l2 6-4 4"/><path d="M18 2l-2 6 4 4"/><path d="M12 8v14"/><circle cx="12" cy="22" r="2"/></svg>',
-      'ðŸŽµ': '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>',
-      'ðŸŽ¶': '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/><path d="M9 9l12-2"/></svg>',
-      'ðŸŽ¼': '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/><line x1="9" y1="9" x2="21" y2="7"/></svg>',
-      'ðŸŽ™ï¸': '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/><circle cx="12" cy="1" r="1" fill="currentColor"/></svg>',
-      'ðŸŽ§': '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>',
-      'ðŸ“¡': '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9"/><path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5"/><path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5"/><path d="M19.1 4.9C23 8.8 23 15.1 19.1 19"/><circle cx="12" cy="12" r="2"/></svg>',
-      'ðŸŽ›ï¸': '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>',
-      'âº': '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="8"/></svg>',
-      'â™«': '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>',
-      'ðŸ·': '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>',
+      '🎤': '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>',
+      '🎸': '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 2l-2 2c-1.5 1.5-4 1.5-5.5 0L11 6l-2-2c-1.5-1.5-4-1.5-5.5 0L2 4V20l2-2c1.5 1.5 4 1.5 5.5 0l1.5-1.5 2 2c1.5 1.5 4 1.5 5.5 0l2-2V2z"/><line x1="7" y1="11" x2="13" y2="17"/><line x1="11" y1="7" x2="17" y2="13"/></svg>',
+      '🎹': '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2"/><line x1="6" y1="2" x2="6" y2="14"/><line x1="10" y1="2" x2="10" y2="14"/><line x1="14" y1="2" x2="14" y2="14"/><line x1="18" y1="2" x2="18" y2="14"/><rect x="4" y="2" width="2" height="8" rx="1" fill="currentColor" opacity="0.3"/><rect x="8" y="2" width="2" height="8" rx="1" fill="currentColor" opacity="0.3"/><rect x="12" y="2" width="2" height="8" rx="1" fill="currentColor" opacity="0.3"/><rect x="16" y="2" width="2" height="8" rx="1" fill="currentColor" opacity="0.3"/></svg>',
+      '🎺': '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v8m0 0l4 4m-4-4l-4 4"/><circle cx="12" cy="18" r="4"/><path d="M8 22h8"/></svg>',
+      '🎻': '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2v6m6-6v6"/><ellipse cx="12" cy="16" rx="6" ry="8"/><line x1="12" y1="8" x2="12" y2="24"/></svg>',
+      '🥁': '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="12" rx="10" ry="6"/><line x1="4" y1="6" x2="4" y2="18"/><line x1="20" y1="6" x2="20" y2="18"/><path d="M8 2l4 4m4-4l-4 4"/></svg>',
+      '🎷': '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2l2 6-4 4"/><path d="M18 2l-2 6 4 4"/><path d="M12 8v14"/><circle cx="12" cy="22" r="2"/></svg>',
+      '🎵': '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>',
+      '🎶': '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/><path d="M9 9l12-2"/></svg>',
+      '🎼': '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/><line x1="9" y1="9" x2="21" y2="7"/></svg>',
+      '🎙️': '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/><circle cx="12" cy="1" r="1" fill="currentColor"/></svg>',
+      '🎧': '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>',
+      '📡': '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9"/><path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5"/><path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5"/><path d="M19.1 4.9C23 8.8 23 15.1 19.1 19"/><circle cx="12" cy="12" r="2"/></svg>',
+      '🎛️': '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>',
+      '⏺': '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="8"/></svg>',
+      '♫': '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>',
+      '🏷': '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>',
     };
     if (typeof IconRegistry !== 'undefined') { Object.assign(ICON_SVG_MAP, IconRegistry.getAll()); }
     function getIconSvg(icon) { return ICON_SVG_MAP[icon] || icon; }
 
-    const INSTRUMENT_ICONS = ['ðŸŽ¤','ðŸŽ¸','ðŸŽ¹','ðŸŽº','ðŸŽ»','ðŸ¥','ðŸŽ·','ðŸŽµ','ðŸŽ¶','ðŸŽ¼','ðŸŽ™ï¸','ðŸŽ§','ðŸ“¡','ðŸŽ›ï¸','âº','â™«','ðŸ·'];
+    const INSTRUMENT_ICONS = ['🎤','🎸','🎹','🎺','🎻','🥁','🎷','🎵','🎶','🎼','🎙️','🎧','📡','🎛️','⏺','♫','🏷'];
 
     let _iconPickerTrack = null;
 
@@ -1909,7 +1909,7 @@ function undo() {
 
     function addNewTrack(name, icon) {
       const n = DAW.tracks.length + 1; ensureAudioCtx();
-      const newT = { id: uid('t'), name: name || `Line ${n}`, icon: icon || 'ðŸŽ›ï¸', type: 'audio', muted: false, solo: false, vol: 0.8, pan: 0, transpose: 0, locked: false };
+      const newT = { id: uid('t'), name: name || `Line ${n}`, icon: icon || '🎛️', type: 'audio', muted: false, solo: false, vol: 0.8, pan: 0, transpose: 0, locked: false };
       newT._pannerNode = DAW.audioCtx.createStereoPanner(); newT._gainNode = DAW.audioCtx.createGain();
       newT._pannerNode.connect(newT._gainNode); newT._gainNode.connect(DAW.masterGain); DAW.tracks.push(newT);
       saveState(); renderAll(); toast(t('newTrackAdded'));
@@ -1956,10 +1956,10 @@ function undo() {
       try {
         ensureAudioCtx(); toast(t('decoding')); const { buffer } = await decodeFileToBuffer(file);
         
-        // Ø§ÛŒØ¬Ø§Ø¯ Ø´Ù†Ø§Ø³Ù‡ Ù¾Ø§ÛŒØ¯Ø§Ø± Ø¨Ø±Ø§ÛŒ Ú©Ù„ÛŒÙ¾
+        // ایجاد شناسه پایدار برای کلیپ
         const clipId = 'clip_' + uid('c');
         
-        // Ø°Ø®ÛŒØ±Ù‡ Ø¯Ø± Pool
+        // ذخیره در Pool
         const storageMode = await askAudioCopyMode(file.name);
         const storage = {
           mode: storageMode ? 'copy' : 'reference',
@@ -1979,7 +1979,7 @@ function undo() {
           offlineOps: []
         };
         
-        // Ø°Ø®ÛŒØ±Ù‡ Ø¯Ø± Ú©Ø´ Ø¨Ø§ Ú©Ù„ÛŒØ¯ clipId
+        // ذخیره در کش با کلید clipId
         DAW.bufferCache.set(clipId, buffer);
 
         const clip = {
@@ -1996,24 +1996,24 @@ function undo() {
           _peaks: peaksFromBuffer(buffer, 2000),
           waveUrl: null,
           _embedded: storageMode,
-          // â”€â”€â”€ Ø°Ø®ÛŒØ±Ù‡ Blob Ø§ØµÙ„ÛŒ Ø¨Ø±Ø§ÛŒ Ø°Ø®ÛŒØ±Ù‡ Ø­Ø¬Ù… (Ø¨Ù‡â€ŒØ¬Ø§ÛŒ Base64) â”€â”€â”€
-          // Ø§ÛŒÙ† ÙØ§ÛŒÙ„ MP3/WAV Ø§ØµÙ„ÛŒ Ù‡Ø³Øª Ú©Ù‡ Ù…Ø³ØªÙ‚ÛŒÙ…Ø§Ù‹ Ø¯Ø± IndexedDB Ø°Ø®ÛŒØ±Ù‡ Ù…ÛŒâ€ŒØ´Ù‡
+          // ─── ذخیره Blob اصلی برای ذخیره حجم (به‌جای Base64) ───
+          // این فایل MP3/WAV اصلی هست که مستقیماً در IndexedDB ذخیره می‌شه
           _originalBlob: storageMode ? file : null
         };
-        // Ø°Ø®ÛŒØ±Ù‡ Ù…Ø³ÛŒØ±/Ù‡Ù†Ø¯Ù„ ÙØ§ÛŒÙ„ Ø¨Ø±Ø§ÛŒ Ù„ÛŒÙ†Ú©â€ŒØ´Ø¯Ù‡â€ŒÙ‡Ø§
+        // ذخیره مسیر/هندل فایل برای لینک‌شده‌ها
         if (!storageMode) {
           if (isElectron && file.path) {
             clip._filePath = file.path;
-            console.log(`[INPUT] Electron file path saved: ${file.name} â†’ ${file.path}`);
+            console.log(`[INPUT] Electron file path saved: ${file.name} → ${file.path}`);
           } else if (isElectron) {
-            // Ø¯Ø± Ø§Ù„Ú©ØªØ±ÙˆÙ† ÙˆÙ„ÛŒ file.path Ù…ÙˆØ¬ÙˆØ¯ Ù†ÛŒØ³Øª (Ø§Ù„Ú©ØªØ±ÙˆÙ† 32+)
+            // در الکترون ولی file.path موجود نیست (الکترون 32+)
             console.warn(`[INPUT] Electron but file.path is missing for: ${file.name}`);
             if (window.electronAPI && window.electronAPI.getPathForFile) {
               try {
                 const filePath = await window.electronAPI.getPathForFile(file);
                 if (filePath) {
                   clip._filePath = filePath;
-                  console.log(`[INPUT] Got path via webUtils: ${file.name} â†’ ${filePath}`);
+                  console.log(`[INPUT] Got path via webUtils: ${file.name} → ${filePath}`);
                 }
               } catch(_) {}
             }
@@ -2026,7 +2026,7 @@ function undo() {
               }
             }
           } else {
-            // â”€â”€â”€ Ø¯Ø± Ù…Ø±ÙˆØ±Ú¯Ø±: ÙØ§ÛŒÙ„ Ø±Ùˆ Ø¨Ù‡â€ŒØµÙˆØ±Øª Blob Ø¯Ø± IndexedDB Ø°Ø®ÛŒØ±Ù‡ Ú©Ù† â”€â”€â”€
+            // ─── در مرورگر: فایل رو به‌صورت Blob در IndexedDB ذخیره کن ───
             try {
               await saveAudioBlobToDB(clipId, file, file.name);
             } catch(e) {
@@ -2037,10 +2037,10 @@ function undo() {
         refreshClipWaveImage(clip); DAW.clips.push(clip); DAW.selectedIds = new Set([clip.id]); ensureTimelineFits(clip.start + clip.duration + 5);
         saveState(); renderAll(); if (DAW.isPlaying) scheduleAllFromPlayhead();
         if (storageMode) {
-          toast(`${t('loadedOk')} ${clip.name} (Ú©Ù¾ÛŒ Ø¯Ø± Ù¾Ø±ÙˆÚ˜Ù‡)`);
+          toast(`${t('loadedOk')} ${clip.name} (کپی در پروژه)`);
           saveAudioBlobsForProject(edCur.id).catch(() => {});
         } else {
-          toast(`${t('loadedOk')} ${clip.name} (Ù„ÛŒÙ†Ú© â€” ÙÙ‚Ø· Ù…Ø³ÛŒØ± Ø°Ø®ÛŒØ±Ù‡ Ø´Ø¯)`);
+          toast(`${t('loadedOk')} ${clip.name} (لینک — فقط مسیر ذخیره شد)`);
         }
         edSaveSong();
       } catch (err) { console.error(err); toast(t('loadFailed')); }
@@ -2161,11 +2161,11 @@ sels.forEach(c => {
 
   // Check if track is locked
   const track = DAW.tracks.find(t => t.id === clip.trackId);
-  if (track && track.locked) { toast('ØªØ±Ú© Ù‚ÙÙ„ Ø§Ø³Øª'); return; }
+  if (track && track.locked) { toast('ترک قفل است'); return; }
 
   edClearChordSelection();
 
-  // Ø¯Ø¨Ù„â€ŒÚ©Ù„ÛŒÚ© Ø³ÙØ§Ø±Ø´ÛŒ (native dblclick Ø¨Ù‡ Ø®Ø§Ø·Ø± preventDefault Ùˆ Ø¨Ø§Ø²Ø³Ø§Ø²ÛŒ Ú©Ù„ÛŒÙ¾â€ŒÙ‡Ø§ Ù‚Ø§Ø¨Ù„â€ŒØ§Ø¹ØªÙ…Ø§Ø¯ Ù†ÛŒØ³Øª)
+  // دبل‌کلیک سفارشی (native dblclick به خاطر preventDefault و بازسازی کلیپ‌ها قابل‌اعتماد نیست)
   const _now = Date.now();
   const _dx = Math.abs(e.clientX - (clip._clickX || 0));
   const _dy = Math.abs(e.clientY - (clip._clickY || 0));
@@ -2339,7 +2339,7 @@ sels.forEach(c => {
         btn.style.color = returnToStartOnPause ? '#000' : '';
         btn.style.borderColor = returnToStartOnPause ? 'var(--accent-teal)' : '';
       }
-      toast(returnToStartOnPause ? 'Ø¨Ø±Ú¯Ø´Øª Ø¨Ù‡ Ø§Ø¨ØªØ¯Ø§ ÙØ¹Ø§Ù„ Ø´Ø¯' : 'Ø¨Ø±Ú¯Ø´Øª Ø¨Ù‡ Ø§Ø¨ØªØ¯Ø§ ØºÛŒØ±ÙØ¹Ø§Ù„ Ø´Ø¯');
+      toast(returnToStartOnPause ? 'برگشت به ابتدا فعال شد' : 'برگشت به ابتدا غیرفعال شد');
     }
 
     function togglePlay() {
@@ -2363,7 +2363,7 @@ sels.forEach(c => {
       $('play-btn').style.color = 'var(--accent-neon-pink)'; scheduleAllFromPlayhead();
 
       // Update perf play button
-      if (perfModeActive) $('perfPlayBtn').textContent = 'â¸';
+      if (perfModeActive) $('perfPlayBtn').textContent = '⏸';
 
       // Auto-start metronome if enabled
       if (metroActive && !metroTimer) startMetronome();
@@ -2391,7 +2391,7 @@ sels.forEach(c => {
           // Stationary: keep playhead visually at center by scrolling
           scroll.scrollLeft = Math.max(0, x - scroll.clientWidth / 2);
         } else {
-          // Page scrolling: playhead reaches right edge â†’ jump back to left
+          // Page scrolling: playhead reaches right edge → jump back to left
           const margin = 60;
           if (x > scroll.scrollLeft + scroll.clientWidth - margin) {
             scroll.scrollLeft = Math.max(0, x - margin);
@@ -2399,12 +2399,12 @@ sels.forEach(c => {
             scroll.scrollLeft = Math.max(0, x - margin);
           }
         }
-        // â”€â”€â”€ Early prep: ÙˆÙ‚ØªÛŒ Û±Ûµ Ø«Ø§Ù†ÛŒÙ‡ Ø¨Ù‡ Ø§Ù†ØªÙ‡Ø§ Ù…ÙˆÙ†Ø¯Ù‡ØŒ Ø´Ø±ÙˆØ¹ Ø¨Ù‡ Ø³Ø§Ø®ØªÙ† state Ø¢Ù‡Ù†Ú¯ Ø¨Ø¹Ø¯ÛŒ Ú©Ù† â”€â”€â”€
-        // Ø§ÛŒÙ† Ø²Ù…Ø§Ù† Ø²ÛŒØ§Ø¯ Ù‡Ø³Øª ØªØ§ Ù…Ø·Ù…Ø¦Ù† Ø¨Ø´ÛŒÙ… Ø­ØªÛŒ Ø¨Ø±Ø§ÛŒ ÙØ§ÛŒÙ„â€ŒÙ‡Ø§ÛŒ Ø¨Ø²Ø±Ú¯ Ù‡Ù… Ú©Ø§ÙÛŒÙ‡.
+        // ─── Early prep: وقتی ۱۵ ثانیه به انتها مونده، شروع به ساختن state آهنگ بعدی کن ───
+        // این زمان زیاد هست تا مطمئن بشیم حتی برای فایل‌های بزرگ هم کافیه.
         if (arrPerformActive && !_arrNextState && !arrPreparePending) {
           const end = getArrangerEnd();
           if (end > 0 && DAW.playhead >= end - 15) {
-            // ÙÙ‚Ø· Ø§Ú¯Ø± Ù‚Ø¨Ù„Ø§Ù‹ Ø¨Ø±Ø§ÛŒ Ø§ÛŒÙ† Ø§ÛŒÙ†Ø¯Ú©Ø³ prep Ø´Ø±ÙˆØ¹ Ù†Ø´Ø¯Ù‡ØŒ Ù„Ø§Ú¯ Ø¨Ø²Ù†
+            // فقط اگر قبلاً برای این ایندکس prep شروع نشده، لاگ بزن
             if (_arrPrepStartedForIndex !== arrPerformIdx + 1) {
               _arrPrepStartedForIndex = arrPerformIdx + 1;
               console.log(`[Arranger] Starting prep at ${DAW.playhead.toFixed(1)}s (end: ${end.toFixed(1)}s)`);
@@ -2421,46 +2421,46 @@ sels.forEach(c => {
         }
         if (DAW.playhead >= (arrPerformActive ? getArrangerEnd() : getProjectEnd())) {
           // Gapless arranger: hot-swap if next song is ready
-          // Guard: Ø§Ú¯Ø± Ø¯Ø± Ø­Ø§Ù„ Ú©Ø±Ø§Ø³â€ŒÙÛŒØ¯ Ù‡Ø³ØªÛŒÙ…ØŒ ØµØ¨Ø± Ú©Ù† ØªØ§ ØªÙ…ÙˆÙ… Ø´Ù‡
+          // Guard: اگر در حال کراس‌فید هستیم، صبر کن تا تموم شه
           if (arrPerformActive && _arrNextState && !_arrIsCrossfading) {
             const crossfadeDur = arrPerformData?.crossfade || 0;
             if (crossfadeDur > 0) arrCrossfadeSwap();
             else hotSwapToNextSong();
             DAW.rafId = requestAnimationFrame(tick); return;
           }
-          // Ø§Ú¯Ø± Ú©Ø±Ø§Ø³â€ŒÙÛŒØ¯ Ø¯Ø± Ø­Ø§Ù„ Ø§Ø¬Ø±Ø§Ø³ØªØŒ Ø¨Ù‡ ØªÛŒÚ© Ø¨Ø¹Ø¯ÛŒ Ù…Ù†ØªÙ‚Ù„ Ø´Ùˆ
+          // اگر کراس‌فید در حال اجراست، به تیک بعدی منتقل شو
           if (_arrIsCrossfading) {
             DAW.rafId = requestAnimationFrame(tick); return;
           }
-          // â”€â”€â”€ Ø§Ú¯Ø± _arrNextState Ø¢Ù…Ø§Ø¯Ù‡ Ù†ÛŒØ³Øª ÙˆÙ„ÛŒ prep Ø¯Ø± Ø­Ø§Ù„ Ø§Ø¬Ø±Ø§Ø³Øª: ØµØ¨Ø± Ú©Ù† (ÙˆØ§Ø±Ø¯ Ø­Ø§Ù„Øª pause Ø´Ùˆ) â”€â”€â”€
-          // Ø¨Ù‡â€ŒØ¬Ø§ÛŒ stopØŒ playback Ø±Ùˆ pause Ù…ÛŒâ€ŒÚ©Ù†ÛŒÙ… ØªØ§ ÙˆÙ‚ØªÛŒ prep ØªÙ…ÙˆÙ… Ø´Ø¯ØŒ Ø§Ø¯Ø§Ù…Ù‡ Ø¨Ø¯ÛŒÙ…
+          // ─── اگر _arrNextState آماده نیست ولی prep در حال اجراست: صبر کن (وارد حالت pause شو) ───
+          // به‌جای stop، playback رو pause می‌کنیم تا وقتی prep تموم شد، ادامه بدیم
           if (arrPerformActive && !_arrNextState && arrPreparePending) {
             console.log('[Arranger] Reached end but prep still running. Entering wait mode...');
-            // playback Ø±Ùˆ Ù…ØªÙˆÙ‚Ù Ú©Ù† ÙˆÙ„ÛŒ transport Ø±Ùˆ stop Ù†Ú©Ù†
+            // playback رو متوقف کن ولی transport رو stop نکن
             stopAllVoices();
             DAW.isPlaying = false;
-            // â”€â”€â”€ Ù…Ú©Ø§Ù†ÛŒØ²Ù… poll Ù…Ø³ØªÙ‚Ù„ Ø§Ø² tick â”€â”€â”€
-            // Ú†ÙˆÙ† tick Ø¨Ø§ DAW.isPlaying=false Ù…ØªÙˆÙ‚Ù Ù…ÛŒâ€ŒØ´Ù‡ØŒ ÛŒÚ© poll Ø¬Ø¯Ø§Ú¯Ø§Ù†Ù‡ Ù…ÛŒâ€ŒØ³Ø§Ø²ÛŒÙ…
-            // Ú©Ù‡ ÙˆÙ‚ØªÛŒ prep ØªÙ…ÙˆÙ… Ø´Ø¯ØŒ hot-swap Ø±Ùˆ Ø§Ù†Ø¬Ø§Ù… Ø¨Ø¯Ù‡
+            // ─── مکانیزم poll مستقل از tick ───
+            // چون tick با DAW.isPlaying=false متوقف می‌شه، یک poll جداگانه می‌سازیم
+            // که وقتی prep تموم شد، hot-swap رو انجام بده
             if (!_arrWaitPollActive) {
               _arrWaitPollActive = true;
               const waitPoll = () => {
                 if (!arrPerformActive) { _arrWaitPollActive = false; return; }
                 if (_arrNextState) {
-                  console.log('[Arranger] Prep finished during wait â€” hot-swapping now');
+                  console.log('[Arranger] Prep finished during wait — hot-swapping now');
                   _arrWaitPollActive = false;
                   if (arrPerformData?.crossfade > 0) arrCrossfadeSwap();
                   else hotSwapToNextSong();
                 } else if (!arrPreparePending) {
-                  // prep ØªÙ…ÙˆÙ… Ø´Ø¯Ù‡ ÙˆÙ„ÛŒ _arrNextState Ù‡Ù†ÙˆØ² null â€” fallback
-                  console.warn('[Arranger] Prep finished but no next state â€” fallback to loadArrSong');
+                  // prep تموم شده ولی _arrNextState هنوز null — fallback
+                  console.warn('[Arranger] Prep finished but no next state — fallback to loadArrSong');
                   _arrWaitPollActive = false;
                   arrPreparePending = true;
                   loadArrSong(arrPerformIdx + 1)
                     .then(() => { arrPreparePending = false; })
                     .catch((e) => { console.error(e); arrPreparePending = false; });
                 } else {
-                  // Ù‡Ù†ÙˆØ² ØµØ¨Ø± Ú©Ù†
+                  // هنوز صبر کن
                   setTimeout(waitPoll, 100);
                 }
               };
@@ -2468,9 +2468,9 @@ sels.forEach(c => {
             }
             return;
           }
-          // â”€â”€â”€ Ø§Ú¯Ø± Ù†Ù‡ prep Ø¯Ø± Ø­Ø§Ù„ Ø§Ø¬Ø±Ø§Ø³Øª Ùˆ Ù†Ù‡ _arrNextState Ø¢Ù…Ø§Ø¯Ù‡â€ŒØ³Øª: fallback Ø¨Ù‡ loadArrSong â”€â”€â”€
+          // ─── اگر نه prep در حال اجراست و نه _arrNextState آماده‌ست: fallback به loadArrSong ───
           if (arrPerformActive && !_arrNextState && !arrPreparePending) {
-            console.warn('[Arranger] Next song not ready and no prep running â€” fallback to loadArrSong');
+            console.warn('[Arranger] Next song not ready and no prep running — fallback to loadArrSong');
             arrPreparePending = true;
             loadArrSong(arrPerformIdx + 1)
               .then(() => { arrPreparePending = false; })
@@ -2498,7 +2498,7 @@ sels.forEach(c => {
         let countBeat = 0;
         const totalBeats = countInBars * beatsPerBar;
         $('play-btn').style.color = 'var(--accent-cyan-glow)';
-        toast('ðŸ”¢ Ø´Ù…Ø§Ø±Ø´: ' + countInBars + ' Ù…ÛŒØ²Ø§Ù†');
+        toast('🔢 شمارش: ' + countInBars + ' میزان');
         const countInTick = () => {
           if (countBeat >= totalBeats) {
             DAW.isPlaying = true; DAW.isScrubbing = false; var _ori = PlayheadMath.createOrigin(performance.now(), DAW.playhead); DAW.playOriginPerf = _ori.playOriginPerf; DAW.playOriginTime = _ori.playOriginTime;
@@ -2511,9 +2511,9 @@ sels.forEach(c => {
           setTimeout(countInTick, beatDur * 1000);
         };
         countInTick();
-        // Stop metronome after count-in â€” it was only for counting
+        // Stop metronome after count-in — it was only for counting
         metroActive = false;
-        $('metroToggleBtn').textContent = 'ðŸ”‡';
+        $('metroToggleBtn').textContent = '🔇';
         return;
       }
 
@@ -2534,7 +2534,7 @@ sels.forEach(c => {
       if (editorEl) [...editorEl.children].forEach(el => { el.classList.remove('sync-playing', 'sync-done'); });
 
       // Update perf play button
-      if (perfModeActive) $('perfPlayBtn').textContent = 'â–¶';
+      if (perfModeActive) $('perfPlayBtn').textContent = '▶';
     }
     function stopTransport() { pauseTransport(); DAW.playhead = 0; updatePlayheadUI();
       // Auto-advance arranger when song finishes
@@ -2547,10 +2547,10 @@ sels.forEach(c => {
         loadArrSong(arrPerformIdx + 1);
       }
       // Update perf UI play button
-      if (perfModeActive) { $('perfPlayBtn').textContent = 'â–¶'; renderPerfUI(); }
+      if (perfModeActive) { $('perfPlayBtn').textContent = '▶'; renderPerfUI(); }
     }
     // Arranger end: uses selectionEnd if defined, otherwise end of song content
-    // Does NOT depend on loopEnabled â€” selection range is separate from loop
+    // Does NOT depend on loopEnabled — selection range is separate from loop
     function getArrangerEnd() {
       if (selectionEnd > 0) return selectionEnd;
       // Fallback: end of last clip/section in current project
@@ -2569,7 +2569,7 @@ sels.forEach(c => {
       let tr = DAW.tracks.find(t => t.id === 'tRec');
       if (!tr) {
         ensureAudioCtx();
-        tr = { id: 'tRec', name: 'Rec', icon: 'â—', type: 'audio', isRec: true, muted: false, solo: false, vol: 0.8, pan: 0, transpose: 0, locked: false };
+        tr = { id: 'tRec', name: 'Rec', icon: '●', type: 'audio', isRec: true, muted: false, solo: false, vol: 0.8, pan: 0, transpose: 0, locked: false };
         const idx = DAW.tracks.findIndex(t => t.type === 'section');
         if (idx >= 0) DAW.tracks.splice(idx + 1, 0, tr); else DAW.tracks.push(tr);
       }
@@ -2605,14 +2605,14 @@ sels.forEach(c => {
     async function startRec() {
       if (DAW.isRecording) return;
       if (typeof navigator === 'undefined' || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        toast('Ø¶Ø¨Ø· ØµØ¯Ø§ Ø¯Ø± Ø§ÛŒÙ† Ù…Ø­ÛŒØ· Ù¾Ø´ØªÛŒØ¨Ø§Ù†ÛŒ Ù†Ù…ÛŒâ€ŒØ´ÙˆØ¯'); return;
+        toast('ضبط صدا در این محیط پشتیبانی نمی‌شود'); return;
       }
       let stream;
       try {
         stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
       } catch (err) {
         console.error(err);
-        toast('Ø¯Ø³ØªØ±Ø³ÛŒ Ø¨Ù‡ Ù…ÛŒÚ©Ø±ÙˆÙÙ†/ÙˆØ±ÙˆØ¯ÛŒ ØµÙˆØªÛŒ Ø±Ø¯ Ø´Ø¯'); return;
+        toast('دسترسی به میکروفن/ورودی صوتی رد شد'); return;
       }
       try {
         const ctx = ensureAudioCtx();
@@ -2642,13 +2642,13 @@ sels.forEach(c => {
         DAW.recMediaRecorder = recorder;
 
         try { recorder.start(250); } catch (e) {
-          console.error(e); toast('Ø®Ø·Ø§ Ø¯Ø± Ø´Ø±ÙˆØ¹ Ø¶Ø¨Ø·');
+          console.error(e); toast('خطا در شروع ضبط');
           DAW.isRecording = false; cleanupRecResources(); return;
         }
         renderAll();
         updateRecUI();
         if (!DAW.isPlaying) startTransport();
-        toast('â— Ø¶Ø¨Ø· Ø´Ø±ÙˆØ¹ Ø´Ø¯ â€” Ø¨Ø±Ø§ÛŒ ØªÙˆÙ‚Ù R Ø±Ø§ Ø¨Ø²Ù†ÛŒØ¯');
+        toast('● ضبط شروع شد — برای توقف R را بزنید');
 
         const tickRecWave = () => {
           if (!DAW.isRecording) { DAW.recRafId = null; return; }
@@ -2665,7 +2665,7 @@ sels.forEach(c => {
         DAW.recRafId = requestAnimationFrame(tickRecWave);
       } catch (err) {
         console.error(err);
-        toast('Ø®Ø·Ø§ Ø¯Ø± Ø±Ø§Ù‡â€ŒØ§Ù†Ø¯Ø§Ø²ÛŒ Ø¶Ø¨Ø·');
+        toast('خطا در راه‌اندازی ضبط');
         DAW.isRecording = false; cleanupRecResources();
       }
     }
@@ -2681,7 +2681,7 @@ sels.forEach(c => {
     function endRec() {
       if (!DAW.isRecording) return;
       DAW.recEndTime = DAW.playhead;
-      cleanupRecResources(); // Ø±ÙˆÛŒØ¯Ø§Ø¯ onstopØŒ finishRec Ø±Ø§ ØµØ¯Ø§ Ù…ÛŒâ€ŒØ²Ù†Ø¯
+      cleanupRecResources(); // رویداد onstop، finishRec را صدا می‌زند
       DAW.isRecording = false;
       updateRecUI();
     }
@@ -2712,7 +2712,7 @@ sels.forEach(c => {
       }
       el.style.left = timeToX(DAW.recStartTime) + 'px';
       el.style.width = w + 'px';
-      el.innerHTML = '<img class="clip-wave" src="' + recWaveDataUrl(DAW.recPeaks, w, 52) + '"><div class="clip-title">â— Ø¶Ø¨Ø· Ø²Ù†Ø¯Ù‡</div>';
+      el.innerHTML = '<img class="clip-wave" src="' + recWaveDataUrl(DAW.recPeaks, w, 52) + '"><div class="clip-title">● ضبط زنده</div>';
     }
 
     function recWaveDataUrl(peaks, w, h) {
@@ -2734,7 +2734,7 @@ sels.forEach(c => {
       const start = DAW.recStartTime || 0;
       const end = (DAW.recEndTime != null && DAW.recEndTime >= start) ? DAW.recEndTime : DAW.playhead;
       const dur = Math.max(0.05, end - start);
-      if (!blob || blob.size < 500) { toast('Ø¶Ø¨Ø· Ø®Ø§Ù„ÛŒ Ø¨ÙˆØ¯'); return; }
+      if (!blob || blob.size < 500) { toast('ضبط خالی بود'); return; }
       (async () => {
         try {
           ensureAudioCtx();
@@ -2756,10 +2756,10 @@ sels.forEach(c => {
           ensureTimelineFits(clip.start + clip.duration + 5);
           saveState(); renderAll();
           try { await saveAudioBlobToDB(bufferKey, blob, 'recording.webm'); } catch (_) {}
-          toast('âœ“ Ø¶Ø¨Ø· Ø°Ø®ÛŒØ±Ù‡ Ø´Ø¯');
+          toast('✓ ضبط ذخیره شد');
         } catch (err) {
           console.error(err);
-          toast('Ø®Ø·Ø§ Ø¯Ø± Ø°Ø®ÛŒØ±Ù‡â€ŒÛŒ Ø¶Ø¨Ø·');
+          toast('خطا در ذخیره‌ی ضبط');
         }
       })();
     }
@@ -2777,7 +2777,7 @@ sels.forEach(c => {
       const wrap = $('mixerChannels'); if (!wrap) return;
       wrap.innerHTML = '';
       const tracks = DAW.tracks.filter(t => t.type === 'audio');
-      if (!tracks.length) { wrap.innerHTML = '<div style="color:var(--text-secondary);padding:12px;">ØªØ±Ú© ØµÙˆØªÛŒ ÙˆØ¬ÙˆØ¯ Ù†Ø¯Ø§Ø±Ø¯</div>'; return; }
+      if (!tracks.length) { wrap.innerHTML = '<div style="color:var(--text-secondary);padding:12px;">ترک صوتی وجود ندارد</div>'; return; }
       tracks.forEach(tr => {
         const ch = document.createElement('div');
         ch.className = 'mixer-channel' + (tr.id === 'tRec' ? ' rec-channel' : '');
@@ -2785,7 +2785,7 @@ sels.forEach(c => {
         const bal = tr.pan < 0 ? 'L ' + Math.round(Math.abs(tr.pan) * 100) : (tr.pan > 0 ? 'R ' + Math.round(tr.pan * 100) : '(C)');
         ch.innerHTML =
           '<div class="mixer-ch-top"><span class="mixer-ch-name">' + (tr.icon || '') + '</span>' +
-          '<input class="mixer-ch-name-input" value="' + tr.name + '" data-mn="' + tr.id + '" title="ØªØºÛŒÛŒØ± Ù†Ø§Ù… Ù„Ø§ÛŒÙ†" spellcheck="false"></div>' +
+          '<input class="mixer-ch-name-input" value="' + tr.name + '" data-mn="' + tr.id + '" title="تغییر نام لاین" spellcheck="false"></div>' +
           '<div class="mixer-ch-controls">' +
             '<button class="t-btn ' + (tr.muted ? 'on' : '') + '" data-mm="' + tr.id + '" title="Mute">M</button>' +
             '<button class="t-btn ' + (tr.solo ? 'on-solo' : '') + '" data-ms="' + tr.id + '" title="Solo">S</button>' +
@@ -2881,7 +2881,7 @@ sels.forEach(c => {
           const devs = await navigator.mediaDevices.enumerateDevices();
           devs.filter(d => d.kind === 'audiooutput').forEach(d => {
             const opt = document.createElement('option');
-            opt.value = d.deviceId; opt.textContent = d.label || ('Ø®Ø±ÙˆØ¬ÛŒ ' + (sel.options.length + 1));
+            opt.value = d.deviceId; opt.textContent = d.label || ('خروجی ' + (sel.options.length + 1));
             sel.appendChild(opt);
           });
         }
@@ -2893,9 +2893,9 @@ sels.forEach(c => {
       try {
         const ctx = ensureAudioCtx();
         if (ctx && ctx.destination && typeof ctx.destination.setSinkId === 'function') {
-          ctx.destination.setSinkId(id).then(() => toast('Ø¯Ø³ØªÚ¯Ø§Ù‡ Ø®Ø±ÙˆØ¬ÛŒ ØªØºÛŒÛŒØ± Ú©Ø±Ø¯')).catch(() => toast('ØªØºÛŒÛŒØ± Ø¯Ø³ØªÚ¯Ø§Ù‡ Ù¾Ø´ØªÛŒØ¨Ø§Ù†ÛŒ Ù†Ù…ÛŒâ€ŒØ´ÙˆØ¯'));
-        } else { toast('ØªØºÛŒÛŒØ± Ø¯Ø³ØªÚ¯Ø§Ù‡ Ø®Ø±ÙˆØ¬ÛŒ Ù¾Ø´ØªÛŒØ¨Ø§Ù†ÛŒ Ù†Ù…ÛŒâ€ŒØ´ÙˆØ¯'); }
-      } catch(_) { toast('ØªØºÛŒÛŒØ± Ø¯Ø³ØªÚ¯Ø§Ù‡ Ø®Ø±ÙˆØ¬ÛŒ Ù¾Ø´ØªÛŒØ¨Ø§Ù†ÛŒ Ù†Ù…ÛŒâ€ŒØ´ÙˆØ¯'); }
+          ctx.destination.setSinkId(id).then(() => toast('دستگاه خروجی تغییر کرد')).catch(() => toast('تغییر دستگاه پشتیبانی نمی‌شود'));
+        } else { toast('تغییر دستگاه خروجی پشتیبانی نمی‌شود'); }
+      } catch(_) { toast('تغییر دستگاه خروجی پشتیبانی نمی‌شود'); }
     }
     function applyMetroSound(val) {
       APP_SETTINGS.metroSound = val; saveSettings();
@@ -2924,19 +2924,19 @@ sels.forEach(c => {
       loadOutputDevices();
     }
     function syncChordLineFromLyrics() {
-      if (!edCur) { toast('Ø³Ù†Ø¯ÛŒ Ø¨Ø±Ø§ÛŒ Ø³ÛŒÙ†Ú© ÙˆØ¬ÙˆØ¯ Ù†Ø¯Ø§Ø±Ø¯'); return; }
+      if (!edCur) { toast('سندی برای سینک وجود ندارد'); return; }
       
       // 1. Extract chords from edCur.chords (parsed from Lyrics)
       const lyricsChords = edCur.chords || [];
       
       // If no chords in Lyrics
       if (lyricsChords.length === 0) { 
-        toast('Ù‡ÛŒÚ† Ø¢Ú©ÙˆØ±Ø¯ÛŒ Ø¯Ø± Lyrics Chord ÙˆØ¬ÙˆØ¯ Ù†Ø¯Ø§Ø±Ø¯.'); 
+        toast('هیچ آکوردی در Lyrics Chord وجود ندارد.');
         return; 
       }
       
       // 2. Sort chords by spatial position from right to left (RTL reading order)
-      // Ù…Ù†Ø·Ù‚ Ù…Ø±ØªØ¨â€ŒØ³Ø§Ø²ÛŒ Ø¨Ù‡ js/editor/ChordLineSyncService.js Ù…Ù†ØªÙ‚Ù„ Ø´Ø¯Ù‡ Ø§Ø³Øª.
+      // منطق مرتب‌سازی به js/editor/ChordLineSyncService.js منتقل شده است.
       const lyricsChordsInSyncOrder = requireChordLineSyncService().sortLyricsChordsForSync(lyricsChords);
       
       // 3. Get current Chord Line clips from DAW.clips (the actual source of truth)
@@ -2952,13 +2952,13 @@ sels.forEach(c => {
       
       // If Chord Line is empty
       if (currentChordLineClips.length === 0) {
-        toast('Ø¨Ø±Ø§ÛŒ Ù‡Ù…Ú¯Ø§Ù…â€ŒØ³Ø§Ø²ÛŒØŒ Ø§Ø¨ØªØ¯Ø§ Ø­Ø¯Ø§Ù‚Ù„ ÛŒÚ© Ø¢Ú©ÙˆØ±Ø¯ Ø¯Ø± Chord Line Ø§ÛŒØ¬Ø§Ø¯ Ú©Ù†ÛŒØ¯.');
+        toast('برای همگام‌سازی، ابتدا حداقل یک آکورد در Chord Line ایجاد کنید.');
         return;
       }
       
       // 4. Apply Lyrics chords to Chord Line from left to right
       // Only update the .name property of existing clips
-      // Ù…Ù†Ø·Ù‚ Ø§Ø¹Ù…Ø§Ù„ Ø¨Ù‡ js/editor/ChordLineSyncService.js Ù…Ù†ØªÙ‚Ù„ Ø´Ø¯Ù‡ Ø§Ø³Øª.
+      // منطق اعمال به js/editor/ChordLineSyncService.js منتقل شده است.
       const appliedCount = requireChordLineSyncService().applyChordNamesToClips(lyricsChordsInSyncOrder, currentChordLineClips);
       
       // 5. Update state and re-render
@@ -2977,9 +2977,9 @@ sels.forEach(c => {
       
       // Show result message
       if (lyricsChordsInSyncOrder.length > currentChordLineClips.length) {
-        toast(`ÙÙ‚Ø· ${appliedCount} Ø¢Ú©ÙˆØ±Ø¯ Ø§ÙˆÙ„ Lyrics Ø±ÙˆÛŒ ${currentChordLineClips.length} Ø¢Ú©ÙˆØ±Ø¯ Ù…ÙˆØ¬ÙˆØ¯ Ø¯Ø± Chord Line Ø§Ø¹Ù…Ø§Ù„ Ø´Ø¯.`);
+        toast(`فقط ${appliedCount} آکورد اول Lyrics روی ${currentChordLineClips.length} آکورد موجود در Chord Line اعمال شد.`);
       } else {
-        toast(`âœ” Chord Line Ø¨Ø§ Ù…ÙˆÙÙ‚ÛŒØª Ø§Ø² Lyrics Chord Ù‡Ù…Ú¯Ø§Ù… Ø´Ø¯ (${appliedCount} Ø¢Ú©ÙˆØ±Ø¯).`);
+        toast(`✔ Chord Line با موفقیت از Lyrics Chord همگام شد (${appliedCount} آکورد).`);
       }
     }
     function closeSettings() { $('settingsModal').classList.remove('show'); }
@@ -2989,11 +2989,11 @@ sels.forEach(c => {
       applyTheme('dark');
       const r = document.documentElement.style;
       r.removeProperty('--accent-teal'); r.removeProperty('--accent-cyan-glow'); r.removeProperty('--accent-neon-pink');
-      metroActive = false; if ($('metroToggleBtn')) $('metroToggleBtn').textContent = 'ðŸ”‡';
+      metroActive = false; if ($('metroToggleBtn')) $('metroToggleBtn').textContent = '🔇';
       returnToStartOnPause = false;
       if (_sizeLocked) toggleSizeLock();
       openSettings();
-      toast('ØªÙ†Ø¸ÛŒÙ…Ø§Øª Ø¨Ø§Ø²Ù†Ø´Ø§Ù†ÛŒ Ø´Ø¯');
+      toast('تنظیمات بازنشانی شد');
     }
     loadSettings();
     if (APP_SETTINGS.theme) applyTheme(APP_SETTINGS.theme);
@@ -3033,7 +3033,7 @@ sels.forEach(c => {
       DAW.playheadMode = DAW.playheadMode === 'page' ? 'center' : 'page';
       const btn = $('playheadModeBtn');
       if (btn) btn.classList.toggle('ph-center', DAW.playheadMode === 'center');
-      toast(DAW.playheadMode === 'center' ? 'Ù¾Ù„ÛŒâ€ŒÙ‡Ø¯Ø± Ø«Ø§Ø¨Øª Ø¯Ø± Ù…Ø±Ú©Ø²' : 'Ø§Ø³Ú©Ø±ÙˆÙ„ ØµÙØ­Ù‡â€ŒØ§ÛŒ');
+      toast(DAW.playheadMode === 'center' ? 'پلی‌هدر ثابت در مرکز' : 'اسکرول صفحه‌ای');
     }
 
     /* ===== HIGHLIGHT EFFECT ===== */
@@ -3114,13 +3114,13 @@ sels.forEach(c => {
       DAW.loopB = 10;
       selectionEnd = 0;
       renderLoopRegion();
-      toast('Ù…Ø­Ø¯ÙˆØ¯Ù‡ Ù¾Ø§Ú© Ø´Ø¯');
+      toast('محدوده پاک شد');
     }
 
     // P key: set loop range from selection (no activate)
     function setLoopFromSelection() {
       const sels = selectedClips();
-      if (!sels.length) { toast('Ø¢ÛŒØªÙ…ÛŒ Ø§Ù†ØªØ®Ø§Ø¨ Ù†Ø´Ø¯Ù‡'); return; }
+      if (!sels.length) { toast('آیتمی انتخاب نشده'); return; }
       const starts = sels.map(c => c.start);
       const ends = sels.map(c => c.start + c.duration);
       DAW.loopA = Math.min(...starts);
@@ -3128,13 +3128,13 @@ sels.forEach(c => {
       selectionEnd = DAW.loopB;
       DAW.loopEnabled = false;
       renderLoopRegion();
-      toast('Ù…Ø­Ø¯ÙˆØ¯Ù‡: ' + formatTime(DAW.loopA) + ' â†’ ' + formatTime(DAW.loopB));
+      toast('محدوده: ' + formatTime(DAW.loopA) + ' → ' + formatTime(DAW.loopB));
     }
 
     // Alt+P: set loop range from selection + activate + play from start
     function setLoopFromSelectionAndPlay() {
       const sels = selectedClips();
-      if (!sels.length) { toast('Ø¢ÛŒØªÙ…ÛŒ Ø§Ù†ØªØ®Ø§Ø¨ Ù†Ø´Ø¯Ù‡'); return; }
+      if (!sels.length) { toast('آیتمی انتخاب نشده'); return; }
       const starts = sels.map(c => c.start);
       const ends = sels.map(c => c.start + c.duration);
       DAW.loopA = Math.min(...starts);
@@ -3148,7 +3148,7 @@ sels.forEach(c => {
       // Stop any current playback, then start fresh from loopA
       if (DAW.isPlaying) { DAW.isPlaying = false; if (DAW.rafId) cancelAnimationFrame(DAW.rafId); stopAllVoices(); }
       startTransport();
-      toast('Loop ON: ' + formatTime(DAW.loopA) + ' â†’ ' + formatTime(DAW.loopB));
+      toast('Loop ON: ' + formatTime(DAW.loopA) + ' → ' + formatTime(DAW.loopB));
     }
 
     function renderLoopRegion() {
@@ -3259,7 +3259,7 @@ sels.forEach(c => {
       if (!_lyricOnlyPopup || _lyricOnlyPopup.closed) return;
       if (!edCur) return;
       const doc = _lyricOnlyPopup.document;
-      const title = edCur.title || 'Ø¨Ø¯ÙˆÙ† Ù†Ø§Ù…';
+      const title = edCur.title || 'بدون نام';
       const artist = edCur.artist || '';
       const tSize = edCur.styles?.tSize || 38;
       const tColor = edCur.styles?.tColor || '#0fa966';
@@ -3268,7 +3268,7 @@ sels.forEach(c => {
       const align = edCur.styles?.align || 'center';
       const lines = (edCur.lyrics || '').split('\n');
 
-      doc.title = title + ' â€” ' + artist + ' | Ø®ÙˆØ§Ù†Ù†Ø¯Ù‡';
+      doc.title = title + ' — ' + artist + ' | خواننده';
       doc.documentElement.dir = 'rtl';
       doc.documentElement.lang = 'fa';
       doc.head.innerHTML = `
@@ -3375,7 +3375,7 @@ sels.forEach(c => {
       if (!_chordLinePopup || _chordLinePopup.closed) return;
       if (!edCur) return;
       const doc = _chordLinePopup.document;
-      const title = edCur.title || 'Ø¨Ø¯ÙˆÙ† Ù†Ø§Ù…';
+      const title = edCur.title || 'بدون نام';
       const artist = edCur.artist || '';
       const keyStr = SongMetadata.getDisplayKey(edCur);
       const tSize = edCur.styles?.tSize || 38;
@@ -3398,7 +3398,7 @@ sels.forEach(c => {
         _name: ch.name ? edTransposeChord(ch.name, transpose) : '' 
       }));
 
-      doc.title = title + ' â€” ' + artist + ' | Chord Line';
+      doc.title = title + ' — ' + artist + ' | Chord Line';
       doc.documentElement.dir = 'rtl';
       doc.documentElement.lang = 'fa';
       doc.head.innerHTML = `
@@ -3436,14 +3436,14 @@ sels.forEach(c => {
           .clp-active { color: #FF2E93 !important; text-shadow: 0 0 8px rgba(255,46,147,0.5); }
           .clp-active-bg { background: rgba(255,46,147,0.08); border-radius: 6px; }
         </style>`;
-      let html = `<div class="clp-header"><div class="title">${title}</div><div class="sub">${artist} Â· ${keyStr}</div></div>`;
+      let html = `<div class="clp-header"><div class="title">${title}</div><div class="sub">${artist} · ${keyStr}</div></div>`;
       // Add controls container with Sync and Transpose buttons
       html += `<div class="clp-controls">
-        <button class="clp-btn clp-btn-primary" id="clpSyncBtn" title="Ø¨Ø±ÙˆØ²Ø±Ø³Ø§Ù†ÛŒ Chord Line Ø§Ø² Lyrics Chord">ðŸ”„ Ø³ÛŒÙ†Ú©</button>
-        <button class="clp-btn" id="clpTransDown" title="Ø¨Ù…Ù„">â™­</button>
+        <button class="clp-btn clp-btn-primary" id="clpSyncBtn" title="بروزرسانی Chord Line از Lyrics Chord">🔄 سینک</button>
+        <button class="clp-btn" id="clpTransDown" title="بمل">♭</button>
         <span id="clpTransVal" style="color:#718096;font-size:12px;font-weight:600;min-width:24px;text-align:center;display:inline-block;">${transpose > 0 ? '+' : ''}${transpose}</span>
-        <button class="clp-btn" id="clpTransUp" title="Ø¯ÛŒØ²">â™¯</button>
-        <button class="clp-btn" id="clpCopyBtn" title="Ú©Ù¾ÛŒ Ø¢Ú©ÙˆØ±Ø¯Ù‡Ø§">âœ” Ú©Ù¾ÛŒ</button>
+        <button class="clp-btn" id="clpTransUp" title="دیز">♯</button>
+        <button class="clp-btn" id="clpCopyBtn" title="کپی آکوردها">✔ کپی</button>
       </div>`;
       html += `<div class="clp-body" id="clpBody">`;
       lines.forEach((line, i) => {
@@ -3469,7 +3469,7 @@ sels.forEach(c => {
           
           // If no chords in Lyrics
           if (lyricsChords.length === 0) { 
-            toast('Ù‡ÛŒÚ† Ø¢Ú©ÙˆØ±Ø¯ÛŒ Ø¯Ø± Lyrics Chord ÙˆØ¬ÙˆØ¯ Ù†Ø¯Ø§Ø±Ø¯.'); 
+            toast('هیچ آکوردی در Lyrics Chord وجود ندارد.');
             return; 
           }
           
@@ -3489,7 +3489,7 @@ sels.forEach(c => {
           
           // If Chord Line is empty
           if (currentChordLineClips.length === 0) {
-            toast('Ø¨Ø±Ø§ÛŒ Ù‡Ù…Ú¯Ø§Ù…â€ŒØ³Ø§Ø²ÛŒØŒ Ø§Ø¨ØªØ¯Ø§ Ø­Ø¯Ø§Ù‚Ù„ ÛŒÚ© Ø¢Ú©ÙˆØ±Ø¯ Ø¯Ø± Chord Line Ø§ÛŒØ¬Ø§Ø¯ Ú©Ù†ÛŒØ¯.');
+            toast('برای همگام‌سازی، ابتدا حداقل یک آکورد در Chord Line ایجاد کنید.');
             return;
           }
           
@@ -3507,9 +3507,9 @@ sels.forEach(c => {
           
           // Show result message
           if (lyricsChordsInSyncOrder.length > currentChordLineClips.length) {
-            toast(`ÙÙ‚Ø· ${appliedCount} Ø¢Ú©ÙˆØ±Ø¯ Ø§ÙˆÙ„ Lyrics Ø±ÙˆÛŒ ${currentChordLineClips.length} Ø¢Ú©ÙˆØ±Ø¯ Ù…ÙˆØ¬ÙˆØ¯ Ø¯Ø± Chord Line Ø§Ø¹Ù…Ø§Ù„ Ø´Ø¯.`);
+            toast(`فقط ${appliedCount} آکورد اول Lyrics روی ${currentChordLineClips.length} آکورد موجود در Chord Line اعمال شد.`);
           } else {
-            toast(`âœ” Chord Line Ø¨Ø§ Ù…ÙˆÙÙ‚ÛŒØª Ø§Ø² Lyrics Chord Ù‡Ù…Ú¯Ø§Ù… Ø´Ø¯ (${appliedCount} Ø¢Ú©ÙˆØ±Ø¯).`);
+            toast(`✔ Chord Line با موفقیت از Lyrics Chord همگام شد (${appliedCount} آکورد).`);
           }
         };
       }
@@ -3544,20 +3544,20 @@ sels.forEach(c => {
       if (copyBtn) {
         copyBtn.onclick = () => {
           if (!edCur || !edCur.chordLineClips || edCur.chordLineClips.length === 0) {
-            toast('Ø¢Ú©ÙˆØ±Ø¯ÛŒ Ø¨Ø±Ø§ÛŒ Ú©Ù¾ÛŒ ÙˆØ¬ÙˆØ¯ Ù†Ø¯Ø§Ø±Ø¯');
+            toast('آکوردی برای کپی وجود ندارد');
             return;
           }
           const transpose = edCur.transpose || 0;
           const chordNames = edCur.chordLineClips.map(ch => ch.name ? edTransposeChord(ch.name, transpose) : '').filter(n => n);
           if (chordNames.length === 0) {
-            toast('Ø¢Ú©ÙˆØ±Ø¯ÛŒ Ø¨Ø±Ø§ÛŒ Ú©Ù¾ÛŒ ÙˆØ¬ÙˆØ¯ Ù†Ø¯Ø§Ø±Ø¯');
+            toast('آکوردی برای کپی وجود ندارد');
             return;
           }
           const textToCopy = chordNames.join(' ');
           navigator.clipboard.writeText(textToCopy).then(() => {
-            toast('âœ” ' + chordNames.length + ' Ø¢Ú©ÙˆØ±Ø¯ Ú©Ù¾ÛŒ Ø´Ø¯');
+            toast('✔ ' + chordNames.length + ' آکورد کپی شد');
           }).catch(() => {
-            toast('Ø®Ø·Ø§ Ø¯Ø± Ú©Ù¾ÛŒ');
+            toast('خطا در کپی');
           });
         };
       }
@@ -3638,7 +3638,7 @@ sels.forEach(c => {
     let _pvSettings = Object.assign({}, _pvDefaults);
     try { const s = JSON.parse(localStorage.getItem(_pvSettingsKey)); if (s) _pvSettings = Object.assign({}, _pvDefaults, s); } catch(_) {}
     function _pvSave() { try { localStorage.setItem(_pvSettingsKey, JSON.stringify(_pvSettings)); } catch(_) {} }
-    // Wheel handlers â€” re-attached on each syncLyricPopup() call
+    // Wheel handlers — re-attached on each syncLyricPopup() call
     const _fontList = [
       'Vazirmatn', 
       'Vazirmatn Thin', 
@@ -3667,7 +3667,7 @@ sels.forEach(c => {
       const handler = (e) => {
         if (!_lyricPopup || _lyricPopup.closed) return;
         const target = e.target;
-        // Ctrl+Wheel anywhere â†’ lyric size
+        // Ctrl+Wheel anywhere → lyric size
         if (e.ctrlKey) {
           e.preventDefault();
           const delta = e.deltaY < 0 ? 1 : -1;
@@ -3678,7 +3678,7 @@ sels.forEach(c => {
           _pvSave(); _pvApply();
           return;
         }
-        // Plain wheel on chord â†’ chord size
+        // Plain wheel on chord → chord size
         if (target && target.classList && target.classList.contains('p-chord')) {
           e.preventDefault();
           const delta = e.deltaY < 0 ? 1 : -1;
@@ -3689,7 +3689,7 @@ sels.forEach(c => {
           _pvSave(); _pvApply();
           return;
         }
-        // Wheel on font selector â†’ cycle fonts
+        // Wheel on font selector → cycle fonts
         if (target && target.id === 'pv-font') {
           e.preventDefault();
           let idx = _fontList.indexOf(_pvSettings.font);
@@ -3725,7 +3725,7 @@ sels.forEach(c => {
         const tBold = edCur?.styles?.tBold ? 'bold' : 'normal';
         const align = edCur?.styles?.align || 'center';
 
-        // Ø¨Ø±Ø±Ø³ÛŒ Ø¢ÛŒØ§ Ø³Ø§Ø®ØªØ§Ø± Ø®Ø·â€ŒÙ‡Ø§ ÙˆØ§Ù‚Ø¹Ø§Ù‹ Ø¹ÙˆØ¶ Ø´Ø¯Ù‡
+        // بررسی آیا ساختار خط‌ها واقعاً عوض شده
         const existingLines = Array.from(pb.querySelectorAll('.popup-sync-line'));
         let structureChanged = existingLines.length !== lines.length;
         if (!structureChanged) {
@@ -3737,7 +3737,7 @@ sels.forEach(c => {
         }
 
         if (structureChanged) {
-          // ÙÙ‚Ø· ÙˆÙ‚ØªÛŒ ØªØ¹Ø¯Ø§Ø¯ Ø®Ø·â€ŒÙ‡Ø§ ÛŒØ§ Ù…ØªÙ† Ø¹ÙˆØ¶ Ø´Ø¯Ù‡ rebuild Ú©Ù†
+          // فقط وقتی تعداد خط‌ها یا متن عوض شده rebuild کن
           let h = '';
           lines.forEach((line, i) => {
             h += `<div class="eline popup-sync-line" data-li="${i}">${line || '\u200B'}</div>`;
@@ -3745,7 +3745,7 @@ sels.forEach(c => {
           pb.innerHTML = h;
         }
 
-        // Ø¢Ù¾Ø¯ÛŒØª text Ùˆ style Ø®Ø·â€ŒÙ‡Ø§ Ø±ÙˆÛŒ DOM Ù…ÙˆØ¬ÙˆØ¯
+        // آپدیت text و style خط‌ها روی DOM موجود
         const lineEls = pb.querySelectorAll('.popup-sync-line');
         lineEls.forEach((el, i) => {
           const nextText = lines[i] || '\u200B';
@@ -3757,11 +3757,11 @@ sels.forEach(c => {
           el.style.textAlign = align;
         });
 
-        // Ø¢Ù¾Ø¯ÛŒØª chord data Ùˆ Ø±Ù†Ø¯Ø±
+        // آپدیت chord data و رندر
         _lyricPopup._pChords = chords;
         try {
           _lyricPopup._pStructureVersion = (_lyricPopup._pStructureVersion || 0) + (structureChanged ? 1 : 0);
-          // Ø§Ú¯Ø± Ø³Ø§Ø®ØªØ§Ø± Ø¹ÙˆØ¶ Ø´Ø¯Ù‡ØŒ Ú©Ø´ Ø§Ù„Ù…Ø§Ù†â€ŒÙ‡Ø§ÛŒ chord Ù‚Ø¨Ù„ÛŒ Ø±Ø§ Ù¾Ø§Ú© Ú©Ù†
+          // اگر ساختار عوض شده، کش المان‌های chord قبلی را پاک کن
           if (structureChanged) {
             _lyricPopup.eval('if(typeof _pChordEls!=="undefined"){Object.keys(_pChordEls).forEach(function(k){var el=_pChordEls[k];if(el&&el.isConnected)el.remove();delete _pChordEls[k];});}if(typeof _pChordLineEls!=="undefined"){Object.keys(_pChordLineEls).forEach(function(k){var el=_pChordLineEls[k];if(el&&el.isConnected)el.remove();delete _pChordLineEls[k];});}');
           }
@@ -3770,7 +3770,7 @@ sels.forEach(c => {
             'if(typeof _pScheduleChordRender==="function"){_pScheduleChordRender("' + (structureChanged ? 'structure' : 'data') + '");' +
             '}else if(typeof _pRenderChords==="function"){_pRenderChords();}';
           _lyricPopup.eval('(function(){' + _evalChords + '})();');
-          // Fallback chain: Ø§Ú¯Ø± rAF ÛŒØ§ layout Ù‡Ù†ÙˆØ² Ø¢Ù…Ø§Ø¯Ù‡ Ù†Ø¨Ø§Ø´Ø¯
+          // Fallback chain: اگر rAF یا layout هنوز آماده نباشد
           if (structureChanged) {
             [120, 300, 600].forEach(function(ms) {
               setTimeout(function() {
@@ -3783,7 +3783,7 @@ sels.forEach(c => {
             });
           }
         } catch(_) {
-          // Ø§Ú¯Ø± eval Ú©Ù„ fail Ø´Ø¯ØŒ fallback Ø¨Ø¹Ø¯ Ø§Ø² layout
+          // اگر eval کل fail شد، fallback بعد از layout
           setTimeout(function() {
             try {
               if (_lyricPopup && !_lyricPopup.closed && typeof _lyricPopup._pRenderChords === 'function') {
@@ -3813,7 +3813,7 @@ sels.forEach(c => {
             );
           }
         } catch(_) {}
-        // Force Reflow: Ù…Ø¬Ø¨ÙˆØ± Ú©Ø±Ø¯Ù† Ù…Ø±ÙˆØ±Ú¯Ø± Ø¨Ù‡ Ù…Ø­Ø§Ø³Ø¨Ù‡ Ù…Ø¬Ø¯Ø¯ Ú†ÛŒØ¯Ù…Ø§Ù†
+        // Force Reflow: مجبور کردن مرورگر به محاسبه مجدد چیدمان
         try { void pb.offsetHeight; } catch(_) {}
         // Dispatch resize event to force layout recalculation
         try { _lyricPopup.dispatchEvent(new Event('resize')); } catch(_) {}
@@ -3822,7 +3822,7 @@ sels.forEach(c => {
       const title = edCur?.title || t('untitled');
       const artist = edCur?.artist || '';
       const keyStr = (edCur?.key || 'C') + ((edCur?.keyMode || 'maj') === 'min' ? 'm' : '');
-      const sub = [artist, keyStr ? (currentLang==='fa'?'Ú¯Ø§Ù…: ':'Key: ') + keyStr : null].filter(Boolean).join('  Â·  ');
+      const sub = [artist, keyStr ? (currentLang==='fa'?'گام: ':'Key: ') + keyStr : null].filter(Boolean).join('  ·  ');
       const tSize = edCur?.styles?.tSize || 38;
       const tColor = edCur?.styles?.tColor || '#0fa966';
       const tFont = edCur?.styles?.tFont || 'Vazirmatn';
@@ -3834,7 +3834,7 @@ sels.forEach(c => {
       const transpose = edCur?.transpose || 0;
       const lines = (edCur?.lyrics || '').split('\n');
       const chords = (edCur?.chords || []).map(ch => ({ lineIndex: ch.lineIndex, charIndex: ch.charIndex, anchorType: ch.anchorType, _name: edTransposeChord(ch.name, transpose) }));
-      _lyricPopup.document.title = title + ' â€” ' + artist + ' | Ù†ÙˆØ§Ø²Ù†Ø¯Ù‡';
+      _lyricPopup.document.title = title + ' — ' + artist + ' | نوازنده';
       _lyricPopup.document.documentElement.dir = 'rtl';
       _lyricPopup.document.documentElement.lang = 'fa';
       _lyricPopup.document.head.innerHTML = `
@@ -3933,30 +3933,30 @@ body.hl-pulse .popup-sync-line.active::before { content: ''; position: absolute;
           ::-webkit-scrollbar-thumb:hover { background: #718096; }
         </style>`;
       let html = `<div class="popup-header"><div class="title">${title}</div><div class="sub">${sub}</div>
-        <div id="pv-settings-toggle" style="cursor:pointer;font-size:11px;color:#718096;margin-top:4px;user-select:none;transition:color 0.2s;">âš™ ØªÙ†Ø¸ÛŒÙ…Ø§Øª Ù†Ù…Ø§ÛŒØ´</div>
+        <div id="pv-settings-toggle" style="cursor:pointer;font-size:11px;color:#718096;margin-top:4px;user-select:none;transition:color 0.2s;">⚙ تنظیمات نمایش</div>
         <div id="pv-settings" style="display:none;text-align:right;padding:12px 14px;font-size:12px;margin-top:8px;background:linear-gradient(135deg,#1A202C,#161B26);border:1px solid #2D3748;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.4);">
           <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;align-items:center;">
-            <label style="color:#A0AEC0;display:flex;align-items:center;gap:5px;">ÙÙˆÙ†Øª:
+            <label style="color:#A0AEC0;display:flex;align-items:center;gap:5px;">فونت:
               <select id="pv-font" style="background:#0D1117;color:#E2E8F0;border:1px solid #30363D;border-radius:8px;padding:4px 10px;font-size:11px;cursor:pointer;transition:border-color 0.2s;">
                 <option value="Vazirmatn">Vazirmatn</option><option value="Vazirmatn Thin">Vazirmatn Thin</option><option value="Vazirmatn Bold">Vazirmatn Bold</option><option value="Vazirmatn Black">Vazirmatn Black</option><option value="BArshia">BArshia</option><option value="BFarnaz">BFarnaz</option><option value="BJadid">BJadid</option><option value="BZar">BZar</option><option value="BZar Bold">BZar Bold</option><option value="Lalezar">Lalezar</option>
               </select>
             </label>
-            <label style="color:#A0AEC0;display:flex;align-items:center;gap:5px;cursor:pointer;"><input type="color" id="pv-tColor" value="${tColor}" style="width:24px;height:24px;border:2px solid #30363D;border-radius:6px;cursor:pointer;background:none;padding:0;"> Ù…ØªÙ†</label>
-            <label style="color:#A0AEC0;display:flex;align-items:center;gap:5px;cursor:pointer;"><input type="color" id="pv-cColor" value="${cColor}" style="width:24px;height:24px;border:2px solid #30363D;border-radius:6px;cursor:pointer;background:none;padding:0;"> Ø¢Ú©ÙˆØ±Ø¯</label>
-            <label style="color:#A0AEC0;display:flex;align-items:center;gap:5px;cursor:pointer;"><input type="color" id="pv-bgColor" value="#0F131E" style="width:24px;height:24px;border:2px solid #30363D;border-radius:6px;cursor:pointer;background:none;padding:0;"> Ù¾Ø³â€ŒØ²Ù…ÛŒÙ†Ù‡</label>
-            <div style="display:flex;align-items:center;gap:5px;color:#A0AEC0;">Ù…ØªÙ†: <input type="range" id="pv-tSize" min="12" max="55" value="${tSize}" style="width:70px;accent-color:#00F2FE;height:4px;"> <span id="pv-tSizeVal" style="min-width:22px;text-align:center;font-family:monospace;color:#00F2FE;font-weight:bold;">${tSize}</span></div>
-            <div style="display:flex;align-items:center;gap:5px;color:#A0AEC0;">Ø¢Ú©ÙˆØ±Ø¯: <input type="range" id="pv-cSize" min="8" max="40" value="${cSize}" style="width:70px;accent-color:#00F2FE;height:4px;"> <span id="pv-cSizeVal" style="min-width:22px;text-align:center;font-family:monospace;color:#00F2FE;font-weight:bold;">${cSize}</span></div>
-            <label style="color:#A0AEC0;display:flex;align-items:center;gap:5px;cursor:pointer;padding:4px 8px;border-radius:6px;transition:background 0.2s;" title="Ù‚ÙÙ„ Ù†Ø³Ø¨Øª Ø§Ù†Ø¯Ø§Ø²Ù‡ Ù…ØªÙ† Ùˆ Ø¢Ú©ÙˆØ±Ø¯"><input type="checkbox" id="pv-scaleLock" checked style="accent-color:#00F2FE;"> ðŸ”— Ù‚ÙÙ„</label>
-            <label style="color:#A0AEC0;display:flex;align-items:center;gap:5px;cursor:pointer;padding:4px 8px;border-radius:6px;transition:background 0.2s;"><input type="checkbox" id="pv-bold" style="accent-color:#00F2FE;"> <b>B</b> Ø¶Ø®ÛŒÙ…</label>
+            <label style="color:#A0AEC0;display:flex;align-items:center;gap:5px;cursor:pointer;"><input type="color" id="pv-tColor" value="${tColor}" style="width:24px;height:24px;border:2px solid #30363D;border-radius:6px;cursor:pointer;background:none;padding:0;"> متن</label>
+            <label style="color:#A0AEC0;display:flex;align-items:center;gap:5px;cursor:pointer;"><input type="color" id="pv-cColor" value="${cColor}" style="width:24px;height:24px;border:2px solid #30363D;border-radius:6px;cursor:pointer;background:none;padding:0;"> آکورد</label>
+            <label style="color:#A0AEC0;display:flex;align-items:center;gap:5px;cursor:pointer;"><input type="color" id="pv-bgColor" value="#0F131E" style="width:24px;height:24px;border:2px solid #30363D;border-radius:6px;cursor:pointer;background:none;padding:0;"> پس‌زمینه</label>
+            <div style="display:flex;align-items:center;gap:5px;color:#A0AEC0;">متن: <input type="range" id="pv-tSize" min="12" max="55" value="${tSize}" style="width:70px;accent-color:#00F2FE;height:4px;"> <span id="pv-tSizeVal" style="min-width:22px;text-align:center;font-family:monospace;color:#00F2FE;font-weight:bold;">${tSize}</span></div>
+            <div style="display:flex;align-items:center;gap:5px;color:#A0AEC0;">آکورد: <input type="range" id="pv-cSize" min="8" max="40" value="${cSize}" style="width:70px;accent-color:#00F2FE;height:4px;"> <span id="pv-cSizeVal" style="min-width:22px;text-align:center;font-family:monospace;color:#00F2FE;font-weight:bold;">${cSize}</span></div>
+            <label style="color:#A0AEC0;display:flex;align-items:center;gap:5px;cursor:pointer;padding:4px 8px;border-radius:6px;transition:background 0.2s;" title="قفل نسبت اندازه متن و آکورد"><input type="checkbox" id="pv-scaleLock" checked style="accent-color:#00F2FE;"> 🔗 قفل</label>
+            <label style="color:#A0AEC0;display:flex;align-items:center;gap:5px;cursor:pointer;padding:4px 8px;border-radius:6px;transition:background 0.2s;"><input type="checkbox" id="pv-bold" style="accent-color:#00F2FE;"> <b>B</b> ضخیم</label>
           </div>
-          <div class="pv-hint">Ctrl+Wheel: ØªØºÛŒÛŒØ± Ø§Ù†Ø¯Ø§Ø²Ù‡ Ù…ØªÙ† | Wheel Ø±ÙˆÛŒ Ø¢Ú©ÙˆØ±Ø¯: ØªØºÛŒÛŒØ± Ø§Ù†Ø¯Ø§Ø²Ù‡ Ø¢Ú©ÙˆØ±Ø¯ | Wheel Ø±ÙˆÛŒ ÙÙˆÙ†Øª: Ù¾ÛŒÙ…Ø§ÛŒØ´ ÙÙˆÙ†Øªâ€ŒÙ‡Ø§</div>
+          <div class="pv-hint">Ctrl+Wheel: تغییر اندازه متن | Wheel روی آکورد: تغییر اندازه آکورد | Wheel روی فونت: پیمایش فونت‌ها</div>
         </div>
       </div><div class="popup-body" id="popupBody">`;
       lines.forEach((line, i) => {
         html += `<div class="eline popup-sync-line" data-li="${i}" style="font-size:${tSize}px;color:${tColor};font-family:'${tFont}';font-weight:${tBold};text-align:${align};">${line || '\u200B'}</div>`;
       });
       html += '</div>';
-      // Ø¸Ø±Ù Ø®Ø§Ù„ÛŒ Ø¨Ø±Ø§ÛŒ Ù†ÙˆØ§Ø± Ø¢Ú©ÙˆØ±Ø¯ Ø¢ÛŒÙ†Ù‡â€ŒØ§ÛŒ + Ø¯Ø³ØªÚ¯ÛŒØ±Ù‡ Ø±ÛŒØ³Ø§ÛŒØ²
+      // ظرف خالی برای نوار آکورد آینه‌ای + دستگیره ریسایز
       html += '<div id="chordMirrorResize" style="position:fixed;bottom:0;left:0;width:100%;height:94px;z-index:9999;">' +
         '<div id="chordMirrorHandle" style="width:100%;height:4px;background:linear-gradient(90deg,#4A5568,#9F7AEA,#4A5568);cursor:ns-resize;border-radius:2px 2px 0 0;opacity:0.5;transition:opacity 0.2s;" onmouseover="this.style.opacity=\'1\'" onmouseout="this.style.opacity=\'0.5\'"></div>' +
         '<div id="playerChordMirror" style="width:100%;height:90px;background:#111;overflow:hidden;border-top:1px solid #333;"></div>' +
@@ -4066,7 +4066,7 @@ body.hl-pulse .popup-sync-line.active::before { content: ''; position: absolute;
             var ensured = _pEnsureChordEl(key, pb);
             var el = ensured.el;
             usedKeys[key] = true;
-            // Ø¢Ù¾Ø¯ÛŒØª text Ùˆ style ÙÙ‚Ø· Ø§Ú¯Ø± Ø¹ÙˆØ¶ Ø´Ø¯Ù‡
+            // آپدیت text و style فقط اگر عوض شده
             if (el.textContent !== ch._name) el.textContent = ch._name;
             var nf = _pCfg.cSize + 'px', nc = _pCfg.cColor, nfa = '"' + _pCfg.cFont + '",monospace';
             if (el.style.fontSize !== nf) el.style.fontSize = nf;
@@ -4178,10 +4178,10 @@ body.hl-pulse .popup-sync-line.active::before { content: ''; position: absolute;
 // ==========================================
 // PART 3: Project Load & Audio Export (WAV)
 // ==========================================
-// Ù…Ù†Ø·Ù‚ load/resolve ØµÙˆØª Ù¾Ø±ÙˆÚ˜Ù‡ Ø¨Ù‡ js/core/ProjectAudioService.js Ù…Ù†ØªÙ‚Ù„ Ø´Ø¯Ù‡ Ø§Ø³Øª.
+// منطق load/resolve صوت پروژه به js/core/ProjectAudioService.js منتقل شده است.
 
 /**
- * ØªØ¨Ø¯ÛŒÙ„ AudioBuffer Ø¨Ù‡ ÙØ±Ù…Øª Ø§Ø³ØªØ§Ù†Ø¯Ø§Ø±Ø¯ WAV Ø¬Ù‡Øª Ø°Ø®ÛŒØ±Ù‡â€ŒØ³Ø§Ø²ÛŒ
+ * تبدیل AudioBuffer به فرمت استاندارد WAV جهت ذخیره‌سازی
  */
 function bufferToWave(abuffer, len) {
   let numOfChan = abuffer.numberOfChannels,
@@ -4226,7 +4226,7 @@ function bufferToWave(abuffer, len) {
 // ==========================================
 
 /**
- * Ø±Ù†Ø¯Ø± Ú©Ø±Ø¯Ù† Ø¸Ø§Ù‡Ø± ØªØ±Ø§Ú©â€ŒÙ‡Ø§ Ø±ÙˆÛŒ ØªØ§ÛŒÙ…â€ŒÙ„Ø§ÛŒÙ†
+ * رندر کردن ظاهر تراک‌ها روی تایم‌لاین
  */
 function renderTimeline() {
   const container = document.getElementById('timeline-tracks-container');
@@ -4244,7 +4244,7 @@ function renderTimeline() {
   });
 }
 
-// Ø§ØªØµØ§Ù„ Ø±ÙˆÛŒØ¯Ø§Ø¯Ù‡Ø§ÛŒ Ø§ÙˆÙ„ÛŒÙ‡ ØµÙØ­Ù‡ Ù¾Ø³ Ø§Ø² Ø¨Ø§Ø±Ú¯Ø°Ø§Ø±ÛŒ DOM - Ø¨Ø®Ø´ Ø§ÙˆÙ„ (Ø®Ø· Û³Û¶Û²Û³)
+// اتصال رویدادهای اولیه صفحه پس از بارگذاری DOM - بخش اول (خط ۳۶۲۳)
 document.addEventListener('DOMContentLoaded', () => {
   const audioInput = document.getElementById('audio-file-input');
   if (audioInput) {
@@ -4255,7 +4255,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
-      const copy = confirm("Ø¢ÛŒØ§ Ù…ÛŒâ€ŒØ®ÙˆØ§Ù‡ÛŒØ¯ ÙØ§ÛŒÙ„ ØµÙˆØªÛŒ Ø¯Ø± Ù¾ÙˆØ´Ù‡ Ù¾Ø±ÙˆÚ˜Ù‡ Ú©Ù¾ÛŒ Ø´ÙˆØ¯ØŸ");
+      const copy = confirm("آیا می‌خواهید فایل صوتی در پوشه پروژه کپی شود؟");
 
       try {
         await handleAudioImport(file, copy);
@@ -4263,7 +4263,7 @@ document.addEventListener('DOMContentLoaded', () => {
         console.error('[AudioImport] Failed to import audio file:', error);
 
         if (typeof toast === 'function') {
-          toast('Ø®Ø·Ø§ Ø¯Ø± ÙˆØ§Ø±Ø¯ Ú©Ø±Ø¯Ù† ÙØ§ÛŒÙ„ ØµÙˆØªÛŒ');
+          toast('خطا در وارد کردن فایل صوتی');
         }
       } finally {
         e.target.value = '';
@@ -4281,37 +4281,37 @@ document.addEventListener('DOMContentLoaded', () => {
     window.electronAPI.onMenuCommand('menu-new-song', () => {
       console.log('[Menu] New Song requested');
       if (typeof createNewProject === 'function') createNewProject();
-      else alert('Ù‚Ø§Ø¨Ù„ÛŒØª Ø§ÛŒØ¬Ø§Ø¯ Ù¾Ø±ÙˆÚ˜Ù‡ Ø¬Ø¯ÛŒØ¯ Ù‡Ù†ÙˆØ² Ù¾ÛŒØ§Ø¯Ù‡â€ŒØ³Ø§Ø²ÛŒ Ù†Ø´Ø¯Ù‡ Ø§Ø³Øª.');
+      else alert('قابلیت ایجاد پروژه جدید هنوز پیاده‌سازی نشده است.');
     });
 
     window.electronAPI.onMenuCommand('menu-open-project', () => {
       console.log('[Menu] Open Project requested');
       if (typeof openProjectDialog === 'function') openProjectDialog();
-      else alert('Ù‚Ø§Ø¨Ù„ÛŒØª Ø¨Ø§Ø² Ú©Ø±Ø¯Ù† Ù¾Ø±ÙˆÚ˜Ù‡ Ù‡Ù†ÙˆØ² Ù¾ÛŒØ§Ø¯Ù‡â€ŒØ³Ø§Ø²ÛŒ Ù†Ø´Ø¯Ù‡ Ø§Ø³Øª.');
+      else alert('قابلیت باز کردن پروژه هنوز پیاده‌سازی نشده است.');
     });
 
     window.electronAPI.onMenuCommand('menu-save', () => {
       console.log('[Menu] Save requested');
       if (typeof saveCurrentProject === 'function') saveCurrentProject();
-      else alert('Ù‚Ø§Ø¨Ù„ÛŒØª Ø°Ø®ÛŒØ±Ù‡ Ù¾Ø±ÙˆÚ˜Ù‡ Ù‡Ù†ÙˆØ² Ù¾ÛŒØ§Ø¯Ù‡â€ŒØ³Ø§Ø²ÛŒ Ù†Ø´Ø¯Ù‡ Ø§Ø³Øª.');
+      else alert('قابلیت ذخیره پروژه هنوز پیاده‌سازی نشده است.');
     });
 
     window.electronAPI.onMenuCommand('menu-save-as', () => {
       console.log('[Menu] Save As requested');
       if (typeof saveProjectAs === 'function') saveProjectAs();
-      else alert('Ù‚Ø§Ø¨Ù„ÛŒØª Ø°Ø®ÛŒØ±Ù‡ Ø¨Ø§ Ù†Ø§Ù… Ø¬Ø¯ÛŒØ¯ Ù‡Ù†ÙˆØ² Ù¾ÛŒØ§Ø¯Ù‡â€ŒØ³Ø§Ø²ÛŒ Ù†Ø´Ø¯Ù‡ Ø§Ø³Øª.');
+      else alert('قابلیت ذخیره با نام جدید هنوز پیاده‌سازی نشده است.');
     });
 
     window.electronAPI.onMenuCommand('menu-export', () => {
       console.log('[Menu] Export requested');
       if (typeof exportProject === 'function') exportProject();
-      else alert('Ù‚Ø§Ø¨Ù„ÛŒØª Ø®Ø±ÙˆØ¬ÛŒ Ú¯Ø±ÙØªÙ† Ù‡Ù†ÙˆØ² Ù¾ÛŒØ§Ø¯Ù‡â€ŒØ³Ø§Ø²ÛŒ Ù†Ø´Ø¯Ù‡ Ø§Ø³Øª.');
+      else alert('قابلیت خروجی گرفتن هنوز پیاده‌سازی نشده است.');
     });
 
     window.electronAPI.onMenuCommand('menu-import', () => {
       console.log('[Menu] Import requested');
       if (typeof importProject === 'function') importProject();
-      else alert('Ù‚Ø§Ø¨Ù„ÛŒØª ÙˆØ±ÙˆØ¯ Ù¾Ø±ÙˆÚ˜Ù‡ Ù‡Ù†ÙˆØ² Ù¾ÛŒØ§Ø¯Ù‡â€ŒØ³Ø§Ø²ÛŒ Ù†Ø´Ø¯Ù‡ Ø§Ø³Øª.');
+      else alert('قابلیت ورود پروژه هنوز پیاده‌سازی نشده است.');
     });
 
     // Playback Menu
@@ -4319,27 +4319,27 @@ document.addEventListener('DOMContentLoaded', () => {
       console.log('[Menu] Play/Pause requested');
       if (typeof togglePlayPause === 'function') togglePlayPause();
       else if (typeof playPause === 'function') playPause();
-      else alert('Ù‚Ø§Ø¨Ù„ÛŒØª Ù¾Ø®Ø´/ØªÙˆÙ‚Ù Ù‡Ù†ÙˆØ² Ù¾ÛŒØ§Ø¯Ù‡â€ŒØ³Ø§Ø²ÛŒ Ù†Ø´Ø¯Ù‡ Ø§Ø³Øª.');
+      else alert('قابلیت پخش/توقف هنوز پیاده‌سازی نشده است.');
     });
 
     window.electronAPI.onMenuCommand('menu-stop', () => {
       console.log('[Menu] Stop requested');
       if (typeof stopPlayback === 'function') stopPlayback();
       else if (typeof perfStop === 'function') perfStop();
-      else alert('Ù‚Ø§Ø¨Ù„ÛŒØª ØªÙˆÙ‚Ù Ù¾Ø®Ø´ Ù‡Ù†ÙˆØ² Ù¾ÛŒØ§Ø¯Ù‡â€ŒØ³Ø§Ø²ÛŒ Ù†Ø´Ø¯Ù‡ Ø§Ø³Øª.');
+      else alert('قابلیت توقف پخش هنوز پیاده‌سازی نشده است.');
     });
 
     window.electronAPI.onMenuCommand('menu-go-to-start', () => {
       console.log('[Menu] Go to Start requested');
       if (typeof goToStart === 'function') goToStart();
       else if (DAW && typeof seekTo === 'function') seekTo(0);
-      else alert('Ù‚Ø§Ø¨Ù„ÛŒØª Ø±ÙØªÙ† Ø¨Ù‡ Ø§Ø¨ØªØ¯Ø§ Ù‡Ù†ÙˆØ² Ù¾ÛŒØ§Ø¯Ù‡â€ŒØ³Ø§Ø²ÛŒ Ù†Ø´Ø¯Ù‡ Ø§Ø³Øª.');
+      else alert('قابلیت رفتن به ابتدا هنوز پیاده‌سازی نشده است.');
     });
 
     window.electronAPI.onMenuCommand('menu-go-to-end', () => {
       console.log('[Menu] Go to End requested');
       if (typeof goToEnd === 'function') goToEnd();
-      else alert('Ù‚Ø§Ø¨Ù„ÛŒØª Ø±ÙØªÙ† Ø¨Ù‡ Ø§Ù†ØªÙ‡Ø§ Ù‡Ù†ÙˆØ² Ù¾ÛŒØ§Ø¯Ù‡â€ŒØ³Ø§Ø²ÛŒ Ù†Ø´Ø¯Ù‡ Ø§Ø³Øª.');
+      else alert('قابلیت رفتن به انتها هنوز پیاده‌سازی نشده است.');
     });
 
     // Tools Menu
@@ -4349,7 +4349,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (panel) {
         panel.style.display = panel.style.display === 'none' || panel.style.display === '' ? 'flex' : 'none';
       } else {
-        alert('Ù¾Ù†Ø¬Ø±Ù‡ Arranger Ù¾ÛŒØ¯Ø§ Ù†Ø´Ø¯.');
+        alert('پنجره Arranger پیدا نشد.');
       }
     });
 
@@ -4358,20 +4358,20 @@ document.addEventListener('DOMContentLoaded', () => {
       if (typeof edOpenArchive === 'function') {
         edOpenArchive();
       } else {
-        alert('Ø¢Ø±Ø´ÛŒÙˆ Ù‡Ù†ÙˆØ² Ø¨Ø§Ø±Ú¯Ø°Ø§Ø±ÛŒ Ù†Ø´Ø¯Ù‡ Ø§Ø³Øª.');
+        alert('آرشیو هنوز بارگذاری نشده است.');
       }
     });
 
     window.electronAPI.onMenuCommand('menu-midi-settings', () => {
       console.log('[Menu] MIDI Settings requested');
       if (typeof openMidiSettings === 'function') openMidiSettings();
-      else alert('ØªÙ†Ø¸ÛŒÙ…Ø§Øª MIDI Ù‡Ù†ÙˆØ² Ù¾ÛŒØ§Ø¯Ù‡â€ŒØ³Ø§Ø²ÛŒ Ù†Ø´Ø¯Ù‡ Ø§Ø³Øª.');
+      else alert('تنظیمات MIDI هنوز پیاده‌سازی نشده است.');
     });
 
     window.electronAPI.onMenuCommand('menu-preferences', () => {
       console.log('[Menu] Preferences requested');
       if (typeof openPreferences === 'function') openPreferences();
-      else alert('ØªÙ†Ø¸ÛŒÙ…Ø§Øª Ø¨Ø±Ù†Ø§Ù…Ù‡ Ù‡Ù†ÙˆØ² Ù¾ÛŒØ§Ø¯Ù‡â€ŒØ³Ø§Ø²ÛŒ Ù†Ø´Ø¯Ù‡ Ø§Ø³Øª.');
+      else alert('تنظیمات برنامه هنوز پیاده‌سازی نشده است.');
     });
 
     console.log('[App] Menu command handlers registered successfully.');
@@ -4380,7 +4380,7 @@ document.addEventListener('DOMContentLoaded', () => {
 }
       // Also override on the popup's global scope for the chord script
       try { _lyricPopup.eval('_pCfg.cSize=' + _pvSettings.cSize + ';_pCfg.cColor="' + _pvSettings.cColor + '";'); } catch(_) {}
-      // Settings panel initialization â€” use persistent _pvSettings from outer scope
+      // Settings panel initialization — use persistent _pvSettings from outer scope
       const _pvDoc = _lyricPopup.document;
       function _pvApply() {
         const root = _pvDoc.body;
@@ -4417,7 +4417,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const _pvBold = _pvDoc.getElementById('pv-bold'); if (_pvBold) { _pvBold.checked = _pvSettings.bold; _pvBold.onchange = () => { _pvSettings.bold = _pvBold.checked; _pvSave(); _pvApply(); }; }
       // Apply saved settings on load
       _pvApply();
-      // Ø±ÛŒØ³Ø§ÛŒØ² Ø¯Ø±Ú¯â€ŒÚ©Ø±Ø¯Ù†ÛŒ Ù†ÙˆØ§Ø± Ø¢Ú©ÙˆØ±Ø¯
+      // ریسایز درگ‌کردنی نوار آکورد
       (function() {
         const _handle = _pvDoc.getElementById('chordMirrorHandle');
         const _wrapper = _pvDoc.getElementById('chordMirrorResize');
@@ -4439,7 +4439,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
       })();
       // Highlight sync: update popup directly from main window (not postMessage)
-      // ÙÙ‚Ø· class toggling â€” Ù‡ÛŒÚ† inline style reset â€” Ù‡ÛŒÚ† DOM rebuild
+      // فقط class toggling — هیچ inline style reset — هیچ DOM rebuild
       let _pvLastScrolledIdx = -999;
       function _syncLyricPopupHighlight() {
         if (!_lyricPopup || _lyricPopup.closed) return;
@@ -4452,14 +4452,14 @@ document.addEventListener('DOMContentLoaded', () => {
           if (Number.isFinite(times[i]) && times[i] <= t) activeIdx = i;
           else if (Number.isFinite(times[i]) && times[i] > t) break;
         }
-        // ÙÙ‚Ø· class toggling â€” Ø¨Ø¯ÙˆÙ† reset inline styles
+        // فقط class toggling — بدون reset inline styles
         [...popupBody.children].forEach(el => {
           if (!el.dataset.li) return;
           const li = +el.dataset.li;
           el.classList.toggle('active', li === activeIdx);
           el.classList.toggle('done', (times[li] != null) && times[li] < t && li !== activeIdx);
         });
-        // Ø§Ø³Ú©Ø±ÙˆÙ„ ÙÙ‚Ø· ÙˆÙ‚ØªÛŒ Ø®Ø· ÙØ¹Ø§Ù„ Ø¹ÙˆØ¶ Ø´Ø¯Ù‡
+        // اسکرول فقط وقتی خط فعال عوض شده
         if (activeIdx >= 0 && activeIdx !== _pvLastScrolledIdx) {
           _pvLastScrolledIdx = activeIdx;
           const activeEl = popupBody.querySelector('[data-li="' + activeIdx + '"]');
@@ -4470,7 +4470,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
       _lyricPopup._syncHighlight = _syncLyricPopupHighlight;
-      // Fallback chord render chain: Ø§Ú¯Ø± rAF Ø§ÙˆÙ„ÛŒÙ‡ Ø¯Ø± full rebuild fail Ø´Ø¯
+      // Fallback chord render chain: اگر rAF اولیه در full rebuild fail شد
       [200, 500, 1000].forEach(function(ms) {
         setTimeout(function() {
           try {
@@ -4480,7 +4480,7 @@ document.addEventListener('DOMContentLoaded', () => {
           } catch(_) {}
         }, ms);
       });
-      // Force Reflow: Ù…Ø¬Ø¨ÙˆØ± Ú©Ø±Ø¯Ù† Ù…Ø±ÙˆØ±Ú¯Ø± Ø¨Ù‡ Ù…Ø­Ø§Ø³Ø¨Ù‡ Ù…Ø¬Ø¯Ø¯ Ú†ÛŒØ¯Ù…Ø§Ù†
+      // Force Reflow: مجبور کردن مرورگر به محاسبه مجدد چیدمان
       try {
         const _pb = _lyricPopup.document.getElementById('popupBody');
         if (_pb) void _pb.offsetHeight;
@@ -4498,8 +4498,8 @@ document.addEventListener('DOMContentLoaded', () => {
 let lastSyncActiveLi = -999;
 let syncTapKeyHandler = null;
 
-    /* ===== SYNC / LINE GUIDE â€” Ù¾Ù„ SyncModeController (Commit 2a) ===== */
-    // state Ù‡Ù…Ú†Ù†Ø§Ù† Ù…ØªØ¹Ù„Ù‚ Ø¨Ù‡ app.js Ø§Ø³ØªØ› Ú©Ù†ØªØ±Ù„Ø± Ø§Ø² Ø·Ø±ÛŒÙ‚ accessor Ù…ÛŒâ€ŒØ®ÙˆØ§Ù†Ø¯/Ù…ÛŒâ€ŒÙ†ÙˆÛŒØ³Ø¯.
+    /* ===== SYNC / LINE GUIDE — پل SyncModeController (Commit 2a) ===== */
+    // state همچنان متعلق به app.js است؛ کنترلر از طریق accessor می‌خواند/می‌نویسد.
     const syncModeState = {
       get active() { return syncActive; }, set active(v) { syncActive = v; },
       get cursor() { return syncCursor; }, set cursor(v) { syncCursor = v; },
@@ -4510,8 +4510,8 @@ let syncTapKeyHandler = null;
       get lastActiveLi() { return lastSyncActiveLi; }, set lastActiveLi(v) { lastSyncActiveLi = v; }
     };
 
-    // Commit 2b â€” accessor Ø±ÙˆÛŒ stateÙ‡Ø§ÛŒ seq/CL (ØªØ¹Ø±ÛŒÙ letÙ‡Ø§ Ø¯Ø± app.js Ù…ÛŒâ€ŒÙ…Ø§Ù†Ø¯Ø›
-    // edSeq* Ø¯Ø± Ø§Ø¯Ø§Ù…Ù‡Ù” ÙØ§ÛŒÙ„ Ùˆ edCl* Ú©Ù…ÛŒ Ù¾Ø§ÛŒÛŒÙ†â€ŒØªØ± ØªØ¹Ø±ÛŒÙ Ù…ÛŒâ€ŒØ´ÙˆÙ†Ø¯ â€” closureÙ‡Ø§ ÙÙ‚Ø· Ù‡Ù†Ú¯Ø§Ù… ÙØ±Ø§Ø®ÙˆØ§Ù†ÛŒ Ù…Ù‚Ø¯Ø§Ø± Ù…ÛŒâ€ŒØ®ÙˆØ§Ù†Ù†Ø¯)
+    // Commit 2b — accessor روی stateهای seq/CL (تعریف letها در app.js می‌ماند؛
+    // edSeq* در ادامهٔ فایل و edCl* کمی پایین‌تر تعریف می‌شوند — closureها فقط هنگام فراخوانی مقدار می‌خوانند)
     const seqClState = {
       get seqModeActive() { return edSeqModeActive; }, set seqModeActive(v) { edSeqModeActive = v; },
       get seqPoints() { return edSeqPoints; }, set seqPoints(v) { edSeqPoints = v; },
@@ -4562,7 +4562,7 @@ let syncTapKeyHandler = null;
     function requireSyncModeController() {
       const controller = createSyncModeControllerBridge();
       if (!controller) {
-        throw new Error('SyncModeController Ø¯Ø± Ø¯Ø³ØªØ±Ø³ Ù†ÛŒØ³Øª. ØªØ±ØªÛŒØ¨ scriptÙ‡Ø§ Ø¯Ø± Akordyar.html Ø±Ø§ Ø¨Ø±Ø±Ø³ÛŒ Ú©Ù†ÛŒØ¯.');
+        throw new Error('SyncModeController در دسترس نیست. ترتیب scriptها در Akordyar.html را بررسی کنید.');
       }
       return controller;
     }
@@ -4574,7 +4574,7 @@ let syncTapKeyHandler = null;
 
 
 
-    // Sync tick loop Ùˆ ÙˆØ±ÙˆØ¯/Ø®Ø±ÙˆØ¬ Ø­Ø§Ù„Øª Ø³ÛŒÙ†Ú© â€” wrapperÙ‡Ø§ÛŒ SyncModeController
+    // Sync tick loop و ورود/خروج حالت سینک — wrapperهای SyncModeController
     function syncTick() { return requireSyncModeController().syncTick(); }
     function enterSyncMode() { return requireSyncModeController().enterSyncMode(); }
     function exitSyncMode() { return requireSyncModeController().exitSyncMode(); }
@@ -4586,10 +4586,10 @@ let syncTapKeyHandler = null;
       edRenderChords();
     };
 
-    // Sequential chords (Ø¢Ú©ÙˆØ±Ø¯ ØªØ±ØªÛŒØ¨ÛŒ)
+    // Sequential chords (آکورد ترتیبی)
     function edRemapSeqPoints(oldText, newText) {
       if (!edCur?.seqPoints?.length) return;
-      // Ù…Ù†Ø·Ù‚ remap Ø¨Ù‡ js/editor/LyricPositionMapper.js Ù…Ù†ØªÙ‚Ù„ Ø´Ø¯Ù‡ Ø§Ø³Øª.
+      // منطق remap به js/editor/LyricPositionMapper.js منتقل شده است.
       edCur.seqPoints.forEach(sp => requireLyricPositionMapper().remapAnchorToNewText(sp, oldText, newText));
       edCur.seqPoints = edCur.seqPoints.filter(p => p.lineIndex >= 0);
       if (edSeqModeActive) edSeqPoints = edCur.seqPoints;
@@ -4604,7 +4604,7 @@ let syncTapKeyHandler = null;
     if ($('edSeqPrev')) $('edSeqPrev').onclick = () => edSeqNavigate(-1);
     if ($('edSeqNext')) $('edSeqNext').onclick = () => edSeqNavigate(1);
 
-    // ===== Sequential: Ø­Ø§Ù„Øª Ú©ÙˆØ±Ø¯ Ù„Ø§ÛŒÙ† (Ù†Ù‚Ø·Ù‡â€ŒÚ¯Ø°Ø§Ø±ÛŒ Ø¨Ø§ Ø¢Ù‡Ù†Ú¯ Ø±ÙˆÛŒ ØªØ§ÛŒÙ… Ù„Ø§ÛŒÙ†) =====
+    // ===== Sequential: حالت کورد لاین (نقطه‌گذاری با آهنگ روی تایم لاین) =====
     let edClMode = false, edClTapActive = false, edClMarkers = [];
     function edUpdateClCount() { return requireSyncModeController().edUpdateClCount(); }
     function edRenderClMarkers() { return requireSyncModeController().edRenderClMarkers(); }
@@ -4641,7 +4641,7 @@ let syncTapKeyHandler = null;
 
     }, true);
 
-    // Wire up sync buttons â€” wrapper SyncModeController
+    // Wire up sync buttons — wrapper SyncModeController
     function initSyncUI() { return requireSyncModeController().initSyncUI(); }
 
     /* ===== ARRANGER ===== */
@@ -4681,16 +4681,16 @@ let syncTapKeyHandler = null;
     function openArrangerModal() {
       $('arrangerModal').classList.add('show');
       renderArrangerManager();
-      // Ø§Ú¯Ø± Ø§Ø±Ù†Ø¬Ø±ÛŒ ÙˆØ¬ÙˆØ¯ Ø¯Ø§Ø±Ù‡ØŒ Ù…Ø³ØªÙ‚ÛŒÙ… Ø§Ø¯ÛŒØªÙˆØ± Ø±Ùˆ Ø¨Ø§Ø² Ú©Ù†
+      // اگر ارنجری وجود داره، مستقیم ادیتور رو باز کن
       if (arrangers.length > 0) {
         editingArr = arrangers[0];
         openArrEditor();
       } else {
         $('arrEditor').style.display = 'none';
       }
-      // Ø¯Ø±Ú¯ Ù¾Ù†Ù„ Ø§Ø±Ù†Ø¬Ø±
+      // درگ پنل ارنجر
       _setupArrangerModalDrag();
-      // Ø§Ø¶Ø§ÙÙ‡ Ú©Ø±Ø¯Ù† Ù‡Ù†Ø¯Ù„Ø± Ú©ÛŒØ¨ÙˆØ±Ø¯ Ø¨Ø±Ø§ÛŒ Ø¯Ú©Ù…Ù‡ ESC Ùˆ ÙÙˆÚ©ÙˆØ³
+      // اضافه کردن هندلر کیبورد برای دکمه ESC و فوکوس
       const arrModal = $('arrangerModal');
       if (arrModal) {
         arrModal.focus();
@@ -4707,7 +4707,7 @@ let syncTapKeyHandler = null;
     }
     function closeArrangerModal() {
       $('arrangerModal').classList.remove('show');
-      // Ø±ÛŒØ³Øª Ù…ÙˆÙ‚Ø¹ÛŒØª
+      // ریست موقعیت
       const editor = $('arrangerModal').querySelector('.chord-editor');
       if (editor) { editor.style.left = ''; editor.style.top = ''; }
       editingArr = null;
@@ -4717,7 +4717,7 @@ let syncTapKeyHandler = null;
     window.openArrangerModal = openArrangerModal;
     window.closeArrangerModal = closeArrangerModal;
 
-    // Ø¯Ø±Ú¯ arrangerModal
+    // درگ arrangerModal
     function _setupArrangerModalDrag() {
       const handle = $('arrModalDragHandle');
       const modal = $('arrangerModal');
@@ -4746,60 +4746,60 @@ let syncTapKeyHandler = null;
     function renderArrangerManager() {
       const box = $('arrManager'); box.innerHTML = '';
 
-      // â”€â”€â”€ Ù‡Ø¯Ø± Ø¨Ø®Ø´ Ù¾Ù„ÛŒâ€ŒÙ„ÛŒØ³Øªâ€ŒÙ‡Ø§ â”€â”€â”€
+      // ─── هدر بخش پلی‌لیست‌ها ───
       const header = document.createElement('div');
       header.className = 'arr-manager-header';
       header.innerHTML = `
         <div style="display:flex;align-items:center;">
-          <h4>ðŸ“‹ Ù¾Ù„ÛŒâ€ŒÙ„ÛŒØ³Øªâ€ŒÙ‡Ø§ÛŒ Ø°Ø®ÛŒØ±Ù‡â€ŒØ´Ø¯Ù‡</h4>
+          <h4>📋 پلی‌لیست‌های ذخیره‌شده</h4>
           <span class="arr-count-badge">${arrangers.length}</span>
         </div>
       `;
       box.appendChild(header);
 
-      // â”€â”€â”€ Ù†ÙˆØ§Ø± Ø§Ø¨Ø²Ø§Ø±: Ù¾Ù„ÛŒâ€ŒÙ„ÛŒØ³Øª Ø¬Ø¯ÛŒØ¯ + Ø§ÛŒÙ…Ù¾ÙˆØ±Øª/Ø§Ú©Ø³Ù¾ÙˆØ±Øª â”€â”€â”€
+      // ─── نوار ابزار: پلی‌لیست جدید + ایمپورت/اکسپورت ───
       const toolbar = document.createElement('div');
       toolbar.className = 'arr-manager-toolbar';
       toolbar.innerHTML = `
-        <button class="arr-btn-new" onclick="createNewArranger()" title="Ø³Ø§Ø®Øª Ù¾Ù„ÛŒâ€ŒÙ„ÛŒØ³Øª Ø¬Ø¯ÛŒØ¯">
-          ï¼‹ Ù¾Ù„ÛŒâ€ŒÙ„ÛŒØ³Øª Ø¬Ø¯ÛŒØ¯
+        <button class="arr-btn-new" onclick="createNewArranger()" title="ساخت پلی‌لیست جدید">
+          ＋ پلی‌لیست جدید
         </button>
         <div style="display:flex;gap:6px;">
-          <button class="arr-btn-import" onclick="importArrangerFromFile()" title="Ø¨Ø§Ø±Ú¯Ø°Ø§Ø±ÛŒ ÛŒÚ© Ù¾Ù„ÛŒâ€ŒÙ„ÛŒØ³Øª Ø§Ø² ÙØ§ÛŒÙ„ JSON">
-            ðŸ“¥ ÙˆØ±ÙˆØ¯ ÛŒÚ© Ù¾Ù„ÛŒâ€ŒÙ„ÛŒØ³Øª
+          <button class="arr-btn-import" onclick="importArrangerFromFile()" title="بارگذاری یک پلی‌لیست از فایل JSON">
+            📥 ورود یک پلی‌لیست
           </button>
-          <button class="arr-btn-import" onclick="importAllPlaylistsFromFile()" title="Ø¨Ø§Ø±Ú¯Ø°Ø§Ø±ÛŒ Ú©Ø§Ù…Ù„ Ù‡Ù…Ù‡ Ù¾Ù„ÛŒâ€ŒÙ„ÛŒØ³Øªâ€ŒÙ‡Ø§ Ø§Ø² ÙØ§ÛŒÙ„ Ù¾Ø´ØªÛŒØ¨Ø§Ù†">
-            ðŸ“¥ ÙˆØ±ÙˆØ¯ Ú©Ø§Ù…Ù„ Ù¾Ù„ÛŒâ€ŒÙ„ÛŒØ³Øªâ€ŒÙ‡Ø§
+          <button class="arr-btn-import" onclick="importAllPlaylistsFromFile()" title="بارگذاری کامل همه پلی‌لیست‌ها از فایل پشتیبان">
+            📥 ورود کامل پلی‌لیست‌ها
           </button>
-          <button class="arr-btn-import" onclick="exportAllPlaylistsToFile()" title="Ø®Ø±ÙˆØ¬ÛŒ Ú©Ø§Ù…Ù„ Ù‡Ù…Ù‡ Ù¾Ù„ÛŒâ€ŒÙ„ÛŒØ³Øªâ€ŒÙ‡Ø§ Ø¯Ø± ÛŒÚ© ÙØ§ÛŒÙ„" ${arrangers.length === 0 ? 'disabled' : ''}>
-            ðŸ“¤ Ø®Ø±ÙˆØ¬ÛŒ Ú©Ø§Ù…Ù„ Ù¾Ù„ÛŒâ€ŒÙ„ÛŒØ³Øªâ€ŒÙ‡Ø§
+          <button class="arr-btn-import" onclick="exportAllPlaylistsToFile()" title="خروجی کامل همه پلی‌لیست‌ها در یک فایل" ${arrangers.length === 0 ? 'disabled' : ''}>
+            📤 خروجی کامل پلی‌لیست‌ها
           </button>
         </div>
       `;
       box.appendChild(toolbar);
 
-      // â”€â”€â”€ Ø­Ø§Ù„Øª Ø®Ø§Ù„ÛŒ â”€â”€â”€
+      // ─── حالت خالی ───
       if (!arrangers.length) {
         const empty = document.createElement('div');
         empty.className = 'arr-empty-state';
         empty.innerHTML = `
-          <div class="arr-empty-icon">ðŸŽ¼</div>
-          <div class="arr-empty-text">Ù‡Ù†ÙˆØ² Ù¾Ù„ÛŒâ€ŒÙ„ÛŒØ³ØªÛŒ Ù†Ø³Ø§Ø®ØªÙ‡â€ŒØ§ÛŒØ¯.<br>Ø±ÙˆÛŒ Â«Ù¾Ù„ÛŒâ€ŒÙ„ÛŒØ³Øª Ø¬Ø¯ÛŒØ¯Â» Ø¨Ø²Ù†ÛŒØ¯ ØªØ§ Ø§ÙˆÙ„ÛŒÙ† Ù¾Ù„ÛŒâ€ŒÙ„ÛŒØ³Øª Ø±Ùˆ Ø¨Ø³Ø§Ø²ÛŒØ¯.</div>
+          <div class="arr-empty-icon">🎼</div>
+          <div class="arr-empty-text">هنوز پلی‌لیستی نساخته‌اید.<br>روی «پلی‌لیست جدید» بزنید تا اولین پلی‌لیست رو بسازید.</div>
         `;
         box.appendChild(empty);
         return;
       }
 
-      // â”€â”€â”€ Ù„ÛŒØ³Øª Ú©Ø§Ø±Øªâ€ŒÙ‡Ø§ÛŒ Ù¾Ù„ÛŒâ€ŒÙ„ÛŒØ³Øª â”€â”€â”€
+      // ─── لیست کارت‌های پلی‌لیست ───
       arrangers.forEach(arr => {
         const isActive = editingArr && editingArr.id === arr.id;
         const card = document.createElement('div');
         card.className = 'arr-card' + (isActive ? ' arr-card-active' : '');
 
-        // Ø³Ø§Ø®Øª badge Ù‡Ø§ Ø¨Ø±Ø§ÛŒ Ú©Ø±Ø§Ø³â€ŒÙÛŒØ¯ Ùˆ ØªÙˆÙ‚Ù
+        // ساخت badge ها برای کراس‌فید و توقف
         const badges = [];
-        if (arr.crossfade) badges.push(`<span class="arr-badge badge-crossfade">ðŸ”„ Ú©Ø±Ø§Ø³â€ŒÙÛŒØ¯: ${arr.crossfade}s</span>`);
-        if (arr.pauseBetween) badges.push(`<span class="arr-badge badge-pause">â¸ ØªÙˆÙ‚Ù Ø¨ÛŒÙ† Ø¢Ù‡Ù†Ú¯â€ŒÙ‡Ø§</span>`);
+        if (arr.crossfade) badges.push(`<span class="arr-badge badge-crossfade">🔄 کراس‌فید: ${arr.crossfade}s</span>`);
+        if (arr.pauseBetween) badges.push(`<span class="arr-badge badge-pause">⏸ توقف بین آهنگ‌ها</span>`);
 
         card.innerHTML = `
           <div class="meta">
@@ -4808,22 +4808,22 @@ let syncTapKeyHandler = null;
             ${badges.length ? `<div class="arr-card-badges">${badges.join('')}</div>` : ''}
           </div>
           <div class="acts">
-            <button data-a="edit" title="ÙˆÛŒØ±Ø§ÛŒØ´">âœï¸ ÙˆÛŒØ±Ø§ÛŒØ´</button>
-            <button data-a="export" class="act-export" title="Ø®Ø±ÙˆØ¬ÛŒ Ø¨Ù‡ ÙØ§ÛŒÙ„">ðŸ“¤</button>
-            <button data-a="del" class="act-del" title="Ø­Ø°Ù">ðŸ—‘</button>
+            <button data-a="edit" title="ویرایش">✏️ ویرایش</button>
+            <button data-a="export" class="act-export" title="خروجی به فایل">📤</button>
+            <button data-a="del" class="act-del" title="حذف">🗑</button>
           </div>
         `;
 
         card.onclick = (e) => {
           const a = e.target.dataset.a;
           if (!a) {
-            // Ú©Ù„ÛŒÚ© Ø±ÙˆÛŒ Ú©Ø§Ø±Øª = ÙˆÛŒØ±Ø§ÛŒØ´
+            // کلیک روی کارت = ویرایش
             editingArr = arr;
             openArrEditor();
             return;
           }
           if (a === 'del') {
-            if (confirm(`Ø­Ø°Ù Ù¾Ù„ÛŒâ€ŒÙ„ÛŒØ³Øª Â«${arr.name || t('untitled')}Â»ØŸ`)) {
+            if (confirm(`حذف پلی‌لیست «${arr.name || t('untitled')}»؟`)) {
               arrangers = arrangers.filter(x => x.id !== arr.id);
               saveArrangers();
               if (editingArr && editingArr.id === arr.id) {
@@ -4831,7 +4831,7 @@ let syncTapKeyHandler = null;
                 $('arrEditor').style.display = 'none';
               }
               renderArrangerManager();
-              toast('ðŸ—‘ Ù¾Ù„ÛŒâ€ŒÙ„ÛŒØ³Øª Ø­Ø°Ù Ø´Ø¯');
+              toast('🗑 پلی‌لیست حذف شد');
             }
           } else if (a === 'edit') {
             editingArr = arr;
@@ -4846,12 +4846,12 @@ let syncTapKeyHandler = null;
 
     // Send current song to Arranger Track
     function sendCurrentSongToArranger() {
-      if (!edCur) { toast('ØªØ±Ø§Ù†Ù‡â€ŒØ§ÛŒ Ø¨Ø§Ø² Ù†ÛŒØ³Øª'); return; }
+      if (!edCur) { toast('ترانه‌ای باز نیست'); return; }
       // Save current song to archive first
       edSaveToArchive().then(() => {
         // If no arrangers exist, create one
         if (!arrangers.length) {
-          const arr = { id: Date.now(), name: 'Ù¾Ù„ÛŒâ€ŒÙ„ÛŒØ³Øª Ø¬Ø¯ÛŒØ¯', items: [], crossfade: 0, pauseBetween: false };
+          const arr = { id: Date.now(), name: 'پلی‌لیست جدید', items: [], crossfade: 0, pauseBetween: false };
           arrangers.unshift(arr);
           editingArr = arr;
         } else {
@@ -4865,19 +4865,19 @@ let syncTapKeyHandler = null;
         saveArrangers();
         // Open arranger editor
         openArrangerModal();
-        toast('ØªØ±Ø§Ù†Ù‡ Ø¨Ù‡ Ù¾Ù„ÛŒâ€ŒÙ„ÛŒØ³Øª Ø§Ø¶Ø§ÙÙ‡ Ø´Ø¯');
+        toast('ترانه به پلی‌لیست اضافه شد');
       });
     }
 
     async function createNewArranger() {
-      const name = await customPrompt('Ù†Ø§Ù… Ù¾Ù„ÛŒâ€ŒÙ„ÛŒØ³Øª Ø¬Ø¯ÛŒØ¯:', 'Ù¾Ù„ÛŒâ€ŒÙ„ÛŒØ³Øª ' + (arrangers.length + 1));
-      if (name === null) return; // Ú©Ø§Ø±Ø¨Ø± Ú©Ù†Ø³Ù„ Ú©Ø±Ø¯
-      const trimmedName = name.trim() || ('Ù¾Ù„ÛŒâ€ŒÙ„ÛŒØ³Øª ' + (arrangers.length + 1));
+      const name = await customPrompt('نام پلی‌لیست جدید:', 'پلی‌لیست ' + (arrangers.length + 1));
+      if (name === null) return; // کاربر کنسل کرد
+      const trimmedName = name.trim() || ('پلی‌لیست ' + (arrangers.length + 1));
 
-      // â”€â”€â”€ Ø¨Ø±Ø±Ø³ÛŒ Ù†Ø§Ù… ØªÚ©Ø±Ø§Ø±ÛŒ Ø¨Ø§ Ù…Ù‚Ø§ÛŒØ³Ù‡ normalize Ø´Ø¯Ù‡ â”€â”€â”€
+      // ─── بررسی نام تکراری با مقایسه normalize شده ───
       if (playlistNameExists(trimmedName)) {
-        toast(`âš  Ù¾Ù„ÛŒâ€ŒÙ„ÛŒØ³ØªÛŒ Ø¨Ø§ Ù†Ø§Ù… Â«${trimmedName}Â» Ø§Ø² Ù‚Ø¨Ù„ ÙˆØ¬ÙˆØ¯ Ø¯Ø§Ø±Ø¯. Ù†Ø§Ù… Ø¯ÛŒÚ¯Ø±ÛŒ Ø§Ù†ØªØ®Ø§Ø¨ Ú©Ù†ÛŒØ¯.`);
-        return createNewArranger(); // Ø¯ÙˆØ¨Ø§Ø±Ù‡ Ø¨Ù¾Ø±Ø³
+        toast(`⚠ پلی‌لیستی با نام «${trimmedName}» از قبل وجود دارد. نام دیگری انتخاب کنید.`);
+        return createNewArranger(); // دوباره بپرس
       }
 
       const arr = { 
@@ -4892,28 +4892,28 @@ let syncTapKeyHandler = null;
       arrangers.unshift(arr);
       saveArrangers();
       editingArr = arr;
-      renderArrangerManager(); // Ø§ÙˆÙ„ Ù„ÛŒØ³Øª Ù¾Ù„ÛŒâ€ŒÙ„ÛŒØ³Øªâ€ŒÙ‡Ø§ Ø±Ùˆ refresh Ú©Ù†
-      openArrEditor();          // Ø¨Ø¹Ø¯ Ø§Ø¯ÛŒØªÙˆØ± Ø±Ùˆ Ø¨Ø§Ø² Ú©Ù†
-      toast(`âœ… Ù¾Ù„ÛŒâ€ŒÙ„ÛŒØ³Øª Â«${arr.name}Â» Ø³Ø§Ø®ØªÙ‡ Ø´Ø¯`);
+      renderArrangerManager(); // اول لیست پلی‌لیست‌ها رو refresh کن
+      openArrEditor();          // بعد ادیتور رو باز کن
+      toast(`✅ پلی‌لیست «${arr.name}» ساخته شد`);
     }
 
-    // Expose for ProjectHub (Hub "âž• Ø¬Ø¯ÛŒØ¯" button)
+    // Expose for ProjectHub (Hub "➕ جدید" button)
     window.createNewArranger = createNewArranger;
 
     function openArrEditor() {
       if (!editingArr) return;
-      // Ø§Ø¨ØªØ¯Ø§ style Ù‡Ø§ÛŒ Ù‚Ø¯ÛŒÙ…ÛŒ Ø±Ùˆ Ù¾Ø§Ú© Ú©Ù†
+      // ابتدا style های قدیمی رو پاک کن
       const arrManager = $('arrManager');
       arrManager.style.maxHeight = '';
       arrManager.style.borderBottom = '';
       arrManager.style.paddingBottom = '';
       arrManager.style.marginBottom = '';
 
-      // Ø§Ø¯ÛŒØªÙˆØ± Ø±Ùˆ Ù†Ù…Ø§ÛŒØ´ Ø¨Ø¯Ù‡
+      // ادیتور رو نمایش بده
       const arrEditor = $('arrEditor');
       arrEditor.style.display = 'block';
 
-      // Ø§Ø·Ù…ÛŒÙ†Ø§Ù† Ø§Ø² Ø§ÛŒÙ†Ú©Ù‡ Ù¾Ù†Ø¬Ø±Ù‡ Ø§Ø±Ù†Ø¬Ø± Ù‡Ù… Ù†Ù…Ø§ÛŒØ´ Ø¯Ø§Ø¯Ù‡ Ø´Ø¯Ù‡
+      // اطمینان از اینکه پنجره ارنجر هم نمایش داده شده
       const modal = $('arrangerModal');
       if (modal && !modal.classList.contains('show')) {
         modal.classList.add('show');
@@ -4948,7 +4948,7 @@ let syncTapKeyHandler = null;
     function renderArrSongsList() {
       const box = $('arrSongsList');
       if (!editingArr || !editingArr.items.length) {
-        box.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text-secondary);">ØªØ±Ø§Ù†Ù‡â€ŒØ§ÛŒ Ø¯Ø± Ø§ÛŒÙ† Ø§Ø±Ù†Ø¬Ø± ÙˆØ¬ÙˆØ¯ Ù†Ø¯Ø§Ø±Ø¯</div>';
+        box.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text-secondary);">ترانه‌ای در این ارنجر وجود ندارد</div>';
         return;
       }
       const allSongs = edGetAllSongs();
@@ -4963,15 +4963,15 @@ let syncTapKeyHandler = null;
         html += `<div class="arr-song-card">
           <div class="song-header">
             <div class="song-num">${idx + 1}</div>
-            <div class="song-title">${song.title || 'Ø¨Ø¯ÙˆÙ† Ø¹Ù†ÙˆØ§Ù†'}</div>
+            <div class="song-title">${song.title || 'بدون عنوان'}</div>
           </div>
           <div class="song-meta">
-            ${song.artist ? '<span>ðŸŽ¤ ' + song.artist + '</span>' : ''}
-            ${key ? '<span>ðŸŽµ Ú¯Ø§Ù…: ' + key + '</span>' : ''}
-            ${rhythm ? '<span>ðŸ¥ Ø±ÛŒØªÙ…: ' + rhythm + '</span>' : ''}
-            <span>â™¯ ØªØºÛŒÛŒØ± Ú¯Ø§Ù…: ${transpose}</span>
+            ${song.artist ? '<span>🎤 ' + song.artist + '</span>' : ''}
+            ${key ? '<span>🎵 گام: ' + key + '</span>' : ''}
+            ${rhythm ? '<span>🥁 ریتم: ' + rhythm + '</span>' : ''}
+            <span>♯ تغییر گام: ${transpose}</span>
           </div>
-          ${setting.notes ? '<div style="margin-top:6px;font-size:0.8rem;color:var(--accent-cyan-glow);">ðŸ“ ' + setting.notes + '</div>' : ''}
+          ${setting.notes ? '<div style="margin-top:6px;font-size:0.8rem;color:var(--accent-cyan-glow);">📝 ' + setting.notes + '</div>' : ''}
         </div>`;
       });
       box.innerHTML = html;
@@ -4984,36 +4984,36 @@ let syncTapKeyHandler = null;
     }
 
     /**
-     * saveCurrentArranger â€” Ø°Ø®ÛŒØ±Ù‡ Ù¾Ù„ÛŒâ€ŒÙ„ÛŒØ³Øª ÙØ¹Ù„ÛŒ
-     * Ù†Ø§Ù… Ù¾Ù„ÛŒâ€ŒÙ„ÛŒØ³Øª Ø±Ùˆ Ø§Ø² input Ù…ÛŒâ€ŒØ®ÙˆÙ†Ù‡ØŒ Ø¯Ø± localStorage Ø°Ø®ÛŒØ±Ù‡ Ù…ÛŒâ€ŒÚ©Ù†Ù‡ØŒ
-     * Ùˆ Ù„ÛŒØ³Øª Ù¾Ù„ÛŒâ€ŒÙ„ÛŒØ³Øªâ€ŒÙ‡Ø§ Ø±Ùˆ refresh Ù…ÛŒâ€ŒÚ©Ù†Ù‡.
-     * Ø§Ú¯Ø± Ù†Ø§Ù… ØªÚ©Ø±Ø§Ø±ÛŒ Ø¨Ø§Ø´Ù‡ØŒ Ø®Ø·Ø§ Ù…ÛŒØ¯Ù‡.
+     * saveCurrentArranger — ذخیره پلی‌لیست فعلی
+     * نام پلی‌لیست رو از input می‌خونه، در localStorage ذخیره می‌کنه،
+     * و لیست پلی‌لیست‌ها رو refresh می‌کنه.
+     * اگر نام تکراری باشه، خطا میده.
      */
     function saveCurrentArranger() {
       if (!editingArr) {
-        toast('âš  Ù‡ÛŒÚ† Ù¾Ù„ÛŒâ€ŒÙ„ÛŒØ³ØªÛŒ Ø¯Ø± Ø­Ø§Ù„ ÙˆÛŒØ±Ø§ÛŒØ´ Ù†ÛŒØ³Øª');
+        toast('⚠ هیچ پلی‌لیستی در حال ویرایش نیست');
         return;
       }
       const nameInput = $('arrName');
       let newName = nameInput ? nameInput.value.trim() : '';
-      if (!newName) newName = 'Ù¾Ù„ÛŒâ€ŒÙ„ÛŒØ³Øª Ø¨Ø¯ÙˆÙ† Ù†Ø§Ù…';
+      if (!newName) newName = 'پلی‌لیست بدون نام';
 
-      // â”€â”€â”€ Ø¨Ø±Ø±Ø³ÛŒ Ù†Ø§Ù… ØªÚ©Ø±Ø§Ø±ÛŒ Ø¨Ø§ Ù…Ù‚Ø§ÛŒØ³Ù‡ normalize Ø´Ø¯Ù‡ (Ø¨Ù‡â€ŒØ¬Ø² Ø®ÙˆØ¯ Ù¾Ù„ÛŒâ€ŒÙ„ÛŒØ³Øª ÙØ¹Ù„ÛŒ) â”€â”€â”€
+      // ─── بررسی نام تکراری با مقایسه normalize شده (به‌جز خود پلی‌لیست فعلی) ───
       if (playlistNameExists(newName, editingArr.id)) {
-        toast(`âš  Ù¾Ù„ÛŒâ€ŒÙ„ÛŒØ³ØªÛŒ Ø¨Ø§ Ù†Ø§Ù… Â«${newName}Â» Ø§Ø² Ù‚Ø¨Ù„ ÙˆØ¬ÙˆØ¯ Ø¯Ø§Ø±Ø¯.`);
+        toast(`⚠ پلی‌لیستی با نام «${newName}» از قبل وجود دارد.`);
         return;
       }
 
       editingArr.name = newName;
       editingArr.updatedAt = new Date().toISOString();
 
-      // Ø°Ø®ÛŒØ±Ù‡ crossfade ÙØ¹Ù„ÛŒ
+      // ذخیره crossfade فعلی
       const cfRange = $('arrCrossfadeRange');
       if (cfRange) editingArr.crossfade = parseFloat(cfRange.value) || 0;
 
       saveArrangers();
       renderArrangerManager();
-      toast(`âœ… Ù¾Ù„ÛŒâ€ŒÙ„ÛŒØ³Øª Â«${editingArr.name}Â» Ø°Ø®ÛŒØ±Ù‡ Ø´Ø¯ (${editingArr.items.length} Ø¢Ù‡Ù†Ú¯)`);
+      toast(`✅ پلی‌لیست «${editingArr.name}» ذخیره شد (${editingArr.items.length} آهنگ)`);
     }
 
     // Debounced save for playlist name input
@@ -5026,24 +5026,24 @@ let syncTapKeyHandler = null;
     }
 
     /**
-     * exportCurrentArranger â€” Ø§Ú©Ø³Ù¾ÙˆØ±Øª Ù¾Ù„ÛŒâ€ŒÙ„ÛŒØ³Øª ÙØ¹Ù„ÛŒ Ø¨Ù‡ ÙØ§ÛŒÙ„ JSON
+     * exportCurrentArranger — اکسپورت پلی‌لیست فعلی به فایل JSON
      */
     function exportCurrentArranger() {
       if (!editingArr) {
-        toast('âš  Ù‡ÛŒÚ† Ù¾Ù„ÛŒâ€ŒÙ„ÛŒØ³ØªÛŒ Ø¯Ø± Ø­Ø§Ù„ ÙˆÛŒØ±Ø§ÛŒØ´ Ù†ÛŒØ³Øª');
+        toast('⚠ هیچ پلی‌لیستی در حال ویرایش نیست');
         return;
       }
-      // Ø§ÙˆÙ„ Ù¾Ù„ÛŒâ€ŒÙ„ÛŒØ³Øª Ø±Ùˆ Ø°Ø®ÛŒØ±Ù‡ Ú©Ù†
+      // اول پلی‌لیست رو ذخیره کن
       saveCurrentArranger();
       exportArranger(editingArr);
     }
 
     /**
-     * exportArranger â€” Ø§Ú©Ø³Ù¾ÙˆØ±Øª ÛŒÚ© Ù¾Ù„ÛŒâ€ŒÙ„ÛŒØ³Øª Ù…Ø´Ø®Øµ Ø¨Ù‡ ÙØ§ÛŒÙ„ JSON
-     * @param {Object} arr - Ù¾Ù„ÛŒâ€ŒÙ„ÛŒØ³Øª Ø¨Ø±Ø§ÛŒ Ø§Ú©Ø³Ù¾ÙˆØ±Øª
+     * exportArranger — اکسپورت یک پلی‌لیست مشخص به فایل JSON
+     * @param {Object} arr - پلی‌لیست برای اکسپورت
      */
     async function exportArranger(arr) {
-      if (!arr) { toast('âš  Ù¾Ù„ÛŒâ€ŒÙ„ÛŒØ³Øª Ù†Ø§Ù…Ø¹ØªØ¨Ø±'); return; }
+      if (!arr) { toast('⚠ پلی‌لیست نامعتبر'); return; }
 
       const allSongs = edGetAllSongs();
       const songData = {};
@@ -5055,7 +5055,7 @@ let syncTapKeyHandler = null;
       const exportData = {
         type: 'akordyar-playlist',
         version: '1.0',
-        name: arr.name || 'Ù¾Ù„ÛŒâ€ŒÙ„ÛŒØ³Øª',
+        name: arr.name || 'پلی‌لیست',
         items: arr.items,
         crossfade: arr.crossfade || 0,
         pauseBetween: !!arr.pauseBetween,
@@ -5075,9 +5075,9 @@ let syncTapKeyHandler = null;
           const writable = await handle.createWritable();
           await writable.write(JSON.stringify(exportData, null, 2));
           await writable.close();
-          toast(`âœ… Ø§Ú©Ø³Ù¾ÙˆØ±Øª Ø´Ø¯: ${fileName}`);
+          toast(`✅ اکسپورت شد: ${fileName}`);
         } catch (e) {
-          if (e.name !== 'AbortError') toast('Ø®Ø·Ø§ Ø¯Ø± Ø§Ú©Ø³Ù¾ÙˆØ±Øª: ' + e.message);
+          if (e.name !== 'AbortError') toast('خطا در اکسپورت: ' + e.message);
         }
       } else {
         const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
@@ -5085,13 +5085,13 @@ let syncTapKeyHandler = null;
         const a = document.createElement('a');
         a.href = url; a.download = fileName; a.click();
         URL.revokeObjectURL(url);
-        toast(`âœ… Ø§Ú©Ø³Ù¾ÙˆØ±Øª Ø´Ø¯: ${fileName}`);
+        toast(`✅ اکسپورت شد: ${fileName}`);
       }
     }
 
     /**
-     * importArrangerFromFile â€” Ø¨Ø§Ø±Ú¯Ø°Ø§Ø±ÛŒ Ù¾Ù„ÛŒâ€ŒÙ„ÛŒØ³Øª Ø§Ø² ÙØ§ÛŒÙ„ JSON
-     * Ø§Ú¯Ø± Ù¾Ù„ÛŒâ€ŒÙ„ÛŒØ³ØªÛŒ Ø¨Ø§ Ù‡Ù…Ø§Ù† Ù†Ø§Ù… ÙˆØ¬ÙˆØ¯ Ø¯Ø§Ø´ØªÙ‡ Ø¨Ø§Ø´Ø¯ØŒ Ø®Ø·Ø§ Ù…ÛŒâ€ŒØ¯Ù‡Ø¯.
+     * importArrangerFromFile — بارگذاری پلی‌لیست از فایل JSON
+     * اگر پلی‌لیستی با همان نام وجود داشته باشد، خطا می‌دهد.
      */
     async function importArrangerFromFile() {
       const input = document.createElement('input');
@@ -5104,51 +5104,51 @@ let syncTapKeyHandler = null;
           const text = await file.text();
           const data = JSON.parse(text);
 
-          // Ø¨Ø±Ø±Ø³ÛŒ ÙØ±Ù…Øª
+          // بررسی فرمت
           if (!data || (!data.items && !data.songs)) {
-            toast('âŒ ÙØ§ÛŒÙ„ Ù…Ø¹ØªØ¨Ø± Ù†ÛŒØ³Øª â€” ÙØ±Ù…Øª Ù¾Ù„ÛŒâ€ŒÙ„ÛŒØ³Øª Ù†ÛŒØ³Øª');
+            toast('❌ فایل معتبر نیست — فرمت پلی‌لیست نیست');
             return;
           }
 
-          // Ø¨Ø±Ø±Ø³ÛŒ Ù†Ø³Ø®Ù‡ ÙØ§ÛŒÙ„
+          // بررسی نسخه فایل
           const supportedVersions = [1, '1.0', 2, '2.0'];
           if (data.version && !supportedVersions.includes(data.version)) {
-            toast(`âŒ Ù†Ø³Ø®Ù‡ ÙØ§ÛŒÙ„ (${data.version}) Ù¾Ø´ØªÛŒØ¨Ø§Ù†ÛŒ Ù†Ù…ÛŒâ€ŒØ´ÙˆØ¯.`);
+            toast(`❌ نسخه فایل (${data.version}) پشتیبانی نمی‌شود.`);
             return;
           }
 
-          // Ø®ÙˆØ§Ù†Ø¯Ù† Ùˆ Ø§Ø¹ØªØ¨Ø§Ø±Ø³Ù†Ø¬ÛŒ Ù†Ø§Ù… Ù¾Ù„ÛŒâ€ŒÙ„ÛŒØ³Øª
+          // خواندن و اعتبارسنجی نام پلی‌لیست
           let baseName = data.name || file.name.replace(/\.json$/i, '');
           if (!baseName || !baseName.trim()) {
-            toast('âŒ Ù†Ø§Ù… Ù¾Ù„ÛŒâ€ŒÙ„ÛŒØ³Øª Ø¯Ø± ÙØ§ÛŒÙ„ Ø®Ø§Ù„ÛŒ Ø§Ø³Øª.');
+            toast('❌ نام پلی‌لیست در فایل خالی است.');
             return;
           }
           baseName = baseName.trim();
 
-          // â”€â”€â”€ Ø¨Ø±Ø±Ø³ÛŒ Ù†Ø§Ù… ØªÚ©Ø±Ø§Ø±ÛŒ Ø¨Ø§ Ù…Ù‚Ø§ÛŒØ³Ù‡ normalize Ø´Ø¯Ù‡ â”€â”€â”€
+          // ─── بررسی نام تکراری با مقایسه normalize شده ───
           if (playlistNameExists(baseName)) {
-            toast(`âš  Ù¾Ù„ÛŒâ€ŒÙ„ÛŒØ³ØªÛŒ Ø¨Ø§ Ù†Ø§Ù… Â«${baseName}Â» Ø§Ø² Ù‚Ø¨Ù„ ÙˆØ¬ÙˆØ¯ Ø¯Ø§Ø±Ø¯.\nØ¨Ø±Ø§ÛŒ ÙˆØ±ÙˆØ¯ Ø§ÛŒÙ† ÙØ§ÛŒÙ„ØŒ Ø§Ø¨ØªØ¯Ø§ Ù†Ø§Ù… Ù¾Ù„ÛŒâ€ŒÙ„ÛŒØ³Øª Ø±Ø§ Ø¯Ø± ÙØ§ÛŒÙ„ Ø®Ø±ÙˆØ¬ÛŒ ÛŒØ§ Ø¯Ø± Ù¾Ø±ÙˆÚ˜Ù‡â€ŒÛŒ Ù…Ø¨Ø¯Ø§ ØªØºÛŒÛŒØ± Ø¯Ù‡ÛŒØ¯.`);
+            toast(`⚠ پلی‌لیستی با نام «${baseName}» از قبل وجود دارد.\nبرای ورود این فایل، ابتدا نام پلی‌لیست را در فایل خروجی یا در پروژه‌ی مبدا تغییر دهید.`);
             return;
           }
 
-          // Ø§Ø¹ØªØ¨Ø§Ø±Ø³Ù†Ø¬ÛŒ items
+          // اعتبارسنجی items
           if (!Array.isArray(data.items)) {
-            toast('âŒ Ø¢Ø±Ø§ÛŒÙ‡â€ŒÛŒ items Ø¯Ø± ÙØ§ÛŒÙ„ Ù…Ø¹ØªØ¨Ø± Ù†ÛŒØ³Øª.');
+            toast('❌ آرایه‌ی items در فایل معتبر نیست.');
             return;
           }
 
-          // Ø¨Ø±Ø±Ø³ÛŒ songId Ø¨Ø±Ø§ÛŒ Ù‡Ø± Ø¢ÛŒØªÙ…
+          // بررسی songId برای هر آیتم
           for (let i = 0; i < data.items.length; i++) {
             const item = data.items[i];
-            // Ø¢ÛŒØªÙ… Ù…ÛŒâ€ŒØªÙˆÙ†Ù‡ Ù‡Ù… Ø±Ø´ØªÙ‡/Ø¹Ø¯Ø¯ (songId Ù…Ø³ØªÙ‚ÛŒÙ…) Ø¨Ø§Ø´Ù‡ Ù‡Ù… Ø¢Ø¨Ø¬Ú©Øª Ø¨Ø§ Ø®Ø§ØµÛŒØª songId
+            // آیتم می‌تونه هم رشته/عدد (songId مستقیم) باشه هم آبجکت با خاصیت songId
             const songId = (item && typeof item === 'object') ? item.songId : item;
             if (!songId) {
-              toast(`âŒ Ø¢ÛŒØªÙ… Ø´Ù…Ø§Ø±Ù‡ ${i + 1} ÙØ§Ù‚Ø¯ songId Ù…Ø¹ØªØ¨Ø± Ø§Ø³Øª.`);
+              toast(`❌ آیتم شماره ${i + 1} فاقد songId معتبر است.`);
               return;
             }
           }
 
-          // Ø§Ú¯Ø± Ø¢Ù‡Ù†Ú¯â€ŒÙ‡Ø§ Ø¯Ø§Ø®Ù„ ÙØ§ÛŒÙ„ Ù‡Ø³ØªÙ†ØŒ Ø§ÙˆÙ„ Ø§ÙˆÙ†Ø§ Ø±Ùˆ Ø¨Ù‡ Ø¢Ø±Ø´ÛŒÙˆ Ø§Ø¶Ø§ÙÙ‡ Ú©Ù†
+          // اگر آهنگ‌ها داخل فایل هستن، اول اونا رو به آرشیو اضافه کن
           let importedSongsCount = 0;
           if (data.songs && typeof data.songs === 'object') {
             const allSongs = edGetAllSongs();
@@ -5166,7 +5166,7 @@ let syncTapKeyHandler = null;
             }
           }
 
-          // Ø³Ø§Ø®Øª Ù¾Ù„ÛŒâ€ŒÙ„ÛŒØ³Øª Ø¬Ø¯ÛŒØ¯ Ø¨Ø§ Ø³Ø§Ø®ØªØ§Ø± Ø§Ø³ØªØ§Ù†Ø¯Ø§Ø±Ø¯
+          // ساخت پلی‌لیست جدید با ساختار استاندارد
           const newArr = {
             id: 'playlist_' + Date.now(),
             name: baseName,
@@ -5184,10 +5184,10 @@ let syncTapKeyHandler = null;
           renderArrangerManager();
           openArrEditor();
 
-          toast(`âœ… Ù¾Ù„ÛŒâ€ŒÙ„ÛŒØ³Øª Â«${newArr.name}Â» Ø¨Ø§Ø±Ú¯Ø°Ø§Ø±ÛŒ Ø´Ø¯ (${newArr.items.length} Ø¢Ù‡Ù†Ú¯${importedSongsCount > 0 ? `ØŒ ${importedSongsCount} Ø¢Ù‡Ù†Ú¯ Ø¬Ø¯ÛŒØ¯` : ''})`);
+          toast(`✅ پلی‌لیست «${newArr.name}» بارگذاری شد (${newArr.items.length} آهنگ${importedSongsCount > 0 ? `، ${importedSongsCount} آهنگ جدید` : ''})`);
         } catch (e) {
           console.error('[Import] Error:', e);
-          toast('âŒ Ø®Ø·Ø§ Ø¯Ø± Ø¨Ø§Ø±Ú¯Ø°Ø§Ø±ÛŒ ÙØ§ÛŒÙ„: ' + e.message);
+          toast('❌ خطا در بارگذاری فایل: ' + e.message);
         }
       };
       input.click();
@@ -5210,7 +5210,7 @@ let syncTapKeyHandler = null;
     // Auto transpose all songs
     async function arrAutoTranspose() {
       if (!editingArr) return;
-      const val = await customPrompt('ØªØºÛŒÛŒØ± Ú¯Ø§Ù… Ø¨Ø±Ø§ÛŒ Ù‡Ù…Ù‡ Ø¢Ù‡Ù†Ú¯â€ŒÙ‡Ø§ (Ù…Ø«Ù„Ø§Ù‹ 2 ÛŒØ§ -3):', '0');
+      const val = await customPrompt('تغییر گام برای همه آهنگ‌ها (مثلاً 2 یا -3):', '0');
       if (val === null) return;
       const semi = parseInt(val);
       if (isNaN(semi)) return;
@@ -5224,7 +5224,7 @@ let syncTapKeyHandler = null;
 
     // Clear all notes
     function arrClearNotes() {
-      if (!editingArr || !confirm('ÛŒØ§Ø¯Ø¯Ø§Ø´Øªâ€ŒÙ‡Ø§ÛŒ Ù‡Ù…Ù‡ Ø¢Ù‡Ù†Ú¯â€ŒÙ‡Ø§ Ù¾Ø§Ú© Ø´ÙˆØ¯ØŸ')) return;
+      if (!editingArr || !confirm('یادداشت‌های همه آهنگ‌ها پاک شود؟')) return;
       editingArr.items.forEach(id => {
         const setting = ensureArrItem(editingArr, editingArr.items.indexOf(id));
         setting.notes = '';
@@ -5244,7 +5244,7 @@ let syncTapKeyHandler = null;
       const id = editingArr.items[idx];
       const song = allSongs.find(x => x.id === id);
       const setting = ensureArrItem(editingArr, idx);
-      $('arrSongNoteTitle').textContent = (song ? (song.title || 'Ø¨Ø¯ÙˆÙ† Ù†Ø§Ù…') : '') + ' â€” ÛŒØ§Ø¯Ø¯Ø§Ø´Øª Ø§Ø¬Ø±Ø§';
+      $('arrSongNoteTitle').textContent = (song ? (song.title || 'بدون نام') : '') + ' — یادداشت اجرا';
       $('arrSongNoteText').value = setting.notes || '';
       $('arrSongNoteOverlay').classList.add('show');
     }
@@ -5271,10 +5271,10 @@ let syncTapKeyHandler = null;
           return matchText.includes(query);
         });
       }
-      if (!avail.length) { box.innerHTML = `<div style="padding:14px;color:var(--text-secondary);font-size:13px;">${query ? 'Ù†ØªÛŒØ¬Ù‡â€ŒØ§ÛŒ ÛŒØ§ÙØª Ù†Ø´Ø¯' : t('allInSetlist')}</div>`; return; }
+      if (!avail.length) { box.innerHTML = `<div style="padding:14px;color:var(--text-secondary);font-size:13px;">${query ? 'نتیجه‌ای یافت نشد' : t('allInSetlist')}</div>`; return; }
       avail.forEach(s => {
         const it = document.createElement('div'); it.className = 'arr-item';
-        it.innerHTML = `<span class="ai-title">${s.title || t('untitled')}<small>${s.artist || 'â€”'}</small></span><button>ï¼‹</button>`;
+        it.innerHTML = `<span class="ai-title">${s.title || t('untitled')}<small>${s.artist || '—'}</small></span><button>＋</button>`;
         it.onclick = () => { editingArr.items.push(s.id); saveArrangers(); renderArrPool(); renderArrSetlist(); };
         box.appendChild(it);
       });
@@ -5303,20 +5303,20 @@ let syncTapKeyHandler = null;
         const it = document.createElement('div'); it.className = 'arr-item'; it.draggable = true; it.dataset.i = i;
         it.innerHTML = `
           <div class="arr-item-controls">
-            <button data-a="up" title="Ø¨Ø§Ù„Ø§">â†‘</button>
-            <button data-a="down" title="Ù¾Ø§ÛŒÛŒÙ†">â†“</button>
+            <button data-a="up" title="بالا">↑</button>
+            <button data-a="down" title="پایین">↓</button>
             <span class="arr-item-number">${i + 1}</span>
           </div>
           <div class="arr-item-info" draggable="true">
             <span class="ai-title">${s.title || t('untitled')}</span>
-            <small>${s.artist || 'â€”'}</small>
+            <small>${s.artist || '—'}</small>
           </div>
           <div class="ai-ctrls">
-            <button class="ai-trans-btn" data-a="trans-down" title="Ø¨Ù…Ù„">â™­</button>
+            <button class="ai-trans-btn" data-a="trans-down" title="بمل">♭</button>
             <span class="ai-trans-val">${transSign}</span>
-            <button class="ai-trans-btn" data-a="trans-up" title="Ø¯ÛŒØ²">â™¯</button>
-            <button class="ai-notes-btn ${hasNotes ? 'has-notes' : ''}" data-a="notes" title="ÛŒØ§Ø¯Ø¯Ø§Ø´Øª Ø§Ø¬Ø±Ø§">ðŸ“</button>
-            <button data-a="del" title="Ø­Ø°Ù">âœ•</button>
+            <button class="ai-trans-btn" data-a="trans-up" title="دیز">♯</button>
+            <button class="ai-notes-btn ${hasNotes ? 'has-notes' : ''}" data-a="notes" title="یادداشت اجرا">📝</button>
+            <button data-a="del" title="حذف">✕</button>
           </div>`;
         it.onclick = (e) => {
           const btn = e.target.closest('[data-a]');
@@ -5349,8 +5349,8 @@ let syncTapKeyHandler = null;
     // ===== Performance Mode (Live Dashboard) =====
     let arrPerformIdx = -1, arrPerformActive = false, arrPerformData = null, arrPreparePending = false;
     let _arrNextState = null;
-    let _arrHasLoggedNoNextSong = false; // Ø¬Ù„ÙˆÚ¯ÛŒØ±ÛŒ Ø§Ø² ØªÚ©Ø±Ø§Ø± Ù„Ø§Ú¯ "No more songs"
-    let _arrPrepStartedForIndex = -1;    // Ø¬Ù„ÙˆÚ¯ÛŒØ±ÛŒ Ø§Ø² ØªÚ©Ø±Ø§Ø± Ù„Ø§Ú¯ "Starting prep"
+    let _arrHasLoggedNoNextSong = false; // جلوگیری از تکرار لاگ "No more songs"
+    let _arrPrepStartedForIndex = -1;    // جلوگیری از تکرار لاگ "Starting prep"
     let perfModeActive = false;
     let perfStageMode = false;
     let perfPauseMode = false;
@@ -5361,14 +5361,14 @@ let syncTapKeyHandler = null;
     let _arrCrossfadeGain = null;
     let _arrIsCrossfading = false;
 
-    // â”€â”€â”€ Background Preload State â”€â”€â”€
-    // Ø¨Ø±Ø§ÛŒ preload Ù‡Ù…Ù‡ Ø¢Ù‡Ù†Ú¯â€ŒÙ‡Ø§ÛŒ Ø§Ø±Ù†Ø¬Ø± Ø¯Ø± Ù¾Ø³â€ŒØ²Ù…ÛŒÙ†Ù‡
+    // ─── Background Preload State ───
+    // برای preload همه آهنگ‌های ارنجر در پس‌زمینه
     let _bgPreloadActive = false;
-    let _bgPreloadedSongIds = new Set(); // Ø¢Ù‡Ù†Ú¯â€ŒÙ‡Ø§ÛŒÛŒ Ú©Ù‡ preload Ø´Ø¯
+    let _bgPreloadedSongIds = new Set(); // آهنگ‌هایی که preload شد
 
-    // â”€â”€â”€ Wait Poll State â”€â”€â”€
-    // ÙˆÙ‚ØªÛŒ Ø¢Ù‡Ù†Ú¯ ÙØ¹Ù„ÛŒ ØªÙ…ÙˆÙ… Ù…ÛŒâ€ŒØ´Ù‡ ÙˆÙ„ÛŒ prep Ø¢Ù‡Ù†Ú¯ Ø¨Ø¹Ø¯ÛŒ Ù‡Ù†ÙˆØ² Ø§Ù†Ø¬Ø§Ù… Ù†Ø´Ø¯Ù‡ØŒ
-    // Ø§ÛŒÙ† ÙÙ„Ú¯ ÙØ¹Ø§Ù„ Ù…ÛŒâ€ŒØ´Ù‡ Ùˆ ÛŒÚ© poll Ù…Ø³ØªÙ‚Ù„ Ø§Ø² tickØŒ Ù…Ù†ØªØ¸Ø± Ø§ØªÙ…Ø§Ù… prep Ù…ÛŒâ€ŒÙ…ÙˆÙ†Ù‡
+    // ─── Wait Poll State ───
+    // وقتی آهنگ فعلی تموم می‌شه ولی prep آهنگ بعدی هنوز انجام نشده،
+    // این فلگ فعال می‌شه و یک poll مستقل از tick، منتظر اتمام prep می‌مونه
     let _arrWaitPollActive = false;
 
     async function openPerfMode() {
@@ -5383,10 +5383,10 @@ let syncTapKeyHandler = null;
 
       const panel = $('arrPerfOverlay');
       panel.style.display = 'flex';
-      $('perfArrangerName').textContent = 'ðŸŽ¤ ' + (editingArr.name || 'Ø§Ø¬Ø±Ø§');
+      $('perfArrangerName').textContent = '🎤 ' + (editingArr.name || 'اجرا');
       $('perfPauseModeBtn').classList.toggle('arr-stl-active', perfPauseMode);
 
-      // Ø¯Ø±Ú¯ Ù¾Ù†Ù„
+      // درگ پنل
       _setupPerfPanelDrag(panel);
 
       closeArrangerModal();
@@ -5395,17 +5395,17 @@ let syncTapKeyHandler = null;
       renderPerfUI();
       startPerfTimer();
 
-      // â”€â”€â”€ Background preload Ù‡Ù…Ù‡ Ø¢Ù‡Ù†Ú¯â€ŒÙ‡Ø§ÛŒ Ø§Ø±Ù†Ø¬Ø± â”€â”€â”€
-      // Ø§ÛŒÙ† Ú©Ø§Ø± ØªØ¶Ù…ÛŒÙ† Ù…ÛŒâ€ŒÚ©Ù†Ù‡ Ú©Ù‡ ÙˆÙ‚ØªÛŒ Ø¨Ù‡ Ø¢Ù‡Ù†Ú¯ Ø¨Ø¹Ø¯ÛŒ Ù…ÛŒâ€ŒØ±Ø³ÛŒÙ…ØŒ ØµØ¯Ø§ Ø§Ø² Ù‚Ø¨Ù„ Ù„ÙˆØ¯ Ø´Ø¯Ù‡.
-      // preload Ø¨Ù‡â€ŒØµÙˆØ±Øª ØºÛŒØ±Ù…Ø³Ø¯ÙˆØ¯Ú©Ù†Ù†Ø¯Ù‡ Ø¯Ø± Ù¾Ø³â€ŒØ²Ù…ÛŒÙ†Ù‡ Ø§Ù†Ø¬Ø§Ù… Ù…ÛŒâ€ŒØ´Ù‡.
+      // ─── Background preload همه آهنگ‌های ارنجر ───
+      // این کار تضمین می‌کنه که وقتی به آهنگ بعدی می‌رسیم، صدا از قبل لود شده.
+      // preload به‌صورت غیرمسدودکننده در پس‌زمینه انجام می‌شه.
       _startBackgroundPreload();
 
-      // Ø¨Ø§Ø² Ú©Ø±Ø¯Ù† Player View Ùˆ Singer View Ù…Ø«Ù„ F9
+      // باز کردن Player View و Singer View مثل F9
       if (typeof openLyricOnlyPopup === 'function') openLyricOnlyPopup();
       if (typeof openLyricPopup === 'function') setTimeout(openLyricPopup, 300);
     }
 
-    // Ø¯Ø±Ú¯ Ù¾Ù†Ù„ Ø§Ø¬Ø±Ø§
+    // درگ پنل اجرا
     function _setupPerfPanelDrag(panel) {
       const handle = $('arrPerfDragHandle');
       if (!handle || handle._dragSetup) return;
@@ -5432,8 +5432,8 @@ let syncTapKeyHandler = null;
       arrPerformActive = false;
       perfModeActive = false;
       _arrNextState = null;
-      _bgPreloadActive = false; // ØªÙˆÙ‚Ù background preload
-      _arrWaitPollActive = false; // ØªÙˆÙ‚Ù wait poll
+      _bgPreloadActive = false; // توقف background preload
+      _arrWaitPollActive = false; // توقف wait poll
       arrPreparePending = false; // reset prep flag
       _arrHasLoggedNoNextSong = false; // reset no-next-song log flag
       _arrPrepStartedForIndex = -1;    // reset prep log flag
@@ -5443,13 +5443,13 @@ let syncTapKeyHandler = null;
     }
 
     /**
-     * _startBackgroundPreload â€” preload ØªÙ…Ø§Ù… Ø¢Ù‡Ù†Ú¯â€ŒÙ‡Ø§ÛŒ Ø§Ø±Ù†Ø¬Ø± Ø¯Ø± Ù¾Ø³â€ŒØ²Ù…ÛŒÙ†Ù‡
+     * _startBackgroundPreload — preload تمام آهنگ‌های ارنجر در پس‌زمینه
      *
-     * Ø§ÛŒÙ† ØªØ§Ø¨Ø¹ Ø¨Ù„Ø§ÙØ§ØµÙ„Ù‡ Ø¨Ø¹Ø¯ Ø§Ø² openPerfMode ØµØ¯Ø§ Ø²Ø¯Ù‡ Ù…ÛŒâ€ŒØ´Ù‡ Ùˆ ØªÙ…Ø§Ù… Ø¢Ù‡Ù†Ú¯â€ŒÙ‡Ø§ÛŒ
-     * Ø³Øªâ€ŒÙ„ÛŒØ³Øª Ø±Ùˆ Ø¨Ù‡â€ŒØµÙˆØ±Øª ÛŒÚ©ÛŒâ€ŒÛŒÚ©ÛŒ preload Ù…ÛŒâ€ŒÚ©Ù†Ù‡. Ø§ÛŒÙ† Ú©Ø§Ø± ØªØ¶Ù…ÛŒÙ† Ù…ÛŒâ€ŒÚ©Ù†Ù‡ Ú©Ù‡
-     * ÙˆÙ‚ØªÛŒ Ø¨Ù‡ Ø¢Ù‡Ù†Ú¯ Ø¨Ø¹Ø¯ÛŒ Ù…ÛŒâ€ŒØ±Ø³ÛŒÙ…ØŒ Ø¨Ø§ÙØ± ØµÙˆØªÛŒ Ø§Ø² Ù‚Ø¨Ù„ Ø¯Ø± DAW.bufferCache Ù‡Ø³Øª.
+     * این تابع بلافاصله بعد از openPerfMode صدا زده می‌شه و تمام آهنگ‌های
+     * ست‌لیست رو به‌صورت یکی‌یکی preload می‌کنه. این کار تضمین می‌کنه که
+     * وقتی به آهنگ بعدی می‌رسیم، بافر صوتی از قبل در DAW.bufferCache هست.
      *
-     * Ù…Ù‡Ù…: Ø§ÛŒÙ† ØªØ§Ø¨Ø¹ ØºÛŒØ±Ù…Ø³Ø¯ÙˆØ¯Ú©Ù†Ù†Ø¯Ù‡ Ù‡Ø³Øª Ùˆ Ù†Ø¨Ø§ÛŒØ¯ Ù¾Ø®Ø´ ÙØ¹Ù„ÛŒ Ø±Ùˆ Ù…Ø®ØªÙ„ Ú©Ù†Ù‡.
+     * مهم: این تابع غیرمسدودکننده هست و نباید پخش فعلی رو مختل کنه.
      */
     function _startBackgroundPreload() {
       if (_bgPreloadActive) return;
@@ -5461,11 +5461,11 @@ let syncTapKeyHandler = null;
       const allSongs = edGetAllSongs();
       const songsToPreload = arrPerformData.items
         .map(id => allSongs.find(s => s.id === id))
-        .filter(s => s); // ÙÛŒÙ„ØªØ± null Ù‡Ø§
+        .filter(s => s); // فیلتر null ها
 
       console.log(`[BG Preload] Starting background preload for ${songsToPreload.length} songs`);
 
-      // Ø§Ø¬Ø±Ø§ÛŒ preload Ø¨Ù‡â€ŒØµÙˆØ±Øª Ø²Ù†Ø¬ÛŒØ±Ù‡â€ŒØ§ÛŒ (ÛŒÚ©ÛŒâ€ŒÛŒÚ©ÛŒØŒ Ù†Ù‡ Ù…ÙˆØ§Ø²ÛŒ) Ø¨Ø±Ø§ÛŒ Ø¬Ù„ÙˆÚ¯ÛŒØ±ÛŒ Ø§Ø² overload
+      // اجرای preload به‌صورت زنجیره‌ای (یکی‌یکی، نه موازی) برای جلوگیری از overload
       (async () => {
         for (let i = 0; i < songsToPreload.length; i++) {
           if (!_bgPreloadActive) {
@@ -5476,15 +5476,15 @@ let syncTapKeyHandler = null;
           if (_bgPreloadedSongIds.has(song.id)) continue;
 
           try {
-            // Ø§Ú¯Ù‡ Ø¢Ù‡Ù†Ú¯ ÙØ¹Ù„ÛŒ Ø¯Ø§Ø±Ù‡ Ù¾Ø®Ø´ Ù…ÛŒâ€ŒØ´Ù‡ Ùˆ Ù†Ø²Ø¯ÛŒÚ© Ø§Ù†ØªÙ‡Ø§ Ù‡Ø³ØªØŒ Ø§ÙˆÙ„ÙˆÛŒØª Ø¨Ø§ prepareNextArrSong Ø¨Ø§Ø´Ù‡
-            // Ø§ÛŒÙ†Ø¬Ø§ ÙÙ‚Ø· preload Ù…ÛŒâ€ŒÚ©Ù†ÛŒÙ… Ø§Ú¯Ù‡ bufferCache Ù†Ø¯Ø§Ø´ØªÙ‡ Ø¨Ø§Ø´ÛŒÙ…
+            // اگه آهنگ فعلی داره پخش می‌شه و نزدیک انتها هست، اولویت با prepareNextArrSong باشه
+            // اینجا فقط preload می‌کنیم اگه bufferCache نداشته باشیم
             const hasAudioClips = song._dawClips && song._dawClips.some(c => c.type !== 'chord' && c.bufferKey);
             if (!hasAudioClips) {
               _bgPreloadedSongIds.add(song.id);
               continue;
             }
 
-            // Ú†Ú© Ú©Ù†: Ø¢ÛŒØ§ Ù‡Ù…Ù‡ Ø¨Ø§ÙØ±Ù‡Ø§ Ø§Ø² Ù‚Ø¨Ù„ Ù„ÙˆØ¯ Ø´Ø¯Ù†ØŸ
+            // چک کن: آیا همه بافرها از قبل لود شدن؟
             const allLoaded = song._dawClips.every(c =>
               c.type === 'chord' || !c.bufferKey || DAW.bufferCache.has(c.bufferKey)
             );
@@ -5497,11 +5497,11 @@ let syncTapKeyHandler = null;
             await preloadAudioForSong(song);
             _bgPreloadedSongIds.add(song.id);
 
-            // ÛŒÚ© ÙˆÙ‚ÙÙ‡ Ú©ÙˆØªØ§Ù‡ Ø¨ÛŒÙ† Ù‡Ø± Ø¢Ù‡Ù†Ú¯ Ø¨Ø±Ø§ÛŒ Ø§Ø¬Ø§Ø²Ù‡ Ø¯Ø§Ø¯Ù† Ø¨Ù‡ playback tick
+            // یک وقفه کوتاه بین هر آهنگ برای اجازه دادن به playback tick
             await new Promise(r => setTimeout(r, 50));
           } catch (e) {
             console.warn(`[BG Preload] Error preloading "${song.title}":`, e);
-            _bgPreloadedSongIds.add(song.id); // Ø¹Ù„Ø§Ù…Øªâ€ŒÚ¯Ø°Ø§Ø±ÛŒ Ø¨Ù‡â€ŒØ¹Ù†ÙˆØ§Ù† Ù¾Ø±Ø¯Ø§Ø²Ø´â€ŒØ´Ø¯Ù‡ Ø¨Ø±Ø§ÛŒ Ø¬Ù„ÙˆÚ¯ÛŒØ±ÛŒ Ø§Ø² loop Ø¨ÛŒâ€ŒÙ†Ù‡Ø§ÛŒØª
+            _bgPreloadedSongIds.add(song.id); // علامت‌گذاری به‌عنوان پردازش‌شده برای جلوگیری از loop بی‌نهایت
           }
         }
         console.log('[BG Preload] Complete');
@@ -5519,12 +5519,12 @@ let syncTapKeyHandler = null;
       document.activeElement?.blur();
       if (DAW.isPlaying) {
         pauseTransport();
-        $('perfPlayBtn').textContent = 'â–¶';
+        $('perfPlayBtn').textContent = '▶';
       } else {
         ensureAudioCtx();
         if (DAW.playhead <= 0) seekTransport(0, false);
         startTransport();
-        $('perfPlayBtn').textContent = 'â¸';
+        $('perfPlayBtn').textContent = '⏸';
       }
     }
 
@@ -5533,7 +5533,7 @@ let syncTapKeyHandler = null;
       seekTransport(0, false);
       ensureAudioCtx();
       startTransport();
-      $('perfPlayBtn').textContent = 'â¸';
+      $('perfPlayBtn').textContent = '⏸';
     }
 
     function perfPrevSong() {
@@ -5601,12 +5601,12 @@ let syncTapKeyHandler = null;
       const setting = getArrItemSetting(arr, songId);
 
       $('perfSongNum').textContent = `${arrPerformIdx + 1} / ${arr.items.length}`;
-      $('perfSongTitle').textContent = song ? (song.title || 'Ø¨Ø¯ÙˆÙ† Ù†Ø§Ù…') : 'â€”';
+      $('perfSongTitle').textContent = song ? (song.title || 'بدون نام') : '—';
       $('perfSongArtist').textContent = song ? (song.artist || '') : '';
       const keyName = song?.key || edCur?.key || 'C';
       const keyMode = song?.keyMode || edCur?.keyMode || 'maj';
       const transVal = setting.transpose || 0;
-      $('perfSongKey').innerHTML = `${keyName} ${keyMode === 'maj' ? 'Ù…Ø§Ú˜ÙˆØ±' : 'Ù…ÛŒÙ†ÙˆØ±'} ${transVal ? `<span class="perf-trans">(${transVal > 0 ? '+' : ''}${transVal})</span>` : ''}`;
+      $('perfSongKey').innerHTML = `${keyName} ${keyMode === 'maj' ? 'ماژور' : 'مینور'} ${transVal ? `<span class="perf-trans">(${transVal > 0 ? '+' : ''}${transVal})</span>` : ''}`;
       $('perfTransVal').textContent = transVal > 0 ? '+' + transVal : String(transVal);
       if ($('perfTempoVal')) $('perfTempoVal').textContent = edCur?.tempo || 120;
 
@@ -5623,7 +5623,7 @@ let syncTapKeyHandler = null;
         const div = document.createElement('div');
         div.className = 'arr-perf-setlist-item' + (i === arrPerformIdx ? ' pf-current' : '') + (i === arrPerformIdx + 1 ? ' pf-next' : '') + (i < arrPerformIdx ? ' pf-done' : '');
         div.draggable = true;
-        div.innerHTML = `<span class="pf-num">${i + 1}</span><span class="pf-name">${s ? (s.title || 'Ø¨Ø¯ÙˆÙ† Ù†Ø§Ù…') : 'â€”'}</span><span class="pf-key">${s?.key || 'â€”'}${st.transpose ? (st.transpose > 0 ? '+' : '') + st.transpose : ''}</span>`;
+        div.innerHTML = `<span class="pf-num">${i + 1}</span><span class="pf-name">${s ? (s.title || 'بدون نام') : '—'}</span><span class="pf-key">${s?.key || '—'}${st.transpose ? (st.transpose > 0 ? '+' : '') + st.transpose : ''}</span>`;
         
         // Click to jump
         div.onclick = () => perfJumpToSong(i);
@@ -5721,7 +5721,7 @@ let syncTapKeyHandler = null;
       // Render section navigation buttons
       const secNav = $('perfSectionNav');
       secNav.innerHTML = '';
-      const sections = ['Ù…Ù‚Ø¯Ù…Ù‡', 'ÙˆØ±Ø³', 'Ú©ÙˆØ±Ø³', 'Ø¨Ø±ÛŒØ¬', 'Ø¢ÙˆØªØ±Ùˆ'];
+      const sections = ['مقدمه', 'ورس', 'کورس', 'بریج', 'آوترو'];
       const sectionTimes = [0]; // at least start
       if (DAW.sections && DAW.sections.length) {
         DAW.sections.forEach(s => sectionTimes.push(s.start));
@@ -5735,7 +5735,7 @@ let syncTapKeyHandler = null;
           btn.onclick = () => {
             if (i < sectionTimes.length) {
               seekTransport(sectionTimes[i], false);
-              if (!DAW.isPlaying) { ensureAudioCtx(); startTransport(); $('perfPlayBtn').textContent = 'â¸'; }
+              if (!DAW.isPlaying) { ensureAudioCtx(); startTransport(); $('perfPlayBtn').textContent = '⏸'; }
             }
           };
           secNav.appendChild(btn);
@@ -5778,19 +5778,19 @@ let syncTapKeyHandler = null;
     }
 
     // Pre-build the next song's full DAW state while current plays
-    // Ø§ÛŒÙ† ØªØ§Ø¨Ø¹ Ø­Ø§Ù„Ø§ Ø¨Ø§ try/catch/finally Ú©Ø§Ù…Ù„ Ù†ÙˆØ´ØªÙ‡ Ø´Ø¯Ù‡ ØªØ§ arrPreparePending
-    // Ù‡Ø±Ú¯Ø² Ú¯ÛŒØ± Ù†Ú©Ù†Ù‡. Ø§Ú¯Ù‡ Ø®Ø·Ø§ÛŒÛŒ Ø±Ø® Ø¨Ø¯Ù‡ØŒ retry Ù…ÛŒâ€ŒÚ©Ù†Ù‡.
+    // این تابع حالا با try/catch/finally کامل نوشته شده تا arrPreparePending
+    // هرگز گیر نکنه. اگه خطایی رخ بده، retry می‌کنه.
     async function prepareNextArrSong(retryCount = 0) {
       const arr = arrPerformData || editingArr;
       const nextIdx = arrPerformIdx + 1;
 
-      // Ø§Ú¯Ø± Ø¢Ù‡Ù†Ú¯ Ø¨Ø¹Ø¯ÛŒ ÙˆØ¬ÙˆØ¯ Ù†Ø¯Ø§Ø±Ù‡ØŒ _arrNextState Ø±Ùˆ null Ú©Ù†
+      // اگر آهنگ بعدی وجود نداره، _arrNextState رو null کن
       if (!arr || nextIdx >= arr.items.length) {
         _arrNextState = null;
-        // ÙÙ‚Ø· ÛŒÚ©â€ŒØ¨Ø§Ø± Ù„Ø§Ú¯ Ø¨Ø²Ù†
+        // فقط یک‌بار لاگ بزن
         if (!_arrHasLoggedNoNextSong) {
           _arrHasLoggedNoNextSong = true;
-          console.log('[Arranger Prep] No more songs â€” _arrNextState cleared');
+          console.log('[Arranger Prep] No more songs — _arrNextState cleared');
         }
         return;
       }
@@ -5809,12 +5809,12 @@ let syncTapKeyHandler = null;
         const defaults = { tSize:23,tColor:'#0fa966',tFont:'Vazirmatn',tBold:true,align:'center',cSize:23,cColor:'#e6aa28',cFont:'JetBrains Mono' };
         Object.keys(defaults).forEach(k => { if (songData.styles[k] === undefined) songData.styles[k] = defaults[k]; });
 
-        // â”€â”€â”€ Pre-load Ú©Ø§Ù…Ù„ ØµØ¯Ø§ Ø¨Ø±Ø§ÛŒ Ø¢Ù‡Ù†Ú¯ Ø¨Ø¹Ø¯ÛŒ â”€â”€â”€
+        // ─── Pre-load کامل صدا برای آهنگ بعدی ───
         const preloadResult = await preloadAudioForSong(songData);
         if (preloadResult.missing > 0) {
           console.warn(`[Arranger Prep] ${preloadResult.missing} audio clip(s) missing for "${songData.title}":`, preloadResult.missingNames);
         } else {
-          console.log(`[Arranger Prep] âœ“ Audio ready for "${songData.title}" (loaded: ${preloadResult.loaded})`);
+          console.log(`[Arranger Prep] ✓ Audio ready for "${songData.title}" (loaded: ${preloadResult.loaded})`);
         }
 
         const tracks = songData._dawTracks ? JSON.parse(JSON.stringify(songData._dawTracks)) : [];
@@ -5826,7 +5826,7 @@ let syncTapKeyHandler = null;
         const loopState = songData._dawLoop ? { loopEnabled: !!songData._dawLoop.loopEnabled, loopA: songData._dawLoop.loopA || 0, loopB: songData._dawLoop.loopB || 10 } : { loopEnabled: false, loopA: 0, loopB: 10 };
         const selEnd = (loopState.loopA < loopState.loopB) ? loopState.loopB : 0;
 
-        // Ø¢Ù¾Ø¯ÛŒØª sourceDuration Ùˆ peaks Ø¨Ø±Ø§ÛŒ Ú©Ù„ÛŒÙ¾â€ŒÙ‡Ø§ÛŒ Ú©Ù‡ Ù„ÙˆØ¯ Ø´Ø¯Ù†
+        // آپدیت sourceDuration و peaks برای کلیپ‌های که لود شدن
         clips.forEach(c => { if (c.type !== 'chord' && c.bufferKey && DAW.bufferCache.has(c.bufferKey)) { const buffer = DAW.bufferCache.get(c.bufferKey); c.sourceDuration = buffer.duration; c._peaks = peaksFromBuffer(buffer, 2000); } });
 
         // Apply per-song transpose to tracks
@@ -5836,22 +5836,22 @@ let syncTapKeyHandler = null;
         }
 
         _arrNextState = { song: songData, idx: nextIdx, clips, sections, tracks, edCur: songData, selectionEnd: selEnd, loopState };
-        console.log(`[Arranger Prep] âœ“ _arrNextState ready for song ${nextIdx + 1}: "${songData.title}"`);
+        console.log(`[Arranger Prep] ✓ _arrNextState ready for song ${nextIdx + 1}: "${songData.title}"`);
         
-        // â”€â”€â”€ ØªØ£ÛŒÛŒØ¯ Ù†Ù‡Ø§ÛŒÛŒ: Ù…Ø·Ù…Ø¦Ù† Ø´Ùˆ Ù‡Ù…Ù‡ Ø¨Ø§ÙØ±Ù‡Ø§ÛŒ Ù…ÙˆØ±Ø¯ Ù†ÛŒØ§Ø² ÙˆØ§Ù‚Ø¹Ø§Ù‹ Ù„ÙˆØ¯ Ø´Ø¯Ù† â”€â”€â”€
+        // ─── تأیید نهایی: مطمئن شو همه بافرهای مورد نیاز واقعاً لود شدن ───
         const audioClipsInNext = clips.filter(c => c.type !== 'chord' && c.bufferKey);
         const missingBuffers = audioClipsInNext.filter(c => !DAW.bufferCache.has(c.bufferKey));
         if (missingBuffers.length > 0) {
-          console.warn(`[Arranger Prep] âš  ${missingBuffers.length} buffer(s) still missing after prep:`, missingBuffers.map(c => c.fileName || c.bufferKey));
-          // ØªÙ„Ø§Ø´ Ù…Ø¬Ø¯Ø¯ Ø¨Ø±Ø§ÛŒ Ù„ÙˆØ¯ Ø¨Ø§ÙØ±Ù‡Ø§ÛŒ Ú¯Ù…Ø´Ø¯Ù‡
+          console.warn(`[Arranger Prep] ⚠ ${missingBuffers.length} buffer(s) still missing after prep:`, missingBuffers.map(c => c.fileName || c.bufferKey));
+          // تلاش مجدد برای لود بافرهای گمشده
           await restoreAudioForProjectSilently(songData.id, true);
-          console.log(`[Arranger Prep] âœ“ Retry complete - buffers rechecked`);
+          console.log(`[Arranger Prep] ✓ Retry complete - buffers rechecked`);
         }
       } catch (e) {
         console.error(`[Arranger Prep] Error preparing song ${nextIdx + 1} (retry ${retryCount}):`, e);
         _arrNextState = null;
 
-        // Retry mechanism: Ø­Ø¯Ø§Ú©Ø«Ø± Û² Ø¨Ø§Ø± Ø¨Ø§ ÙˆÙ‚ÙÙ‡ Û± Ø«Ø§Ù†ÛŒÙ‡
+        // Retry mechanism: حداکثر ۲ بار با وقفه ۱ ثانیه
         if (retryCount < 2 && arrPerformActive) {
           console.log(`[Arranger Prep] Retrying in 1s... (attempt ${retryCount + 1}/2)`);
           await new Promise(r => setTimeout(r, 1000));
@@ -5862,16 +5862,16 @@ let syncTapKeyHandler = null;
       }
     }
 
-    // Crossfade between songs â€” Ù†Ø³Ø®Ù‡ Ø¨Ù‡Ø¨ÙˆØ¯ÛŒØ§ÙØªÙ‡ Ø¨Ø§ overlap ÙˆØ§Ù‚Ø¹ÛŒ
+    // Crossfade between songs — نسخه بهبودیافته با overlap واقعی
     //
-    // Ø§Ø³ØªØ±Ø§ØªÚ˜ÛŒ:
-    //   1. ØµØ¯Ø§ÛŒ Ø¢Ù‡Ù†Ú¯ ÙØ¹Ù„ÛŒ Ø±Ùˆ Ø§Ø² Ø·Ø±ÛŒÙ‚ masterGain fade-out Ù…ÛŒâ€ŒÚ©Ù†ÛŒÙ…
-    //   2. Ù‡Ù…Ø²Ù…Ø§Ù† hot-swap Ù…ÛŒâ€ŒÚ©Ù†ÛŒÙ… Ùˆ Ø¢Ù‡Ù†Ú¯ Ø¬Ø¯ÛŒØ¯ Ø±Ùˆ schedule Ù…ÛŒâ€ŒÚ©Ù†ÛŒÙ…
-    //   3. masterGain Ø±Ùˆ fade-in Ù…ÛŒâ€ŒÚ©Ù†ÛŒÙ…
+    // استراتژی:
+    //   1. صدای آهنگ فعلی رو از طریق masterGain fade-out می‌کنیم
+    //   2. همزمان hot-swap می‌کنیم و آهنگ جدید رو schedule می‌کنیم
+    //   3. masterGain رو fade-in می‌کنیم
     //
-    // Ø§ÛŒÙ† Ø±ÙˆØ´ ÛŒÚ© "gapless crossfade" Ø§ÛŒØ¬Ø§Ø¯ Ù…ÛŒâ€ŒÚ©Ù†Ù‡: Ø¯Ø± Ø·ÙˆÙ„ fadeTimeØŒ
-    // ØµØ¯Ø§ÛŒ Ù‚Ø¯ÛŒÙ…ÛŒ fade-out Ùˆ ØµØ¯Ø§ÛŒ Ø¬Ø¯ÛŒØ¯ fade-in Ù…ÛŒâ€ŒØ´Ù‡. Ø¯Ø± Ù†Ù‚Ø·Ù‡ Ù…ÛŒØ§Ù†ÛŒØŒ
-    // Ù‡Ø± Ø¯Ùˆ Ø¢Ù‡Ù†Ú¯ Ø¯Ø± Ø­Ø§Ù„ Ù¾Ø®Ø´ Ù‡Ø³ØªÙ† (overlap).
+    // این روش یک "gapless crossfade" ایجاد می‌کنه: در طول fadeTime،
+    // صدای قدیمی fade-out و صدای جدید fade-in می‌شه. در نقطه میانی،
+    // هر دو آهنگ در حال پخش هستن (overlap).
     function arrCrossfadeSwap() {
       const crossfadeDur = arrPerformData?.crossfade || 0;
       if (crossfadeDur <= 0 || !_arrNextState) { hotSwapToNextSong(); return; }
@@ -5881,27 +5881,27 @@ let syncTapKeyHandler = null;
       const ctx = DAW.audioCtx;
       const curGain = DAW.masterGain;
       const now = ctx.currentTime;
-      const fadeTime = Math.min(Math.max(crossfadeDur, 0.5), 5); // Ø¨ÛŒÙ† 0.5 ØªØ§ 5 Ø«Ø§Ù†ÛŒÙ‡
+      const fadeTime = Math.min(Math.max(crossfadeDur, 0.5), 5); // بین 0.5 تا 5 ثانیه
 
       console.log(`[Arranger Crossfade] Starting ${fadeTime}s crossfade`);
 
-      // â”€â”€â”€ Ù…Ø±Ø­Ù„Ù‡ 1: fade-out ØµØ¯Ø§ÛŒ ÙØ¹Ù„ÛŒ â”€â”€â”€
+      // ─── مرحله 1: fade-out صدای فعلی ───
       const currentVolume = curGain.gain.value;
       curGain.gain.cancelScheduledValues(now);
       curGain.gain.setValueAtTime(currentVolume, now);
       curGain.gain.linearRampToValueAtTime(0, now + fadeTime * 0.5);
 
-      // â”€â”€â”€ Ù…Ø±Ø­Ù„Ù‡ 2: Ø¯Ø± Ù†ÛŒÙ…Ù‡ Ø±Ø§Ù‡ØŒ hot-swap Ú©Ù† â”€â”€â”€
-      // Ø¯Ø± Ø§ÛŒÙ† Ù†Ù‚Ø·Ù‡ØŒ masterGain ØµÙØ± Ù‡Ø³ØªØŒ Ù¾Ø³ swap Ø¨ÛŒâ€ŒØµØ¯Ø§ Ø§Ù†Ø¬Ø§Ù… Ù…ÛŒâ€ŒØ´Ù‡
+      // ─── مرحله 2: در نیمه راه، hot-swap کن ───
+      // در این نقطه، masterGain صفر هست، پس swap بی‌صدا انجام می‌شه
       setTimeout(() => {
         try {
-          // Ù‚Ø¨Ù„ Ø§Ø² swapØŒ ØµØ¯Ø§ÛŒ ÙØ¹Ù„ÛŒ Ø±Ùˆ Ú©Ø§Ù…Ù„ Ù‚Ø·Ø¹ Ú©Ù†
+          // قبل از swap، صدای فعلی رو کامل قطع کن
           stopAllVoices();
 
-          // hot-swap Ø¨Ù‡ Ø¢Ù‡Ù†Ú¯ Ø¬Ø¯ÛŒØ¯
+          // hot-swap به آهنگ جدید
           hotSwapToNextSong();
 
-          // Ø­Ø§Ù„Ø§ masterGain Ø±Ùˆ Ø§Ø² 0 Ø¨Ù‡ 1 fade-in Ú©Ù†
+          // حالا masterGain رو از 0 به 1 fade-in کن
           const fadeInNow = ctx.currentTime;
           curGain.gain.cancelScheduledValues(fadeInNow);
           curGain.gain.setValueAtTime(0, fadeInNow);
@@ -5913,5 +5913,5 @@ let syncTapKeyHandler = null;
         } finally {
           _arrIsCrossfading = false;
         }
-      }, fadeTime * 500); // Ù†ØµÙ fadeTime Ø¨Ù‡ Ù…ÛŒÙ„ÛŒâ€ŒØ«Ø§Ù†ÛŒÙ‡
+      }, fadeTime * 500); // نصف fadeTime به میلی‌ثانیه
     }

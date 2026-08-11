@@ -149,13 +149,13 @@ function renderQuickSearchList(songs, container) {
   if (!container) return;
   
   if (songs.length === 0) {
-    container.innerHTML = '<div class="qsp-empty">ØªØ±Ø§Ù†Ù‡â€ŒØ§ÛŒ ÛŒØ§ÙØª Ù†Ø´Ø¯</div>';
+    container.innerHTML = '<div class="qsp-empty">ترانه‌ای یافت نشد</div>';
     return;
   }
   
   container.innerHTML = songs.map(s => `
     <button class="qsp-item" data-song-id="${s.id}" onclick="quickSearchLoadSong('${s.id}')">
-      <div class="qsp-item-title">${escapeHtml(s.title || 'Ø¨Ø¯ÙˆÙ† Ù†Ø§Ù…')}</div>
+      <div class="qsp-item-title">${escapeHtml(s.title || 'بدون نام')}</div>
       <div class="qsp-item-artist">${escapeHtml(s.artist || '')}</div>
     </button>
   `).join('');
@@ -166,7 +166,7 @@ function quickSearchLoadSong(id) {
   const songs = edGetAllSongs();
   const s = songs.find(x => String(x.id) === String(id));
   if (!s || s.deletedAt) {
-    toast('ØªØ±Ø§Ù†Ù‡ ÛŒØ§ÙØª Ù†Ø´Ø¯');
+    toast('ترانه یافت نشد');
     return;
   }
   

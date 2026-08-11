@@ -1,19 +1,19 @@
 ﻿// ==========================================
-// PART: Print Song (Ú†Ø§Ù¾ Ø¯Ù‚ÛŒÙ‚ Ø¨Ø§ Ø¢Ú©ÙˆØ±Ø¯Ù‡Ø§)
+// PART: Print Song (چاپ دقیق با آکوردها)
 // ==========================================
 /**
- * printSong â€” Ú†Ø§Ù¾ ØªØ±Ø§Ù†Ù‡ Ø¨Ø§ Ø¢Ú©ÙˆØ±Ø¯Ù‡Ø§ Ø¯Ù‚ÛŒÙ‚Ø§Ù‹ Ø¯Ø± Ù‡Ù…Ø§Ù† Ø¬Ø§ÛŒÚ¯Ø§Ù‡ Ø§Ø¯ÛŒØªÙˆØ±
+ * printSong — چاپ ترانه با آکوردها دقیقاً در همان جایگاه ادیتور
  *
- * Ø±ÙˆØ´ Ú©Ø§Ø±:
- * 1. ÛŒÚ© iframe Ù…Ø®ÙÛŒ Ø³Ø§Ø®ØªÙ‡ Ù…ÛŒâ€ŒØ´ÙˆØ¯
- * 2. Ù…ØªÙ† ØªØ±Ø§Ù†Ù‡ Ø¨Ø§ Ù‡Ù…Ø§Ù† Ø§Ø³ØªØ§ÛŒÙ„â€ŒÙ‡Ø§ÛŒ Ø§Ø¯ÛŒØªÙˆØ± (ÙÙˆÙ†ØªØŒ Ø§Ù†Ø¯Ø§Ø²Ù‡ØŒ Ø±Ù†Ú¯ØŒ ØªØ±Ø§Ø²) Ø¯Ø§Ø®Ù„ iframe Ø±Ù†Ø¯Ø± Ù…ÛŒâ€ŒØ´ÙˆØ¯
- * 3. Ø¢Ú©ÙˆØ±Ø¯Ù‡Ø§ Ø¨Ø§ Ù‡Ù…Ø§Ù† Ø§Ù„Ú¯ÙˆØ±ÛŒØªÙ… Ù…ÙˆÙ‚Ø¹ÛŒØªâ€ŒÛŒØ§Ø¨ÛŒ (anchorRectIn) ÙˆÙ„ÛŒ Ø¯Ø§Ø®Ù„ Ø®ÙˆØ¯ iframe
- *    Ø±Ù†Ø¯Ø± Ù…ÛŒâ€ŒØ´ÙˆÙ†Ø¯ ØªØ§ Ù…Ø®ØªØµØ§Øª Ø¯Ù‚ÛŒÙ‚Ø§Ù‹ Ø¨Ø§ Ú†Ø§Ù¾ Ù‡Ù…Ø§Ù‡Ù†Ú¯ Ø¨Ø§Ø´Ø¯
- * 4. iframe.contentWindow.print() ÙØ±Ø§Ø®ÙˆØ§Ù†ÛŒ Ù…ÛŒâ€ŒØ´ÙˆØ¯ Ùˆ iframe Ø¨Ø¹Ø¯ Ø§Ø² Ú†Ø§Ù¾ Ø­Ø°Ù Ù…ÛŒâ€ŒØ´ÙˆØ¯
+ * روش کار:
+ * 1. یک iframe مخفی ساخته می‌شود
+ * 2. متن ترانه با همان استایل‌های ادیتور (فونت، اندازه، رنگ، تراز) داخل iframe رندر می‌شود
+ * 3. آکوردها با همان الگوریتم موقعیت‌یابی (anchorRectIn) ولی داخل خود iframe
+ *    رندر می‌شوند تا مختصات دقیقاً با چاپ هماهنگ باشد
+ * 4. iframe.contentWindow.print() فراخوانی می‌شود و iframe بعد از چاپ حذف می‌شود
  */
 function printSong() {
   const song = window.EdCurAdapter?.getEdCur?.() || null;
-  if (!song) { toast('Ø§Ø¨ØªØ¯Ø§ ÛŒÚ© ØªØ±Ø§Ù†Ù‡ Ø¨Ø§Ø² Ú©Ù†ÛŒØ¯'); return; }
+  if (!song) { toast('ابتدا یک ترانه باز کنید'); return; }
   if (printSong._active) return;
   printSong._active = true;
 
@@ -22,17 +22,17 @@ function printSong() {
     const chordLayerEl = $('chordLayer');
     const editorWrapEl = $('editorWrap');
     if (!editorEl || !chordLayerEl || !editorWrapEl) {
-      toast('Ø®Ø·Ø§ Ø¯Ø± Ø¯Ø³ØªØ±Ø³ÛŒ Ø¨Ù‡ Ø§Ø¯ÛŒØªÙˆØ±');
+      toast('خطا در دسترسی به ادیتور');
       printSong._active = false;
       return;
     }
 
-    // â”€â”€â”€ Ø³Ø§Ø®Øª Ú©Ø§Ù†ØªÛŒÙ†Ø± Ú†Ø§Ù¾ â”€â”€â”€
+    // ─── ساخت کانتینر چاپ ───
     let pc = document.getElementById('printContainer');
     if (!pc) { pc = document.createElement('div'); pc.id = 'printContainer'; document.body.appendChild(pc); }
     pc.innerHTML = '';
 
-    // â”€â”€â”€ Ù‡Ø¯Ø± Ú†Ø§Ù¾ â”€â”€â”€
+    // ─── هدر چاپ ───
     const st = song.styles || {};
     const hdr = document.createElement('div'); hdr.className = 'print-header';
     const ttl = document.createElement('div'); ttl.className = 'title';
@@ -41,18 +41,18 @@ function printSong() {
     const ks = dk + (song.keyMode === 'min' ? 'm' : '');
     const sp = [];
     if (song.artist) sp.push(song.artist);
-    if (song.key) sp.push((currentLang === 'fa' ? 'Ú¯Ø§Ù…: ' : 'Key: ') + ks);
-    if (song.transpose) sp.push((currentLang === 'fa' ? 'ØªØ±Ù†Ø³Ù¾ÙˆØ² ' : 'Transpose ') + (song.transpose > 0 ? '+' : '') + song.transpose);
+    if (song.key) sp.push((currentLang === 'fa' ? 'گام: ' : 'Key: ') + ks);
+    if (song.transpose) sp.push((currentLang === 'fa' ? 'ترنسپوز ' : 'Transpose ') + (song.transpose > 0 ? '+' : '') + song.transpose);
     ttl.textContent = song.title || t('untitled');
-    sub.textContent = sp.join('  â€¢  ');
+    sub.textContent = sp.join('  •  ');
     hdr.appendChild(ttl); hdr.appendChild(sub);
     pc.appendChild(hdr);
 
-    // â”€â”€â”€ Ú©Ù„ÙˆÙ† Ù…Ø­ØªÙˆØ§ÛŒ Ø§Ø¯ÛŒØªÙˆØ± (Ù…ØªÙ† + Ù„Ø§ÛŒÙ‡ Ø¢Ú©ÙˆØ±Ø¯) â”€â”€â”€
+    // ─── کلون محتوای ادیتور (متن + لایه آکورد) ───
     const wrap = document.createElement('div'); wrap.id = 'printWrap';
     const wrapW = editorWrapEl.offsetWidth;
 
-    // Ú©Ù„ÙˆÙ† Ù…ØªÙ†
+    // کلون متن
     const lyrics = editorEl.cloneNode(true);
     lyrics.id = 'lyricContent';
     lyrics.removeAttribute('contenteditable');
@@ -65,7 +65,7 @@ function printSong() {
       'font-weight:' + (st.tBold ? 'bold' : 'normal') + ';' +
       'text-align:' + (st.align || 'center') + ';';
     lyrics.style.unicodeBidi = 'plaintext';
-    // Ø§Ø¹Ù…Ø§Ù„ Ø±Ù†Ú¯ Ø®Ø·ÙˆØ·
+    // اعمال رنگ خطوط
     const lc = song.lineColors || [];
     Array.from(lyrics.children).forEach(function(c, i) {
       if (lc[i]) c.style.color = lc[i];
@@ -79,11 +79,11 @@ function printSong() {
     wrap.appendChild(lyrics);
     pc.appendChild(wrap);
 
-    // Ø§ÛŒØ¬Ø§Ø¯ Ù„Ø§ÛŒÙ‡ Ø¢Ú©ÙˆØ±Ø¯Ù‡Ø§ ØªØ§Ø²Ù‡ Ø¨Ø§ Ù…Ø­Ø§Ø³Ø¨Ù‡ Ù…ÙˆÙ‚Ø¹ÛŒØª Ø§Ø² Ø±ÙˆÛŒ Ù…ØªÙ† Ú©Ù„ÙˆÙ†â€ŒØ´Ø¯Ù‡ (Ø¨Ø¯ÙˆÙ† offset Ø§Ø³Ú©Ø±ÙˆÙ„)
+    // ایجاد لایه آکوردها تازه با محاسبه موقعیت از روی متن کلون‌شده (بدون offset اسکرول)
     const chordOverlay = document.createElement('div');
     chordOverlay.id = 'chordOverlay';
     chordOverlay.style.cssText = 'position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none;z-index:10;overflow:visible!important;';
-    wrap.appendChild(chordOverlay); // Ø¨Ø§ÛŒØ¯ Ù‚Ø¨Ù„ Ø§Ø² Ø³Ø§Ø®Øª Ø¢Ú©ÙˆØ±Ø¯Ù‡Ø§ Ø¯Ø± DOM Ø¨Ø§Ø´Ø¯ ØªØ§ offsetWidth Ú©Ø§Ø± Ú©Ù†Ø¯
+    wrap.appendChild(chordOverlay); // باید قبل از ساخت آکوردها در DOM باشد تا offsetWidth کار کند
 
     const cColor = st.cColor || '#e6aa28';
     const isRTL = window.getComputedStyle(lyrics).direction === 'rtl';
@@ -96,7 +96,7 @@ function printSong() {
       if (!lineEl) return;
 
       try {
-      // ÛŒØ§ÙØªÙ† Ù…ÙˆÙ‚Ø¹ÛŒØª Ú©Ø§Ø±Ø§Ú©ØªØ± Ø¨Ø§ Range API (Ù‡Ù…Ø§Ù† Ø§Ù„Ú¯ÙˆØ±ÛŒØªÙ… anchorRectIn)
+      // یافتن موقعیت کاراکتر با Range API (همان الگوریتم anchorRectIn)
       const segs = [];
       let total = 0, node;
       const walker = document.createTreeWalker(lineEl, NodeFilter.SHOW_TEXT);
@@ -137,7 +137,7 @@ function printSong() {
       }
     });
 
-    // â”€â”€â”€ Ú†Ø§Ù¾ â”€â”€â”€
+    // ─── چاپ ───
     const doPrint = function() {
       try {
         if (isElectron && window.electronAPI && window.electronAPI.printHtml) {
@@ -156,9 +156,9 @@ function printSong() {
             + '.chord-anchor-line,.chord-print-anchor{position:absolute;opacity:0.4;-webkit-print-color-adjust:exact;print-color-adjust:exact;}\n'
             + '@media print{body{padding:0;}}\n</style>\n</head>\n<body>\n' + pc.innerHTML + '\n</body>\n</html>';
           window.electronAPI.printHtml(html).then(function(res) {
-            if (!res || !res.success) { console.error('[Print] Error:', res); toast('Ø®Ø·Ø§ Ø¯Ø± Ú†Ø§Ù¾'); }
+            if (!res || !res.success) { console.error('[Print] Error:', res); toast('خطا در چاپ'); }
           }).catch(function(err) {
-            console.error('[Print] Error:', err); toast('Ø®Ø·Ø§ Ø¯Ø± Ú†Ø§Ù¾');
+            console.error('[Print] Error:', err); toast('خطا در چاپ');
           }).finally(function() {
             if (pc && pc.parentNode) pc.parentNode.removeChild(pc);
             printSong._active = false;
@@ -174,18 +174,18 @@ function printSong() {
         }
       } catch (e) {
         console.error('[Print] Error:', e);
-        toast('Ø®Ø·Ø§ Ø¯Ø± Ú†Ø§Ù¾');
+        toast('خطا در چاپ');
         if (pc && pc.parentNode) pc.parentNode.removeChild(pc);
         printSong._active = false;
       }
     };
 
-    // Ú©Ù…ÛŒ ØªØ£Ø®ÛŒØ± Ø¨Ø±Ø§ÛŒ Ø§Ø·Ù…ÛŒÙ†Ø§Ù† Ø§Ø² Ú©Ù„ÙˆÙ† Ú©Ø§Ù…Ù„
+    // کمی تأخیر برای اطمینان از کلون کامل
     setTimeout(doPrint, 150);
 
   } catch (e) {
     console.error('[Print] Error building content:', e);
-    toast('Ø®Ø·Ø§ Ø¯Ø± Ø¢Ù…Ø§Ø¯Ù‡â€ŒØ³Ø§Ø²ÛŒ Ú†Ø§Ù¾');
+    toast('خطا در آماده‌سازی چاپ');
     const px = document.getElementById('printContainer');
     if (px && px.parentNode) px.parentNode.removeChild(px);
     printSong._active = false;
