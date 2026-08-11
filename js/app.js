@@ -2080,10 +2080,10 @@ function undo() {
       edSaveSong
     });
 
-    function copySelected() { return clipboardService.copySelected(); }
-    function cutSelected() { return clipboardService.cutSelected(); }
-    function pasteClipboard() { return clipboardService.pasteClipboard(); }
-    function duplicateSelected() { return clipboardService.duplicateSelected(); }
+    function copySelected() { clipboardService.copySelected(); }
+    function cutSelected() { clipboardService.cutSelected(); }
+    function pasteClipboard() { clipboardService.pasteClipboard(); }
+    function duplicateSelected() { clipboardService.duplicateSelected(); }
     function splitClipAt(clip, atTime) {
       const t = roundMs(atTime); if (t <= clip.start + 0.01 || t >= clip.start + clip.duration - 0.01) return null;
       const leftDur = roundMs(t - clip.start); const rightDur = roundMs(clip.duration - leftDur);

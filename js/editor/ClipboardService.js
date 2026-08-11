@@ -1,84 +1,101 @@
-/* js/editor/ClipboardService.js */
+/**
+ * ClipboardService.js
+ * منطق کپی، برش، چسباندن و تکثیر کلیپ‌ها.
+ * استخراج شده از app.js جهت کاهش خطوط و سازماندهی کد.
+ */
 class ClipboardService {
-  constructor(deps) {
-    Object.assign(this, deps);
-  }
+    constructor(deps) {
+        this.deps = deps;
+    }
 
-  copySelected() {
-    const sels = this.selectedClips();
-    if (!sels.length) {
-      this.toast(this.t('nothingSelected'));
-      return;
-    }
-    const minStart = Math.min(...sels.map(c => c.start));
-    this.DAW.clipboard = sels.map(c => {
-      const cp = { ...c };
-      delete cp._peaks;
-      delete cp.waveUrl;
-      cp.relStart = c.start - minStart;
-      return cp;
-    });
-    this.toast(this.DAW.clipboard.length + ' ' + this.t('clipsCopied'));
-  }
+    get d() { return this.deps; }
 
-  cutSelected() {
-    this.copySelected();
-    if (this.DAW.clipboard.length) {
-      this.deleteSelected();
-      this.toast(this.t('cutDone'));
-    }
-  }
+    copySelected() {
+        const sels = this.d.selectedClips();
+        if (!sels.length) {
+            this.d.toast(this.d.t('nothingSelected'));
+            return;
+        }
 
-  pasteClipboard() {
-    if (!this.DAW.clipboard.length) {
-      this.toast(this.t('clipboardEmpty'));
-      return;
-    }
-    const base = this.DAW.playhead;
-    const newIds = [];
-    for (const src of this.DAW.clipboard) {
-      const clip = { ...src, id: this.uid('c'), start: this.roundMs(base + (src.relStart || 0)) };
-      if (clip.type === 'audio') {
-        if (!this.DAW.bufferCache.has(clip.bufferKey)) continue;
-        clip._peaks = this.peaksFromBuffer(this.DAW.bufferCache.get(clip.bufferKey), 2000);
-        this.refreshClipWaveImage(clip);
-      }
-      this.DAW.clips.push(clip);
-      newIds.push(clip.id);
-      this.ensureTimelineFits(clip.start + clip.duration + 5);
-    }
-    this.DAW.selectedIds = new Set(newIds);
-    this.saveState();
-    this.renderAll();
-    if (this.DAW.isPlaying) this.scheduleAllFromPlayhead();
-    this.toast(this.t('pastedAtPlayhead'));
-    this.edSaveSong();
-  }
+        const minStart = Math.min(...sels.map(c => c.start));
+        this.d.DAW.clipboard = sels.map(c => {
+            const cp = { ...c };
+            delete cp._peaks;
+            delete cp.waveUrl;
+            cp.relStart = c.start - minStart;
+            return cp;
+        });
 
-  duplicateSelected() {
-    const sels = this.selectedClips();
-    if (!sels.length) {
-      this.toast(this.t('nothingSelected'));
-      return;
+        this.d.toast(`${this.d.DAW.clipboard.length} ${this.d.t('clipsCopied')}`);
     }
-    const newIds = [];
-    sels.forEach(src => {
-      const clip = { ...src, id: this.uid('c'), start: this.roundMs(src.start + src.duration) };
-      if (clip.type === 'audio') {
-        if (!this.DAW.bufferCache.has(clip.bufferKey)) return;
-        clip._peaks = this.peaksFromBuffer(this.DAW.bufferCache.get(clip.bufferKey), 2000);
-        this.refreshClipWaveImage(clip);
-      }
-      this.DAW.clips.push(clip);
-      newIds.push(clip.id);
-      this.ensureTimelineFits(clip.start + clip.duration + 5);
-    });
-    this.DAW.selectedIds = new Set(newIds);
-    this.saveState();
-    this.renderAll();
-    if (this.DAW.isPlaying) this.scheduleAllFromPlayhead();
-    this.toast(newIds.length + ' \u06a9\u0644\u06cc\u067e \u06a9\u067e\u06cc \u0634\u062f');
-    this.edSaveSong();
-  }
+
+    cutSelected() {
+        this.copySelected();
+        if (this.d.DAW.clipboard && this.d.DAW.clipboard.length) {
+            this.d.deleteSelected();
+            this.d.toast(this.d.t('cutDone'));
+        }
+    }
+
+    pasteClipboard() {
+        if (!this.d.DAW.clipboard || !this.d.DAW.clipboard.length) return;
+
+        const newClips = this.d.DAW.clipboard.map(item => {
+            const start = this.d.roundMs(this.d.DAW.playhead + item.relStart);
+            const newClip = {
+                ...item,
+                id: this.d.uid(),
+                start: start
+            };
+            delete newClip.relStart;
+
+            if (this.d.DAW.bufferCache[newClip.bufferId]) {
+                newClip._peaks = this.d.peaksFromBuffer(this.d.DAW.bufferCache[newClip.bufferId]);
+                newClip.waveUrl = this.d.refreshClipWaveImage(newClip);
+            }
+            return newClip;
+        });
+
+        this.d.DAW.clips.push(...newClips);
+        this.d.DAW.selectedIds = newClips.map(c => c.id);
+
+        this.d.ensureTimelineFits();
+        this.d.saveState();
+        this.d.renderAll();
+        this.d.scheduleAllFromPlayhead();
+        this.d.toast(this.d.t('pasteDone'));
+    }
+
+    duplicateSelected() {
+        const sels = this.d.selectedClips();
+        if (!sels.length) return;
+
+        const maxEnd = Math.max(...sels.map(c => c.start + c.duration));
+        const minStart = Math.min(...sels.map(c => c.start));
+        const offset = maxEnd - minStart;
+
+        const duplicated = sels.map(c => {
+            const newClip = {
+                ...c,
+                id: this.d.uid(),
+                start: this.d.roundMs(c.start + offset)
+            };
+            if (this.d.DAW.bufferCache[newClip.bufferId]) {
+                newClip._peaks = this.d.peaksFromBuffer(this.d.DAW.bufferCache[newClip.bufferId]);
+                newClip.waveUrl = this.d.refreshClipWaveImage(newClip);
+            }
+            return newClip;
+        });
+
+        this.d.DAW.clips.push(...duplicated);
+        this.d.DAW.selectedIds = duplicated.map(c => c.id);
+
+        this.d.ensureTimelineFits();
+        this.d.saveState();
+        this.d.renderAll();
+        this.d.scheduleAllFromPlayhead();
+        this.d.edSaveSong();
+    }
 }
+
 window.ClipboardService = ClipboardService;
