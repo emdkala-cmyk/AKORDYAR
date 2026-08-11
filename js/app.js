@@ -544,36 +544,28 @@ globalScope.DAW = {
         toast('ابتدا سینک دستی را انجام دهید (حداقل ۲ لاین)');
         return;
       }
-      const times = edCur.syncTimes.filter(t => t != null && t > 0);
-      if (times.length < 2) { toast('زمان‌های سینک کافی نیست'); return; }
 
-      // محاسبه فاصله بین لاین‌ها
-      const intervals = [];
-      for (let i = 1; i < times.length; i++) {
-        const diff = times[i] - times[i - 1];
-        if (diff > 0.1 && diff < 10) intervals.push(diff); // فقط فاصله‌های معقول
+      const result = SyncAnalysis.detectTempoFromSyncTimes(edCur.syncTimes);
+      if (!result.ok) {
+        if (result.reason === 'insufficient_sync_points') {
+          toast('ابتدا سینک دستی را انجام دهید (حداقل ۲ لاین)');
+        } else if (result.reason === 'insufficient_intervals') {
+          toast('زمان‌های سینک کافی نیست');
+        } else {
+          toast('تمپو از روی سینک‌ها قابل تشخیص نیست');
+        }
+        return;
       }
-      if (intervals.length === 0) { toast('فاصله‌های سینک معتبر نیست'); return; }
 
-      // یافتن رایج‌ترین فاصله (mode)
-      const sorted = [...intervals].sort((a, b) => a - b);
-      const median = sorted[Math.floor(sorted.length / 2)];
+      const tempoInput = $('edTempo');
+      if (tempoInput) tempoInput.value = String(result.tempo);
 
-      // تبدیل به BPM (فرض: هر لاین = یک ضرب یا یک بیت)
-      const bpm = Math.round(60 / median);
+      if (edCur) {
+        edCur.tempo = result.tempo;
+        edSaveSong();
+      }
 
-      // همچنین امتحان کن هر ۲ لاین = یک بیت
-      const bpmHalf = Math.round(60 / (median * 2));
-
-      // بهترین BPM رو انتخاب کن (بین 60-180)
-      let bestBpm = bpm;
-      if (bpm < 60) bestBpm = bpm * 2;
-      else if (bpm > 180) bestBpm = Math.round(bpm / 2);
-      if (bestBpm >= 60 && bestBpm <= 180) bestBpm = bestBpm;
-
-      $('edTempo').value = bestBpm;
-      if (edCur) { edCur.tempo = bestBpm; edSaveSong(); }
-      toast(`تمپوی تشخیص داده شده: ${bestBpm} BPM (از ${intervals.length} لاین سینک)`);
+      toast(`تمپوی تشخیص داده شده: ${result.tempo} BPM (از ${result.intervals.length} لاین سینک)`);
     }
 
     // ===== KEY DETECTION FROM CHORDS =====
@@ -583,60 +575,26 @@ globalScope.DAW = {
         return;
       }
 
-      // فراوانی هر روت نت
-      const noteFreq = {};
-      const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-      edCur.chords.forEach(ch => {
-        const root = ch.name.replace(/m|maj|min|dim|aug|sus|add|\/.*/g, '').replace('#', '#');
-        // تبدیل به index
-        let idx = noteNames.indexOf(root);
-        if (idx === -1) {
-          // امتحان با b
-          const flatMap = { 'Db': 'C#', 'Eb': 'D#', 'Fb': 'E', 'Gb': 'F#', 'Ab': 'G#', 'Bb': 'A#', 'Cb': 'B' };
-          const mapped = flatMap[root];
-          if (mapped) idx = noteNames.indexOf(mapped);
-        }
-        if (idx >= 0) noteFreq[idx] = (noteFreq[idx] || 0) + 1;
-      });
-
-      if (Object.keys(noteFreq).length === 0) { toast('نت‌های آکورد قابل تشخیص نیست'); return; }
-
-      // کلیدهای ماژور و مینور
-      const majorScale = [0, 2, 4, 5, 7, 9, 11];
-      const minorScale = [0, 2, 3, 5, 7, 8, 10];
-
-      let bestKey = '', bestMode = 'maj', bestScore = 0;
-
-      for (let root = 0; root < 12; root++) {
-        // امتیاز ماژور
-        let majorScore = 0;
-        majorScale.forEach((interval, i) => {
-          const note = (root + interval) % 12;
-          const weight = [0, 2, 4, 5, 7, 9, 11][i] === 0 ? 2 : 1; // روت وزن بیشتر
-          majorScore += (noteFreq[note] || 0) * weight;
-        });
-        if (majorScore > bestScore) { bestScore = majorScore; bestKey = noteNames[root]; bestMode = 'maj'; }
-
-        // امتیاز مینور
-        let minorScore = 0;
-        minorScale.forEach((interval, i) => {
-          const note = (root + interval) % 12;
-          const weight = i === 0 ? 2 : 1;
-          minorScore += (noteFreq[note] || 0) * weight;
-        });
-        if (minorScore > bestScore) { bestScore = minorScore; bestKey = noteNames[root]; bestMode = 'min'; }
+      const result = SyncAnalysis.detectKeyFromChords(edCur.chords);
+      if (!result.ok) {
+        toast('گام از روی آکوردها قابل تشخیص نیست');
+        return;
       }
 
-      $('edKey').value = bestKey;
-      $('edKeyMode').value = bestMode;
+      const keyInput = $('edKey');
+      const modeInput = $('edKeyMode');
+      if (keyInput) keyInput.value = result.key;
+      if (modeInput) modeInput.value = result.mode;
+
       if (edCur) {
-        edCur.key = bestKey;
-        edCur.keyMode = bestMode;
+        edCur.key = result.key;
+        edCur.keyMode = result.mode;
         edSaveSong();
         edSyncToolbar();
         edRenderEditor();
       }
-      toast(`گام تشخیص داده شده: ${bestKey} ${bestMode === 'maj' ? 'ماژور' : 'مینور'} (امتیاز: ${bestScore})`);
+
+      toast(`گام تشخیص داده شده: ${result.key} ${result.mode === 'maj' ? 'ماژور' : 'مینور'} (امتیاز: ${result.score})`);
     }
 
     function togglePanel(panel) {
