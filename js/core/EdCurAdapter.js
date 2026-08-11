@@ -70,20 +70,22 @@ const EdCurAdapter = (() => {
     var doc = SongDocumentModel.buildSongDocumentFromEdCur(e);
     doc = SongDocumentModel.migrate(doc);
     doc = SharedEngine.processSong(doc);
-    if (window.PerformanceStore) {
-      PerformanceStore.setSongDocument(doc);
-      PerformanceStore.setHighlightState({activeLineId:null,activeTokenId:null,activeChordId:null,doneLines:new Set()});
+    var store = window.RuntimeStateAdapter?.getPerformanceStore?.() || null;
+    if (store) {
+      store.setSongDocument(doc);
+      store.setHighlightState({activeLineId:null,activeTokenId:null,activeChordId:null,doneLines:new Set()});
     }
     return doc;
   }
 
   function syncViewStyles() {
     var e = _ref();
-    if (!e || !window.PerformanceStore) return;
+    var store = window.RuntimeStateAdapter?.getPerformanceStore?.() || null;
+    if (!e || !store) return;
     var vs = e.viewStyles || {};
-    PerformanceStore.setViewState('singerView', vs.singerView || {});
-    PerformanceStore.setViewState('playerView', vs.playerView || {});
-    PerformanceStore.setViewState('embeddedPerformanceView', vs.embeddedPerformanceView || {});
+    store.setViewState('singerView', vs.singerView || {});
+    store.setViewState('playerView', vs.playerView || {});
+    store.setViewState('embeddedPerformanceView', vs.embeddedPerformanceView || {});
   }
 
   return {

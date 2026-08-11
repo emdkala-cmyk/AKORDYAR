@@ -956,8 +956,12 @@ function attachHistoryService() {
     const timeToX = (t) => t * DAW.pxPerSecond;
     // WaveformService initialization
     window.waveformService = new window.WaveformService({
-      getDAW: () => DAW,
       ensureAudioCtx: () => ensureAudioCtx(),
+      setAudioContext: (ctx) => {
+        if (!DAW.audioCtx) DAW.audioCtx = ctx;
+      },
+      getWaveCache: () => DAW.waveCache,
+      documentRef: document,
       clamp: (value, min, max) => clamp(value, min, max),
       timeToX: (value) => timeToX(value)
     });
@@ -4556,6 +4560,8 @@ let syncTapKeyHandler = null;
             timeToX: (v) => timeToX(v),
             formatTime: (v) => formatTime(v),
             openChordLinePopup: () => openChordLinePopup(),
+            getPerformanceStore: () => window.RuntimeStateAdapter?.getPerformanceStore?.() || null,
+            windowRef: window,
             logger: console
           });
       return syncModeControllerBridge;

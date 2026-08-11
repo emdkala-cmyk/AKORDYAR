@@ -3,27 +3,26 @@
 
   class WaveformService {
     constructor(deps = {}) {
-      this.getDAW =
-        typeof deps.getDAW === 'function'
-          ? deps.getDAW
-          : () => global.DAW;
-
       this.ensureAudioCtx =
         typeof deps.ensureAudioCtx === 'function'
           ? deps.ensureAudioCtx
           : () => {
-              const daw = this.getDAW();
-
-              if (typeof global.ensureAudioCtx === 'function') {
-                return global.ensureAudioCtx();
-              }
-
-              if (daw && daw.audioCtx) {
-                return daw.audioCtx;
-              }
-
-              throw new Error('AudioContext is not available');
+              throw new Error('WaveformService requires ensureAudioCtx');
             };
+
+      this.setAudioContext =
+        typeof deps.setAudioContext === 'function'
+          ? deps.setAudioContext
+          : () => {};
+
+      this.getWaveCache =
+        typeof deps.getWaveCache === 'function'
+          ? deps.getWaveCache
+          : () => null;
+
+      this.document =
+        deps.documentRef ||
+        (typeof document !== 'undefined' ? document : null);
 
       this.clamp =
         typeof deps.clamp === 'function'
@@ -44,7 +43,6 @@
         );
       }
 
-      const daw = this.getDAW();
       const ctx = this.ensureAudioCtx();
 
       const arrayBuffer = await file.arrayBuffer();
@@ -52,9 +50,7 @@
 
       const buffer = await ctx.decodeAudioData(copy);
 
-      if (daw && !daw.audioCtx) {
-        daw.audioCtx = ctx;
-      }
+      this.setAudioContext(ctx);
 
       return {
         buffer,
@@ -110,7 +106,11 @@
         );
       }
 
-      const canvas = document.createElement('canvas');
+      if (!this.document) {
+        throw new Error('WaveformService requires documentRef to draw waveforms');
+      }
+
+      const canvas = this.document.createElement('canvas');
 
       canvas.width = Math.max(
         2,
@@ -162,8 +162,6 @@
     }
 
     refreshClipWaveImage(clip) {
-      const daw = this.getDAW();
-
       if (
         !clip ||
         clip.type === 'chord' ||
@@ -207,12 +205,9 @@
 
       const key = `${clip.id}:${i0}:${i1}:${Math.round(w)}`;
 
-      if (
-        daw &&
-        daw.waveCache &&
-        daw.waveCache.has(key)
-      ) {
-        clip.waveUrl = daw.waveCache.get(key);
+      const waveCache = this.getWaveCache();
+      if (waveCache && waveCache.has(key)) {
+        clip.waveUrl = waveCache.get(key);
         return;
       }
 
@@ -222,8 +217,8 @@
         52
       );
 
-      if (daw && daw.waveCache) {
-        daw.waveCache.set(key, clip.waveUrl);
+      if (waveCache) {
+        waveCache.set(key, clip.waveUrl);
       }
     }
   }
@@ -231,4 +226,8 @@
   // Expose globally
   global.WaveformService = WaveformService;
   global.waveformService = null; // placeholder, initialized later
-})(window);
+
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = WaveformService;
+  }
+})(typeof window !== 'undefined' ? window : globalThis);

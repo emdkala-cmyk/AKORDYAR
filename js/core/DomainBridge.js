@@ -10,6 +10,10 @@
 
 const DomainBridge = (() => {
 
+  function getPerformanceStore() {
+    return window.RuntimeStateAdapter?.getPerformanceStore?.() || null;
+  }
+
   /**
    * بعد از هر تغییر در edCur، این تابع را صدا بزنید.
    * - SongDocument جدید می‌سازد
@@ -33,8 +37,8 @@ const DomainBridge = (() => {
     if (typeof rebuildSongDocumentFromEdCur === 'function') {
       rebuildSongDocumentFromEdCur();
     }
-    if (window.PerformanceStore) {
-      var st = PerformanceStore.getState();
+    var store = getPerformanceStore();
+    if (store) {
       if (typeof publishPerformanceState === 'function') {
         publishPerformanceState();
       }
@@ -52,8 +56,9 @@ const DomainBridge = (() => {
    * بعد از load پروژه جدید — ریست کامل
    */
   function onProjectLoaded() {
-    if (window.PerformanceStore && typeof PerformanceStore.resetStore === 'function') {
-      PerformanceStore.resetStore();
+    var store = getPerformanceStore();
+    if (store && typeof store.resetStore === 'function') {
+      store.resetStore();
     }
     onSongChanged();
   }

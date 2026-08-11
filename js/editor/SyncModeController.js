@@ -40,6 +40,8 @@ class SyncModeController {
     timeToX,
     formatTime,
     openChordLinePopup,
+    getPerformanceStore,
+    windowRef,
     logger = console
   } = {}) {
     if (!state) {
@@ -84,6 +86,17 @@ class SyncModeController {
     this.timeToX = typeof timeToX === 'function' ? timeToX : (v) => v;
     this.formatTime = typeof formatTime === 'function' ? formatTime : () => '';
     this.openChordLinePopup = typeof openChordLinePopup === 'function' ? openChordLinePopup : () => {};
+    this.getPerformanceStore =
+      typeof getPerformanceStore === 'function'
+        ? getPerformanceStore
+        : () => (
+            typeof window !== 'undefined'
+              ? window.RuntimeStateAdapter?.getPerformanceStore?.() || null
+              : null
+          );
+    this.window =
+      windowRef ||
+      (typeof window !== 'undefined' ? window : null);
 
     this.logger = logger || console;
   }
@@ -245,10 +258,21 @@ class SyncModeController {
     }
 
     // === Performance Architecture v2: sync playback + highlight to Store ===
-    if (typeof PerformanceStore !== 'undefined' && typeof SharedEngine !== 'undefined' && typeof _songDocument !== 'undefined' && _songDocument) {
-      PerformanceStore.setPlaybackState({ time: t, isPlaying: !!this.DAW.isPlaying });
-      const hl = SharedEngine.computeHighlight(PerformanceStore.getState().playbackState, _songDocument);
-      PerformanceStore.setHighlightState(hl);
+    const store = this.getPerformanceStore();
+    const sharedEngine = typeof window !== 'undefined' ? window.SharedEngine : null;
+    const songDocument = store?.getState?.().songDocument || null;
+    if (
+      store &&
+      sharedEngine &&
+      songDocument &&
+      typeof sharedEngine.computeHighlight === 'function'
+    ) {
+      store.setPlaybackState({ time: t, isPlaying: !!this.DAW.isPlaying });
+      const hl = sharedEngine.computeHighlight(
+        store.getState().playbackState,
+        songDocument
+      );
+      store.setHighlightState(hl);
     }
 
     // اگر خط فعال عوض نشده، فقط در صورت نیاز تایم/پروگرس پنل را آپدیت کن
@@ -358,7 +382,7 @@ class SyncModeController {
         e.preventDefault(); this.syncTap();
       }
     };
-    window.addEventListener('keydown', state.tapKeyHandler);
+    this.window?.addEventListener('keydown', state.tapKeyHandler);
     // Start highlight tick
     this.syncTick();
   }
@@ -367,7 +391,10 @@ class SyncModeController {
     const state = this.state;
     state.active = false;
     this.$('syncSection').classList.remove('show');
-    if (state.tapKeyHandler) { window.removeEventListener('keydown', state.tapKeyHandler); state.tapKeyHandler = null; }
+    if (state.tapKeyHandler) {
+      this.window?.removeEventListener('keydown', state.tapKeyHandler);
+      state.tapKeyHandler = null;
+    }
     if (state.watch) { cancelAnimationFrame(state.watch); state.watch = null; }
     this.edSaveSong();
   }
