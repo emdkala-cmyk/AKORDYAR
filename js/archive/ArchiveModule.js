@@ -25,6 +25,11 @@
     let _archEventsBound = false;
     let _archSearchIndex = null;
 
+    function resetPerformanceSerialization() {
+      const perf = window.RuntimeStateAdapter?.getPERF?.();
+      if (perf) perf.lastSerializedState = '';
+    }
+
     // --- Storage (IndexedDB — ظرفیت بالا + کش همگام) ---
     let _archCache = null;
     const _dbReq = indexedDB.open('ChordSongDB', 1);
@@ -314,7 +319,7 @@
           if (dh) { try { const perm = await dh.requestPermission({mode:'read'}); if (perm==='granted') { for (const ap of edCur._audioPaths) { const clip = DAW.clips.find(c=>c.type!=='chord'&&c.bufferKey===ap.bufferKey); if (!clip||DAW.bufferCache.has(clip.bufferKey)) continue; for (const n of [ap.fileName,ap.fileName?ap.fileName.replace(/\.[^.]+$/,''):'']) { if (!n) continue; try { const fh=await dh.getFileHandle(n); const f=await fh.getFile(); const {buffer}=await decodeFileToBuffer(f); DAW.bufferCache.set(clip.bufferKey,buffer); clip.sourceDuration=buffer.duration; clip._peaks=peaksFromBuffer(buffer,2000); refreshClipWaveImage(clip); break; } catch(_){} } } } } catch(_){} }
         }
       }
-      undoStack=[]; undoIndex=-1; PERF.lastSerializedState='';
+      undoStack=[]; undoIndex=-1; resetPerformanceSerialization();
       edSyncToolbar(); edRenderEditor(true); renderAll(); saveState();
       const loopBtn=$('loopToggleBtn'); if (loopBtn) loopBtn.classList.toggle('loop-active',DAW.loopEnabled);
       initHighlightEffect();
@@ -1619,19 +1624,28 @@ function archUpdateActiveFilters() {
         const divider = $('artistResizeDivider');
         if (divider && !divider._archBound) {
           divider._archBound = true;
-          let isResizing = false, startY, startHeight;
-          divider.addEventListener('mousedown', (e) => {
-            isResizing = true;
+          divider.style.touchAction = 'none';
+          let pointerId = null, startY, startHeight;
+          const stopResize = () => {
+            if (pointerId === null) return;
+            pointerId = null;
+            divider.classList.remove('active');
+            document.body.style.cursor = '';
+            document.body.style.userSelect = '';
+          };
+          divider.addEventListener('pointerdown', (e) => {
+            pointerId = e.pointerId;
             startY = e.clientY;
             const section = $('artistSliderSection');
             startHeight = section ? section.offsetHeight : 200;
             divider.classList.add('active');
             document.body.style.cursor = 'ns-resize';
             document.body.style.userSelect = 'none';
+            divider.setPointerCapture?.(e.pointerId);
             e.preventDefault();
           });
-          document.addEventListener('mousemove', (e) => {
-            if (!isResizing) return;
+          divider.addEventListener('pointermove', (e) => {
+            if (pointerId !== e.pointerId) return;
             const diff = e.clientY - startY;
             const newHeight = Math.max(80, Math.min(500, startHeight + diff));
             const section = $('artistSliderSection');
@@ -1642,13 +1656,12 @@ function archUpdateActiveFilters() {
               if (body) body.style.maxHeight = (newHeight - 44) + 'px';
             }
           });
-          document.addEventListener('mouseup', () => {
-            if (!isResizing) return;
-            isResizing = false;
-            divider.classList.remove('active');
-            document.body.style.cursor = '';
-            document.body.style.userSelect = '';
+          divider.addEventListener('pointerup', (e) => {
+            if (pointerId !== e.pointerId) return;
+            divider.releasePointerCapture?.(e.pointerId);
+            stopResize();
           });
+          divider.addEventListener('pointercancel', stopResize);
         }
       }
       // Start animation every time modal opens
@@ -1666,7 +1679,7 @@ window.EdCurAdapter?.setEdCur?.(edCur); // sync legacy reference through the ada
 
 undoStack = [];
 undoIndex = -1;
-PERF.lastSerializedState = '';
+resetPerformanceSerialization();
 
 DAW.clips = [];
 DAW.sections = [];
@@ -1922,7 +1935,7 @@ saveState();
                 tr._pannerNode.connect(tr._gainNode); tr._gainNode.connect(DAW.masterGain); updateTrackMix(tr.id);
               }
             });
-            undoStack = []; undoIndex = -1; PERF.lastSerializedState = '';
+            undoStack = []; undoIndex = -1; resetPerformanceSerialization();
             edSyncToolbar(); edRenderEditor(true);
             initHighlightEffect();
             const loopBtn = $('loopToggleBtn');
