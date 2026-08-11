@@ -18,13 +18,90 @@ if (isElectron) {
   console.log('[App] Browser mode detected.');
 }
 
+// ==========================================
+// PART 2: Audio Import & Hard Drive Auto-Load (GLOBAL FUNCTIONS)
+// ==========================================
+// این توابع در global scope تعریف می‌شن تا از هر جایی قابل دسترسی باشن.
+// قبلاً اشتباهاً داخل یک template literal بودن که باعث می‌شد تعریف نشن.
 
-// ==========================================
-// PART 2: Audio Import & Hard Drive Auto-Load
-// ==========================================
-// منطق loadAudioFromHardDrive / pathDirname / pathJoin / handleAudioImport /
-// loadProject / resolveClipAudio به js/core/ProjectAudioService.js منتقل شده است.
-// wrapperهای سازگاری بلافاصله بعد از ensureAudioCtx() تعریف شده‌اند.
+/**
+ * خواندن مستقیم فایل صوتی از روی هارد بدون پنجره انتخاب فایل (مخصوص نسخه نصبی)
+ *
+ * این تابع از window.electronAPI.readAudioFile استفاده می‌کنه که از طریق IPC
+ * به main process وصل می‌شه. قبلاً از fs.readFileSync استفاده می‌شد که با
+ * contextIsolation:true در دسترس نیست.
+ */
+async function loadAudioFromHardDrive(filePath) {
+  if (!isElectron || !window.electronAPI) {
+    throw new Error("این قابلیت فقط در نسخه نصبی دسکتاپ فعال است.");
+  }
+  if (!window.electronAPI.checkFileExists) {
+    throw new Error("electronAPI.checkFileExists موجود نیست — preload.js رو بررسی کنید");
+  }
+
+  // بررسی وجود فایل از طریق IPC
+  let exists = false;
+  try {
+    exists = await window.electronAPI.checkFileExists(filePath);
+  } catch (checkError) {
+    console.warn('[Audio Load] Error checking file existence:', checkError.message);
+    exists = false;
+  }
+
+  if (!exists) {
+    // اگر فایل در مسیر مطلق پیدا نشد، خطای ملایم بده
+    throw new Error("FILE_NOT_FOUND:" + filePath);
+  }
+
+  // خواندن فایل از طریق IPC (به‌صورت ArrayBuffer)
+  if (!window.electronAPI.readAudioFile) {
+    throw new Error("electronAPI.readAudioFile موجود نیست — preload.js رو بررسی کنید");
+  }
+  
+  let arrayBuffer;
+  try {
+    arrayBuffer = await window.electronAPI.readAudioFile(filePath);
+  } catch (readError) {
+    console.error('[Audio Load] Error reading file:', readError.message);
+    throw new Error("READ_ERROR:" + readError.message);
+  }
+
+  // دیکود کردن
+  ensureAudioCtx();
+  try {
+    return await DAW.audioCtx.decodeAudioData(arrayBuffer);
+  } catch (decodeError) {
+    console.error('[Audio Load] Error decoding audio:', decodeError.message);
+    throw new Error("DECODE_ERROR:" + decodeError.message);
+  }
+}
+/**
+ * توابع کمکی برای جایگزینی require('path')
+ * (چون require در renderer با contextIsolation:true در دسترس نیست)
+ */
+function pathDirname(filePath) {
+  if (!filePath) return null;
+  // نرمال‌سازی backslash ویندوز به slash
+  const normalized = String(filePath).replace(/\\/g, '/');
+  const lastSlash = normalized.lastIndexOf('/');
+  if (lastSlash < 0) return null;
+  return normalized.substring(0, lastSlash);
+}
+
+function pathJoin(dir, relativePath) {
+  if (!dir) return relativePath;
+  if (!relativePath) return dir;
+  const normalizedDir = String(dir).replace(/[\\/]+$/, '');
+  const normalizedRel = String(relativePath).replace(/^[\\/]+/, '');
+  return normalizedDir + '/' + normalizedRel;
+}
+
+// اطمینان از اینکه توابع در global scope قابل دسترسی هستن
+if (typeof window !== 'undefined') {
+  window.loadAudioFromHardDrive = loadAudioFromHardDrive;
+  window.pathDirname = pathDirname;
+  window.pathJoin = pathJoin;
+}
 
 /**
  * customPrompt — جایگزین window.prompt که در الکترون پشتیبانی نمی‌شه
@@ -276,48 +353,6 @@ globalScope.DAW = {
       return TimelineGrid.getTimeSignatureGridConfig(timeSignature, bpm || 120);
     }
 
-    // Safe bridge: app.js keeps transport/audio/DOM ownership while the
-    // extracted engine tracks beat transitions. The legacy path remains as a
-    // fallback for backward compatibility.
-    const metronomeEngineBridge =
-      typeof window.MetronomeEngine === 'function' &&
-      window.Meter &&
-      typeof window.Meter.isStrongBeat === 'function'
-        ? new window.MetronomeEngine({
-            getMeterConfig: getTimeSignatureGridConfig,
-            isStrongBeat: window.Meter.isStrongBeat
-          })
-        : null;
-
-    // Safe bridge for AudioContextService: app.js keeps DAW.audioCtx ownership
-    // while the extracted service synthesises the metronome click. The legacy
-    // path remains as a fallback for backward compatibility.
-    const audioContextServiceBridge =
-      typeof window.AudioContextService === 'function'
-        ? new window.AudioContextService()
-        : null;
-
-    // Safe bridge for MetronomeScheduler: the look-ahead scheduler reserves
-    // metronome clicks ahead of time in audioCtx.currentTime, decoupling them
-    // from the RAF transport loop (fixes stutter during zoom/scroll).
-    let metronomeSchedulerBridge = null;
-    function getMetronomeSchedulerBridge() {
-      if (metronomeSchedulerBridge) return metronomeSchedulerBridge;
-      if (
-        typeof window.MetronomeScheduler !== 'function' ||
-        !audioContextServiceBridge
-      ) return null;
-      metronomeSchedulerBridge = new window.MetronomeScheduler({
-        audioContextService: audioContextServiceBridge,
-        metronomeEngine: metronomeEngineBridge,
-        getMeterConfig: getTimeSignatureGridConfig,
-        isStrongBeat: window.Meter && typeof window.Meter.isStrongBeat === 'function'
-          ? window.Meter.isStrongBeat
-          : () => false
-      });
-      return metronomeSchedulerBridge;
-    }
-
     function toggleSnap() {
       snapEnabled = !snapEnabled;
       $('snapBtn').classList.toggle('active', snapEnabled);
@@ -432,45 +467,62 @@ globalScope.DAW = {
     }
     function startMetronome() {
       stopMetronome();
+      // مترونوم با پلی هد سینک میشه - نیازی به setTimeout جداگانه نیست
+      // ضرب از حلقه tick اصلی پخش میشه
       const _mbpm = parseInt($('edTempo')?.value) || 120;
       const _msig = $('edTimeSig')?.value || '4/4';
-      // Look-ahead scheduler: reserves clicks ahead of time in audioCtx.currentTime.
-      // This decouples metronome timing from the RAF loop (fixes zoom/scroll stutter).
-      const scheduler = getMetronomeSchedulerBridge();
-      if (scheduler) {
-        // Start the metronome from the current playhead position so it stays
-        // in sync with the transport. `startTime` is the AudioContext time at
-        // which beat 0 should sound: ctx.currentTime - DAW.playhead.
-        const _ctxNow = audioContextServiceBridge.getContext()?.currentTime || 0;
-        const _playhead = Number.isFinite(DAW.playhead) ? DAW.playhead : 0;
-        scheduler.start({
-          bpm: _mbpm,
-          timeSignature: _msig,
-          startTime: _ctxNow - _playhead,
-          soundType: APP_SETTINGS.metroSound || 'classic'
-        });
-        // Mark the metronome as running so pauseTransport()/stopTransport()
-        // will call stopMetronome() (which stops the scheduler + audio nodes).
-        metroTimer = true;
-        return;
-      }
-      // Legacy fallback: beat transitions tracked from the RAF tick loop.
       const _mcfg = getTimeSignatureGridConfig(_msig, _mbpm);
-      if (metronomeEngineBridge) metronomeEngineBridge.start();
       metroBeat = -1; // force first tick to always click
     }
-    function stopMetronome() {
-      const scheduler = getMetronomeSchedulerBridge();
-      if (scheduler) scheduler.stop();
-      if (metronomeEngineBridge) metronomeEngineBridge.stop();
-      metroTimer = null;
-      metroBeat = 0;
-    }
+    function stopMetronome() { metroTimer = null; metroBeat = 0; }
     function playClick(isAccent) {
-      // Proxy: all click synthesis (oscillators/gains) is delegated to
-      // AudioContextService. app.js no longer builds Web Audio nodes directly.
-      if (!audioContextServiceBridge) return;
-      audioContextServiceBridge.playClick(isAccent, APP_SETTINGS.metroSound || 'classic');
+      ensureAudioCtx();
+      const ctx = DAW.audioCtx;
+      const t = ctx.currentTime;
+      const type = APP_SETTINGS.metroSound || 'classic';
+      const vol = isAccent ? 0.35 : 0.2;
+
+      if (type === 'wood') {
+        // Woodblock — short percussive knock (noise burst + resonance)
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine'; osc.frequency.value = isAccent ? 800 : 600;
+        gain.gain.setValueAtTime(vol * 0.6, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.03);
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.start(t); osc.stop(t + 0.03);
+      } else if (type === 'beep') {
+        // Electronic beep — sine wave ping
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine'; osc.frequency.value = isAccent ? 1200 : 900;
+        gain.gain.setValueAtTime(vol, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.start(t); osc.stop(t + 0.08);
+      } else if (type === 'click') {
+        // Soft click — very short noise burst
+        const buf = ctx.createBuffer(1, ctx.sampleRate * 0.015, ctx.sampleRate);
+        const data = buf.getChannelData(0);
+        for (let i = 0; i < data.length; i++) {
+          data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (ctx.sampleRate * 0.003));
+        }
+        const src = ctx.createBufferSource();
+        const gain = ctx.createGain();
+        src.buffer = buf;
+        gain.gain.setValueAtTime(isAccent ? vol : vol * 0.6, t);
+        src.connect(gain); gain.connect(ctx.destination);
+        src.start(t);
+      } else {
+        // Classic (default) — sharp square wave tick
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'square'; osc.frequency.value = isAccent ? 1000 : 600;
+        gain.gain.setValueAtTime(vol, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.start(t); osc.stop(t + 0.05);
+      }
     }
 
     // تابع کمکی برای چک کردن ضرب در حلقه پخش
@@ -495,20 +547,6 @@ globalScope.DAW = {
         checkMetronomeTick._lastLog = { sig, bpm };
       }
 
-      if (metronomeEngineBridge) {
-        const beatEvent = metronomeEngineBridge.nextBeat(playheadTime, {
-          bpm,
-          timeSignature: sig
-        });
-
-        if (beatEvent) {
-          playClick(beatEvent.isAccent);
-          metroBeat = beatEvent.beatIndex;
-        }
-        return;
-      }
-
-      // Backward-compatible fallback when MetronomeEngine is unavailable.
       if (currentBeat !== metroBeat) {
         playClick(window.Meter.isStrongBeat(currentBeat % beatsPerBar, sig));
         metroBeat = currentBeat;
@@ -838,99 +876,6 @@ const requestRenderSyncLyrics = debounce(() => { renderSyncLyrics(); }, 120);
       if (DAW.audioCtx.state === 'suspended') DAW.audioCtx.resume().catch(() => {});
       return DAW.audioCtx;
     }
-
-// ==========================================
-// ProjectAudioService Bridge
-// مالکیت state و AudioContext همچنان با app.js / DAW است.
-// ==========================================
-const projectAudioServiceBridge =
-  typeof window.ProjectAudioService === 'function'
-    ? new window.ProjectAudioService({
-        state: DAW,
-
-        isElectron: Boolean(
-          typeof isElectron !== 'undefined' &&
-          isElectron
-        ),
-
-        getElectronAPI: () =>
-          typeof window !== 'undefined'
-            ? window.electronAPI || null
-            : null,
-
-        ensureAudioCtx,
-
-        renderTimeline: () => {
-          if (typeof renderTimeline === 'function') {
-            renderTimeline();
-          }
-        },
-
-        getLoadingIndicator: () =>
-          typeof document !== 'undefined'
-            ? document.getElementById('loading-indicator')
-            : null,
-
-        logger: console
-      })
-    : null;
-
-function requireProjectAudioService() {
-  if (!projectAudioServiceBridge) {
-    throw new Error(
-      'ProjectAudioService در دسترس نیست. ترتیب scriptها در Akordyar.html را بررسی کنید.'
-    );
-  }
-
-  return projectAudioServiceBridge;
-}
-
-// ==========================================
-// ProjectAudioService thin wrappers
-// برای سازگاری با call-siteهای قدیمی در app.js
-// ==========================================
-
-async function loadAudioFromHardDrive(filePath) {
-  return requireProjectAudioService()
-    .loadAudioFromHardDrive(filePath);
-}
-
-function pathDirname(filePath) {
-  return requireProjectAudioService()
-    .pathDirname(filePath);
-}
-
-function pathJoin(dir, relativePath) {
-  return requireProjectAudioService()
-    .pathJoin(dir, relativePath);
-}
-
-async function handleAudioImport(file, copyToProject = false) {
-  return requireProjectAudioService()
-    .handleAudioImport(file, copyToProject);
-}
-
-async function loadProject(projectData, projectFilePath = null) {
-  return requireProjectAudioService()
-    .loadProject(projectData, projectFilePath);
-}
-
-async function resolveClipAudio(clip, projectFilePath = null) {
-  return requireProjectAudioService()
-    .resolveClipAudio(clip, projectFilePath);
-}
-
-// حفظ APIهای global قدیمی برای بخش‌های دیگر پروژه و ابزارهای legacy.
-if (typeof window !== 'undefined') {
-  window.loadAudioFromHardDrive =
-    loadAudioFromHardDrive;
-
-  window.pathDirname =
-    pathDirname;
-
-  window.pathJoin =
-    pathJoin;
-}
 
     const timeToX = (t) => t * DAW.pxPerSecond;
     const xToTime = (x) => x / DAW.pxPerSecond;
@@ -2414,9 +2359,7 @@ sels.forEach(c => {
         }
 
         updatePlayheadUI();
-        // Look-ahead scheduler runs independently of RAF. Only fall back to
-        // RAF-based beat checking when the scheduler is unavailable.
-        if (!getMetronomeSchedulerBridge()) checkMetronomeTick(DAW.playhead);
+        checkMetronomeTick(DAW.playhead);
         const scroll = $('tl-scroll'); const x = timeToX(DAW.playhead);
         if (DAW.playheadMode === 'center') {
           // Stationary: keep playhead visually at center by scrolling
@@ -4215,11 +4158,185 @@ body.hl-pulse .popup-sync-line.active::before { content: ''; position: absolute;
       _lyricPopup.document.body.appendChild(sc);
       // Override _pCfg with saved Player View settings (not editor defaults)
       _lyricPopup._pCfg = { cSize: _pvSettings.cSize, cColor: _pvSettings.cColor, cFont: 'JetBrains Mono' };
+      // ==========================================
+// PART 2: Audio Import & Hard Drive Auto-Load
+// ==========================================
+// NOTE: loadAudioFromHardDrive, pathDirname, pathJoin در بالای فایل (global scope) تعریف شدن.
+// اینجا فقط توابع دیگه مرتبط با audio import قرار می‌گیرن.
 
+/**
+ * مدیریت افزودن فایل صوتی جدید به پروژه
+ */
+async function handleAudioImport(file, copyToProject = false) {
+  const absolutePath = isElectron ? file.path : null;
+
+  const newTrack = {
+    id: 'track_' + Date.now(),
+    name: file.name,
+    isCopied: copyToProject,
+    filePath: copyToProject ? null : absolutePath,
+    volume: 1.0,
+    pan: 0,
+    isMuted: false,
+    clips: []
+  };
+
+  const arrayBuffer = await file.arrayBuffer();
+  ensureAudioCtx();
+  const audioBuffer = await DAW.audioCtx.decodeAudioData(arrayBuffer);
+  
+  newTrack.clips.push({
+    id: 'clip_' + Date.now(),
+    startTime: 0,
+    offset: 0,
+    duration: audioBuffer.duration,
+    buffer: audioBuffer
+  });
+
+  if (audioBuffer.duration > DAW.projectDuration) {
+    DAW.projectDuration = audioBuffer.duration;
+  }
+
+  DAW.tracks.push(newTrack);
+  if (typeof renderTimeline === 'function') renderTimeline();
+}
 // ==========================================
 // PART 3: Project Load & Audio Export (WAV)
 // ==========================================
-// منطق load/resolve صوت پروژه به js/core/ProjectAudioService.js منتقل شده است.
+
+/**
+ * بارگذاری پروژه و لود اتوماتیک فایل‌های صوتی از مسیر ذخیره‌شده
+ */
+async function loadProject(projectData, projectFilePath = null) {
+  const loader = document.getElementById('loading-indicator');
+  if (loader) loader.style.display = 'block';
+
+  // پاک‌سازی وضعیت فعلی
+  DAW.pool = {};
+  DAW.bufferCache.clear();
+  DAW.tracks = [];
+  DAW.clips = [];
+  
+  // بازیابی اطلاعات پروژه
+  DAW.project = projectData.project || {};
+  DAW.projectRoot = projectFilePath ? pathDirname(projectFilePath) : null;
+  
+  // بازیابی Pool کلیپ‌ها
+  if (projectData.pool) {
+    DAW.pool = projectData.pool;
+  }
+  
+  // بازیابی ترک‌ها و کلیپ‌ها
+  DAW.tracks = projectData.tracks || [];
+  DAW.clips = projectData.clips || [];
+  DAW.sections = projectData.sections || [];
+  DAW.edCur = projectData.edCur || null;
+  DAW.edSeqPoints = projectData.edSeqPoints || [];
+
+  // لود کردن فایل‌های صوتی برای هر کلیپ در Pool
+  for (const [clipId, clip] of Object.entries(DAW.pool)) {
+    try {
+      await resolveClipAudio(clip, projectFilePath);
+    } catch (error) {
+      console.warn(`فایل صوتی برای کلیپ ${clipId} پیدا نشد:`, error.message);
+      clip.runtime = { loaded: false, error: error.message };
+    }
+  }
+
+  // همچنین کلیپ‌های قدیمی که ممکن است در tracks باشند را لود کن
+  for (const clip of DAW.clips) {
+    if (clip.type !== 'chord' && clip.relativePath && !DAW.bufferCache.has(clip.id)) {
+      try {
+        // ساخت یک شیء clip موقت برای resolveClipAudio
+        const tempClip = {
+          id: clip.id || `clip_${Date.now()}`,
+          fileName: clip.fileName || clip.name,
+          relativePath: clip.relativePath,
+          storage: { mode: 'copy', projectPath: clip.relativePath }
+        };
+        await resolveClipAudio(tempClip, projectFilePath);
+        // کپی بافر به کلیپ اصلی
+        const buffer = DAW.bufferCache.get(tempClip.id);
+        if (buffer) {
+          DAW.bufferCache.set(clip.id || tempClip.id, buffer);
+        }
+      } catch (e) {
+        console.warn('لود کلیپ قدیمی شکست خورد:', e.message);
+      }
+    }
+  }
+
+  DAW.projectDuration = projectData.projectDuration || 0;
+  if (typeof renderTimeline === 'function') renderTimeline();
+  if (loader) loader.style.display = 'none';
+}
+
+/**
+ * تابع مرکزی برای Resolve و Load فایل‌های صوتی
+ */
+async function resolveClipAudio(clip, projectFilePath = null) {
+  let filePath = null;
+  
+  // بررسی حالت‌های مختلف ذخیره‌سازی
+  if (clip.storage && clip.storage.mode === 'copy') {
+    // حالت کپی: فایل در پوشه پروژه است
+    const projRoot = projectFilePath ? pathDirname(projectFilePath) : DAW.projectRoot;
+    if (!projRoot || !clip.storage.projectPath) {
+      throw new Error(`Project root is missing for clip: ${clip.id}`);
+    }
+    filePath = (window.electronAPI?.resolvePath)
+               ? await window.electronAPI.resolvePath(projRoot, clip.storage.projectPath)
+               : pathJoin(projRoot, clip.storage.projectPath);
+  } else if (clip.storage && clip.storage.mode === 'reference') {
+    // حالت رفرنس: مسیر خارجی
+    filePath = clip.storage.externalPath;
+  } else if (clip.relativePath) {
+    // حالت جدید: مسیر نسبی
+    const projRoot = projectFilePath ? pathDirname(projectFilePath) : DAW.projectRoot;
+    if (projRoot) {
+      filePath = (window.electronAPI?.resolvePath)
+                 ? await window.electronAPI.resolvePath(projRoot, clip.relativePath)
+                 : pathJoin(projRoot, clip.relativePath);
+    }
+  } else if (clip._filePath) {
+    // سازگاری با نسخه قدیمی
+    filePath = clip._filePath;
+  } else if (clip.filePath) {
+    filePath = clip.filePath;
+  }
+  
+  if (!filePath) {
+    throw new Error(`No audio path for clip: ${clip.id || 'unknown'}`);
+  }
+  
+  // خواندن فایل صوتی از طریق Electron API
+  let arrayBuffer;
+  if (window.electronAPI?.readAudioFile) {
+    arrayBuffer = await window.electronAPI.readAudioFile(filePath);
+  } else {
+    throw new Error('Electron API not available for reading audio files');
+  }
+  
+  if (!arrayBuffer) {
+    throw new Error(`Failed to read audio file: ${filePath}`);
+  }
+  
+  // دیکد کردن AudioBuffer
+  const audioCtx = DAW.audioCtx || (DAW.audioCtx = new (window.AudioContext || window.webkitAudioContext)());
+  const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer.slice(0));
+  
+  // ذخیره در کش با کلید پایدار clipId
+  DAW.bufferCache.set(clip.id, audioBuffer);
+  
+  // آپدیت وضعیت runtime
+  clip.runtime = {
+    loaded: true,
+    resolvedPath: filePath,
+    loadedAt: Date.now()
+  };
+  
+  return audioBuffer;
+}
 
 /**
  * تبدیل AudioBuffer به فرمت استاندارد WAV جهت ذخیره‌سازی
