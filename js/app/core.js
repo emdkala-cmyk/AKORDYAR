@@ -970,6 +970,24 @@ function requireEditorSongStateService() {
   return window.__editorSongStateServiceBridge;
 }
 
+function requireEditorSongRuntimeService() {
+  if (
+    typeof window.EditorSongRuntimeService !== 'object' ||
+    !window.EditorSongRuntimeService
+  ) {
+    throw new Error(
+      'EditorSongRuntimeService در دسترس نیست. ترتیب scriptها در Akordyar.html را بررسی کنید.'
+    );
+  }
+  if (!window.__editorSongRuntimeServiceBridge) {
+    window.__editorSongRuntimeServiceBridge =
+      window.EditorSongRuntimeService.create({
+        runtimeAdapter: window.EditorRuntimeAdapter
+      });
+  }
+  return window.__editorSongRuntimeServiceBridge;
+}
+
 function attachHistoryService() {
   if (window.__historyAttached) return;
   window.__historyAttached = true;
@@ -1052,13 +1070,7 @@ function isHistoryApplying() {
     }
 
 function setEditorSong(song) {
-  if (typeof edCur !== 'undefined') edCur = song;
-  if (window.EditorRuntimeAdapter?.setSong) {
-    window.EditorRuntimeAdapter.setSong(song);
-  } else {
-    window.EdCurAdapter?.setEdCur?.(song);
-  }
-  return song;
+  return requireEditorSongRuntimeService().setSong(song);
 }
 
 function saveState() {
@@ -1450,11 +1462,11 @@ function applyState(stateStr) {
           e.preventDefault(); e.stopPropagation();
           const t = clientToTime(e.clientX);
           // Create a temporary anchor at clicked time and open chord modal
-          // IMPORTANT: Don't change edCur (which holds the song), use a local variable
+          // IMPORTANT: Don't change the current song state; use a local variable
           const chordTrack = getEditorDAW().tracks.find(track => track.id === tr.id);
           if (chordTrack) {
             const anchor = { time: t, x: e.clientX, y: e.clientY };
-            // Store in a temp variable, don't overwrite edCur
+            // Store in a temp variable; don't overwrite the current song state
             window._tempChordTrackAnchor = anchor;
             window._tempChordTrack = chordTrack;
             // Open the regular chord editor (not the song chord editor)
@@ -1732,18 +1744,34 @@ function applyState(stateStr) {
       const activeChord = getEditorDAW().clips.filter(c => c.type === 'chord' && getEditorDAW().playhead >= c.start && getEditorDAW().playhead < c.start + c.duration).pop();
       if (activeChord && $('live-chord')) $('live-chord').textContent = activeChord.name;
       else if ($('live-chord')) $('live-chord').textContent = 'None';
+      syncTimelineViewportToPlayhead();
+    }
+
+    function syncTimelineViewportToPlayhead() {
+      const scroll = $('tl-scroll');
+      if (!scroll) return;
+
+      const viewportService = window.TimelineViewportService;
+      const current = Number(scroll.scrollLeft) || 0;
+      const maxScrollLeft = Math.max(0, (scroll.scrollWidth || 0) - (scroll.clientWidth || 0));
+      const next = viewportService?.getScrollLeftForPlayhead
+        ? viewportService.getScrollLeftForPlayhead({
+            playheadX: timeToX(getEditorDAW().playhead),
+            scrollLeft: current,
+            viewportWidth: scroll.clientWidth,
+            mode: getEditorDAW().playheadMode,
+            margin: 60,
+            maxScrollLeft
+          })
+        : current;
+
+      if (Number.isFinite(next) && Math.abs(next - current) > 0.5) {
+        scroll.scrollLeft = next;
+      }
     }
 
     function autoScrollToPlayhead() {
-      const scroll = $('tl-scroll');
-      if (!scroll) return;
-      const x = timeToX(getEditorDAW().playhead);
-      const margin = 80;
-      if (x < scroll.scrollLeft + margin) {
-        scroll.scrollLeft = Math.max(0, x - margin);
-      } else if (x > scroll.scrollLeft + scroll.clientWidth - margin) {
-        scroll.scrollLeft = Math.max(0, x - scroll.clientWidth + margin);
-      }
+      syncTimelineViewportToPlayhead();
     }
 
     function updateHud() { $('clip-count').textContent = String(getEditorDAW().clips.length + (getEditorDAW().sections || []).length); }
@@ -2341,19 +2369,6 @@ sels.forEach(c => {
         // Look-ahead scheduler runs independently of RAF. Only fall back to
         // RAF-based beat checking when the scheduler is unavailable.
         if (!getMetronomeSchedulerBridge()) checkMetronomeTick(getEditorDAW().playhead);
-        const scroll = $('tl-scroll'); const x = timeToX(getEditorDAW().playhead);
-        if (getEditorDAW().playheadMode === 'center') {
-          // Stationary: keep playhead visually at center by scrolling
-          scroll.scrollLeft = Math.max(0, x - scroll.clientWidth / 2);
-        } else {
-          // Page scrolling: playhead reaches right edge → jump back to left
-          const margin = 60;
-          if (x > scroll.scrollLeft + scroll.clientWidth - margin) {
-            scroll.scrollLeft = Math.max(0, x - margin);
-          } else if (x < scroll.scrollLeft + margin) {
-            scroll.scrollLeft = Math.max(0, x - margin);
-          }
-        }
         // ─── Early prep: وقتی ۱۵ ثانیه به انتها مونده، شروع به ساختن state آهنگ بعدی کن ───
         // این زمان زیاد هست تا مطمئن بشیم حتی برای فایل‌های بزرگ هم کافیه.
         if (arrPerformActive && !_arrNextState && !arrPreparePending) {
@@ -2916,7 +2931,7 @@ sels.forEach(c => {
       const song = songState.currentSong();
       if (!song) { toast('سندی برای سینک وجود ندارد'); return; }
       
-      // 1. Extract chords from edCur.chords (parsed from Lyrics)
+          // 1. Extract chords from the current song (parsed from lyrics)
       const lyricsChords = songState.getChords(song);
       
       // If no chords in Lyrics
@@ -3449,7 +3464,7 @@ sels.forEach(c => {
           const song = songState.currentSong();
           if (!song) return;
           
-          // 1. Extract chords from edCur.chords (parsed from Lyrics)
+      // 1. Extract chords from the current song (parsed from lyrics)
           const lyricsChords = songState.getChords(song);
           
           // If no chords in Lyrics
@@ -5801,7 +5816,7 @@ let syncTapKeyHandler = null;
           tracks.forEach(t => { if (t.type === 'audio') t.transpose = (t.transpose || 0) + nextSetting.transpose; });
         }
 
-        _arrNextState = { song: songData, idx: nextIdx, clips, sections, tracks, edCur: songData, selectionEnd: selEnd, loopState };
+        _arrNextState = { song: songData, idx: nextIdx, clips, sections, tracks, selectionEnd: selEnd, loopState };
         console.log(`[Arranger Prep] ✓ _arrNextState ready for song ${nextIdx + 1}: "${songData.title}"`);
         
         // ─── تأیید نهایی: مطمئن شو همه بافرهای مورد نیاز واقعاً لود شدن ───

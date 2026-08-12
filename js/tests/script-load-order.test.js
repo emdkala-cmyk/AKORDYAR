@@ -143,6 +143,14 @@ assert.ok(
     scriptIndex('js/app/core.js')
 );
 assert.ok(
+  scriptIndex('js/core/EditorSongRuntimeService.js') <
+    scriptIndex('js/app/core.js')
+);
+assert.ok(
+  scriptIndex('js/core/TimelineViewportService.js') <
+    scriptIndex('js/app/core.js')
+);
+assert.ok(
   scriptIndex('js/core/EditorSongStateService.js') <
     scriptIndex('js/app/core.js')
 );

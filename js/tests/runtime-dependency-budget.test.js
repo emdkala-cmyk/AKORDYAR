@@ -23,6 +23,7 @@ const editorRuntimeAdapter = read('js/core/EditorRuntimeAdapter.js');
 const domainBridge = read('js/core/DomainBridge.js');
 const textEncodingService = read('js/core/TextEncodingService.js');
 const editorSongStateService = read('js/core/EditorSongStateService.js');
+const editorSongRuntimeService = read('js/core/EditorSongRuntimeService.js');
 const syncModeController = executableLines(read('js/editor/SyncModeController.js'));
 const editorMutationService = read('js/editor/EditorMutationService.js');
 const editorChordQuantizeService = read('js/editor/EditorChordQuantizeService.js');
@@ -61,6 +62,8 @@ assert.doesNotMatch(editorSongStateService, /\bPERF\b/);
 assert.doesNotMatch(editorSongStateService, /window\.edCur/);
 assert.match(editorSongStateService, /setSeqPoints/);
 assert.match(editorSongStateService, /setSyncTime/);
+assert.doesNotMatch(editorSongRuntimeService, /document/);
+assert.match(editorSongRuntimeService, /assertSynchronized/);
 assert.doesNotMatch(syncModeController, /getEdCur/);
 assert.match(syncModeController, /songState\.setSeqPoints/);
 assert.match(syncModeController, /songState\.replaceSyncTimes/);
@@ -103,6 +106,9 @@ assert.doesNotMatch(
 );
 assert.match(appCore, /function setCountInBars\(value\)/);
 assert.match(appCore, /alignPlayheadToNearestMeasure/);
+assert.match(appCore, /requireEditorSongRuntimeService\(\)\.setSong/);
+assert.doesNotMatch(appCore, /EdCurAdapter\?\./);
+assert.doesNotMatch(appCore, /\bedCur\b/);
 assert.equal(
   (appCore.match(/function setEditorSong\s*\(/g) || []).length,
   1,

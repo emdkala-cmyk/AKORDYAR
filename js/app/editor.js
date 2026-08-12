@@ -61,7 +61,7 @@ let edSelectedChords = [];
       selectionEnd = ns.selectionEnd;
       isRecordingChords = false; currentRecordingClipId = null;
 
-      setEditorSong(window.TextEncodingService?.repairSong?.(ns.edCur) || ns.edCur);
+      setEditorSong(window.TextEncodingService?.repairSong?.(ns.song) || ns.song);
 
       ensureAudioCtx();
       // ساخت نودهای صوتی جدید برای ترک‌های آهنگ جدید
@@ -3086,6 +3086,10 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
     const ED_TENS = ['','add9','9','11','13','b9','#9','#11','b13'];
 
     let edCur = null;
+    window.EditorLegacySongBridge = {
+      get: () => edCur,
+      set: song => { edCur = song; }
+    };
     setEditorSong(edCur);
     let edUndoStack = [], edRedoStack = [];
     let edChordIdx = null, edPendingAnchor = null;
