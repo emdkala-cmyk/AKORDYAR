@@ -4069,17 +4069,27 @@ function edRestoreSelectionState(state) {
   applyState(stateStr);
 }
 
+    // History command wrappers are kept in the editor scope so keyboard,
+    // toolbar and legacy inline callers share the same implementation.
+    function undo() {
+      return getHistoryService().undo();
+    }
+
+    function redo() {
+      return getHistoryService().redo();
+    }
+
 
 if ($('edUndoBtn')) {
   $('edUndoBtn').onclick = () => {
-    getHistoryService().undo();
+    undo();
   };
 }
 
 
 if ($('edRedoBtn')) {
   $('edRedoBtn').onclick = () => {
-    getHistoryService().redo();
+    redo();
   };
 }
 

@@ -24,5 +24,9 @@ assert.equal(
   'HistoryService must not be attached again after lifecycle initialization'
 );
 assert.match(editorSource, /deactivateHistory,\s*activateHistory/);
+assert.match(editorSource, /function undo\(\)\s*\{\s*return getHistoryService\(\)\.undo\(\);\s*\}/s);
+assert.match(editorSource, /function redo\(\)\s*\{\s*return getHistoryService\(\)\.redo\(\);\s*\}/s);
+assert.match(editorSource, /onUndo:\s*\(\)\s*=>\s*undo\(\)/);
+assert.match(editorSource, /onRedo:\s*\(\)\s*=>\s*redo\(\)/);
 
 console.log('Editor history startup-order contract tests passed');
