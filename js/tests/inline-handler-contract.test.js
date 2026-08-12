@@ -1,0 +1,42 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+
+const projectRoot = path.resolve(__dirname, '..', '..');
+const files = [
+  'Akordyar.html',
+  'js/archive/ArchiveModule.js',
+  'js/app/core.js',
+  'js/app/editor.js',
+  'js/projecthub.js'
+];
+
+for (const relativePath of files) {
+  const source = fs.readFileSync(path.join(projectRoot, relativePath), 'utf8');
+  assert.doesNotMatch(
+    source,
+    /\bon(?:click|change|input)\s*=\s*["']/i,
+    `${relativePath} must not contain inline event attributes`
+  );
+}
+
+const html = fs.readFileSync(path.join(projectRoot, 'Akordyar.html'), 'utf8');
+assert.match(html, /data-inline-actions/);
+assert.match(html, /data-view="archive"/);
+
+const archiveModule = fs.readFileSync(
+  path.join(projectRoot, 'js/archive/ArchiveModule.js'),
+  'utf8'
+);
+assert.match(archiveModule, /data-action="archToggleSelect"/);
+assert.match(archiveModule, /data-action="archSelectAll"/);
+assert.match(archiveModule, /const actions = \{\s*archExitReadOnly/);
+
+const projectHub = fs.readFileSync(
+  path.join(projectRoot, 'js/projecthub.js'),
+  'utf8'
+);
+assert.match(projectHub, /function openArchive\(\)/);
+assert.match(projectHub, /view === ['"]archive['"]\) openArchive\(\)/);
+
+console.log('Inline handler contract tests passed');

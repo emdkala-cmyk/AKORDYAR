@@ -723,14 +723,14 @@
       const activeId=edCur?.id;
       if (_archViewMode==='table') {
         let headerHtml='<table class="archive-table archive-table-header"><thead><tr>';
-        if (_archSelectMode) headerHtml+='<th style="width:36px;"><input type="checkbox" class="arch-select-all-cb archive-card-check" onchange="archSelectAll(this.checked)" aria-label="انتخاب همه"></th>';
+        if (_archSelectMode) headerHtml+='<th style="width:36px;"><input type="checkbox" class="arch-select-all-cb archive-card-check" data-action="archSelectAll" aria-label="انتخاب همه"></th>';
         headerHtml+='<th>عنوان</th><th>خواننده</th><th>گام</th><th>BPM</th><th>میزان</th><th>تاریخ</th><th>عملیات</th></tr></thead></table>';
         let bodyHtml='<div class="archive-table-body"><table class="archive-table archive-table-body-inner"><tbody>';
         for (const s of songs) {
           const kl=s.key?s.key+((s.keyMode||'maj')==='min'?'m':''):'—';
           const ds=s.updatedAt?new Date(s.updatedAt).toLocaleDateString('fa-IR'):'—';
           bodyHtml+=`<tr class="${s.id===activeId?'active-load':''} ${_archSelectedIds.has(s.id)?'selected-row':''}" data-song-id="${s.id}" tabindex="0">`;
-          if (_archSelectMode) bodyHtml+=`<td style="width:36px;"><input type="checkbox" class="archive-card-check" ${_archSelectedIds.has(s.id)?'checked':''} onclick="event.stopPropagation();archToggleSelect('${s.id}')" aria-label="انتخاب"></td>`;
+          if (_archSelectMode) bodyHtml+=`<td style="width:36px;"><input type="checkbox" class="archive-card-check" data-action="archToggleSelect" data-song-id="${escH(s.id)}" ${_archSelectedIds.has(s.id)?'checked':''} aria-label="انتخاب"></td>`;
           bodyHtml+=`<td style="font-weight:700;">${escH(s.title||'بدون نام')}</td><td>${escH(s.artist||'—')}</td><td style="color:#FFA500;font-weight:700;font-family:JetBrains Mono,monospace;">${kl}</td><td style="color:#FF6BA8;">${s.tempo||s.bpm||'—'}</td><td>${s.timeSignature||'—'}</td><td style="font-size:0.72rem;color:var(--text-secondary);">${ds}</td>`;
           bodyHtml+=`<td><div class="at-actions"><button data-arch-action="open" data-song-id="${s.id}" title="بازکردن" aria-label="بازکردن">▶</button> <button data-arch-action="menu" data-song-id="${s.id}" title="بیشتر" aria-label="بیشتر">⋯</button></div></td></tr>`;
         }
@@ -753,7 +753,7 @@
           div.dataset.songId=s.id; div.tabIndex=0; div.setAttribute('role','button');
           div.setAttribute('aria-label',(s.title||'بدون نام')+' '+(s.artist||''));
           let inner='';
-          if (_archSelectMode) inner+=`<input type="checkbox" class="archive-card-check" ${_archSelectedIds.has(s.id)?'checked':''} onclick="event.stopPropagation();archToggleSelect('${s.id}')" aria-label="انتخاب">`;
+          if (_archSelectMode) inner+=`<input type="checkbox" class="archive-card-check" data-action="archToggleSelect" data-song-id="${escH(s.id)}" ${_archSelectedIds.has(s.id)?'checked':''} aria-label="انتخاب">`;
           inner+=`<div class="archive-card-body"><div class="archive-card-top"><div class="archive-card-title">${escH(s.title||'بدون نام')}</div></div><div class="archive-card-artist">${escH(s.artist||'—')}</div>`;
           if (tags.length) inner+=`<div class="archive-card-meta">${tags.join('')}</div>`;
           if (ds) inner+=`<div class="archive-card-date">${isTrashed?'حذف شده: ':''}${ds}</div>`;
@@ -838,7 +838,20 @@
     function archShowReadOnlyBanner() {
       let banner = $('readOnlyBanner');
       if (!banner) { banner = document.createElement('div'); banner.id = 'readOnlyBanner'; banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;background:rgba(255,165,0,0.95);color:#000;text-align:center;padding:8px;font-weight:700;font-size:0.85rem;display:flex;justify-content:center;align-items:center;gap:12px;'; document.body.appendChild(banner); }
-      banner.innerHTML = '👁 حالت فقط‌خواندنی | <button onclick="archExitReadOnly()" style="background:#000;color:#fff;border:none;padding:4px 12px;border-radius:6px;cursor:pointer;font-weight:700;" type="button">خروج از فقط‌خواندنی</button> <button onclick="archCreateEditableCopy()" style="background:#fff;color:#000;border:none;padding:4px 12px;border-radius:6px;cursor:pointer;font-weight:700;" type="button">ایجاد نسخه قابل ویرایش</button>';
+      banner.innerHTML = '👁 حالت فقط‌خواندنی | <button data-action="archExitReadOnly" style="background:#000;color:#fff;border:none;padding:4px 12px;border-radius:6px;cursor:pointer;font-weight:700;" type="button">خروج از فقط‌خواندنی</button> <button data-action="archCreateEditableCopy" style="background:#fff;color:#000;border:none;padding:4px 12px;border-radius:6px;cursor:pointer;font-weight:700;" type="button">ایجاد نسخه قابل ویرایش</button>';
+      if (!banner._actionListenerAttached) {
+        const actions = {
+          archExitReadOnly,
+          archCreateEditableCopy
+        };
+        banner.addEventListener('click', event => {
+          const control = event.target.closest('[data-action]');
+          if (!control) return;
+          const action = actions[control.dataset.action];
+          if (typeof action === 'function') action(event, control);
+        });
+        banner._actionListenerAttached = true;
+      }
       banner.style.display = 'flex';
     }
     function archExitReadOnly() {
@@ -1601,7 +1614,7 @@ function archUpdateActiveFilters() {
 
     const displayName = getArtistDisplayName(_archArtistFilter);
 
-    chip.innerHTML = `خواننده: ${escH(displayName)} <button onclick="_archArtistFilter=null;archRenderArtists();archRender();archUpdateActiveFilters();">✕</button>`;
+    chip.innerHTML = `خواننده: ${escH(displayName)} <button data-action="archClearArtistFilter">✕</button>`;
     container.appendChild(chip);
   }
 }

@@ -1453,7 +1453,7 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
             if (song.error) {
               results.innerHTML += `<div style="padding:6px 10px;margin:2px 0 2px 16px;border-radius:6px;background:rgba(255,0,0,0.1);border:1px solid #e24f5b;font-size:0.8rem;">❌ ${song.title}: ${song.error}</div>`;
             } else {
-              results.innerHTML += `<div style="padding:6px 10px;margin:2px 0 2px 16px;border-radius:6px;background:rgba(63,184,175,0.1);border:1px solid var(--accent-teal);cursor:pointer;font-size:0.8rem;" onclick="loadAutoImportSong('${key}')">🎵 ${song.title} <span style="color:var(--text-secondary);font-size:0.75rem;">(${song.key || '-'})</span></div>`;
+        results.innerHTML += `<div data-action="loadAutoImportSong" data-value="${escapeHtml(String(key))}" style="padding:6px 10px;margin:2px 0 2px 16px;border-radius:6px;background:rgba(63,184,175,0.1);border:1px solid var(--accent-teal);cursor:pointer;font-size:0.8rem;">🎵 ${escapeHtml(song.title)} <span style="color:var(--text-secondary);font-size:0.75rem;">(${escapeHtml(song.key || '-')})</span></div>`;
             }
           });
 
@@ -2336,8 +2336,8 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
         if (cur.shift) keyParts.push('Shift');
         keyParts.push(formatKeyName(cur.code));
         const midiLabel = midiNote ? '🎹N' + midiNote[0].replace('n','') : '';
-        const midiRemoveBtn = midiNote ? `<button class="ed-btn" onclick="removeMidiMap(${midiNote[0].replace('n','')});openShortcutModal();" title="حذف MIDI" style="font-size:0.6rem;min-width:18px;height:24px;padding:0 3px;background:#e24f5b;color:#fff;border-color:#e24f5b;">✕</button>` : '';
-        div.innerHTML = `<span class="shortcut-label">${sk.label}</span><div style="display:flex;gap:4px;align-items:center;"><div class="shortcut-key" data-sid="${sk.id}"><kbd>${keyParts.join(' + ')}</kbd></div><button class="ed-btn" onclick="startMidiLearn('${sk.id}')" title="MIDI Learn" style="font-size:0.7rem;min-width:28px;height:24px;padding:0 4px;${midiNote ? 'background:#9F7AEA;color:#fff;border-color:#9F7AEA;' : ''}">🎹${midiLabel}</button>${midiRemoveBtn}</div>`;
+        const midiRemoveBtn = midiNote ? `<button class="ed-btn" data-action="removeMidiMap" data-value="${escapeHtml(midiNote[0].replace('n',''))}" title="حذف MIDI" style="font-size:0.6rem;min-width:18px;height:24px;padding:0 3px;background:#e24f5b;color:#fff;border-color:#e24f5b;">✕</button>` : '';
+        div.innerHTML = `<span class="shortcut-label">${escapeHtml(sk.label)}</span><div style="display:flex;gap:4px;align-items:center;"><div class="shortcut-key" data-sid="${escapeHtml(sk.id)}"><kbd>${escapeHtml(keyParts.join(' + '))}</kbd></div><button class="ed-btn" data-action="startMidiLearn" data-value="${escapeHtml(sk.id)}" title="MIDI Learn" style="font-size:0.7rem;min-width:28px;height:24px;padding:0 4px;${midiNote ? 'background:#9F7AEA;color:#fff;border-color:#9F7AEA;' : ''}">🎹${midiLabel}</button>${midiRemoveBtn}</div>`;
         div.querySelector('.shortcut-key').addEventListener('click', () => startEditShortcut(sk.id));
         list.appendChild(div);
       });
@@ -6143,6 +6143,101 @@ if (
       closeArrSongNote: () => closeArrSongNote(),
       saveArrSongNote: () => saveArrSongNote(),
       perfNoteClose: (_, element) => element.parentElement?.classList.remove('show'),
+      setCountInBars: (_, element) => setCountInBars(element.value),
+      applyTheme: (_, element) => applyTheme(element.value),
+      applyAccent: (_, element) => applyAccent(element.value),
+      applyOutputDevice: (_, element) => applyOutputDevice(element.value),
+      applyMetroSound: (_, element) => applyMetroSound(element.value),
+      applySettingsToggles: () => applySettingsToggles(),
+      resetSettings: () => resetSettings(),
+      closeSettings: () => closeSettings(),
+      clearMidiLog: () => clearMidiLog(),
+      toggleMidiMonitorAutoScroll: () => toggleMidiMonitorAutoScroll(),
+      toggleMidiSync: () => toggleMIDISync(),
+      applyQuantize: (_, element) => applyQuantize(element.dataset.value),
+      closeImportChordModal: () => closeImportChordModal(),
+      fetchFromUrl: () => fetchFromUrl(),
+      applyImportChords: () => applyImportChords(),
+      autoImportNewRequest: () => autoImportNewRequest(),
+      autoRetryFailed: () => autoRetryFailed(),
+      autoImportSaveArchive: () => autoImportSaveArchive(),
+      autoImportSaveConfirm: () => autoImportSaveConfirm(),
+      closeAutoImportModal: () => closeAutoImportModal(),
+      autoImportDoSave: () => autoImportDoSave(),
+      startAutoImport: () => startAutoImport(),
+      archToggleFullscreen: () => archToggleFullscreen(),
+      archClose: () => archClose(),
+      archToggleArtistSection: () => archToggleArtistSection(),
+      archClearArtistSearch: () => {
+        const input = document.getElementById('artistSearchInput');
+        if (input) input.value = '';
+        archFilterArtists();
+      },
+      archArtistSlide: (_, element) => archArtistSlide(Number(element.dataset.value)),
+      archSetTab: (_, element) => archSetTab(element.dataset.tab),
+      archClearSearch: () => {
+        const input = document.getElementById('archiveSearch');
+        if (input) input.value = '';
+        archApplyFilters();
+      },
+      archSetView: (_, element) => archSetView(element.dataset.value),
+      archToggleSelectMode: () => archToggleSelectMode(),
+      archImportFiles: () => archImportFiles(),
+      archImportFolder: () => archImportFolder(),
+      archImportFullArchive: () => archImportFullArchive(),
+      archExportAll: () => archExportAll(),
+      archRefresh: () => archRefresh(),
+      archClearFilters: () => archClearFilters(),
+      archBulkFav: (_, element) => archBulkFav(element.dataset.value === 'true'),
+      archBulkExport: () => archBulkExport(),
+      archBulkTrash: () => archBulkTrash(),
+      archArtistCtx: (_, element) => archArtistCtx(element.dataset.value),
+      archConfirmResolve: (_, element) => archConfirmResolve(element.dataset.value === 'true'),
+      archEditClose: () => archEditClose(),
+      archEditSave: () => archEditSave(),
+      archCtxAction: (_, element) => archCtxAction(element.dataset.value),
+      closeShortcutModal: () => closeShortcutModal(),
+      resetShortcuts: () => resetShortcuts(),
+      clearMidiMaps: () => {
+        MIDI_MAPS = {};
+        saveMidiMaps();
+        openShortcutModal();
+        toast('Mapping های MIDI پاک شد');
+      },
+      closeArrangerModal: () => closeArrangerModal(),
+      switchArrTab: (_, element) => switchArrTab(element.dataset.tab),
+      saveCurrentArranger: () => saveCurrentArranger(),
+      saveCurrentArrangerDebounced: () => saveCurrentArrangerDebounced(),
+      exportCurrentArranger: () => exportCurrentArranger(),
+      openPerfMode: () => openPerfMode(),
+      arrFilterSongs: () => arrFilterSongs(),
+      arrAutoTranspose: () => arrAutoTranspose(),
+      arrClearNotes: () => arrClearNotes(),
+      arrSetCrossfade: (_, element) => arrSetCrossfade(Number(element.value)),
+      arrTogglePauseBetween: () => arrTogglePauseBetween(),
+      closeChordEditor: () => closeChordEditor(),
+      chordModalDelete: () => chordModalDelete(),
+      chordModalConfirm: () => chordModalConfirm(),
+      loadAutoImportSong: (_, element) => loadAutoImportSong(element.dataset.value),
+      createNewArranger: () => createNewArranger(),
+      importArrangerFromFile: () => importArrangerFromFile(),
+      importAllPlaylistsFromFile: () => importAllPlaylistsFromFile(),
+      exportAllPlaylistsToFile: () => exportAllPlaylistsToFile(),
+      archSelectAll: (_, element) => archSelectAll(!!element.checked),
+      archToggleSelect: (_, element) => archToggleSelect(element.dataset.songId),
+      archExitReadOnly: () => archExitReadOnly(),
+      archCreateEditableCopy: () => archCreateEditableCopy(),
+      archClearArtistFilter: () => {
+        _archArtistFilter = null;
+        archRenderArtists();
+        archRender();
+        archUpdateActiveFilters();
+      },
+      removeMidiMap: (_, element) => {
+        removeMidiMap(Number(element.dataset.value));
+        openShortcutModal();
+      },
+      startMidiLearn: (_, element) => startMidiLearn(element.dataset.value),
     };
 
     let eventBindings = null;

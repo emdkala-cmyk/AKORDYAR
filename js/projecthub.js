@@ -568,7 +568,7 @@
         else if (view === 'new') newProject();
         else if (view === 'open') importProject();
         else if (view === 'templates') openHub();
-        else if (view === 'archive') { /* handled by onclick in HTML */ }
+        else if (view === 'archive') openArchive();
         else if (view === 'settings') openSettings();
       });
     });

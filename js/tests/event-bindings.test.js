@@ -28,6 +28,8 @@ const windowRef = createTarget();
 const keyupEvents = [];
 const pointerEvents = [];
 let inlineActionCalls = 0;
+let inputActionCalls = 0;
+let formActionCalls = 0;
 const inlineGroup = createTarget();
 inlineGroup.contains = () => true;
 inlineGroup.addEventListener = function(eventName, handler, options) {
@@ -39,7 +41,9 @@ const bindings = new EventBindings({
   documentRef,
   windowRef,
   actions: {
-    save: () => { inlineActionCalls++; }
+    save: () => { inlineActionCalls++; },
+    saveDebounced: () => { inputActionCalls++; },
+    applyFormValue: () => { formActionCalls++; }
   },
   onGlobalKeyup: (event) => keyupEvents.push(event),
   onGlobalMousedownCapture: (event) => pointerEvents.push(event)
@@ -71,6 +75,30 @@ inlineClickHandler({
   }
 });
 assert.equal(inlineActionCalls, 1);
+
+const inlineInputHandler = inlineGroup.added.find(item => item.eventName === 'input').handler;
+inlineInputHandler({
+  target: {
+    closest: () => ({
+      dataset: { action: 'save', inputAction: 'saveDebounced' }
+    })
+  }
+});
+assert.equal(inputActionCalls, 1);
+
+const formControl = {
+  tagName: 'SELECT',
+  dataset: { action: 'applyFormValue' }
+};
+const inlineChangeHandler = inlineGroup.added.find(item => item.eventName === 'change').handler;
+const inlineFormClickHandler = inlineGroup.added.find(item => item.eventName === 'click').handler;
+inlineFormClickHandler({
+  target: { closest: () => formControl }
+});
+inlineChangeHandler({
+  target: { closest: () => formControl }
+});
+assert.equal(formActionCalls, 1);
 
 bindings.destroy();
 assert.equal(bindings.initialized, false);

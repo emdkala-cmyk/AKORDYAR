@@ -144,19 +144,20 @@ class EventBindings {
       this.listen(group, 'click', event => {
         const control = event.target.closest('[data-action]');
         if (!control || !group.contains(control)) return;
-        this.runAction(control.dataset.action, event, control);
+        if (this.isFormControl(control)) return;
+        this.runAction(this.resolveAction(control, 'click'), event, control);
       });
 
       this.listen(group, 'input', event => {
         const control = event.target.closest('[data-action]');
         if (!control || !group.contains(control)) return;
-        this.runAction(control.dataset.action, event, control);
+        this.runAction(this.resolveAction(control, 'input'), event, control);
       });
 
       this.listen(group, 'change', event => {
         const control = event.target.closest('[data-action]');
         if (!control || !group.contains(control)) return;
-        this.runAction(control.dataset.action, event, control);
+        this.runAction(this.resolveAction(control, 'change'), event, control);
       });
     });
   }
@@ -177,6 +178,21 @@ class EventBindings {
     if (typeof action === 'function') {
       action(event, element);
     }
+  }
+
+  resolveAction(element, eventName) {
+    if (!element?.dataset) return '';
+    if (eventName === 'input' && element.dataset.inputAction) {
+      return element.dataset.inputAction;
+    }
+    if (eventName === 'change' && element.dataset.changeAction) {
+      return element.dataset.changeAction;
+    }
+    return element.dataset.action || '';
+  }
+
+  isFormControl(element) {
+    return /^(INPUT|SELECT|TEXTAREA)$/i.test(element?.tagName || '');
   }
 
   listen(target, eventName, handler, options) {

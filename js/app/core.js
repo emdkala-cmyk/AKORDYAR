@@ -397,7 +397,7 @@ let _autoSaveTimer = null;
 
     // Close quantize modal on outside click
     document.addEventListener('click', (e) => {
-      if (!e.target.closest('#quantizeModal') && !e.target.closest('[onclick="showQuantizeModal()"]')) {
+      if (!e.target.closest('#quantizeModal') && !e.target.closest('[data-action="showQuantize"]')) {
         $('quantizeModal')?.classList.remove('show');
       }
     });
@@ -4655,17 +4655,17 @@ let syncTapKeyHandler = null;
       const toolbar = document.createElement('div');
       toolbar.className = 'arr-manager-toolbar';
       toolbar.innerHTML = `
-        <button class="arr-btn-new" onclick="createNewArranger()" title="ساخت پلی‌لیست جدید">
+        <button class="arr-btn-new" data-action="createNewArranger" title="ساخت پلی‌لیست جدید">
           ＋ پلی‌لیست جدید
         </button>
         <div style="display:flex;gap:6px;">
-          <button class="arr-btn-import" onclick="importArrangerFromFile()" title="بارگذاری یک پلی‌لیست از فایل JSON">
+          <button class="arr-btn-import" data-action="importArrangerFromFile" title="بارگذاری یک پلی‌لیست از فایل JSON">
             📥 ورود یک پلی‌لیست
           </button>
-          <button class="arr-btn-import" onclick="importAllPlaylistsFromFile()" title="بارگذاری کامل همه پلی‌لیست‌ها از فایل پشتیبان">
+          <button class="arr-btn-import" data-action="importAllPlaylistsFromFile" title="بارگذاری کامل همه پلی‌لیست‌ها از فایل پشتیبان">
             📥 ورود کامل پلی‌لیست‌ها
           </button>
-          <button class="arr-btn-import" onclick="exportAllPlaylistsToFile()" title="خروجی کامل همه پلی‌لیست‌ها در یک فایل" ${arrangers.length === 0 ? 'disabled' : ''}>
+          <button class="arr-btn-import" data-action="exportAllPlaylistsToFile" title="خروجی کامل همه پلی‌لیست‌ها در یک فایل" ${arrangers.length === 0 ? 'disabled' : ''}>
             📤 خروجی کامل پلی‌لیست‌ها
           </button>
         </div>
