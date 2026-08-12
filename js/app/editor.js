@@ -4469,143 +4469,39 @@ function edBlankSong() {
       ) || name;
     }
 
-    let edRenderChordsToken = 0;
+    let edChordRenderer = null;
 
-function edRenderChords(immediate) {
-  const token = ++edRenderChordsToken;
-
-  const run = () => {
-    // اگر در این فاصله یک render جدید‌تر درخواست شده، این یکی را نادیده بگیر
-    if (token !== edRenderChordsToken) return;
-
-    if (!edCur) return;
-    const ed = $('editor');
-    const layer = $('chordLayer');
-    const wrap = $('editorWrap');
-    if (!ed || !layer || !wrap) return;
-
-    layer.innerHTML = '';
-
-    // Chord visibility toggle
-    if (!edChordsVisible) {
-      layer.style.display = 'none';
-      return;
-    }
-    layer.style.display = '';
-
-    const wrapRect = wrap.getBoundingClientRect();
-    const scrollTop = wrap.scrollTop;
-    const st = edCur.styles || {};
-    const cSize = st.cSize || 23;
-    const GAP = Math.max(10, cSize * 0.6);
-    const cColor = st.cColor || '#e6aa28';
-    const isRTL = window.getComputedStyle(ed).direction === 'rtl';
-    const MARGIN = 5;
-
-    edCur.chords.forEach((ch, idx) => {
-      const a = anchorRectIn(ed, ch);
-      if (!a) return;
-
-      const el = document.createElement('span');
-      el.className = 'chord';
-      el.dataset.idx = idx;
-      if (edSelectedChords && edSelectedChords.includes(idx)) {
-        el.classList.add('selected');
+    function getEditorChordRenderer() {
+      if (edChordRenderer || typeof window.EditorChordRenderer?.create !== 'function') {
+        return edChordRenderer;
       }
-
-      let txt = ch.name;
-
-      if (!txt && edSeqChordingActive) {
-        const seqIdx = idx - (edCur.chords.length - edSeqPoints.length);
-        if (seqIdx >= 0 && seqIdx < edSeqPoints.length) {
-          txt = (seqIdx === edSeqCursor) ? '...' : String(seqIdx + 1);
-          if (seqIdx === edSeqCursor) el.classList.add('selected');
+      edChordRenderer = window.EditorChordRenderer.create({
+        getState: () => ({
+          song: edCur,
+          editor: $('editor'),
+          layer: $('chordLayer'),
+          wrap: $('editorWrap'),
+          chordsVisible: edChordsVisible,
+          selectedChords: edSelectedChords,
+          sequenceActive: edSeqChordingActive,
+          sequenceModeActive: edSeqModeActive,
+          sequencePoints: edSeqPoints,
+          sequenceCursor: edSeqCursor
+        }),
+        anchorRectIn,
+        attachDrag: edAttachChordDrag,
+        onPopupSync: () => {
+          if (_lyricPopup && !_lyricPopup.closed) {
+            setTimeout(() => syncLyricPopup(), 100);
+          }
         }
-      }
-
-      if (!txt && !edSeqChordingActive) return;
-
-      el.textContent = txt;
-      const chColor = ch.color || cColor;
-      el.style.cssText =
-        `font-size:${cSize}px;color:${chColor};font-family:${st.cFont || 'JetBrains Mono'};`;
-
-      let x;
-      if (ch.anchorType === 'LineStart') {
-        x = isRTL ? a.rect.right + MARGIN : a.rect.left - MARGIN;
-      } else if (ch.anchorType === 'LineEnd') {
-        x = isRTL ? a.rect.left - MARGIN : a.rect.right + MARGIN;
-      } else if (ch.anchorType === 'BetweenCharacters') {
-        x = a.rect.right;
-      } else {
-        x = (a.rect.left + a.rect.right) / 2;
-      }
-
-      layer.appendChild(el);
-
-      const top =
-        a.rect.top - wrapRect.top +
-        scrollTop - cSize - GAP;
-
-      el.style.top = top + 'px';
-      el.style.left =
-        (x - wrapRect.left - el.offsetWidth / 2) + 'px';
-
-      const line = document.createElement('div');
-      line.className = 'chord-anchor-line';
-      line.style.cssText =
-        `background:${cColor};opacity:.6;left:${x - wrapRect.left}px;` +
-        `top:${top + cSize}px;height:${Math.max(4, GAP)}px;`;
-
-      layer.appendChild(line);
-      edAttachChordDrag(el, idx);
-    });
-
-    if (edSeqModeActive) {
-      edSeqPoints.forEach((p, idx) => {
-        const a = anchorRectIn(ed, p);
-        if (!a) return;
-
-        const el = document.createElement('span');
-        el.className = 'chord';
-        el.textContent = String(idx + 1);
-        el.style.cssText =
-          `font-size:${cSize}px;color:#999;font-family:${st.cFont || 'JetBrains Mono'};`;
-
-        let x;
-        if (p.anchorType === 'LineStart') {
-          x = isRTL ? a.rect.right + MARGIN : a.rect.left - MARGIN;
-        } else if (p.anchorType === 'LineEnd') {
-          x = isRTL ? a.rect.left - MARGIN : a.rect.right + MARGIN;
-        } else {
-          x = (a.rect.left + a.rect.right) / 2;
-        }
-
-        layer.appendChild(el);
-
-        const top =
-          a.rect.top - wrapRect.top +
-          scrollTop - cSize - GAP;
-
-        el.style.top = top + 'px';
-        el.style.left =
-          (x - wrapRect.left - el.offsetWidth / 2) + 'px';
       });
+      return edChordRenderer;
     }
-  };
 
-  if (immediate) {
-    run();
-  } else if (document.fonts && document.fonts.ready) {
-    document.fonts.ready
-      .then(() => requestAnimationFrame(() => requestAnimationFrame(run)))
-      .catch(() => requestAnimationFrame(() => requestAnimationFrame(run)));
-  } else {
-    requestAnimationFrame(() => requestAnimationFrame(run));
-  }
-  // Sync detached popup if open
-  if (_lyricPopup && !_lyricPopup.closed) { setTimeout(() => syncLyricPopup(), 100); }
-}
+    function edRenderChords(immediate) {
+      getEditorChordRenderer()?.render(immediate);
+    }
 
 
 

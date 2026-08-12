@@ -12,7 +12,7 @@
 |---|---|
 | loader | `js/app.js`، loader ترتیبی ۱۱۶ خطی؛ `document.write` فقط compatibility path صریح |
 | هستهٔ برنامه | `js/app/core.js`، ۵٬۸۱۲ خط |
-| ادیتور | `js/app/editor.js`، ۶٬۷۷۳ خط |
+| ادیتور | `js/app/editor.js`، ۶٬۶۶۹ خط |
 | استخراج‌های جدید | `EditorHydrationService`، `EditorLifecycleService`، `HistoryService`، `EventBindings` |
 | مالکیت سند فعلی | setter رسمی `setEditorSong` در core و bridge خواندن/نوشتن `EdCurAdapter` |
 | رویدادهای HTML | در محدودهٔ فعلی `Akordyar.html` و مسیرهای app/archive/projecthub/search، بدون `onclick`/`onchange`/`oninput` |

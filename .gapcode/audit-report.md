@@ -33,7 +33,7 @@
 |---|---:|
 | `js/app.js` | ۱۱۶ خط |
 | `js/app/core.js` | ۵٬۸۱۲ خط |
-| `js/app/editor.js` | ۶٬۷۷۳ خط |
+| `js/app/editor.js` | ۶٬۶۶۹ خط |
 | `js/app/print.js` | ۱۹۷ خط |
 | `js/app/search.js` | ۱۹۵ خط |
 | `js/editor/EditorHydrationService.js` | ۱۷۵ خط |
