@@ -4827,20 +4827,22 @@ function edCommit() {
   if (typeof rebuildSongDocumentFromEdCur === 'function') rebuildSongDocumentFromEdCur();
 }
 
+let edTextSelectionService = null;
+function getEditorTextSelectionService() {
+  if (
+    !edTextSelectionService &&
+    typeof window.EditorTextSelectionService?.create === 'function'
+  ) {
+    edTextSelectionService = window.EditorTextSelectionService.create();
+  }
+  return edTextSelectionService;
+}
+
 function edRestoreSelectionState(state) {
-  if (!state) return;
-
-  const editor = $('editor');
-  const sel = document.getSelection();
-  if (!editor || !sel) return;
-
-  const range = createRangeFromEditorOffsets(editor, state.start, state.end);
-  if (!range) return;
-
-  sel.removeAllRanges();
-  sel.addRange(range);
-
-  editor.focus();
+  const service = getEditorTextSelectionService();
+  if (service) {
+    return service.restore($('editor'), state, document.getSelection());
+  }
 }
 
 
