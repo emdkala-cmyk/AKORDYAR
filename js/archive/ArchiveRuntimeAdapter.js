@@ -6,10 +6,26 @@
  * EdCurAdapter and RuntimeStateAdapter contracts.
  */
 const archiveRuntimeGlobal = typeof window !== 'undefined' ? window : globalThis;
+let archiveSongRuntimeService = null;
+
+function getArchiveSongRuntimeService() {
+  if (
+    !archiveSongRuntimeService &&
+    archiveRuntimeGlobal.EditorSongRuntimeService?.create
+  ) {
+    archiveSongRuntimeService =
+      archiveRuntimeGlobal.EditorSongRuntimeService.create({
+        runtimeAdapter: archiveRuntimeGlobal.EditorRuntimeAdapter
+      });
+  }
+  return archiveSongRuntimeService;
+}
 
 const ArchiveRuntimeAdapter = Object.freeze({
   getSong() {
-    return archiveRuntimeGlobal.EdCurAdapter?.getEdCur?.() || null;
+    return getArchiveSongRuntimeService()?.getSong?.()
+      || archiveRuntimeGlobal.EdCurAdapter?.getEdCur?.()
+      || null;
   },
 
   getSongOrThrow() {
@@ -21,6 +37,8 @@ const ArchiveRuntimeAdapter = Object.freeze({
   },
 
   setSong(song) {
+    const runtimeService = getArchiveSongRuntimeService();
+    if (runtimeService?.setSong) return runtimeService.setSong(song);
     const setEdCur = archiveRuntimeGlobal.EdCurAdapter?.setEdCur;
     if (typeof setEdCur !== 'function') {
       throw new Error('ArchiveRuntimeAdapter: EdCurAdapter.setEdCur is unavailable');

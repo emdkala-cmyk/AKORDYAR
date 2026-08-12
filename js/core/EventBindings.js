@@ -12,6 +12,7 @@ class EventBindings {
     onGlobalKeydownCapture = null,
     onGlobalKeydown = null,
     onGlobalKeyup = null,
+    onGlobalDocumentKeydown = null,
     onGlobalMousedownCapture = null
   } = {}) {
     this.document = documentRef;
@@ -20,6 +21,7 @@ class EventBindings {
     this.onGlobalKeydownCapture = onGlobalKeydownCapture;
     this.onGlobalKeydown = onGlobalKeydown;
     this.onGlobalKeyup = onGlobalKeyup;
+    this.onGlobalDocumentKeydown = onGlobalDocumentKeydown;
     this.onGlobalMousedownCapture = onGlobalMousedownCapture;
 
     this.initialized = false;
@@ -135,6 +137,10 @@ class EventBindings {
 
     if (typeof this.onGlobalKeyup === 'function') {
       this.listen(this.window, 'keyup', this.onGlobalKeyup);
+    }
+
+    if (typeof this.onGlobalDocumentKeydown === 'function') {
+      this.listen(this.document, 'keydown', this.onGlobalDocumentKeydown);
     }
   }
 

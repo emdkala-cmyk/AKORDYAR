@@ -6,13 +6,47 @@
  */
 
 (function attachRuntimeStateAdapter(globalScope) {
+  let dawRuntime = null;
+  let performanceRuntime = null;
+
+  function getDAWRuntime() {
+    if (
+      !dawRuntime &&
+      globalScope.DAWRuntimeAdapter?.create &&
+      globalScope.DAW
+    ) {
+      dawRuntime = globalScope.DAWRuntimeAdapter.create(globalScope.DAW);
+    }
+    return dawRuntime;
+  }
+
+  function getPerformanceRuntime() {
+    if (
+      !performanceRuntime &&
+      globalScope.PerformanceRuntimeAdapter?.create &&
+      globalScope.PERF
+    ) {
+      performanceRuntime =
+        globalScope.PerformanceRuntimeAdapter.create(globalScope.PERF);
+    }
+    return performanceRuntime;
+  }
+
   const RuntimeStateAdapter = Object.freeze({
     getDAW() {
-      return globalScope.DAW || null;
+      return getDAWRuntime()?.getState?.() || globalScope.DAW || null;
+    },
+
+    getDAWAdapter() {
+      return getDAWRuntime();
     },
 
     getPERF() {
-      return globalScope.PERF || null;
+      return getPerformanceRuntime()?.getState?.() || globalScope.PERF || null;
+    },
+
+    getPERFAdapter() {
+      return getPerformanceRuntime();
     },
 
     getPerformanceStore() {

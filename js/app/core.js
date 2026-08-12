@@ -691,7 +691,7 @@ let _autoSaveTimer = null;
     /* =========================
    PERF / RENDER HELPERS
    ========================= */
-const PERF = {
+const PERF = globalScope.PerformanceRuntimeState?.create?.() || {
   lastSerializedState: '',
   lastSyncActiveLi: -2,
   lastSyncDoneKey: '',
@@ -773,7 +773,7 @@ const requestRenderSyncLyrics = debounce(() => { renderSyncLyrics(); }, 120);
    ========================= */
 
 
-    const DAW = {
+    const DAW = globalScope.DAWRuntimeState?.create?.() || {
       tracks: [], clips: [], sections: [], selectedIds: new Set(), selectedSectionIds: new Set(), clipboard: [],
       playhead: 0, isPlaying: false, isScrubbing: false,
       timelineDuration: 120, pxPerSecond: 70, laneHeight: 64, loadTrackId: null,
@@ -783,8 +783,7 @@ const requestRenderSyncLyrics = debounce(() => { renderSyncLyrics(); }, 120);
       nextId: 100, bufferCache: new Map(), waveCache: new Map(),
       drag: null, marquee: null, editingChordClipId: null, selectedPlayhead: false,
       loopEnabled: false, loopA: 0, loopB: 10,
-      // سیستم جدید Pool برای مدیریت فایل‌های صوتی
-      pool: {}, // clipId -> clip metadata
+      pool: {},
       projectRoot: null,
       isRecording: false, recRafId: null, recAnalyser: null, recStream: null, recMediaRecorder: null,
       recStartTime: 0, recEndTime: 0, recPeaks: [], recLaneId: null
@@ -3075,8 +3074,8 @@ sels.forEach(c => {
     }
 
     function applyHighlightClassToPopup() {
-      if (!_lyricPopup || _lyricPopup.closed) return;
-      const popupDoc = _lyricPopup.document;
+      if (!isPopupOpen(_lyricPopup)) return;
+      const popupDoc = popupDocument(_lyricPopup);
       if (!popupDoc) return;
       const body = popupDoc.body;
       if (!body) return;
@@ -3224,7 +3223,25 @@ sels.forEach(c => {
     })();
 
     /* ===== POPUP WINDOW FULLSCREEN ===== */
+    const popupWindowBridge = globalScope.WindowBridge;
+    function isPopupOpen(popup) {
+      return popupWindowBridge?.isOpen?.(popup) ?? Boolean(popup && !popup.closed);
+    }
+    function popupDocument(popup) {
+      return popupWindowBridge?.getDocument?.(popup) || popup?.document || null;
+    }
+    function openPopupWindow(name, features) {
+      return popupWindowBridge?.open?.({
+        windowRef: window,
+        url: '',
+        name,
+        features
+      }) || window.open('', name, features);
+    }
+
     let _lyricPopup = null;
+    let _lyricOnlyMessageCleanup = null;
+    let _chordLineMessageCleanup = null;
     let _focusMode = false;
     let _savedGridRows = ''; // saved gridTemplateRows before focus mode
     function toggleFocusMode() {
@@ -3247,8 +3264,8 @@ sels.forEach(c => {
       }
     }
     function openLyricPopup() {
-      if (_lyricPopup && !_lyricPopup.closed) { _lyricPopup.focus(); return; }
-      _lyricPopup = window.open('', 'lyricPopup', 'width=900,height=700,menubar=no,toolbar=no,location=no,status=no');
+      if (isPopupOpen(_lyricPopup)) { popupWindowBridge?.focus?.(_lyricPopup); return; }
+      _lyricPopup = openPopupWindow('lyricPopup', 'width=900,height=700,menubar=no,toolbar=no,location=no,status=no');
       if (!_lyricPopup) { toast(t('popupBlocked')); return; }
       try { _lyricPopup.__popupRole = 'player'; } catch(_) {}
       syncLyricPopup();
@@ -3258,17 +3275,18 @@ sels.forEach(c => {
     // ===== LYRIC-ONLY POPUP (singer view, no chords) =====
     let _lyricOnlyPopup = null;
     function openLyricOnlyPopup() {
-      if (_lyricOnlyPopup && !_lyricOnlyPopup.closed) { _lyricOnlyPopup.focus(); return; }
-      _lyricOnlyPopup = window.open('', 'lyricOnlyPopup', 'width=650,height=400,menubar=no,toolbar=no,location=no,status=no');
+      if (isPopupOpen(_lyricOnlyPopup)) { popupWindowBridge?.focus?.(_lyricOnlyPopup); return; }
+      _lyricOnlyPopup = openPopupWindow('lyricOnlyPopup', 'width=650,height=400,menubar=no,toolbar=no,location=no,status=no');
       if (!_lyricOnlyPopup) { toast(t('popupBlocked')); return; }
       try { _lyricOnlyPopup.__popupRole = 'singer'; } catch(_) {}
       syncLyricOnlyPopup();
     }
     function syncLyricOnlyPopup() {
-      if (!_lyricOnlyPopup || _lyricOnlyPopup.closed) return;
+      if (!isPopupOpen(_lyricOnlyPopup)) return;
       const snapshot = requireEditorSongStateService().getPresentationSnapshot();
       if (!snapshot) return;
-      const doc = _lyricOnlyPopup.document;
+      const doc = popupDocument(_lyricOnlyPopup);
+      if (!doc) return;
       const { title, artist, lyrics, styles } = snapshot;
       const { tSize, tColor, tFont, tBold, align } = styles;
       const lines = lyrics.split('\n');
@@ -3316,10 +3334,18 @@ sels.forEach(c => {
       doc.body.setAttribute('data-popup-role', 'singer');
 
       // Sync playhead highlight
-      window.addEventListener('message', function lopSync(ev) {
-        if (ev.data?.type === 'syncUpdate') {
-          if (_lyricOnlyPopup.closed) { window.removeEventListener('message', lopSync); return; }
-          const body = _lyricOnlyPopup.document.getElementById('lopBody');
+      _lyricOnlyMessageCleanup?.();
+      _lyricOnlyMessageCleanup = popupWindowBridge?.onMessage?.({
+        windowRef: window,
+        getSource: () => _lyricOnlyPopup,
+        type: 'syncUpdate',
+        handler: ev => {
+          if (!isPopupOpen(_lyricOnlyPopup)) {
+            _lyricOnlyMessageCleanup?.();
+            _lyricOnlyMessageCleanup = null;
+            return;
+          }
+          const body = popupDocument(_lyricOnlyPopup)?.getElementById('lopBody');
           if (!body) return;
           const activeIdx = ev.data.activeIdx;
           [...body.children].forEach(el => {
@@ -3338,11 +3364,11 @@ sels.forEach(c => {
             }
           }
         }
-      });
+      }) || null;
       // Direct highlight sync (same pattern as lyricPopup)
       function _syncSingerHighlight() {
-        if (!_lyricOnlyPopup || _lyricOnlyPopup.closed) return;
-        const body = _lyricOnlyPopup.document.getElementById('lopBody');
+        if (!isPopupOpen(_lyricOnlyPopup)) return;
+        const body = popupDocument(_lyricOnlyPopup)?.getElementById('lopBody');
         if (!body) return;
         const times = requireEditorSongStateService().getSyncTimes();
         const t = getEditorDAW()?.playhead || 0;
@@ -3371,16 +3397,17 @@ sels.forEach(c => {
     // ===== CHORD LINE POPUP (detachable, small) =====
     let _chordLinePopup = null;
     function openChordLinePopup() {
-      if (_chordLinePopup && !_chordLinePopup.closed) { _chordLinePopup.focus(); return; }
-      _chordLinePopup = window.open('', 'chordLinePopup', 'width=650,height=400,menubar=no,toolbar=no,location=no,status=no');
+      if (isPopupOpen(_chordLinePopup)) { popupWindowBridge?.focus?.(_chordLinePopup); return; }
+      _chordLinePopup = openPopupWindow('chordLinePopup', 'width=650,height=400,menubar=no,toolbar=no,location=no,status=no');
       if (!_chordLinePopup) { toast(t('popupBlocked')); return; }
       syncChordLinePopup();
     }
     function syncChordLinePopup() {
-      if (!_chordLinePopup || _chordLinePopup.closed) return;
+      if (!isPopupOpen(_chordLinePopup)) return;
       const snapshot = requireEditorSongStateService().getPresentationSnapshot();
       if (!snapshot) return;
-      const doc = _chordLinePopup.document;
+      const doc = popupDocument(_chordLinePopup);
+      if (!doc) return;
       const { title, artist, key, keyMode, lyrics, styles } = snapshot;
       const keyStr = key + (keyMode === 'min' ? 'm' : '');
       const { tSize, tColor, tFont, tBold, align, cSize, cColor, cFont } = styles;
@@ -3623,10 +3650,18 @@ sels.forEach(c => {
       });
 
       // Sync playhead highlight
-      window.addEventListener('message', function clpSync(ev) {
-        if (ev.data?.type === 'syncUpdate') {
-          if (_chordLinePopup.closed) { window.removeEventListener('message', clpSync); return; }
-          const body = _chordLinePopup.document.getElementById('clpBody');
+      _chordLineMessageCleanup?.();
+      _chordLineMessageCleanup = popupWindowBridge?.onMessage?.({
+        windowRef: window,
+        getSource: () => _chordLinePopup,
+        type: 'syncUpdate',
+        handler: ev => {
+          if (!isPopupOpen(_chordLinePopup)) {
+            _chordLineMessageCleanup?.();
+            _chordLineMessageCleanup = null;
+            return;
+          }
+          const body = popupDocument(_chordLinePopup)?.getElementById('clpBody');
           if (!body) return;
           [...body.children].forEach(el => {
             if (!el.dataset.li) return;
@@ -3635,7 +3670,7 @@ sels.forEach(c => {
             el.classList.toggle('clp-active-bg', li === ev.data.activeIdx);
           });
         }
-      });
+      }) || null;
     }
 
     // === Player View persistent settings (survives popup rebuilds) ===
@@ -3663,15 +3698,16 @@ sels.forEach(c => {
       return "'" + fontName + "', sans-serif";
     }
     function _pvSetupWheelHandlers() {
-      if (!_lyricPopup || _lyricPopup.closed) return;
-      const pDoc = _lyricPopup.document;
+      if (!isPopupOpen(_lyricPopup)) return;
+      const pDoc = popupDocument(_lyricPopup);
+      if (!pDoc) return;
       // Remove old handler if exists
       if (_lyricPopup._pvWheelHandler) {
         pDoc.removeEventListener('wheel', _lyricPopup._pvWheelHandler);
       }
       // Create new handler
       const handler = (e) => {
-        if (!_lyricPopup || _lyricPopup.closed) return;
+        if (!isPopupOpen(_lyricPopup)) return;
         const target = e.target;
         // Ctrl+Wheel anywhere → lyric size
         if (e.ctrlKey) {
@@ -3711,11 +3747,13 @@ sels.forEach(c => {
     }
 
     function syncLyricPopup() {
-      if (!_lyricPopup || _lyricPopup.closed) return;
+      if (!isPopupOpen(_lyricPopup)) return;
+      const popupDoc = popupDocument(_lyricPopup);
+      if (!popupDoc) return;
       // If popup already has chord script, update in-place (no full rebuild)
-      const _existingScript = _lyricPopup.document.querySelector('script[data-pv="chord"]');
+      const _existingScript = popupDoc.querySelector('script[data-pv="chord"]');
       if (_existingScript) {
-        const doc = _lyricPopup.document;
+        const doc = popupDoc;
         const pb = doc.getElementById('popupBody');
         if (!pb) return;
 
@@ -3833,10 +3871,10 @@ sels.forEach(c => {
       const transpose = snapshot.transpose;
       const lines = snapshot.lyrics.split('\n');
       const chords = snapshot.chords.map(ch => ({ lineIndex: ch.lineIndex, charIndex: ch.charIndex, anchorType: ch.anchorType, _name: edTransposeChord(ch.name, transpose) }));
-      _lyricPopup.document.title = title + ' — ' + artist + ' | نوازنده';
-      _lyricPopup.document.documentElement.dir = 'rtl';
-      _lyricPopup.document.documentElement.lang = 'fa';
-      _lyricPopup.document.head.innerHTML = `
+      popupDoc.title = title + ' — ' + artist + ' | نوازنده';
+      popupDoc.documentElement.dir = 'rtl';
+      popupDoc.documentElement.lang = 'fa';
+      popupDoc.head.innerHTML = `
         <style>
           @font-face { font-family: 'Vazirmatn'; src: url('../fonts/Vazirmatn-Regular.woff2') format('woff2'); font-weight: normal; }
           @font-face { font-family: 'Vazirmatn Bold'; src: url('../fonts/Vazirmatn-Bold.woff2') format('woff2'); }
@@ -3960,14 +3998,14 @@ body.hl-pulse .popup-sync-line.active::before { content: ''; position: absolute;
         '<div id="chordMirrorHandle" style="width:100%;height:4px;background:linear-gradient(90deg,#4A5568,#9F7AEA,#4A5568);cursor:ns-resize;border-radius:2px 2px 0 0;opacity:0.5;transition:opacity 0.2s;" onmouseover="this.style.opacity=\'1\'" onmouseout="this.style.opacity=\'0.5\'"></div>' +
         '<div id="playerChordMirror" style="width:100%;height:90px;background:#111;overflow:hidden;border-top:1px solid #333;"></div>' +
         '</div>';
-      _lyricPopup.document.body.innerHTML = html;
-      _lyricPopup.document.body.setAttribute('data-popup-role', 'player');
+      popupDoc.body.innerHTML = html;
+      popupDoc.body.setAttribute('data-popup-role', 'player');
       // Apply highlight effect class to popup body
       applyHighlightClassToPopup();
       // Inject chord positioning script via createElement (not insertAdjacentHTML)
       const chordsJson = JSON.stringify(chords);
       const configJson = JSON.stringify({ cSize, cColor, cFont });
-      const sc = _lyricPopup.document.createElement('script');
+      const sc = popupDoc.createElement('script');
       sc.setAttribute('data-pv', 'chord');
       sc.textContent = `
         var _pChords = ${chordsJson};
@@ -4170,7 +4208,7 @@ body.hl-pulse .popup-sync-line.active::before { content: ''; position: absolute;
           }
         }, { passive: false });
       `;
-      _lyricPopup.document.body.appendChild(sc);
+      popupDoc.body.appendChild(sc);
       // Override _pCfg with saved Player View settings (not editor defaults)
       _lyricPopup._pCfg = { cSize: _pvSettings.cSize, cColor: _pvSettings.cColor, cFont: 'JetBrains Mono' };
 
@@ -4351,7 +4389,8 @@ document.addEventListener('DOMContentLoaded', () => {
       // Also override on the popup's global scope for the chord script
       try { _lyricPopup.eval('_pCfg.cSize=' + _pvSettings.cSize + ';_pCfg.cColor="' + _pvSettings.cColor + '";'); } catch(_) {}
       // Settings panel initialization — use persistent _pvSettings from outer scope
-      const _pvDoc = _lyricPopup.document;
+      const _pvDoc = popupDocument(_lyricPopup);
+      if (!_pvDoc) return;
       function _pvApply() {
         const root = _pvDoc.body;
         root.style.background = _pvSettings.bgColor;
@@ -4412,8 +4451,8 @@ document.addEventListener('DOMContentLoaded', () => {
       // فقط class toggling — هیچ inline style reset — هیچ DOM rebuild
       let _pvLastScrolledIdx = -999;
       function _syncLyricPopupHighlight() {
-        if (!_lyricPopup || _lyricPopup.closed) return;
-        const popupBody = _lyricPopup.document.getElementById('popupBody');
+        if (!isPopupOpen(_lyricPopup)) return;
+        const popupBody = popupDocument(_lyricPopup)?.getElementById('popupBody');
         if (!popupBody) return;
         const times = requireEditorSongStateService().getSyncTimes();
         const t = getEditorDAW()?.playhead || 0;
@@ -4444,7 +4483,7 @@ document.addEventListener('DOMContentLoaded', () => {
       [200, 500, 1000].forEach(function(ms) {
         setTimeout(function() {
           try {
-            if (_lyricPopup && !_lyricPopup.closed && typeof _lyricPopup._pRenderChords === 'function') {
+            if (isPopupOpen(_lyricPopup) && typeof _lyricPopup._pRenderChords === 'function') {
               _lyricPopup._pRenderChords();
             }
           } catch(_) {}
@@ -4452,7 +4491,7 @@ document.addEventListener('DOMContentLoaded', () => {
       });
       // Force Reflow: مجبور کردن مرورگر به محاسبه مجدد چیدمان
       try {
-        const _pb = _lyricPopup.document.getElementById('popupBody');
+        const _pb = popupDocument(_lyricPopup)?.getElementById('popupBody');
         if (_pb) void _pb.offsetHeight;
         _lyricPopup.dispatchEvent(new Event('resize'));
       } catch(_) {}

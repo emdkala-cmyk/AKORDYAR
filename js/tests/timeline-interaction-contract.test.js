@@ -7,6 +7,7 @@ const read = file => fs.readFileSync(path.join(root, file), 'utf8');
 
 const core = read('js/app/core.js');
 const editor = read('js/app/editor.js');
+const keyboardService = read('js/editor/EditorKeyboardService.js');
 const html = read('Akordyar.html');
 const timelineCss = read('styles/timeline.css');
 
@@ -21,7 +22,8 @@ assert.match(core, /let returnToStartOnPause = true/);
 assert.match(core, /function previewMetronomeSound/);
 assert.match(html, /data-action="previewMetroSound"/);
 assert.match(editor, /function toggleSelectedTrackHeight/);
-assert.match(editor, /e\.code === 'KeyZ'/);
+assert.match(editor, /EditorKeyboardService/);
+assert.match(keyboardService, /event\.code === 'KeyZ'/);
 assert.match(timelineCss, /\.track-name\.selected-track/);
 assert.match(timelineCss, /\.track-lane\.selected-track/);
 

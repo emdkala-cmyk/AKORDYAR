@@ -33,6 +33,20 @@
       return adapter;
     }
 
+    function getArchiveSong() {
+      const adapter = getArchiveRuntimeAdapter();
+      if (typeof adapter.getSongOrThrow === 'function') {
+        return adapter.getSongOrThrow();
+      }
+      const song = adapter.getSong?.();
+      if (!song) throw new Error('ArchiveRuntimeAdapter: editor song is unavailable');
+      return song;
+    }
+
+    function getArchiveSongOrNull() {
+      return getArchiveRuntimeAdapter().getSong?.() || null;
+    }
+
     function resetPerformanceSerialization() {
       getArchiveRuntimeAdapter().resetPerformanceSerialization?.();
     }
@@ -240,28 +254,29 @@
       daw.loopEnabled = false; daw.loopA = 0; daw.loopB = 10;
       isRecordingChords = false; currentRecordingClipId = null;
       setEditorSong(JSON.parse(JSON.stringify(data)));
-      if (!edCur.styles) edCur.styles = {};
+      const song = getArchiveSong();
+      if (!song.styles) song.styles = {};
       const defaults = { tSize:38,tColor:'#0fa966',tFont:'Vazirmatn',tBold:true,align:'center', cSize:38,cColor:'#e6aa28',cFont:'JetBrains Mono' };
-      Object.keys(defaults).forEach(k => { if (edCur.styles[k] === undefined) edCur.styles[k] = defaults[k]; });
-      if (!edCur.timeSignature) edCur.timeSignature = '4/4';
-      if (!edCur.tempo) edCur.tempo = 120;
-      if (edCur.transpose == null) edCur.transpose = 0;
+      Object.keys(defaults).forEach(k => { if (song.styles[k] === undefined) song.styles[k] = defaults[k]; });
+      if (!song.timeSignature) song.timeSignature = '4/4';
+      if (!song.tempo) song.tempo = 120;
+      if (song.transpose == null) song.transpose = 0;
       // Fix key format: 'Am' → key='A', keyMode='min'
-      if (edCur.key && edCur.key.endsWith('m') && edCur.keyMode !== 'min') {
-        const cleanKey = edCur.key.replace(/m$/, '');
+      if (song.key && song.key.endsWith('m') && song.keyMode !== 'min') {
+        const cleanKey = song.key.replace(/m$/, '');
         if (typeof etIsValidNote === 'function' && etIsValidNote(cleanKey)) {
-          edCur.key = cleanKey;
-          edCur.keyMode = 'min';
+          song.key = cleanKey;
+          song.keyMode = 'min';
         }
       }
       // Store original key if not set yet
-      if (!edCur.originalKey) { edCur.originalKey = edCur.key; edCur.originalKeyMode = edCur.keyMode || 'maj'; }
+      if (!song.originalKey) { song.originalKey = song.key; song.originalKeyMode = song.keyMode || 'maj'; }
       // Initialize baseChordNames if not set (original chord NAMES only, no positions)
-      if (!edCur.baseChordNames || !edCur.baseChordNames.length) {
-        edCur.baseChordNames = (edCur.chords || []).map(ch => ch.name || '');
+      if (!song.baseChordNames || !song.baseChordNames.length) {
+        song.baseChordNames = (song.chords || []).map(ch => ch.name || '');
       }
       // Tracks
-      if (edCur._dawTracks) { daw.tracks = JSON.parse(JSON.stringify(edCur._dawTracks)); }
+      if (song._dawTracks) { daw.tracks = JSON.parse(JSON.stringify(song._dawTracks)); }
       else {
         daw.tracks = [
           { id:'t0',name:'Chord Line',icon:'♫',type:'chord' },
@@ -273,25 +288,25 @@
           { id:'t5',name:'Drums',icon:'🥁',type:'audio',muted:false,solo:false,vol:0.8,pan:0,transpose:0 }
         ];
       }
-      if (edCur._dawClips) daw.clips = JSON.parse(JSON.stringify(edCur._dawClips));
-      if (edCur._dawSections) daw.sections = JSON.parse(JSON.stringify(edCur._dawSections)); else daw.sections = [];
+      if (song._dawClips) daw.clips = JSON.parse(JSON.stringify(song._dawClips));
+      if (song._dawSections) daw.sections = JSON.parse(JSON.stringify(song._dawSections)); else daw.sections = [];
       updateNextIdFromClips();
       const _oldS = daw.clips.filter(c => c.type === 'section');
       if (_oldS.length > 0) { _oldS.forEach(c => { daw.sections.push({ id:c.id,trackId:c.trackId,label:c.name,start:c.start,duration:c.duration,color:c.color }); }); daw.clips = daw.clips.filter(c => c.type !== 'section'); }
-      if (edCur._dawLoop) { daw.loopEnabled = !!edCur._dawLoop.loopEnabled; daw.loopA = edCur._dawLoop.loopA||0; daw.loopB = edCur._dawLoop.loopB||10; }
+      if (song._dawLoop) { daw.loopEnabled = !!song._dawLoop.loopEnabled; daw.loopA = song._dawLoop.loopA||0; daw.loopB = song._dawLoop.loopB||10; }
       ensureAudioCtx();
       daw.tracks.forEach(t => { if (t.type === 'audio') { if (t.transpose===undefined) t.transpose=0; t._pannerNode=daw.audioCtx.createStereoPanner(); t._gainNode=daw.audioCtx.createGain(); t._pannerNode.connect(t._gainNode); t._gainNode.connect(daw.masterGain); updateTrackMix(t.id); } });
       // Audio from IndexedDB (only embedded)
       try {
-        await loadAudioBlobsForProject(edCur.id);
+        await loadAudioBlobsForProject(song.id);
         daw.clips.forEach(c => { if (c.type!=='chord'&&c.bufferKey&&daw.bufferCache.has(c.bufferKey)) { const b=daw.bufferCache.get(c.bufferKey); c.sourceDuration=b.duration; c._peaks=peaksFromBuffer(b,2000); refreshClipWaveImage(c); } });
       } catch(e) { console.warn('IndexedDB load error:', e); }
       // Audio from file paths and directory (linked files)
       const missingAudio = daw.clips.filter(c => c.type!=='chord'&&c.bufferKey&&!daw.bufferCache.has(c.bufferKey));
-      if (missingAudio.length > 0 && edCur._audioPaths?.length > 0) {
+      if (missingAudio.length > 0 && song._audioPaths?.length > 0) {
         // اول از filePath (Electron) لود کن
         if (isElectron && window.electronAPI) {
-          for (const ap of edCur._audioPaths) {
+          for (const ap of song._audioPaths) {
             if (!ap.filePath) continue;
             const clip = daw.clips.find(c => c.type!=='chord' && c.bufferKey === ap.bufferKey);
             if (!clip || daw.bufferCache.has(clip.bufferKey)) continue;
@@ -333,7 +348,7 @@
           let dh = _audioDirHandle;
           if (!dh) { try { await loadDirHandle(); dh = _audioDirHandle; } catch(_){} }
           if (!dh) { try { dh = await window.showDirectoryPicker({mode:'read'}); await saveDirHandle(dh); } catch(_){} }
-          if (dh) { try { const perm = await dh.requestPermission({mode:'read'}); if (perm==='granted') { for (const ap of edCur._audioPaths) { const clip = daw.clips.find(c=>c.type!=='chord'&&c.bufferKey===ap.bufferKey); if (!clip||daw.bufferCache.has(clip.bufferKey)) continue; for (const n of [ap.fileName,ap.fileName?ap.fileName.replace(/\.[^.]+$/,''):'']) { if (!n) continue; try { const fh=await dh.getFileHandle(n); const f=await fh.getFile(); const {buffer}=await decodeFileToBuffer(f); daw.bufferCache.set(clip.bufferKey,buffer); clip.sourceDuration=buffer.duration; clip._peaks=peaksFromBuffer(buffer,2000); refreshClipWaveImage(clip); break; } catch(_){} } } } } catch(_){} }
+          if (dh) { try { const perm = await dh.requestPermission({mode:'read'}); if (perm==='granted') { for (const ap of song._audioPaths) { const clip = daw.clips.find(c=>c.type!=='chord'&&c.bufferKey===ap.bufferKey); if (!clip||daw.bufferCache.has(clip.bufferKey)) continue; for (const n of [ap.fileName,ap.fileName?ap.fileName.replace(/\.[^.]+$/,''):'']) { if (!n) continue; try { const fh=await dh.getFileHandle(n); const f=await fh.getFile(); const {buffer}=await decodeFileToBuffer(f); daw.bufferCache.set(clip.bufferKey,buffer); clip.sourceDuration=buffer.duration; clip._peaks=peaksFromBuffer(buffer,2000); refreshClipWaveImage(clip); break; } catch(_){} } } } } catch(_){} }
         }
       }
       resetHistory(); resetPerformanceSerialization();
@@ -349,30 +364,31 @@
     // --- Save To Archive ---
     async function edSaveToArchive() {
       const daw = getArchiveDAW();
-      if (!edCur) return;
-      SongMetadata.syncFromDom(edCur);
-      edCur.artistKey = archArtistKey(edCur.artist);
-      edCur._dawTracks = daw.tracks.map(t => ({ id:t.id,name:t.name,icon:t.icon,muted:t.muted,solo:t.solo,vol:t.vol,pan:t.pan,type:t.type,transpose:t.transpose||0 }));
-      edCur._dawClips = daw.clips.map(c => { const cp={...c}; delete cp._peaks; delete cp.waveUrl; delete cp._fileHandle; delete cp._originalBlob; return cp; });
-      edCur._dawSections = (daw.sections||[]).map(s=>({...s}));
-      edCur._dawLoop = { loopEnabled:daw.loopEnabled, loopA:daw.loopA, loopB:daw.loopB };
+      const song = getArchiveSongOrNull();
+      if (!song) return;
+      SongMetadata.syncFromDom(song);
+      song.artistKey = archArtistKey(song.artist);
+      song._dawTracks = daw.tracks.map(t => ({ id:t.id,name:t.name,icon:t.icon,muted:t.muted,solo:t.solo,vol:t.vol,pan:t.pan,type:t.type,transpose:t.transpose||0 }));
+      song._dawClips = daw.clips.map(c => { const cp={...c}; delete cp._peaks; delete cp.waveUrl; delete cp._fileHandle; delete cp._originalBlob; return cp; });
+      song._dawSections = (daw.sections||[]).map(s=>({...s}));
+      song._dawLoop = { loopEnabled:daw.loopEnabled, loopA:daw.loopA, loopB:daw.loopB };
       if (typeof saveCurrentVersion==='function') saveCurrentVersion();
-      edCur._audioPaths = [];
+      song._audioPaths = [];
       for (const clip of daw.clips) {
         if (clip.type==='chord'||!clip.name) continue;
-        edCur._audioPaths.push({
+        song._audioPaths.push({
           bufferKey:clip.bufferKey,
           fileName:clip.fileName||clip.name,
           trackId:clip.trackId,
           filePath: clip._filePath || null
         });
       }
-      edCur.updatedAt = new Date().toISOString();
-      const songs = edGetAllSongs(); const idx = songs.findIndex(s=>String(s.id)===String(edCur.id));
-      const data = JSON.parse(JSON.stringify(edCur));
+      song.updatedAt = new Date().toISOString();
+      const songs = edGetAllSongs(); const idx = songs.findIndex(s=>String(s.id)===String(song.id));
+      const data = JSON.parse(JSON.stringify(song));
       if (idx>-1) songs[idx]=data; else songs.unshift(data);
       edSetAllSongs(songs);
-      try { await saveAudioBlobsForProject(edCur.id); } catch(e) { console.warn('Audio archive save error:',e); }
+      try { await saveAudioBlobsForProject(song.id); } catch(e) { console.warn('Audio archive save error:',e); }
       // === Performance Architecture v2: sync after archive save ===
       if (typeof rebuildSongDocumentFromEdCur === 'function') rebuildSongDocumentFromEdCur();
     }
@@ -720,7 +736,7 @@
       $('archiveFilterBar').style.display=isTrash?'none':'';
       const list=$('archiveList'); list.innerHTML='';
       if (!songs.length) { list.innerHTML=`<div class="archive-empty"><div class="archive-empty-icon">${isTrash?'🗑':'🎵'}</div>${q?'نتیجه‌ای یافت نشد':isTrash?'سطل زباله خالی است':_archCurrentTab==='fav'?'ترانه‌ای در علاقه‌مندی نیست':'آرشیو خالی است'}</div>`; return; }
-      const activeId=edCur?.id;
+      const activeId=getArchiveSongOrNull()?.id;
       if (_archViewMode==='table') {
         let headerHtml='<table class="archive-table archive-table-header"><thead><tr>';
         if (_archSelectMode) headerHtml+='<th style="width:36px;"><input type="checkbox" class="arch-select-all-cb archive-card-check" data-action="archSelectAll" aria-label="انتخاب همه"></th>';
@@ -785,7 +801,7 @@
         // Parse rawText if lyrics/chords are missing (bulk import case)
         ensureSongParsed(s);
         // Check unsaved changes: history length > 1 means user made changes after loading
-        if (edCur && historyLength() > 1) {
+        if (getArchiveSongOrNull() && historyLength() > 1) {
           const ok = await archConfirm('پروژه ذخیره نشده', 'تغییرات ذخیره‌نشده‌ای وجود دارد. آیا می‌خواهید قبل از لود ذخیره کنید؟', 'ذخیره و لود', false);
           if (ok) await edSaveToArchive();
         }
@@ -795,9 +811,9 @@
         await loadProjectData(s);
         // Update lastOpenedAt
         const all2 = edGetAllSongs();
-        const idx2 = all2.findIndex(x => String(x.id) === String(edCur.id));
+        const idx2 = all2.findIndex(x => String(x.id) === String(getArchiveSong().id));
         if (idx2 > -1) { all2[idx2].lastOpenedAt = new Date().toISOString(); edSetAllSongs(all2); }
-        toast('پروژه لود شد: ' + (edCur.title || 'بدون نام'));
+        toast('پروژه لود شد: ' + (getArchiveSong().title || 'بدون نام'));
       } catch(err) {
         console.error('Archive load error:', err);
         toast('خطا در لود ترانه: ' + (err.message || 'خطای ناشناخته'));
@@ -825,7 +841,7 @@
         if (typeof editorState !== 'undefined') editorState.readOnly = true;
         else window._editorReadOnly = true;
         const all2 = edGetAllSongs();
-        const idx2 = all2.findIndex(x => String(x.id) === String(edCur.id));
+        const idx2 = all2.findIndex(x => String(x.id) === String(getArchiveSong().id));
         if (idx2 > -1) { all2[idx2].lastOpenedAt = new Date().toISOString(); edSetAllSongs(all2); }
         // Show read-only banner
         archShowReadOnlyBanner();
@@ -861,9 +877,10 @@
       toast('حالت فقط‌خواندنی غیرفعال شد');
     }
     async function archCreateEditableCopy() {
-      if (!edCur) return;
+      const sourceSong = getArchiveSongOrNull();
+      if (!sourceSong) return;
       archExitReadOnly();
-      const copy = JSON.parse(JSON.stringify(edCur));
+      const copy = JSON.parse(JSON.stringify(sourceSong));
       copy.id = archGenId();
       copy.title = (copy.title || 'بدون نام') + ' (نسخه قابل ویرایش)';
       copy.createdAt = new Date().toISOString();
@@ -1699,7 +1716,7 @@ function archUpdateActiveFilters() {
     }
     async function edNewSong() {
       const daw = getArchiveDAW();
-      if (edCur && historyLength() > 1) {
+      if (getArchiveSongOrNull() && historyLength() > 1) {
         if (confirm(t('saveSong') + '?')) await edSaveToArchive();
       }
       pauseTransport();
@@ -1788,18 +1805,19 @@ saveState();
 
     async function edExportProject() {
       const daw = getArchiveDAW();
-      if (!edCur) { toast('ترانه‌ای باز نیست'); return; }
+      const song = getArchiveSongOrNull();
+      if (!song) { toast('ترانه‌ای باز نیست'); return; }
       try {
-      SongMetadata.syncFromDom(edCur);
-      edCur._dawTracks = daw.tracks.map(tr => ({
+      SongMetadata.syncFromDom(song);
+      song._dawTracks = daw.tracks.map(tr => ({
         id: tr.id, name: tr.name, icon: tr.icon, muted: tr.muted,
         solo: tr.solo, vol: tr.vol, pan: tr.pan, type: tr.type, transpose: tr.transpose || 0, laneHeight: tr.laneHeight || null
       }));
-      edCur._dawClips = daw.clips.map(c => {
+      song._dawClips = daw.clips.map(c => {
         const cp = { ...c }; delete cp._peaks; delete cp.waveUrl; delete cp._fileHandle; delete cp._originalBlob; return cp;
       });
-      edCur._dawSections = (daw.sections || []).map(s => ({ ...s }));
-      edCur._dawLoop = { loopEnabled: daw.loopEnabled, loopA: daw.loopA, loopB: daw.loopB };
+      song._dawSections = (daw.sections || []).map(s => ({ ...s }));
+      song._dawLoop = { loopEnabled: daw.loopEnabled, loopA: daw.loopA, loopB: daw.loopB };
 
       // فقط کلیپ‌های کپی‌شده رمزگذاری بشن
       const audioData = {};
@@ -1825,11 +1843,11 @@ saveState();
           }
         }
       }
-      edCur._embeddedAudio = audioData;
+      song._embeddedAudio = audioData;
 
       const linkedCount = daw.clips.filter(c => c.type !== 'chord' && c.bufferKey && !c._embedded).length;
-      const defaultName = (edCur.title || 'ترانه جدید') + '.json';
-      const data = JSON.stringify(edCur);
+      const defaultName = (song.title || 'ترانه جدید') + '.json';
+      const data = JSON.stringify(song);
       const blob = new Blob([data], { type: 'application/json' });
       const sizeMB = (blob.size / (1024*1024)).toFixed(1);
       const audioCount = Object.keys(audioData).length;
@@ -1851,36 +1869,37 @@ saveState();
     }
 
     async function edExportXML() {
-      if (!edCur) { toast('ترانه‌ای باز نیست'); return; }
-      SongMetadata.syncFromDom(edCur, {includeKey: false});
+      const song = getArchiveSongOrNull();
+      if (!song) { toast('ترانه‌ای باز نیست'); return; }
+      SongMetadata.syncFromDom(song, {includeKey: false});
 
       const esc = (s) => String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
       let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
       xml += '<song>\n';
-      xml += `  <title>${esc(edCur.title)}</title>\n`;
-      xml += `  <artist>${esc(edCur.artist)}</artist>\n`;
-      xml += `  <key>${esc(edCur.key)}${edCur.keyMode === 'min' ? 'm' : ''}</key>\n`;
-      xml += `  <timeSignature>${esc(edCur.timeSignature)}</timeSignature>\n`;
-      xml += `  <tempo>${edCur.tempo || 120}</tempo>\n`;
-      xml += `  <genre>${esc(edCur.genre)}</genre>\n`;
-      xml += `  <transpose>${edCur.transpose || 0}</transpose>\n`;
+      xml += `  <title>${esc(song.title)}</title>\n`;
+      xml += `  <artist>${esc(song.artist)}</artist>\n`;
+      xml += `  <key>${esc(song.key)}${song.keyMode === 'min' ? 'm' : ''}</key>\n`;
+      xml += `  <timeSignature>${esc(song.timeSignature)}</timeSignature>\n`;
+      xml += `  <tempo>${song.tempo || 120}</tempo>\n`;
+      xml += `  <genre>${esc(song.genre)}</genre>\n`;
+      xml += `  <transpose>${song.transpose || 0}</transpose>\n`;
 
       // Chords
       xml += '  <chords>\n';
-      (edCur.chords || []).forEach(ch => {
+      (song.chords || []).forEach(ch => {
         xml += `    <chord name="${esc(ch.name)}" line="${ch.lineIndex}" char="${ch.charIndex}" anchor="${esc(ch.anchorType)}" />\n`;
       });
       xml += '  </chords>\n';
 
       // Lyrics line by line
       xml += '  <lyrics>\n';
-      (edCur.lyrics || '').split('\n').forEach((line, i) => {
+      (song.lyrics || '').split('\n').forEach((line, i) => {
         xml += `    <line index="${i}">${esc(line)}</line>\n`;
       });
       xml += '  </lyrics>\n';
 
       // Styles
-      const st = edCur.styles || {};
+      const st = song.styles || {};
       xml += '  <styles>\n';
       xml += `    <text size="${st.tSize||23}" color="${esc(st.tColor||'#0fa966')}" font="${esc(st.tFont||'Vazirmatn')}" bold="${st.tBold?'true':'false'}" align="${esc(st.align||'center')}" />\n`;
       xml += `    <chord size="${st.cSize||23}" color="${esc(st.cColor||'#e6aa28')}" font="${esc(st.cFont||'JetBrains Mono')}" />\n`;
@@ -1888,7 +1907,7 @@ saveState();
 
       xml += '</song>';
 
-      const defaultName = (edCur.title || 'ترانه جدید') + '.xml';
+      const defaultName = (song.title || 'ترانه جدید') + '.xml';
       const blob = new Blob([xml], { type: 'application/xml' });
 
       if (window.showSaveFilePicker) {
@@ -1930,25 +1949,26 @@ saveState();
             daw.clips = []; daw.sections = []; daw.selectedIds.clear(); daw.selectedSectionIds = new Set(); daw.bufferCache.clear(); daw.waveCache.clear();
             daw.loopEnabled = false; daw.loopA = 0; daw.loopB = 10;
             setEditorSong(data);
-            if (!edCur.styles) edCur.styles = {};
+            const song = getArchiveSong();
+            if (!song.styles) song.styles = {};
             const defaults = { tSize:38,tColor:'#0fa966',tFont:'Vazirmatn',tBold:true,align:'center', cSize:38,cColor:'#e6aa28',cFont:'JetBrains Mono' };
-            Object.keys(defaults).forEach(k => { if (edCur.styles[k] === undefined) edCur.styles[k] = defaults[k]; });
-            if (!edCur.timeSignature) edCur.timeSignature = '4/4';
-            if (!edCur.tempo) edCur.tempo = 120;
-            if (!edCur.genre) edCur.genre = '';
+            Object.keys(defaults).forEach(k => { if (song.styles[k] === undefined) song.styles[k] = defaults[k]; });
+            if (!song.timeSignature) song.timeSignature = '4/4';
+            if (!song.tempo) song.tempo = 120;
+            if (!song.genre) song.genre = '';
 
             // Auto-import raw format: has rawText but no lyrics/chords → parse it
-            if (edCur.rawText && !edCur.lyrics) {
-              _importParsed = edCur;
-              $('importText').value = edCur.rawText;
-              $('importUrl').value = edCur.url || '';
+            if (song.rawText && !song.lyrics) {
+              _importParsed = song;
+              $('importText').value = song.rawText;
+              $('importUrl').value = song.url || '';
               applyImportChords();
               _importParsed = null;
             }
 
-            if (edCur._dawTracks) daw.tracks = JSON.parse(JSON.stringify(edCur._dawTracks));
-            if (edCur._dawClips) daw.clips = JSON.parse(JSON.stringify(edCur._dawClips));
-            if (edCur._dawSections) daw.sections = JSON.parse(JSON.stringify(edCur._dawSections)); else daw.sections = [];
+            if (song._dawTracks) daw.tracks = JSON.parse(JSON.stringify(song._dawTracks));
+            if (song._dawClips) daw.clips = JSON.parse(JSON.stringify(song._dawClips));
+            if (song._dawSections) daw.sections = JSON.parse(JSON.stringify(song._dawSections)); else daw.sections = [];
             updateNextIdFromClips();
             // Migrate any old section clips from daw.clips to daw.sections
             const _impOldSections = daw.clips.filter(c => c.type === 'section');
@@ -1956,7 +1976,7 @@ saveState();
               _impOldSections.forEach(c => { daw.sections.push({ id: c.id, trackId: c.trackId, label: c.name, start: c.start, duration: c.duration, color: c.color }); });
               daw.clips = daw.clips.filter(c => c.type !== 'section');
             }
-            if (edCur._dawLoop) { daw.loopEnabled = !!edCur._dawLoop.loopEnabled; daw.loopA = edCur._dawLoop.loopA||0; daw.loopB = edCur._dawLoop.loopB||10; }
+            if (song._dawLoop) { daw.loopEnabled = !!song._dawLoop.loopEnabled; daw.loopA = song._dawLoop.loopA||0; daw.loopB = song._dawLoop.loopB||10; }
             ensureAudioCtx();
             daw.tracks.forEach(tr => {
               if (tr.type === 'audio') {
@@ -1975,7 +1995,7 @@ saveState();
             const audioClips = daw.clips.filter(c => c.type !== 'chord');
             if (audioClips.length > 0) {
               try {
-                await loadAudioBlobsForProject(edCur.id);
+                await loadAudioBlobsForProject(song.id);
               } catch(e) {}
 
               // Re-create waveforms for clips that have buffers
@@ -1990,11 +2010,11 @@ saveState();
 
               // Second: restore from embedded audio in backup file
               const stillMissing = audioClips.filter(c => c.bufferKey && !daw.bufferCache.has(c.bufferKey));
-              if (stillMissing.length > 0 && edCur._embeddedAudio && Object.keys(edCur._embeddedAudio).length > 0) {
+              if (stillMissing.length > 0 && song._embeddedAudio && Object.keys(song._embeddedAudio).length > 0) {
                 ensureAudioCtx();
                 let restored = 0;
                 for (const clip of stillMissing) {
-                  const embedded = edCur._embeddedAudio[clip.bufferKey];
+                  const embedded = song._embeddedAudio[clip.bufferKey];
                   if (!embedded) continue;
                   try {
                     let buf;
@@ -2043,15 +2063,15 @@ saveState();
                   } catch(_) {}
                 }
                 if (restored > 0) toast(`بازیابی صدا: ${restored} فایل از بکآپ`);
-                saveAudioBlobsForProject(edCur.id).catch(() => {});
+                saveAudioBlobsForProject(song.id).catch(() => {});
               }
 
               // Third: if still missing, try loading from file paths then directory
               const stillMissing2 = audioClips.filter(c => c.bufferKey && !daw.bufferCache.has(c.bufferKey));
-              if (stillMissing2.length > 0 && edCur._audioPaths && edCur._audioPaths.length > 0) {
+              if (stillMissing2.length > 0 && song._audioPaths && song._audioPaths.length > 0) {
                 // اول از filePath (Electron) لود کن
                 if (isElectron && window.electronAPI) {
-                  for (const ap of edCur._audioPaths) {
+                  for (const ap of song._audioPaths) {
                     if (!ap.filePath) continue;
                     const clip = daw.clips.find(c => c.type !== 'chord' && c.bufferKey === ap.bufferKey);
                     if (!clip || daw.bufferCache.has(clip.bufferKey)) continue;
@@ -2102,7 +2122,7 @@ saveState();
                     const perm = await dirHandle.requestPermission({ mode: 'read' });
                     if (perm === 'granted') {
                       const notFound = [];
-                      for (const ap of edCur._audioPaths) {
+                      for (const ap of song._audioPaths) {
                         const clip = daw.clips.find(c => c.type !== 'chord' && c.bufferKey === ap.bufferKey);
                         if (!clip || daw.bufferCache.has(clip.bufferKey)) continue;
                         const candidates = [ap.fileName, ap.fileName ? ap.fileName.replace(/\.[^.]+$/, '') : ''];
@@ -2142,7 +2162,7 @@ saveState();
               }
             });
 
-            await saveAudioBlobsForProject(edCur.id).catch(e => console.warn('Audio save error:', e));
+            await saveAudioBlobsForProject(song.id).catch(e => console.warn('Audio save error:', e));
             saveState();
             edSaveSong();
             renderAll();

@@ -5,22 +5,31 @@
 // Keep selection state initialized before DOM setup can register handlers.
 let edSelectedChords = [];
 
+function editorPopupIsOpen(popup) {
+  return window.WindowBridge?.isOpen?.(popup) ?? Boolean(popup && !popup.closed);
+}
+
+function editorPopupDocument(popup) {
+  return window.WindowBridge?.getDocument?.(popup) || popup?.document || null;
+}
+
     /**
      * همگام‌سازی UI بعد از تغییر آهنگ — فراخوانی مشترک بین loadArrSong و hotSwapToNextSong
      */
     // تابع ایمن برای کپی آکوردها از تایم‌لاین به پلیر
     function syncUIAfterSongChange() {
       if (typeof rebuildSongDocumentFromEdCur === 'function') rebuildSongDocumentFromEdCur();
-      if (_lyricPopup && !_lyricPopup.closed) {
+      if (editorPopupIsOpen(_lyricPopup)) {
         try {
-          const _script = _lyricPopup.document.querySelector('script[data-pv="chord"]');
+          const _script = editorPopupDocument(_lyricPopup)
+            ?.querySelector('script[data-pv="chord"]');
           if (_script) _script.remove();
         } catch(_) {}
         setTimeout(() => { try { syncLyricPopup(); } catch(_) {} }, 50);
         setTimeout(() => { try { syncLyricPopup(); } catch(_) {} }, 300);
         setTimeout(() => { try { safeMirrorTimeline(); } catch(_) {} }, 1000);
       }
-      if (_lyricOnlyPopup && !_lyricOnlyPopup.closed) {
+      if (editorPopupIsOpen(_lyricOnlyPopup)) {
         setTimeout(() => { try { syncLyricOnlyPopup(); } catch(_) {} }, 50);
         setTimeout(() => { try { syncLyricOnlyPopup(); } catch(_) {} }, 300);
       }
@@ -2435,112 +2444,23 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
     // Global shortcut capture for editing.
     // EventBindings is responsible for registering this handler.
     function handleGlobalKeydownCapture(e) {
-      // Skip if editing a shortcut
-      if (_editingShortcutId) {
-        e.preventDefault(); e.stopPropagation();
-        if (e.key === 'Escape') { _editingShortcutId = null; openShortcutModal(); return; }
-        if (e.key === 'Control' || e.key === 'Shift' || e.key === 'Alt' || e.key === 'Meta') return;
-        finishEditShortcut(e.code, e.ctrlKey || e.metaKey, e.shiftKey);
-        return;
-      }
-      // Alt+P: intercept in capture phase before browser menu activates
-      if (e.altKey && e.code === 'KeyP') {
-        e.preventDefault(); e.stopPropagation();
-        setLoopFromSelectionAndPlay();
-        return;
-      }
-      // Space in perf mode: intercept in capture phase before buttons can steal focus
-      if (e.code === 'Space' && perfModeActive && !e.target.closest('input,textarea,[contenteditable]')) {
-        e.preventDefault(); e.stopPropagation();
-        perfTogglePlay();
-        return;
-      }
-      // Space in editor: play/pause (capture phase to prevent button focus issues)
-      if (e.code === 'Space' && !e.ctrlKey && !e.metaKey && !e.altKey && !e.target.closest('input,textarea,[contenteditable],.arr-perf-panel')) {
-        e.preventDefault(); e.stopPropagation();
-        togglePlay();
-        return;
-      }
-      // Mapping mode: Ctrl+Shift+Alt held
-      if (e.ctrlKey && e.shiftKey && e.altKey) {
-        e.preventDefault(); e.stopPropagation();
-      }
+      return getEditorKeyboardService()?.handleGlobalKeydownCapture?.(e);
     }
 
     // Main global shortcuts handler.
     // EventBindings is responsible for registering this handler.
     function handleGlobalKeydown(e) {
-      // Skip if editing a shortcut
-      if (_editingShortcutId) return;
-      const tag = (e.target && e.target.tagName) || '';
-      const isInput = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
-      const isContentEditable = e.target && (e.target.isContentEditable || e.target.contentEditable === 'true');
-
-      // Undo/Redo: always work globally
-      if (matchShortcut(e, 'undo')) { e.preventDefault(); undo(); return; }
-      if (matchShortcut(e, 'redo')) { e.preventDefault(); redo(); return; }
-
-      // F9: Singer (monitor چپ) + Player (monitor لپ‌تاپ) + پخش
-      if (matchShortcut(e, 'fullscreen')) {
-        e.preventDefault();
-        if (!getEditorDAW().isPlaying) { ensureAudioCtx(); if (getEditorDAW().playhead <= 0) seekTransport(0, false); startTransport(); }
-        // Singer View — monitor 2 (چپ)
-        openLyricOnlyPopup();
-        // Player View — monitor 1 (لپ‌تاپ)
-        setTimeout(openLyricPopup, 300);
-        return;
-      }
-      // Focus mode
-      if (matchShortcut(e, 'focusMode')) { e.preventDefault(); toggleFocusMode(); return; }
-
-      // Arrow keys: playhead seeking OR chord movement (skip when Ctrl/Shift held for panel shortcuts)
-      if ((e.code === 'ArrowLeft' || e.code === 'ArrowRight') && !isInput && !isContentEditable && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
-        if ($('chord-modal')?.classList.contains('show')) return;
-        // If chords are selected in editor, let the chord handler deal with it
-        if (edSelectedChords.length > 0 && edCur) return;
-        const barDur = getTimeSignatureGridConfig(($('edTimeSig')?.value || '4/4'), (parseInt($('edTempo')?.value) || 120)).measureDuration;
-        const step = e.shiftKey ? barDur : 0.05;
-        e.preventDefault();
-        seekTransport(getEditorDAW().playhead + (e.code === 'ArrowRight' ? step : -step), true, true);
-        return;
-      }
-
-      // Delete — when NOT in text field and clips selected
-      if (matchShortcut(e, 'delete') && !isInput && !isContentEditable && getEditorDAW().selectedIds.size > 0) {
-        e.preventDefault(); deleteSelected();
-        return;
-      }
-
-      // Don't handle DAW shortcuts when in any text input
-      if (isInput || isContentEditable) return;
-
-      if (matchShortcut(e, 'delete')) { e.preventDefault(); deleteSelected(); }
-      else if (matchShortcut(e, 'split')) { e.preventDefault(); splitSelectedAtPlayhead(); }
-      else if (matchShortcut(e, 'copy')) { e.preventDefault(); copySelected(); }
-      else if (matchShortcut(e, 'cut')) { e.preventDefault(); cutSelected(); }
-      else if (matchShortcut(e, 'paste')) { e.preventDefault(); pasteClipboard(); }
-      else if (matchShortcut(e, 'selectAll')) { e.preventDefault(); setSelection(getEditorDAW().clips.map(c => c.id)); }
-      else if (matchShortcut(e, 'duplicate')) { e.preventDefault(); duplicateSelected(); }
-      else if (matchShortcut(e, 'goStart')) { transportToStart(); }
-      else if (matchShortcut(e, 'setLoopFromSel')) { e.preventDefault(); setLoopFromSelection(); }
-      else if (matchShortcut(e, 'loop')) { e.preventDefault(); toggleLoop(); }
-      else if (matchShortcut(e, 'loopA')) { e.preventDefault(); setLoopA(); }
-      else if (matchShortcut(e, 'loopB')) { e.preventDefault(); setLoopB(); }
-      else if (e.code === 'KeyV' && !e.ctrlKey && !e.metaKey && !e.altKey && !isInput && !isContentEditable) { e.preventDefault(); togglePlayheadMode(); }
-      else if (e.code === 'KeyR' && !e.ctrlKey && !e.metaKey && !e.altKey && !isInput && !isContentEditable) { e.preventDefault(); toggleRec(); }
-      else if (e.code === 'KeyZ' && !e.ctrlKey && !e.metaKey && !e.altKey && !isInput && !isContentEditable) {
-        e.preventDefault();
-        toggleSelectedTrackHeight();
-      }
-      else if (e.key === 'Escape') {
-        if (_focusMode) { toggleFocusMode(); return; }
-        if (syncActive) { exitSyncMode(); const tab = $('tab-sync'); if (tab) tab.classList.remove('active-teal'); return; }
-        clearSelection();
-      }
+      const keyboardService = getEditorKeyboardService();
+      if (keyboardService?.handleKeydown?.(e)) return true;
+      return keyboardService?.handleGlobalKeydown?.(e);
     }
 
     function handleGlobalKeyup(e) {
-      if (e.key === 'Shift') $('cut-guide').style.display = 'none';
+      return getEditorKeyboardService()?.handleGlobalKeyup?.(e);
+    }
+
+    function handleGlobalDocumentKeydown(e) {
+      return getEditorKeyboardService()?.handleAuxiliaryKeydown?.(e);
     }
 
     /* ===================== INIT & INTERACTIONS ===================== */
@@ -5187,104 +5107,137 @@ if ($('edDoBoth')) {
     }
 
     // -- Keyboard Shortcuts for Editor (chord modal + chord movement) --
-    window.addEventListener('keydown', e => {
-      const isInput = e.target?.tagName === 'INPUT' || e.target?.tagName === 'TEXTAREA' || e.target?.tagName === 'SELECT';
-      const isEditing = e.target?.isContentEditable;
-
-      if (e.key === 'Escape' && edChordModalMode === 'editor' && $('chord-modal')?.classList.contains('show')) { edCloseChordModal(); return; }
-      if (e.code === 'Enter' && edChordModalMode === 'editor' && $('chord-modal')?.classList.contains('show')) { e.preventDefault(); edConfirmChord(); return; }
-
-      // TAP TEMPO shortcut (T key, not in input/editor)
-      if (e.key === 't' && !isInput && !isEditing && !e.ctrlKey && !e.metaKey && !e.altKey) { e.preventDefault(); tapTempo(); return; }
-
-      // Q quantizes selected chord-line clips using the active meter/grid.
-      // Keep this in the editor command boundary so it cannot be swallowed by
-      // unrelated DAW shortcuts or run twice through the global binding.
+    let edKeyboardService = null;
+    function getEditorKeyboardService() {
       if (
-        e.code === 'KeyQ' &&
-        !isInput &&
-        !isEditing &&
-        !e.ctrlKey &&
-        !e.metaKey &&
-        !e.altKey &&
-        hasSelectedChordLineClip()
+        !edKeyboardService &&
+        typeof window.EditorKeyboardService?.create === 'function'
       ) {
-        e.preventDefault();
-        e.stopImmediatePropagation?.();
-        quantizeSelectedChords();
-        return;
+        edKeyboardService = window.EditorKeyboardService.create({
+          windowRef: window,
+          isChordModalOpen: () =>
+            $('chord-modal')?.classList.contains('show'),
+          isEditorChordModal: () => edChordModalMode === 'editor',
+          getChordIndex: () => edChordIdx,
+          isEditorLocked: () => Boolean(edCur?.editorLocked),
+          hasSelectedChords: () => edSelectedChords.length > 0,
+          hasSelectedChordLineClip,
+          isSequentialChordingActive: () => edSeqChordingActive,
+          isShortcutEditing: () => Boolean(_editingShortcutId),
+          getShortcutMatch: (event, id) => matchShortcut(event, id),
+          getDAW: () => getEditorDAW(),
+          getGridConfig: () =>
+            getTimeSignatureGridConfig(
+              $('edTimeSig')?.value || '4/4',
+              parseInt($('edTempo')?.value, 10) || 120
+            ),
+          onCancelShortcutEdit: () => {
+            _editingShortcutId = null;
+            openShortcutModal();
+          },
+          onFinishShortcutEdit: (code, ctrl, shift) =>
+            finishEditShortcut(code, ctrl, shift),
+          onSetLoopFromSelectionAndPlay: () => setLoopFromSelectionAndPlay(),
+          isPerfModeActive: () => perfModeActive,
+          onPerfTogglePlay: () => perfTogglePlay(),
+          onTogglePlay: () => togglePlay(),
+          onUndo: () => undo(),
+          onRedo: () => redo(),
+          onFullscreen: () => {
+            if (!getEditorDAW().isPlaying) {
+              ensureAudioCtx();
+              if (getEditorDAW().playhead <= 0) seekTransport(0, false);
+              startTransport();
+            }
+            openLyricOnlyPopup();
+            setTimeout(openLyricPopup, 300);
+          },
+          onFocusMode: () => toggleFocusMode(),
+          onSeek: (time, snap, noSnap) => seekTransport(time, snap, noSnap),
+          onDeleteSelectedClips: () => deleteSelected(),
+          onSplitSelected: () => splitSelectedAtPlayhead(),
+          onCopySelected: () => copySelected(),
+          onCutSelected: () => cutSelected(),
+          onPasteClipboard: () => pasteClipboard(),
+          onSelectAllClips: () =>
+            setSelection(getEditorDAW().clips.map(clip => clip.id)),
+          onDuplicateSelected: () => duplicateSelected(),
+          onGoStart: () => transportToStart(),
+          onSetLoopFromSelection: () => setLoopFromSelection(),
+          onToggleLoop: () => toggleLoop(),
+          onSetLoopA: () => setLoopA(),
+          onSetLoopB: () => setLoopB(),
+          onTogglePlayheadMode: () => togglePlayheadMode(),
+          onToggleRecording: () => toggleRec(),
+          onToggleSelectedTrackHeight: () => toggleSelectedTrackHeight(),
+          isFocusMode: () => _focusMode,
+          isSyncActive: () => syncActive,
+          onSyncTap: () => syncTap(),
+          onExitSyncMode: () => {
+            exitSyncMode();
+            const tab = $('tab-sync');
+            if (tab) tab.classList.remove('active-teal');
+          },
+          onClearSelection: () => clearSelection(),
+          onHideCutGuide: () => {
+            const guide = $('cut-guide');
+            if (guide) guide.style.display = 'none';
+          },
+          isColorToolActive: () => isColorToolActive(),
+          onToggleColorBrush: () => toggleColorTool('brush'),
+          onToggleColorEyedropper: () => toggleColorTool('eyedropper'),
+          onDeactivateColorTool: () => deactivateColorTool(),
+          getMappingTarget: () => _mappingTarget,
+          onCancelMapping: () => cancelMapping(),
+          onTogglePanel: panel => togglePanel(panel),
+          onPerfStop: () => perfStop(),
+          onPerfNextSong: () => perfNextSong(),
+          onPerfPrevSong: () => perfPrevSong(),
+          onPerfRestartSong: () => perfRestartSong(),
+          onPerfToggleStageMode: () => perfToggleStageMode(),
+          onPerfTranspose: delta => perfTranspose(delta),
+          onPerfTogglePauseMode: () => perfTogglePauseMode(),
+          onCloseChordModal: () => edCloseChordModal(),
+          onConfirmChord: () => edConfirmChord(),
+          onTapTempo: () => tapTempo(),
+          onQuantizeSelectedChords: () => quantizeSelectedChords(),
+          onChordLineTap: () => edClTap(),
+          onSequentialEnter: () => {
+            const chords = getEditorSongStateService()?.getChords?.() || [];
+            const seqIdx = chords.length - edSeqPoints.length + edSeqCursor;
+            edOpenChordModal(seqIdx);
+          },
+          onNavigateChord: direction => edNavigateChord(direction),
+          onMoveSelectedChords: direction => {
+            const mutation = getEditorMutationService();
+            const changed = mutation?.moveChords(
+              edCur,
+              edSelectedChords,
+              direction,
+              lineIndex => $('editor')?.children[lineIndex]?.textContent
+                ?.replace(/\u200B/g, '').length || 0,
+              isEditorVisualRTL()
+            )?.changed;
+            if (changed) {
+              edRenderChords();
+              edCommit();
+            }
+          },
+          onDeleteSelectedChords: () => {
+            const deleted = getEditorMutationService()?.deleteChords(
+              edCur,
+              edSelectedChords
+            )?.changed;
+            if (deleted) {
+              edClearChordSelection();
+              edRenderChords();
+              edCommit();
+            }
+          }
+        });
       }
-
-      // Chord-line tap: عدد ۰ هر بار یک نقطه روی تایم لاین می‌گذارد (فقط وقتی ⏺ فعال است)
-      if ((e.code === 'Digit0' || e.code === 'Numpad0') && edClTapActive && !isInput && !isEditing && !e.ctrlKey && !e.metaKey && !e.altKey) {
-        e.preventDefault();
-        edClTap();
-        return;
-      }
-
-      // Sequential chording: Enter opens chord modal for current position
-      if (edSeqChordingActive && e.code === 'Enter' && !isInput && !isEditing && !($('chord-modal')?.classList.contains('show') && edChordModalMode === 'editor')) {
-        e.preventDefault();
-        const chords = getEditorSongStateService()?.getChords?.() || [];
-        const seqIdx = chords.length - edSeqPoints.length + edSeqCursor;
-        edOpenChordModal(seqIdx);
-        return;
-      }
-
-      // When chord modal is open, ArrowLeft/Right navigate between chords
-      if ($('chord-modal')?.classList.contains('show') && edChordModalMode === 'editor' && typeof edChordIdx !== 'undefined' && edChordIdx !== null) {
-        if (e.code === 'ArrowRight') { e.preventDefault(); edNavigateChord(1); return; }
-        if (e.code === 'ArrowLeft') { e.preventDefault(); edNavigateChord(-1); return; }
-      }
-
-      // Arrow keys to move selected chords
-if (
-  edSelectedChords.length > 0 &&
-  (e.code === 'ArrowLeft' || e.code === 'ArrowRight') &&
-  !($('chord-modal')?.classList.contains('show') &&
-    edChordModalMode === 'editor') &&
-  !isInput &&
-  !(edCur && edCur.editorLocked)
-) {
-  e.preventDefault();
-  const direction = e.code === 'ArrowRight' ? 'right' : 'left';
-  const mutation = getEditorMutationService();
-  const changed = mutation?.moveChords(
-    edCur,
-    edSelectedChords,
-    direction,
-    lineIndex => $('editor')?.children[lineIndex]?.textContent
-      ?.replace(/\u200B/g, '').length || 0,
-    isEditorVisualRTL()
-  )?.changed;
-  if (changed) {
-    edRenderChords();
-    edCommit();
-  }
-}
-
-
-      // Delete selected chords — only when not locked
-if (
-  (e.code === 'Delete' || e.code === 'Backspace') &&
-  edSelectedChords.length > 0 &&
-  !($('chord-modal')?.classList.contains('show') &&
-    edChordModalMode === 'editor') &&
-  !(edCur && edCur.editorLocked)
-) {
-  e.preventDefault();
-  const deleted = getEditorMutationService()?.deleteChords(
-    edCur,
-    edSelectedChords
-  )?.changed;
-  if (deleted) {
-    edClearChordSelection();
-    edRenderChords();
-    edCommit();
-  }
-}
-
-    });
+      return edKeyboardService;
+    }
 
     // Navigate between chords in modal
     function edNavigateChord(dir) {
@@ -5607,34 +5560,6 @@ if (
       }, true);
     })();
 
-    // Keyboard shortcut: C for brush, Alt+C for eyedropper
-    document.addEventListener('keydown', (e) => {
-      if (e.target?.tagName === 'INPUT' || e.target?.tagName === 'TEXTAREA' || e.target?.isContentEditable) return;
-      if (e.key === 'c' && !e.ctrlKey && !e.metaKey && !e.altKey) { e.preventDefault(); toggleColorTool('brush'); }
-      if (e.key === 'c' && e.altKey) { e.preventDefault(); toggleColorTool('eyedropper'); }
-      if (e.key === 'Escape' && isColorToolActive()) { deactivateColorTool(); }
-      // Escape cancels mapping mode
-      if (e.key === 'Escape' && _mappingTarget) { cancelMapping(); }
-      // Escape closes perf mode
-      if (e.key === 'Escape' && perfModeActive) { perfStop(); return; }
-      // Panel visibility toggles: Shift+Ctrl+Arrow
-      if (e.shiftKey && (e.ctrlKey || e.metaKey)) {
-        if (e.key === 'ArrowLeft') { e.preventDefault(); togglePanel('inspector'); }
-        if (e.key === 'ArrowRight') { e.preventDefault(); togglePanel('sidebar'); }
-        if (e.key === 'ArrowDown') { e.preventDefault(); togglePanel('timeline'); }
-      }
-      // Performance mode shortcuts (space handled in capture phase)
-      if (perfModeActive) {
-        if (e.key === 'ArrowRight' && !e.ctrlKey) { e.preventDefault(); perfNextSong(); }
-        if (e.key === 'ArrowLeft' && !e.ctrlKey) { e.preventDefault(); perfPrevSong(); }
-        if (e.key === 'r' || e.key === 'R') { e.preventDefault(); perfRestartSong(); }
-        if (e.key === 'F11') { e.preventDefault(); perfToggleStageMode(); }
-        if (e.key === '+' || e.key === '=') { e.preventDefault(); perfTranspose(1); }
-        if (e.key === '-') { e.preventDefault(); perfTranspose(-1); }
-        if (e.key === 'n' || e.key === 'N') { e.preventDefault(); perfTogglePauseMode(); }
-      }
-    });
-
     // ===== BUTTON MAPPING (Ctrl+Shift+Alt + Click) =====
     let _mappingTarget = null; // function id being mapped
     let _mappingEl = null; // the button element being mapped
@@ -5832,6 +5757,7 @@ if (
         onGlobalKeydownCapture: handleGlobalKeydownCapture,
         onGlobalKeydown: handleGlobalKeydown,
         onGlobalKeyup: handleGlobalKeyup,
+        onGlobalDocumentKeydown: handleGlobalDocumentKeydown,
         onGlobalMousedownCapture: handleGlobalMousedownCapture
       });
 
@@ -5910,8 +5836,10 @@ if (
     // ======== تابع ایمن برای کپی آکوردها ========
     function safeMirrorTimeline() {
       try {
-        if (!_lyricPopup || _lyricPopup.closed) return;
-        const targetDiv = _lyricPopup.document.getElementById('playerChordMirror');
+        if (!editorPopupIsOpen(_lyricPopup)) return;
+        const popupDoc = editorPopupDocument(_lyricPopup);
+        if (!popupDoc) return;
+        const targetDiv = popupDoc.getElementById('playerChordMirror');
         if (!targetDiv) return;
 
         const sourceTimeline = document.querySelector('.track-lane.chord-lane');
@@ -5943,14 +5871,14 @@ if (
         // ── خط کشی بالا (شماره میزان) مثل تایم لاین اصلی ──
         let mirrorRuler = targetDiv.querySelector('.mirror-ruler');
         if (!mirrorRuler) {
-          mirrorRuler = _lyricPopup.document.createElement('div');
+          mirrorRuler = popupDoc.createElement('div');
           mirrorRuler.className = 'mirror-ruler';
           mirrorRuler.style.cssText = 'position:absolute;top:0;left:0;height:' + RULER_H + 'px;width:100%;overflow:hidden;z-index:5;pointer-events:none;background:rgba(13,16,23,0.95);border-bottom:1px solid rgba(255,255,255,0.1);';
           targetDiv.appendChild(mirrorRuler);
         }
         let rulerInner = mirrorRuler.querySelector('.mirror-ruler-inner');
         if (!rulerInner) {
-          rulerInner = _lyricPopup.document.createElement('div');
+          rulerInner = popupDoc.createElement('div');
           rulerInner.className = 'mirror-ruler-inner';
           rulerInner.style.cssText = 'position:absolute;top:0;height:100%;white-space:nowrap;font-size:8px;color:rgba(255,255,255,0.5);font-family:JetBrains Mono,monospace;line-height:' + RULER_H + 'px;';
           mirrorRuler.appendChild(rulerInner);
@@ -5980,7 +5908,7 @@ if (
         for (let _bar = 1; _bar * _gbarDur <= _glen; _bar++) {
           if ((_bar - 1) % _gbarStep !== 0) continue;
           const _x = timeToX((_bar - 1) * _gbarDur);
-          const _span = _lyricPopup.document.createElement('span');
+          const _span = popupDoc.createElement('span');
           _span.className = 'mirror-ruler-label';
           _span.style.cssText = 'position:absolute;left:' + _x + 'px;top:0;padding-left:2px;';
           _span.textContent = _bar;
@@ -5990,7 +5918,7 @@ if (
         // ── رسم خطوط گرید روی کانواس داخل کلون (مثل drawLaneGrid) ──
         let gridCanvas = clone.querySelector('canvas.lane-grid');
         if (!gridCanvas) {
-          gridCanvas = _lyricPopup.document.createElement('canvas');
+          gridCanvas = popupDoc.createElement('canvas');
           gridCanvas.className = 'lane-grid';
           clone.insertBefore(gridCanvas, clone.firstChild);
         }
@@ -6041,7 +5969,7 @@ if (
         // ۲. ساخت پلی‌هد — ثابت در وسط کانتینر
         let mirrorPlayhead = targetDiv.querySelector('.mirror-playhead');
         if (!mirrorPlayhead) {
-            mirrorPlayhead = _lyricPopup.document.createElement('div');
+            mirrorPlayhead = popupDoc.createElement('div');
             mirrorPlayhead.className = 'mirror-playhead';
             mirrorPlayhead.style.cssText = 'position: absolute; top: 0; bottom: 0; width: 2px; background: #00F2FE; z-index: 100; box-shadow: 0 0 10px rgba(0,242,254,0.8); pointer-events: none; left: 50%;';
             targetDiv.appendChild(mirrorPlayhead);
@@ -6135,9 +6063,10 @@ if (
 
         function loop() {
             try {
-                if (!_lyricPopup || _lyricPopup.closed) return;
-
-                const targetDiv = _lyricPopup.document.getElementById('playerChordMirror');
+                if (!editorPopupIsOpen(_lyricPopup)) return;
+                const popupDoc = editorPopupDocument(_lyricPopup);
+                if (!popupDoc) return;
+                const targetDiv = popupDoc.getElementById('playerChordMirror');
                 if (!targetDiv) return;
 
                 const mainLane = document.querySelector('.track-lane.chord-lane');

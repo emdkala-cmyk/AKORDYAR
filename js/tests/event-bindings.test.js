@@ -27,6 +27,7 @@ const documentRef = createTarget();
 const windowRef = createTarget();
 const keyupEvents = [];
 const pointerEvents = [];
+const documentKeydownEvents = [];
 let inlineActionCalls = 0;
 let inputActionCalls = 0;
 let formActionCalls = 0;
@@ -46,6 +47,7 @@ const bindings = new EventBindings({
     applyFormValue: () => { formActionCalls++; }
   },
   onGlobalKeyup: (event) => keyupEvents.push(event),
+  onGlobalDocumentKeydown: (event) => documentKeydownEvents.push(event),
   onGlobalMousedownCapture: (event) => pointerEvents.push(event)
 });
 
@@ -59,14 +61,21 @@ assert.equal(
   ),
   true
 );
+assert.equal(
+  documentRef.added.some(item => item.eventName === 'keydown'),
+  true
+);
 
 const keyupHandler = windowRef.added.find((item) => item.eventName === 'keyup').handler;
 const pointerHandler = documentRef.added.find((item) => item.eventName === 'mousedown').handler;
+const documentKeydownHandler = documentRef.added.find(item => item.eventName === 'keydown').handler;
 keyupHandler({ key: 'Shift' });
 pointerHandler({ type: 'mousedown' });
+documentKeydownHandler({ type: 'keydown', key: 'c' });
 
 assert.equal(keyupEvents.length, 1);
 assert.equal(pointerEvents.length, 1);
+assert.equal(documentKeydownEvents.length, 1);
 
 const inlineClickHandler = inlineGroup.added.find(item => item.eventName === 'click').handler;
 inlineClickHandler({

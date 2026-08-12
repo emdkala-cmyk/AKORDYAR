@@ -376,13 +376,8 @@ class SyncModeController {
     state.history = []; state.redoHistory = [];
     this.renderSyncLyrics();
     this.$('syncSection').classList.add('show');
-    // Add Space key handler for sync tap
-    state.tapKeyHandler = (e) => {
-      if (e.code === 'Space' && e.ctrlKey && state.active && !e.target.closest('input,textarea,[contenteditable]')) {
-        e.preventDefault(); this.syncTap();
-      }
-    };
-    this.window?.addEventListener('keydown', state.tapKeyHandler);
+    // Ctrl+Space sync tap is routed through EditorKeyboardService.
+    state.tapKeyHandler = null;
     // Start highlight tick
     this.syncTick();
   }
@@ -391,10 +386,7 @@ class SyncModeController {
     const state = this.state;
     state.active = false;
     this.$('syncSection').classList.remove('show');
-    if (state.tapKeyHandler) {
-      this.window?.removeEventListener('keydown', state.tapKeyHandler);
-      state.tapKeyHandler = null;
-    }
+    state.tapKeyHandler = null;
     if (state.watch) { cancelAnimationFrame(state.watch); state.watch = null; }
     this.edSaveSong();
   }

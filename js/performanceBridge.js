@@ -9,6 +9,15 @@
  */
 
 let _songDocument = null;
+const performanceWindowBridge = window.WindowBridge;
+
+function isPerformancePopupOpen(popup) {
+  return performanceWindowBridge?.isOpen?.(popup) ?? Boolean(popup && !popup.closed);
+}
+
+function getPerformancePopupDocument(popup) {
+  return performanceWindowBridge?.getDocument?.(popup) || popup?.document || null;
+}
 
 function getRuntimeStateAdapter() {
   return window.RuntimeStateAdapter || null;
@@ -231,11 +240,11 @@ function openSingerView() {
   const store = getRuntimePerformanceStore();
   if (!store) return;
 
-  if (_singerPopup && !_singerPopup.closed) {
-    _singerPopup.focus();
+  if (performanceWindowBridge?.isOpen?.(_singerPopup)) {
+    performanceWindowBridge.focus(_singerPopup);
     // Full render با سند فعلی
     try {
-      const root = _singerPopup.document.getElementById('singer-root');
+      const root = getPerformancePopupDocument(_singerPopup)?.getElementById('singer-root');
       if (root && window.SingerViewRenderer) {
         const st = store.getState();
         SingerViewRenderer.renderSingerView(
@@ -248,13 +257,19 @@ function openSingerView() {
 
   _clearSingerUnsubs();
 
-  _singerPopup = window.open(
+  _singerPopup = performanceWindowBridge?.open?.({
+    windowRef: window,
+    url: '',
+    name: 'achord_singer_v2',
+    features: 'width=700,height=600,menubar=no,toolbar=no,location=no,status=no'
+  }) || window.open(
     '', 'achord_singer_v2',
     'width=700,height=600,menubar=no,toolbar=no,location=no,status=no'
   );
   if (!_singerPopup) { if (typeof toast === 'function') toast('پنجره بلاک شده'); return; }
 
-  const doc = _singerPopup.document;
+  const doc = getPerformancePopupDocument(_singerPopup);
+  if (!doc) return;
   doc.title = 'Singer View — Achord';
   doc.documentElement.dir = 'rtl';
   doc.documentElement.lang = 'fa';
@@ -269,7 +284,7 @@ function openSingerView() {
   const root = doc.getElementById('singer-root');
 
   function renderSingerFull() {
-    if (!_singerPopup || _singerPopup.closed || !root) return;
+    if (!isPerformancePopupOpen(_singerPopup) || !root) return;
     if (!window.SingerViewRenderer) return;
     const st = store.getState();
     SingerViewRenderer.renderSingerView(
@@ -278,7 +293,7 @@ function openSingerView() {
   }
 
   function renderSingerHighlight() {
-    if (!_singerPopup || _singerPopup.closed || !root) return;
+    if (!isPerformancePopupOpen(_singerPopup) || !root) return;
     if (!window.SingerViewRenderer) return;
     const st = store.getState();
     SingerViewRenderer.updateSingerHighlight(
@@ -301,7 +316,7 @@ function openSingerView() {
 
   if (_singerCloseTimer) clearInterval(_singerCloseTimer);
   _singerCloseTimer = setInterval(function () {
-    if (!_singerPopup || _singerPopup.closed) {
+    if (!isPerformancePopupOpen(_singerPopup)) {
       clearInterval(_singerCloseTimer);
       _singerCloseTimer = null;
       _clearSingerUnsubs();
@@ -400,8 +415,8 @@ function _forceRenderOpenPopupsFull() {
 
   // Singer
   try {
-    if (_singerPopup && !_singerPopup.closed) {
-      const root = _singerPopup.document.getElementById('singer-root');
+    if (isPerformancePopupOpen(_singerPopup)) {
+      const root = getPerformancePopupDocument(_singerPopup)?.getElementById('singer-root');
       if (root && window.SingerViewRenderer) {
         const st = store.getState();
         SingerViewRenderer.renderSingerView(
@@ -412,8 +427,8 @@ function _forceRenderOpenPopupsFull() {
   } catch (e) {}
   // Player
   try {
-    if (_playerPopup && !_playerPopup.closed) {
-      const root = _playerPopup.document.getElementById('player-root');
+    if (isPerformancePopupOpen(_playerPopup)) {
+      const root = getPerformancePopupDocument(_playerPopup)?.getElementById('player-root');
       if (root && window.PlayerViewRenderer) {
         const st = store.getState();
         PlayerViewRenderer.renderPlayerView(
@@ -434,8 +449,12 @@ function destroyPerformanceBridge() {
     clearInterval(_singerCloseTimer);
     _singerCloseTimer = null;
   }
-  if (_singerPopup && !_singerPopup.closed) _singerPopup.close();
-  if (_playerPopup && !_playerPopup.closed) _playerPopup.close();
+  if (performanceWindowBridge?.isOpen?.(_singerPopup)) {
+    performanceWindowBridge.close(_singerPopup);
+  }
+  if (performanceWindowBridge?.isOpen?.(_playerPopup)) {
+    performanceWindowBridge.close(_playerPopup);
+  }
   if (_performanceChannel && typeof _performanceChannel.close === 'function') {
     _performanceChannel.close();
     _performanceChannel = null;

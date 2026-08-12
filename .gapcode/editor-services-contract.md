@@ -145,3 +145,93 @@ hydrateSong(song, {
 `js/tests/editor-runtime-seam.test.js` را حفظ کند. تست seam باید نشان دهد که
 پس از restore/hydration، reference legacy و runtime adapter به یک object اشاره
 می‌کنند.
+
+## قرارداد keyboard و popup
+
+### `EditorKeyboardService`
+
+```js
+const service = EditorKeyboardService.create({
+  isChordModalOpen,
+  hasSelectedChords,
+  getDAW,
+  getShortcutMatch,
+  onQuantizeSelectedChords,
+  onMoveSelectedChords,
+  onDeleteSelectedChords,
+  onTogglePlay,
+  onToggleSelectedTrackHeight
+});
+
+service.handleKeydown(event)                 // boolean
+service.handleGlobalKeydownCapture(event)    // boolean
+service.handleGlobalKeydown(event)           // boolean
+service.handleGlobalKeyup(event)             // boolean
+service.handleAuxiliaryKeydown(event)        // boolean
+```
+
+ثبت listenerهای عمومی فقط از `EventBindings` انجام می‌شود. `editor.js` فقط
+wrapperهای سازگار و callbackهای command را inject می‌کند. `SyncModeController`
+نباید برای `Ctrl+Space` listener مستقل ثبت کند.
+
+### `EventBindings`
+
+```js
+new EventBindings({
+  actions,
+  onGlobalKeydownCapture,
+  onGlobalKeydown,
+  onGlobalKeyup,
+  onGlobalDocumentKeydown,
+  onGlobalMousedownCapture
+}).init()
+```
+
+هر listener باید از `destroy()` قابل حذف باشد. mappingهای موقت MIDI/keyboard
+می‌توانند listener scoped خودشان را داشته باشند، اما نباید به binding عمومی
+تبدیل شوند.
+
+### `WindowBridge`
+
+```js
+WindowBridge.open({ windowRef, url, name, features })
+WindowBridge.isOpen(popup)
+WindowBridge.getDocument(popup)
+WindowBridge.focus(popup)
+WindowBridge.close(popup)
+WindowBridge.onMessage({ windowRef, getSource, type, origin, handler })
+WindowBridge.postMessage(popup, payload, targetOrigin)
+```
+
+پیام‌های popup باید نوع و منبع پنجره را بررسی کنند. دسترسی مستقیم به
+`popup.document` فقط در مسیر compatibility باقی می‌ماند و مسیرهای جدید باید
+از `WindowBridge` استفاده کنند.
+
+## قرارداد DAW/PERF
+
+### `DAWRuntimeAdapter` و `PerformanceRuntimeAdapter`
+
+```js
+const daw = DAWRuntimeAdapter.create(DAW);
+daw.getState();
+daw.read(key);
+daw.write(key, value);
+daw.update(values);
+
+const perf = PerformanceRuntimeAdapter.create(PERF);
+perf.getState();
+perf.read(key);
+perf.write(key, value);
+perf.update(values);
+```
+
+`RuntimeStateAdapter.getDAWAdapter()` و `getPERFAdapter()` تنها gateway سرویس‌های
+جدید به این compatibility stateها هستند. مالکیت mutationهای audio/transport
+فعلاً در `core.js` می‌ماند تا extraction بعدی بدون تغییر رفتار انجام شود.
+
+## قانون migration
+
+- کد جدید در `js/editor` نباید `window.edCur`، `DAW` یا `PERF` را مستقیم بخواند.
+- تغییر song باید از `EditorSongRuntimeService` یا `setEditorSong` عبور کند.
+- حذف `EdCurAdapter`، `RuntimeStateAdapter` یا fallbackهای popup فقط بعد از
+  عبور تست‌های seam، load-order و Electron مجاز است.
