@@ -18,5 +18,35 @@ assert.match(
   main,
   /printWindow\s*=\s*new\s+BrowserWindow[\s\S]{0,600}contextIsolation:\s*true[\s\S]{0,80}sandbox:\s*true/
 );
+assert.match(main, /const IPC_CHANNELS = Object\.freeze\(\[/);
+assert.match(main, /function registerIpcHandler\(/);
+assert.match(main, /isTrustedIpcSender\(event\)/);
+assert.doesNotMatch(main, /ipcMain\.handle\(\s*['"]/);
+assert.match(preload, /const INVOKE_CHANNELS = Object\.freeze\(\[/);
+assert.match(preload, /function invoke\(channel, \.\.\.args\)/);
+assert.doesNotMatch(
+  preload,
+  /ipcRenderer\.invoke\(\s*['"]/
+);
+
+for (const channel of [
+  'audio:read-file',
+  'audio:copy-to-project',
+  'audio:delete-file',
+  'audio:resolve-path',
+  'print:open-window',
+  'dialog:show-message-box',
+  'project:save-with-audio',
+  'project:load-file',
+  'fs:check-exists',
+  'dialog:open-file',
+  'dialog:save-file'
+]) {
+  assert.match(
+    main,
+    new RegExp(`registerIpcHandler\\(['"]${channel.replace(':', '\\:')}['"]`)
+  );
+  assert.match(preload, new RegExp(`['"]${channel.replace(':', '\\:')}['"]`));
+}
 
 console.log('Electron security contract tests passed');

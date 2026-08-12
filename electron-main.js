@@ -21,6 +21,63 @@ const SERVER_URL = `http://localhost:${SERVER_PORT}/Akordyar.html`;
 let mainWindow = null;
 let serverModule = null;
 
+const IPC_CHANNELS = Object.freeze([
+  'audio:read-file',
+  'audio:copy-to-project',
+  'audio:delete-file',
+  'audio:resolve-path',
+  'print:open-window',
+  'dialog:show-message-box',
+  'project:save-with-audio',
+  'project:load-file',
+  'fs:check-exists',
+  'dialog:open-file',
+  'dialog:save-file'
+]);
+
+const TRUSTED_RENDERER_ORIGIN = new URL(SERVER_URL).origin;
+
+function requireString(value, name, { allowEmpty = false } = {}) {
+  if (typeof value !== 'string' || (!allowEmpty && value.trim() === '')) {
+    throw new TypeError(`${name} must be a non-empty string`);
+  }
+  return value;
+}
+
+function requirePlainObject(value, name) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new TypeError(`${name} must be an object`);
+  }
+  return value;
+}
+
+function isTrustedIpcSender(event) {
+  if (!mainWindow || mainWindow.isDestroyed()) return false;
+  if (event?.sender !== mainWindow.webContents) return false;
+
+  try {
+    const senderUrl = new URL(
+      event.senderFrame?.url || event.sender.getURL()
+    );
+    return senderUrl.origin === TRUSTED_RENDERER_ORIGIN;
+  } catch {
+    return false;
+  }
+}
+
+function registerIpcHandler(channel, handler) {
+  if (!IPC_CHANNELS.includes(channel)) {
+    throw new Error(`IPC channel is not whitelisted: ${channel}`);
+  }
+
+  ipcMain.handle(channel, async (event, ...args) => {
+    if (!isTrustedIpcSender(event)) {
+      throw new Error(`Unauthorized IPC sender for channel: ${channel}`);
+    }
+    return handler(event, ...args);
+  });
+}
+
 // ============================================
 // Create Application Menu
 // ============================================
@@ -270,8 +327,9 @@ function isServerAlreadyRunning() {
 // Audio File Management Handlers
 // ============================================
 
-ipcMain.handle('audio:read-file', async (event, filePath) => {
+registerIpcHandler('audio:read-file', async (event, filePath) => {
   try {
+    requireString(filePath, 'filePath');
     // استفاده از fs.promises.readFile برای جلوگیری از خطای callback
     const dataBuffer = await fsPromises.readFile(filePath);
     return dataBuffer.buffer;
@@ -281,8 +339,10 @@ ipcMain.handle('audio:read-file', async (event, filePath) => {
   }
 });
 
-ipcMain.handle('audio:copy-to-project', async (event, sourcePath, projectAudioDir) => {
+registerIpcHandler('audio:copy-to-project', async (event, sourcePath, projectAudioDir) => {
   try {
+    requireString(sourcePath, 'sourcePath');
+    requireString(projectAudioDir, 'projectAudioDir');
     const safeFileName = path.basename(sourcePath).replace(/[^a-zA-Z0-9._-]/g, '_');
     const destPath = path.join(projectAudioDir, safeFileName);
 
@@ -300,8 +360,9 @@ ipcMain.handle('audio:copy-to-project', async (event, sourcePath, projectAudioDi
   }
 });
 
-ipcMain.handle('audio:delete-file', async (event, filePath) => {
+registerIpcHandler('audio:delete-file', async (event, filePath) => {
   try {
+    requireString(filePath, 'filePath');
     if (fsSync.existsSync(filePath)) {
       await fsPromises.unlink(filePath);
       return { success: true };
@@ -313,8 +374,10 @@ ipcMain.handle('audio:delete-file', async (event, filePath) => {
   }
 });
 
-ipcMain.handle('audio:resolve-path', async (event, projectFilePath, relativePath) => {
+registerIpcHandler('audio:resolve-path', async (event, projectFilePath, relativePath) => {
   try {
+    requireString(projectFilePath, 'projectFilePath');
+    requireString(relativePath, 'relativePath');
     const projectDir = path.dirname(projectFilePath);
     const absolutePath = path.resolve(projectDir, relativePath);
     return absolutePath;
@@ -324,10 +387,11 @@ ipcMain.handle('audio:resolve-path', async (event, projectFilePath, relativePath
   }
 });
 
-ipcMain.handle('print:open-window', async (event, htmlContent) => {
+registerIpcHandler('print:open-window', async (event, htmlContent) => {
   let printWindow = null;
   let tempFile = null;
   try {
+    requireString(htmlContent, 'htmlContent');
     // ─── تزریق فونت‌های سفارشی به HTML چاپ ───
     let enhancedHtml = htmlContent;
     try {
@@ -428,8 +492,9 @@ ipcMain.handle('print:open-window', async (event, htmlContent) => {
   }
 });
 
-ipcMain.handle('dialog:show-message-box', async (event, options) => {
+registerIpcHandler('dialog:show-message-box', async (event, options) => {
   try {
+    requirePlainObject(options, 'options');
     const result = await dialog.showMessageBox(mainWindow, {
       type: options.type || 'info',
       buttons: options.buttons || ['OK'],
@@ -445,8 +510,13 @@ ipcMain.handle('dialog:show-message-box', async (event, options) => {
   }
 });
 
-ipcMain.handle('project:save-with-audio', async (event, projectData, projectFilePath) => {
+registerIpcHandler('project:save-with-audio', async (event, projectData, projectFilePath) => {
   try {
+    requirePlainObject(projectData, 'projectData');
+    requireString(projectFilePath, 'projectFilePath');
+    if (!Array.isArray(projectData.clips)) {
+      throw new TypeError('projectData.clips must be an array');
+    }
     const projectDir = path.dirname(projectFilePath);
     const audioDir = path.join(projectDir, 'Audio');
 
@@ -497,8 +567,9 @@ ipcMain.handle('project:save-with-audio', async (event, projectData, projectFile
   }
 });
 
-ipcMain.handle('project:load-file', async (event, filePath) => {
+registerIpcHandler('project:load-file', async (event, filePath) => {
   try {
+    requireString(filePath, 'filePath');
     const content = await fsPromises.readFile(filePath, 'utf8');
     const projectData = JSON.parse(content);
     return projectData;
@@ -508,8 +579,9 @@ ipcMain.handle('project:load-file', async (event, filePath) => {
   }
 });
 
-ipcMain.handle('fs:check-exists', async (event, filePath) => {
+registerIpcHandler('fs:check-exists', async (event, filePath) => {
   try {
+    requireString(filePath, 'filePath');
     return fsSync.existsSync(filePath);
   } catch (error) {
     logError('FS', `Error checking file existence: ${error.message}`);
@@ -517,7 +589,7 @@ ipcMain.handle('fs:check-exists', async (event, filePath) => {
   }
 });
 
-ipcMain.handle('dialog:open-file', async () => {
+registerIpcHandler('dialog:open-file', async () => {
   const result = await dialog.showOpenDialog(mainWindow, {
     filters: [
       { name: 'Audio Files', extensions: ['mp3', 'wav', 'ogg', 'flac', 'm4a', 'json'] }
@@ -531,7 +603,7 @@ ipcMain.handle('dialog:open-file', async () => {
   return null;
 });
 
-ipcMain.handle('dialog:save-file', async () => {
+registerIpcHandler('dialog:save-file', async () => {
   const result = await dialog.showSaveDialog(mainWindow, {
     filters: [
       { name: 'Project Files', extensions: ['akr', 'json'] }

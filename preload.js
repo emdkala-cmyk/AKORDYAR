@@ -18,6 +18,44 @@
 
 const { contextBridge, ipcRenderer } = require('electron');
 
+const MENU_CHANNELS = Object.freeze([
+    'menu-new-song',
+    'menu-open-project',
+    'menu-save',
+    'menu-save-as',
+    'menu-export',
+    'menu-import',
+    'menu-play-pause',
+    'menu-stop',
+    'menu-go-to-start',
+    'menu-go-to-end',
+    'menu-arranger',
+    'menu-archive',
+    'menu-midi-settings',
+    'menu-preferences'
+]);
+
+const INVOKE_CHANNELS = Object.freeze([
+    'audio:read-file',
+    'audio:copy-to-project',
+    'audio:delete-file',
+    'audio:resolve-path',
+    'dialog:show-message-box',
+    'dialog:open-file',
+    'dialog:save-file',
+    'project:save-with-audio',
+    'project:load-file',
+    'fs:check-exists',
+    'print:open-window'
+]);
+
+function invoke(channel, ...args) {
+    if (!INVOKE_CHANNELS.includes(channel)) {
+        throw new Error(`IPC channel is not whitelisted: ${channel}`);
+    }
+    return ipcRenderer.invoke(channel, ...args);
+}
+
 // تعریف API ای که در دسترس renderer قرار می‌گیرد
 contextBridge.exposeInMainWorld('electronAPI', {
     // تشخیص محیط الکترون
@@ -33,23 +71,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
      * @param {Function} callback - تابعی که هنگام دریافت پیام اجرا می‌شود
      */
     onMenuCommand: (channel, callback) => {
-        const validChannels = [
-            'menu-new-song',
-            'menu-open-project',
-            'menu-save',
-            'menu-save-as',
-            'menu-export',
-            'menu-import',
-            'menu-play-pause',
-            'menu-stop',
-            'menu-go-to-start',
-            'menu-go-to-end',
-            'menu-arranger',
-            'menu-archive',
-            'menu-midi-settings',
-            'menu-preferences'
-        ];
-        if (validChannels.includes(channel)) {
+        if (MENU_CHANNELS.includes(channel) && typeof callback === 'function') {
             ipcRenderer.on(channel, callback);
         }
     },
@@ -60,23 +82,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
      * @param {Function} callback - تابعی که باید حذف شود
      */
     offMenuCommand: (channel, callback) => {
-        const validChannels = [
-            'menu-new-song',
-            'menu-open-project',
-            'menu-save',
-            'menu-save-as',
-            'menu-export',
-            'menu-import',
-            'menu-play-pause',
-            'menu-stop',
-            'menu-go-to-start',
-            'menu-go-to-end',
-            'menu-arranger',
-            'menu-archive',
-            'menu-midi-settings',
-            'menu-preferences'
-        ];
-        if (validChannels.includes(channel)) {
+        if (MENU_CHANNELS.includes(channel) && typeof callback === 'function') {
             ipcRenderer.removeListener(channel, callback);
         }
     },
@@ -90,7 +96,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
      * @param {string} filePath - مسیر مطلق فایل
      * @returns {Promise<ArrayBuffer>}
      */
-    readAudioFile: (filePath) => ipcRenderer.invoke('audio:read-file', filePath),
+    readAudioFile: (filePath) => invoke('audio:read-file', filePath),
 
     /**
      * کپی فایل به پوشه پروژه
@@ -99,14 +105,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
      * @returns {Promise<Object>}
      */
     copyFile: (sourcePath, projectAudioDir) => 
-        ipcRenderer.invoke('audio:copy-to-project', sourcePath, projectAudioDir),
+        invoke('audio:copy-to-project', sourcePath, projectAudioDir),
 
     /**
      * حذف فایل
      * @param {string} filePath - مسیر فایل
      * @returns {Promise<Object>}
      */
-    deleteFile: (filePath) => ipcRenderer.invoke('audio:delete-file', filePath),
+    deleteFile: (filePath) => invoke('audio:delete-file', filePath),
 
     /**
      * تبدیل مسیر نسبی به مطلق
@@ -115,7 +121,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
      * @returns {Promise<string>}
      */
     resolvePath: (projectFilePath, relativePath) => 
-        ipcRenderer.invoke('audio:resolve-path', projectFilePath, relativePath),
+        invoke('audio:resolve-path', projectFilePath, relativePath),
 
     // ============================================
     // Dialog Operations
@@ -126,19 +132,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
      * @param {Object} options - تنظیمات پیام
      * @returns {Promise<number>} ایندکس دکمه انتخاب شده
      */
-    showMessageBox: (options) => ipcRenderer.invoke('dialog:show-message-box', options),
+    showMessageBox: (options) => invoke('dialog:show-message-box', options),
 
     /**
      * نمایش دیالوگ باز کردن فایل
      * @returns {Promise<string|null>} مسیر فایل انتخاب شده
      */
-    openFileDialog: () => ipcRenderer.invoke('dialog:open-file'),
+    openFileDialog: () => invoke('dialog:open-file'),
 
     /**
      * نمایش دیالوگ ذخیره فایل
      * @returns {Promise<string|null>} مسیر فایل برای ذخیره
      */
-    saveFileDialog: () => ipcRenderer.invoke('dialog:save-file'),
+    saveFileDialog: () => invoke('dialog:save-file'),
 
     // ============================================
     // Project Operations
@@ -151,14 +157,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
      * @returns {Promise<string>}
      */
     saveProjectWithAudio: (projectData, filePath) => 
-        ipcRenderer.invoke('project:save-with-audio', projectData, filePath),
+        invoke('project:save-with-audio', projectData, filePath),
 
     /**
      * بارگذاری فایل پروژه
      * @param {string} filePath - مسیر فایل پروژه
      * @returns {Promise<Object>}
      */
-    loadProjectFile: (filePath) => ipcRenderer.invoke('project:load-file', filePath),
+    loadProjectFile: (filePath) => invoke('project:load-file', filePath),
 
     /**
      * دریافت دایرکتوری پروژه از مسیر فایل
@@ -175,7 +181,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
      * @param {string} filePath - مسیر فایل
      * @returns {Promise<boolean>}
      */
-    checkFileExists: (filePath) => ipcRenderer.invoke('fs:check-exists', filePath),
+    checkFileExists: (filePath) => invoke('fs:check-exists', filePath),
 
     // ============================================
     // Platform Info
@@ -201,7 +207,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
      * @param {string} htmlContent - محتوای HTML برای چاپ
      * @returns {Promise<Object>}
      */
-    printHtml: (htmlContent) => ipcRenderer.invoke('print:open-window', htmlContent)
+    printHtml: (htmlContent) => invoke('print:open-window', htmlContent)
 });
 
 console.log('[Preload] electronAPI exposed to renderer');
