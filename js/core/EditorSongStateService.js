@@ -33,6 +33,10 @@
       return Array.isArray(song?.syncTimes) ? song.syncTimes : [];
     }
 
+    function getSeqPoints(song = currentSong()) {
+      return Array.isArray(song?.seqPoints) ? song.seqPoints : [];
+    }
+
     function getChords(song = currentSong()) {
       return Array.isArray(song?.chords) ? song.chords : [];
     }
@@ -116,6 +120,44 @@
       return true;
     }
 
+    function ensureSyncTimes(song = currentSong()) {
+      if (!song) return [];
+      if (!Array.isArray(song.syncTimes)) song.syncTimes = [];
+      return song.syncTimes;
+    }
+
+    function setSyncTime(index, value, song = currentSong()) {
+      if (!song || !Number.isInteger(index) || index < 0) return false;
+      ensureSyncTimes(song)[index] = value;
+      return true;
+    }
+
+    function replaceSyncTimes(times, song = currentSong()) {
+      if (!song || !Array.isArray(times)) return false;
+      song.syncTimes = times;
+      return true;
+    }
+
+    function setSeqPoints(points, song = currentSong()) {
+      if (!song || !Array.isArray(points)) return false;
+      song.seqPoints = points;
+      return true;
+    }
+
+    function appendChords(chords, song = currentSong()) {
+      if (!song || !Array.isArray(chords)) return false;
+      if (!Array.isArray(song.chords)) song.chords = [];
+      song.chords.push(...chords);
+      return true;
+    }
+
+    function setChordName(index, name, song = currentSong()) {
+      const chords = getChords(song);
+      if (!Number.isInteger(index) || index < 0 || !chords[index]) return false;
+      chords[index].name = name;
+      return true;
+    }
+
     return Object.freeze({
       currentSong,
       getTimingContext,
@@ -123,6 +165,7 @@
       getTranspose,
       getTimeSignature,
       getSyncTimes,
+      getSeqPoints,
       getChords,
       getLyrics,
       getStyles,
@@ -133,7 +176,13 @@
       setKey,
       setHighlightEffect,
       markChordLineSynced,
-      setChordLineClips
+      setChordLineClips,
+      ensureSyncTimes,
+      setSyncTime,
+      replaceSyncTimes,
+      setSeqPoints,
+      appendChords,
+      setChordName
     });
   }
 

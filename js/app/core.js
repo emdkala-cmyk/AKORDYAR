@@ -4497,7 +4497,7 @@ let syncTapKeyHandler = null;
             state: syncModeState,
             seqState: seqClState,
             getDAW: () => getEditorDAW(),
-            getEdCur: () => requireEditorSongStateService().currentSong(),
+            songState: requireEditorSongStateService(),
             $: (id) => $(id),
             t: (key) => t(key),
             toast: (msg) => toast(msg),
@@ -4555,11 +4555,14 @@ let syncTapKeyHandler = null;
 
     // Sequential chords (آکورد ترتیبی)
     function edRemapSeqPoints(oldText, newText) {
-      if (!edCur?.seqPoints?.length) return;
+      const songState = requireEditorSongStateService();
+      const seqPoints = songState.getSeqPoints();
+      if (!seqPoints.length) return;
       // منطق remap به js/editor/LyricPositionMapper.js منتقل شده است.
-      edCur.seqPoints.forEach(sp => requireLyricPositionMapper().remapAnchorToNewText(sp, oldText, newText));
-      edCur.seqPoints = edCur.seqPoints.filter(p => p.lineIndex >= 0);
-      if (edSeqModeActive) edSeqPoints = edCur.seqPoints;
+      seqPoints.forEach(sp => requireLyricPositionMapper().remapAnchorToNewText(sp, oldText, newText));
+      const validPoints = seqPoints.filter(p => p.lineIndex >= 0);
+      songState.setSeqPoints(validPoints);
+      if (edSeqModeActive) edSeqPoints = validPoints;
     }
 
     function edToggleSeqMode() { return requireSyncModeController().edToggleSeqMode(); }
@@ -4604,7 +4607,8 @@ let syncTapKeyHandler = null;
       if (off === 0) anchorType = 'LineStart';
       else if (off >= text.length) anchorType = 'LineEnd';
       edSeqPoints.push({ anchorType, lineIndex, charIndex, name: '' });
-      edCur.seqPoints = edSeqPoints; edRenderChords(); edCommit();
+      requireEditorSongStateService().setSeqPoints(edSeqPoints);
+      edRenderChords(); edCommit();
 
     }, true);
 

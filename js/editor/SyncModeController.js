@@ -18,7 +18,7 @@ class SyncModeController {
     state,
     DAW,
     getDAW,
-    getEdCur,
+    songState,
     $,
     t,
     toast,
@@ -52,8 +52,8 @@ class SyncModeController {
     if (!runtimeDAW) {
       throw new TypeError('SyncModeController requires the DAW reference');
     }
-    if (typeof getEdCur !== 'function') {
-      throw new TypeError('SyncModeController requires getEdCur');
+    if (!songState || typeof songState.getLyrics !== 'function') {
+      throw new TypeError('SyncModeController requires songState');
     }
     if (typeof $ !== 'function') {
       throw new TypeError('SyncModeController requires $');
@@ -61,7 +61,7 @@ class SyncModeController {
 
     this.state = state;
     this.getDAW = typeof getDAW === 'function' ? getDAW : () => runtimeDAW;
-    this.getEdCur = getEdCur;
+    this.songState = songState;
     this.$ = $;
 
     this.t = typeof t === 'function' ? t : (key) => key;
@@ -141,9 +141,8 @@ class SyncModeController {
     const box = this.$('syncLyrics');
     if (!box) return;
 
-    const edCur = this.getEdCur();
-    const lines = (edCur?.lyrics || '').split('\n');
-    const times = edCur?.syncTimes || [];
+    const lines = this.songState.getLyrics().split('\n');
+    const times = this.songState.getSyncTimes();
     const existingCount = box.children.length;
 
     // فقط وقتی تعداد خط‌ها عوض شده، rebuild کامل انجام بده
@@ -209,8 +208,7 @@ class SyncModeController {
       });
     }
 
-    const edCur = this.getEdCur();
-    const total = (edCur?.lyrics || '').split('\n').length;
+    const total = this.songState.getLyrics().split('\n').length;
     const info = this.$('syncInfo');
     if (info) {
       info.textContent = `${this.t('linesOf')} ${li + 1} ${this.t('lineOf')} ${total}`;
@@ -220,18 +218,19 @@ class SyncModeController {
   syncTap() {
     const state = this.state;
     if (!state.active) return;
-    const edCur = this.getEdCur();
-    const lines = (edCur?.lyrics || '').split('\n');
+    const lines = this.songState.getLyrics().split('\n');
     if (state.cursor >= lines.length) return;
     const daw = this.getDAW();
     const t = daw.playhead;
-    state.history.push(JSON.stringify(edCur?.syncTimes || []));
+    state.history.push(JSON.stringify(this.songState.getSyncTimes()));
     state.redoHistory = [];
-    if (!edCur.syncTimes) edCur.syncTimes = [];
-    edCur.syncTimes[state.cursor] = t;
+    this.songState.setSyncTime(state.cursor, t);
     // Skip empty lines
     let next = state.cursor + 1;
-    while (next < lines.length && !lines[next].trim()) { edCur.syncTimes[next] = t; next++; }
+    while (next < lines.length && !lines[next].trim()) {
+      this.songState.setSyncTime(next, t);
+      next++;
+    }
     state.cursor = next;
     this.renderSyncLyrics();
     if (state.cursor >= lines.length) {
@@ -247,8 +246,7 @@ class SyncModeController {
 
   updateSyncHighlight() {
     const t = this.getDAW().playhead;
-    const edCur = this.getEdCur();
-    const times = edCur?.syncTimes || [];
+    const times = this.songState.getSyncTimes();
     let activeLi = -1;
 
     for (let i = 0; i < times.length; i++) {
@@ -371,11 +369,10 @@ class SyncModeController {
     const state = this.state;
     state.active = true;
     state.cursor = 0;
-    const edCur = this.getEdCur();
-    const lines = (edCur?.lyrics || '').split('\n');
+    const lines = this.songState.getLyrics().split('\n');
     while (state.cursor < lines.length && !lines[state.cursor].trim()) state.cursor++;
     if (state.cursor >= lines.length) state.cursor = 0;
-    if (!edCur.syncTimes) edCur.syncTimes = [];
+    this.songState.ensureSyncTimes();
     state.history = []; state.redoHistory = [];
     this.renderSyncLyrics();
     this.$('syncSection').classList.add('show');
@@ -406,16 +403,18 @@ class SyncModeController {
 
   edToggleSeqMode() {
     const ss = this._requireSeqState();
-    const edCur = this.getEdCur();
     ss.seqModeActive = !ss.seqModeActive;
     if (ss.seqModeActive) {
-      ss.seqPoints = []; edCur.seqPoints = [];
+      ss.seqPoints = [];
+      this.songState.setSeqPoints([]);
       ss.chordingActive = false;
       this.$('edSeqToggle').classList.add('active');
       this.toast(this.t('selectPointsActive'));
     } else {
       this.$('edSeqToggle').classList.remove('active');
-      edCur.seqPoints = ss.seqPoints; this.edRenderChords(); this.edCommit();
+      this.songState.setSeqPoints(ss.seqPoints);
+      this.edRenderChords();
+      this.edCommit();
     }
   }
 
@@ -424,8 +423,7 @@ class SyncModeController {
     if (ss.seqPoints.length === 0) { this.toast(this.t('selectPointsFirst')); return; }
     ss.seqModeActive = false; this.$('edSeqToggle').classList.remove('active');
     ss.chordingActive = true; ss.seqCursor = 0;
-    const edCur = this.getEdCur();
-    ss.seqPoints.forEach(sp => { edCur.chords.push({ ...sp, name: '' }); });
+    this.songState.appendChords(ss.seqPoints.map(sp => ({ ...sp, name: '' })));
     this.edRenderChords();
     this.edCommit();
 
@@ -518,8 +516,9 @@ class SyncModeController {
   edClApplyMarkers() {
     const ss = this._requireSeqState();
     if (!ss.clMarkers.length) { this.toast('اول با آهنگ نقطه‌گذاری کن (دکمه ⏺ و کلید ۰)'); return; }
-    const edCur = this.getEdCur();
-    const lyrics = (edCur?.chords || []).filter(c => c && c.name && String(c.name).trim() !== '');
+    const lyrics = this.songState
+      .getChords()
+      .filter(c => c && c.name && String(c.name).trim() !== '');
     if (lyrics.length === 0) { this.toast('آکوردی در بخش لایرس نیست تا کپی شود'); return; }
     if (lyrics.length !== ss.clMarkers.length) {
       this.toast('⚠️ تعداد آکوردهای لایرس (' + lyrics.length + ') با تعداد نقاط تایم‌لاین (' + ss.clMarkers.length + ') یکی نیست — اول تعداد را برابر کن');
@@ -545,7 +544,6 @@ class SyncModeController {
   // Wire up sync buttons
   initSyncUI() {
     const state = this.state;
-    const edCurRef = () => this.getEdCur();
     if (this.$('tab-sync')) this.$('tab-sync').onclick = () => {
       const tab = this.$('tab-sync');
       if (state.active) { this.exitSyncMode(); tab.classList.remove('active-teal'); return; }
@@ -558,42 +556,42 @@ class SyncModeController {
     };
     if (this.$('syncTapBtn')) this.$('syncTapBtn').onclick = () => this.syncTap();
     if (this.$('syncMinus')) this.$('syncMinus').onclick = () => {
-      const edCur = edCurRef();
-      if (!edCur?.syncTimes) return;
-      state.history.push(JSON.stringify(edCur.syncTimes)); state.redoHistory = [];
-      let t = edCur.syncTimes[state.cursor]; if (!Number.isFinite(t)) t = this.getDAW().playhead;
-      edCur.syncTimes[state.cursor] = Math.max(0, t - 0.1); this.renderSyncLyrics(); this.edSaveSong();
+      const times = this.songState.getSyncTimes();
+      state.history.push(JSON.stringify(times)); state.redoHistory = [];
+      let t = times[state.cursor]; if (!Number.isFinite(t)) t = this.getDAW().playhead;
+      this.songState.setSyncTime(state.cursor, Math.max(0, t - 0.1));
+      this.renderSyncLyrics(); this.edSaveSong();
     };
     if (this.$('syncPlus')) this.$('syncPlus').onclick = () => {
-      const edCur = edCurRef();
-      if (!edCur?.syncTimes) return;
-      state.history.push(JSON.stringify(edCur.syncTimes)); state.redoHistory = [];
-      let t = edCur.syncTimes[state.cursor]; if (!Number.isFinite(t)) t = this.getDAW().playhead;
-      edCur.syncTimes[state.cursor] = t + 0.1; this.renderSyncLyrics(); this.edSaveSong();
+      const times = this.songState.getSyncTimes();
+      state.history.push(JSON.stringify(times)); state.redoHistory = [];
+      let t = times[state.cursor]; if (!Number.isFinite(t)) t = this.getDAW().playhead;
+      this.songState.setSyncTime(state.cursor, t + 0.1);
+      this.renderSyncLyrics(); this.edSaveSong();
     };
     if (this.$('syncDelBtn')) this.$('syncDelBtn').onclick = () => {
-      const edCur = edCurRef();
-      if (!edCur?.syncTimes) return;
-      state.history.push(JSON.stringify(edCur.syncTimes)); state.redoHistory = [];
-      edCur.syncTimes[state.cursor] = undefined; this.renderSyncLyrics(); this.edSaveSong();
+      const times = this.songState.getSyncTimes();
+      state.history.push(JSON.stringify(times)); state.redoHistory = [];
+      this.songState.setSyncTime(state.cursor, undefined);
+      this.renderSyncLyrics(); this.edSaveSong();
     };
     if (this.$('syncResetBtn')) this.$('syncResetBtn').onclick = () => {
       if (!confirm('تمام زمان‌های سینک پاک شود؟')) return;
-      const edCur = edCurRef();
-      state.history.push(JSON.stringify(edCur?.syncTimes || [])); state.redoHistory = [];
-      edCur.syncTimes = []; state.cursor = 0; this.renderSyncLyrics(); this.edSaveSong();
+      state.history.push(JSON.stringify(this.songState.getSyncTimes())); state.redoHistory = [];
+      this.songState.replaceSyncTimes([]); state.cursor = 0;
+      this.renderSyncLyrics(); this.edSaveSong();
     };
     if (this.$('syncUndoBtn')) this.$('syncUndoBtn').onclick = () => {
       if (!state.history.length) return;
-      const edCur = edCurRef();
-      state.redoHistory.push(JSON.stringify(edCur?.syncTimes || []));
-      edCur.syncTimes = JSON.parse(state.history.pop()); this.renderSyncLyrics(); this.edSaveSong();
+      state.redoHistory.push(JSON.stringify(this.songState.getSyncTimes()));
+      this.songState.replaceSyncTimes(JSON.parse(state.history.pop()));
+      this.renderSyncLyrics(); this.edSaveSong();
     };
     if (this.$('syncRedoBtn')) this.$('syncRedoBtn').onclick = () => {
       if (!state.redoHistory.length) return;
-      const edCur = edCurRef();
-      state.history.push(JSON.stringify(edCur?.syncTimes || []));
-      edCur.syncTimes = JSON.parse(state.redoHistory.pop()); this.renderSyncLyrics(); this.edSaveSong();
+      state.history.push(JSON.stringify(this.songState.getSyncTimes()));
+      this.songState.replaceSyncTimes(JSON.parse(state.redoHistory.pop()));
+      this.renderSyncLyrics(); this.edSaveSong();
     };
     if (this.$('syncTimeline')) this.$('syncTimeline').onclick = (e) => {
       const rect = this.$('syncTimeline').getBoundingClientRect();

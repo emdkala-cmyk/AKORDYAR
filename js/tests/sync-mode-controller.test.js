@@ -4,8 +4,18 @@
  * اجرا: node js/tests/sync-mode-controller.test.js
  */
 const assert = require('assert');
+const fs = require('node:fs');
+const path = require('node:path');
+const vm = require('node:vm');
 
 const SyncModeController = require('../editor/SyncModeController.js');
+
+const songStateSource = fs.readFileSync(
+  path.resolve(__dirname, '..', 'core', 'EditorSongStateService.js'),
+  'utf8'
+);
+const songStateContext = {};
+vm.runInNewContext(songStateSource, songStateContext);
 
 let testCount = 0;
 
@@ -64,6 +74,9 @@ function createController(overrides = {}) {
   };
 
   const edCur = { lyrics: '', syncTimes: [], chords: [] };
+  const songState = songStateContext.EditorSongStateService.create({
+    getSong: () => edCur
+  });
 
   const calls = {
     toast: [],
@@ -84,7 +97,7 @@ function createController(overrides = {}) {
     state,
     seqState,
     DAW,
-    getEdCur: () => edCur,
+    songState,
     $: () => null,
     t: (key) => key,
     toast: (msg) => calls.toast.push(msg),

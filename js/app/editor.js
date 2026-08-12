@@ -715,18 +715,22 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
 
       // Sequential chording via MIDI
       if (edSeqChordingActive && edCur && !isEdChordModalOpen) {
-        const seqIdx = edCur.chords.length - edSeqPoints.length + edSeqCursor;
-        if (edCur.chords[seqIdx]) {
-          edCur.chords[seqIdx].name = name;
+        const songState = getEditorSongStateService();
+        const song = songState?.currentSong?.();
+        const chords = songState?.getChords?.() || [];
+        const seqIdx = chords.length - edSeqPoints.length + edSeqCursor;
+        if (song && chords[seqIdx]) {
+          songState.setChordName(seqIdx, name);
           edSyncBaseChordName(seqIdx);
           edCommit(); edRenderChords();
           if (edSeqCursor < edSeqPoints.length - 1) {
             edSeqCursor++;
           } else {
-            const seqStart = edCur.chords.length - edSeqPoints.length;
+            const seqStart = chords.length - edSeqPoints.length;
             edFilterChordsWithBase((c, i) => i < seqStart || c.name);
             edSeqChordingActive = false;
-            edSeqPoints = []; edCur.seqPoints = [];
+            edSeqPoints = [];
+            songState.setSeqPoints([]);
             edCommit(); edRenderChords();
             toast(t('chordDone'));
           }
@@ -4420,6 +4424,22 @@ function edBlankSong() {
       return transpose && name ? edTransposeChord(name, -transpose) : (name || '');
     }
 
+    function getEditorSongStateService() {
+      if (typeof requireEditorSongStateService === 'function') {
+        return requireEditorSongStateService();
+      }
+      if (
+        !window.__editorSongStateServiceBridge &&
+        typeof window.EditorSongStateService?.create === 'function'
+      ) {
+        window.__editorSongStateServiceBridge =
+          window.EditorSongStateService.create({
+            getSong: () => window.EditorRuntimeAdapter?.getSong?.() || null
+          });
+      }
+      return window.__editorSongStateServiceBridge || null;
+    }
+
     let edChordStateService = null;
     function getEditorChordStateService() {
       if (
@@ -4820,7 +4840,7 @@ function edCommit() {
   if (!edCur || isHistoryApplying()) return;
 
   SongMetadata.syncFromDom(edCur, {includeTimeSig: false, includeTempo: false, includeGenre: false});
-  edCur.seqPoints = edSeqPoints;
+  getEditorSongStateService()?.setSeqPoints(edSeqPoints);
 
   saveState();
   // === Performance Architecture v2: sync key/transpose ===
@@ -5207,7 +5227,8 @@ if ($('edDoBoth')) {
           const seqStart = edCur.chords.length - edSeqPoints.length;
           edFilterChordsWithBase((c, i) => i < seqStart || c.name);
           edSeqChordingActive = false;
-          edSeqPoints = []; edCur.seqPoints = [];
+          edSeqPoints = [];
+          getEditorSongStateService()?.setSeqPoints([]);
           edCommit(); edRenderChords();
           toast(t('chordDone'));
         }
@@ -5601,7 +5622,8 @@ if ($('edDoBoth')) {
       // Sequential chording: Enter opens chord modal for current position
       if (edSeqChordingActive && e.code === 'Enter' && !isInput && !isEditing && !($('chord-modal')?.classList.contains('show') && edChordModalMode === 'editor')) {
         e.preventDefault();
-        const seqIdx = edCur.chords.length - edSeqPoints.length + edSeqCursor;
+        const chords = getEditorSongStateService()?.getChords?.() || [];
+        const seqIdx = chords.length - edSeqPoints.length + edSeqCursor;
         edOpenChordModal(seqIdx);
         return;
       }

@@ -18,6 +18,7 @@ const song = {
   tempo: 95,
   timeSignature: '6/8',
   syncTimes: [0, 1.2],
+  seqPoints: [{ lineIndex: 0, charIndex: 1 }],
   chords: [{ name: 'C' }],
   chordLineClips: [{ name: 'Am' }],
   styles: { tSize: 44, highlightEffect: 'neon' }
@@ -32,6 +33,7 @@ assert.equal(
   JSON.stringify({ tempo: 95, timeSignature: '6/8' })
 );
 assert.deepEqual(service.getSyncTimes(), [0, 1.2]);
+assert.deepEqual(service.getSeqPoints(), [{ lineIndex: 0, charIndex: 1 }]);
 assert.equal(service.getChords()[0].name, 'C');
 assert.equal(service.getChordLineClips()[0].name, 'Am');
 
@@ -52,6 +54,16 @@ assert.equal(song.styles.highlightEffect, 'frost');
 assert.equal(service.setHighlightEffect('invalid', ['neon', 'frost']), false);
 assert.equal(service.markChordLineSynced(), true);
 assert.equal(song.hasManualChordLineEdits, false);
+assert.equal(service.setSyncTime(2, 2.4), true);
+assert.equal(song.syncTimes[2], 2.4);
+assert.equal(service.replaceSyncTimes([0, 3]), true);
+assert.deepEqual(song.syncTimes, [0, 3]);
+assert.equal(service.setSeqPoints([{ lineIndex: 1, charIndex: 0 }]), true);
+assert.deepEqual(song.seqPoints, [{ lineIndex: 1, charIndex: 0 }]);
+assert.equal(service.appendChords([{ name: 'G' }]), true);
+assert.equal(song.chords.at(-1).name, 'G');
+assert.equal(service.setChordName(0, 'Dm'), true);
+assert.equal(song.chords[0].name, 'Dm');
 
 const empty = context.EditorSongStateService.create();
 assert.equal(empty.getPresentationSnapshot(), null);
