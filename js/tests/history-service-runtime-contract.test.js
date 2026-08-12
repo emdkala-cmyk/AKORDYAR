@@ -7,7 +7,7 @@ const coreSource = fs.readFileSync(
   path.resolve(__dirname, '..', 'app', 'core.js'),
   'utf8'
 );
-assert.match(coreSource, /let _autoSaveTimer = null/);
+assert.doesNotMatch(coreSource, /_autoSaveTimer/);
 const daw = {
   project: { id: 'p1', name: 'Test' },
   tracks: [],
@@ -36,8 +36,6 @@ historyService.init({
   getPERF: () => perf,
   getEdCur: () => song,
   getEdSeqPoints: () => [],
-  getAutoSaveTimer: () => null,
-  setAutoSaveTimer: () => {},
   clearEdTimers: () => {},
   edSaveSong: () => {},
   updateNextIdFromClips: () => {},

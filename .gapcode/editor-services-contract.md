@@ -92,6 +92,10 @@ deactivateHistory
 در طول restore و hydration نباید history یا autosave به state نیمه‌کاره دسترسی
 داشته باشد.
 
+`HistoryService` مالک کامل timer مربوط به autosave است؛ orchestration در
+`core.js` نباید timer compatibility جداگانه یا callbackهای
+`getAutoSaveTimer`/`setAutoSaveTimer` نگه‌داری کند.
+
 ### `AudioRecoveryService`
 
 ```js

@@ -213,6 +213,8 @@ Legacy code may temporarily violate this until each domain is migrated.
 - `EditorSongInitializationService`: transaction restore/hydration؛ با factory
   تزریقی، wiring initialization یک‌بار ساخته می‌شود و `editor.js` فقط lifecycle
   را اجرا می‌کند.
+- `HistoryService`: مالک کامل autosave timer است؛ `core.js` دیگر bridge موازی
+  برای timer نگه نمی‌دارد.
 - `AudioRecoveryService`: بازیابی صوت در startup، arranger و preload با contract
   callback محور.
 - `KeyboardMappingService`: lifecycle موقت یادگیری shortcut و پاک‌سازی listenerها.

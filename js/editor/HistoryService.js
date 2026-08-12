@@ -75,27 +75,11 @@
         clearTimeout(this._autoSaveTimer);
       }
       this._autoSaveTimer = null;
-
-      const ctx = this.ctx;
-      if (typeof ctx?.getAutoSaveTimer === 'function') {
-        try {
-          const timer = ctx.getAutoSaveTimer();
-          if (timer != null) clearTimeout(timer);
-        } catch (_) {}
-      }
-      if (typeof ctx?.setAutoSaveTimer === 'function') {
-        try {
-          ctx.setAutoSaveTimer(null);
-        } catch (_) {}
-      }
     }
 
     scheduleAutoSave() {
       const ctx = this.ctx;
-      if (
-        typeof ctx?.setAutoSaveTimer !== 'function' ||
-        typeof ctx?.edSaveSong !== 'function'
-      ) {
+      if (typeof ctx?.edSaveSong !== 'function') {
         return false;
       }
 
@@ -105,7 +89,6 @@
           if (this.historyEnabled) ctx.edSaveSong();
         }, this.autoSaveDelay);
         this._autoSaveTimer = timer;
-        ctx.setAutoSaveTimer(timer);
         return true;
       } catch (_) {
         this._autoSaveTimer = null;
