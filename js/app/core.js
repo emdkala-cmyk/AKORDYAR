@@ -1006,6 +1006,7 @@ function isHistoryApplying() {
     }
 
 function setEditorSong(song) {
+  if (typeof edCur !== 'undefined') edCur = song;
   if (window.EditorRuntimeAdapter?.setSong) {
     window.EditorRuntimeAdapter.setSong(song);
   } else {

@@ -108,7 +108,7 @@ document.addEventListener('DOMContentLoaded', () => {
       selectionEnd = ns.selectionEnd;
       isRecordingChords = false; currentRecordingClipId = null;
 
-      edCur = window.TextEncodingService?.repairSong?.(ns.edCur) || ns.edCur;
+      setEditorSong(window.TextEncodingService?.repairSong?.(ns.edCur) || ns.edCur);
 
       ensureAudioCtx();
       // ساخت نودهای صوتی جدید برای ترک‌های آهنگ جدید
@@ -206,8 +206,7 @@ document.addEventListener('DOMContentLoaded', () => {
       isRecordingChords = false; currentRecordingClipId = null;
 
       const clonedSong = JSON.parse(JSON.stringify(song));
-      edCur = window.TextEncodingService?.repairSong?.(clonedSong) || clonedSong;
-      window.EdCurAdapter?.setEdCur?.(edCur); // sync legacy reference after loading song
+      setEditorSong(window.TextEncodingService?.repairSong?.(clonedSong) || clonedSong);
       // اگر lyrics خالیه ولی rawText داریم، parse کن
       if (typeof ensureSongParsed === 'function') ensureSongParsed(edCur);
       if (!edCur.styles) edCur.styles = {};
@@ -2322,8 +2321,7 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
       }
 
       // --- Apply parsed result to edCur (no post-parse mutations) ---
-      if (!edCur) edCur = edBlankSong();
-      window.EdCurAdapter?.setEdCur?.(edCur); // sync legacy reference after ensuring song exists
+      if (!edCur) setEditorSong(edBlankSong());
       edCur.lyrics = parsedResult.lyrics;
       edCur.chords = parsedResult.chords;
 
@@ -3082,7 +3080,7 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
     const ED_TENS = ['','add9','9','11','13','b9','#9','#11','b13'];
 
     let edCur = null;
-    window.EdCurAdapter?.setEdCur?.(edCur); // expose legacy reference through the adapter
+    setEditorSong(edCur);
     let edUndoStack = [], edRedoStack = [];
     let edChordIdx = null, edPendingAnchor = null;
     let edTransposing = 0;
@@ -3124,13 +3122,12 @@ function edBlankSong() {
       if (saved) {
         try {
           const parsedSong = JSON.parse(saved);
-          edCur = window.TextEncodingService?.repairSong?.(parsedSong) || parsedSong;
+          setEditorSong(window.TextEncodingService?.repairSong?.(parsedSong) || parsedSong);
         } catch(e) {
-          edCur = null;
+          setEditorSong(null);
         }
       }
-      if (!edCur) edCur = edBlankSong();
-      window.EdCurAdapter?.setEdCur?.(edCur); // sync legacy reference
+      if (!edCur) setEditorSong(edBlankSong());
       if (!edCur.styles) edCur.styles = {};
       if (!edCur.lineColors) edCur.lineColors = [];
       if (!edCur.chordVersions) edCur.chordVersions = [];

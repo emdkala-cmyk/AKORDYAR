@@ -54,6 +54,13 @@ assert.doesNotMatch(appCore, /\bPERF\s*\./);
 assert.doesNotMatch(appCore, /\bDAW\s*\./);
 assert.doesNotMatch(editor, /\bPERF\s*\./);
 assert.doesNotMatch(editor, /\bDAW\s*\./);
+assert.equal(
+  (appCore.match(/function setEditorSong\s*\(/g) || []).length,
+  1,
+  'core must expose exactly one editor-song setter'
+);
+assert.doesNotMatch(editor, /EdCurAdapter\?\.setEdCur/);
+assert.doesNotMatch(archive, /EdCurAdapter\?\.setEdCur/);
 
 assert.doesNotMatch(search, /document\.addEventListener\(['"](?:mousemove|mouseup)['"]/);
 assert.doesNotMatch(editor, /document\.addEventListener\(['"](?:mousemove|mouseup)['"]/);

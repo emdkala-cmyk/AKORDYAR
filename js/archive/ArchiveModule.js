@@ -235,8 +235,7 @@
       daw.bufferCache.clear(); daw.waveCache.clear();
       daw.loopEnabled = false; daw.loopA = 0; daw.loopB = 10;
       isRecordingChords = false; currentRecordingClipId = null;
-      edCur = JSON.parse(JSON.stringify(data));
-      getArchiveRuntimeAdapter().setSong?.(edCur);
+      setEditorSong(JSON.parse(JSON.stringify(data)));
       if (!edCur.styles) edCur.styles = {};
       const defaults = { tSize:38,tColor:'#0fa966',tFont:'Vazirmatn',tBold:true,align:'center', cSize:38,cColor:'#e6aa28',cFont:'JetBrains Mono' };
       Object.keys(defaults).forEach(k => { if (edCur.styles[k] === undefined) edCur.styles[k] = defaults[k]; });
@@ -853,8 +852,7 @@
       copy.createdAt = new Date().toISOString();
       copy.updatedAt = new Date().toISOString();
       const songs = edGetAllSongs(); songs.unshift(copy); edSetAllSongs(songs);
-      edCur = copy;
-      getArchiveRuntimeAdapter().setSong?.(edCur);
+      setEditorSong(copy);
       toast('نسخه قابل ویرایش ساخته شد');
     }
 
@@ -1690,8 +1688,7 @@ function archUpdateActiveFilters() {
       pauseTransport();
 stopAllVoices();
 
-edCur = edBlankSong();
-getArchiveRuntimeAdapter().setSong?.(edCur);
+setEditorSong(edBlankSong());
 
 resetHistory();
 resetPerformanceSerialization();
@@ -1915,8 +1912,7 @@ saveState();
             pauseTransport(); stopAllVoices();
             daw.clips = []; daw.sections = []; daw.selectedIds.clear(); daw.selectedSectionIds = new Set(); daw.bufferCache.clear(); daw.waveCache.clear();
             daw.loopEnabled = false; daw.loopA = 0; daw.loopB = 10;
-            edCur = data;
-            getArchiveRuntimeAdapter().setSong?.(edCur);
+            setEditorSong(data);
             if (!edCur.styles) edCur.styles = {};
             const defaults = { tSize:38,tColor:'#0fa966',tFont:'Vazirmatn',tBold:true,align:'center', cSize:38,cColor:'#e6aa28',cFont:'JetBrains Mono' };
             Object.keys(defaults).forEach(k => { if (edCur.styles[k] === undefined) edCur.styles[k] = defaults[k]; });
