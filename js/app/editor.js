@@ -4229,63 +4229,37 @@ function edBlankSong() {
       } catch(e) { console.error('Export error:', e); toast('خطا در خروجی: ' + e.message); }
     }
 
-    async function edSaveSong() {
-  if (!edCur) return;
+    let edSongPersistenceService = null;
+    function getEditorSongPersistenceService() {
+      if (
+        !edSongPersistenceService &&
+        typeof window.EditorSongPersistenceService?.create === 'function'
+      ) {
+        edSongPersistenceService = window.EditorSongPersistenceService.create({
+          getSong: () => edCur,
+          getDAW: () => getEditorDAW(),
+          syncMetadata: song => SongMetadata.syncFromDom(song),
+          artistKey: artist => archArtistKey(artist),
+          storage: localStorage,
+          scheduleAudioBlobSave: () => scheduleAudioBlobSave(),
+          rebuildSongDocument: () => {
+            if (typeof rebuildSongDocumentFromEdCur === 'function') {
+              rebuildSongDocumentFromEdCur();
+            }
+          },
+          syncViewStyles: () => {
+            if (typeof syncViewStylesToEdCur === 'function') {
+              syncViewStylesToEdCur();
+            }
+          }
+        });
+      }
+      return edSongPersistenceService;
+    }
 
-  SongMetadata.syncFromDom(edCur);
-  edCur.artistKey = archArtistKey(edCur.artist);
-
-  edCur._dawTracks = getEditorDAW().tracks.map(t => ({
-    id: t.id,
-    name: t.name,
-    icon: t.icon,
-    muted: t.muted,
-    solo: t.solo,
-    vol: t.vol,
-    pan: t.pan,
-    type: t.type,
-    transpose: t.transpose || 0,
-    laneHeight: t.laneHeight || null
-  }));
-
-  edCur._dawClips = getEditorDAW().clips.map(c => {
-    const cp = { ...c };
-    delete cp._peaks;
-    delete cp.waveUrl;
-    delete cp._fileHandle; // غیرقابل serialize
-    delete cp._originalBlob; // Blob خام غیرقابل serialize
-    return cp;
-  });
-
-  edCur._dawSections = (getEditorDAW().sections || []).map(s => ({ ...s }));
-
-  edCur._dawLoop = { loopEnabled: getEditorDAW().loopEnabled, loopA: getEditorDAW().loopA, loopB: getEditorDAW().loopB };
-
-  // ─── ذخیره مسیر فایل‌های صوتی (مهم برای لود مجدد در الکترون) ───
-  edCur._audioPaths = [];
-  for (const clip of getEditorDAW().clips) {
-    if (clip.type === 'chord' || !clip.bufferKey) continue;
-    edCur._audioPaths.push({
-      bufferKey: clip.bufferKey,
-      fileName: clip.fileName || clip.name,
-      trackId: clip.trackId,
-      filePath: clip._filePath || null
-    });
-  }
-
-  try {
-    localStorage.setItem('ed_current_song', JSON.stringify(edCur));
-  } catch (e) {
-    console.warn('Project save error:', e);
-  }
-
-  // Save heavy audio buffers separately with debounce
-  scheduleAudioBlobSave();
-  // === Performance Architecture v2: sync after save ===
-  if (typeof rebuildSongDocumentFromEdCur === 'function') rebuildSongDocumentFromEdCur();
-  // === Performance Architecture v2: save per-view settings ===
-  if (typeof syncViewStylesToEdCur === 'function') syncViewStylesToEdCur();
-}
+    function edSaveSong() {
+      return getEditorSongPersistenceService()?.save?.() || false;
+    }
 
 
 
