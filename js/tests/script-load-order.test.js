@@ -7,6 +7,19 @@ const html = fs.readFileSync(
   'utf8'
 );
 
+const appBootstrap = fs.readFileSync(
+  path.resolve(__dirname, '..', 'app.js'),
+  'utf8'
+);
+
+assert.match(appBootstrap, /createApplicationLoader/);
+assert.match(appBootstrap, /data-loader-mode="document-write"/);
+assert.match(appBootstrap, /loadWithDocumentWrite/);
+assert.doesNotMatch(
+  appBootstrap,
+  /if\s*\(\s*document\.readyState\s*===\s*['"]loading['"]\s*\)\s*\{\s*document\.write/
+);
+
 function scriptIndex(sourceName) {
   const index = html.indexOf(`src="${sourceName}"`);
   assert.notEqual(index, -1, `${sourceName} must be loaded`);

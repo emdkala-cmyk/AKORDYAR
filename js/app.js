@@ -1,51 +1,116 @@
 /**
  * Akordyar application bootstrap.
  *
- * The application is split into ordered, browser-compatible scripts so the
- * legacy global API and execution order remain unchanged:
- *
- *   core -> editor -> print -> search
- *
- * Keep this file as the compatibility entry point for pages that still load
- * `js/app.js` directly. The main HTML entry point loads the chunks explicitly
- * to keep dependency order visible.
+ * مسیر عادی loader همیشه dynamic و ترتیبی است. document.write فقط با
+ * data-loader-mode="document-write" روی همان script فعال می‌شود تا مسیر
+ * compatibility قدیمی کاملاً صریح و قابل audit باقی بماند.
  */
-(function loadApplicationChunks() {
+const APPLICATION_CHUNKS = Object.freeze([
+  'app/core.js',
+  'app/editor.js',
+  'app/print.js',
+  'app/search.js'
+]);
+
+function createApplicationLoader({
+  documentRef = typeof document !== 'undefined' ? document : null,
+  currentScript = documentRef?.currentScript || null,
+  chunks = APPLICATION_CHUNKS,
+  logger = console
+} = {}) {
+  if (!documentRef) {
+    return Object.freeze({
+      load: () => Promise.resolve([]),
+      loadWithDocumentWrite: () => Promise.resolve([])
+    });
+  }
+
+  const baseUrl = currentScript?.src
+    ? new URL('.', currentScript.src).href
+    : new URL('js/', documentRef.baseURI || globalThis.location?.href || 'http://localhost/').href;
+  const urls = chunks.map(chunk => new URL(chunk, baseUrl).href);
+  let loadPromise = null;
+
+  const findExistingScript = url => {
+    const scripts = documentRef.scripts
+      ? Array.from(documentRef.scripts)
+      : Array.from(documentRef.querySelectorAll?.('script') || []);
+    return scripts.find(script => script.src === url || script.getAttribute?.('src') === url) || null;
+  };
+
+  const loadOne = url => new Promise((resolve, reject) => {
+    const existing = findExistingScript(url);
+    if (existing?.dataset?.akordyarChunkLoaded === 'true') {
+      resolve(existing);
+      return;
+    }
+
+    const script = existing || documentRef.createElement('script');
+    script.src = url;
+    script.async = false;
+    script.dataset = script.dataset || {};
+    script.dataset.akordyarChunk = 'true';
+
+    const finish = (error) => {
+      script.onload = null;
+      script.onerror = null;
+      if (error) {
+        logger?.error?.(`[App] Failed to load application chunk: ${url}`, error);
+        reject(error);
+        return;
+      }
+      script.dataset.akordyarChunkLoaded = 'true';
+      resolve(script);
+    };
+
+    script.onload = () => finish();
+    script.onerror = event => finish(event instanceof Error ? event : new Error(`Failed to load ${url}`));
+
+    if (!existing) {
+      (documentRef.head || documentRef.documentElement).appendChild(script);
+    } else if (existing.readyState === 'complete' || existing.complete) {
+      finish();
+    }
+  });
+
+  const load = () => {
+    if (!loadPromise) {
+      loadPromise = urls.reduce(
+        (chain, url) => chain.then(loaded => loadOne(url).then(script => [...loaded, script])),
+        Promise.resolve([])
+      );
+    }
+    return loadPromise;
+  };
+
+  const loadWithDocumentWrite = () => {
+    if (documentRef.readyState !== 'loading' || typeof documentRef.write !== 'function') {
+      return load();
+    }
+
+    documentRef.write(urls
+      .map(url => `<script src="${url}" data-akordyar-chunk="true"><\/script>`)
+      .join(''));
+    return Promise.resolve(urls);
+  };
+
+  return Object.freeze({ load, loadWithDocumentWrite, urls });
+}
+
+(function bootstrapApplication() {
   if (typeof document === 'undefined') return;
 
   const currentScript = document.currentScript;
-  const baseUrl = currentScript
-    ? currentScript.src.slice(0, currentScript.src.lastIndexOf('/') + 1)
-    : 'js/';
+  const loader = createApplicationLoader({ documentRef: document, currentScript });
+  const compatibilityMode = currentScript?.dataset?.loaderMode === 'document-write';
 
-  const chunks = ['app/core.js', 'app/editor.js', 'app/print.js', 'app/search.js'];
-
-  // When loaded by a parser-inserted <script>, document.write keeps the
-  // historical synchronous order for any legacy page still using app.js.
-  if (document.readyState === 'loading') {
-    document.write(chunks
-      .map((chunk) => `<script src="${new URL(chunk, baseUrl).href}"><\/script>`)
-      .join(''));
-    return;
-  }
-
-  const scripts = chunks.map((chunk) => {
-    const script = document.createElement('script');
-    script.src = new URL(chunk, baseUrl).href;
-    script.async = false;
-    return script;
-  });
-
-  let index = 0;
-  const loadNext = () => {
-    const script = scripts[index++];
-    if (!script) return;
-    script.onload = loadNext;
-    script.onerror = () => {
-      console.error(`[App] Failed to load application chunk: ${script.src}`);
-    };
-    document.head.appendChild(script);
-  };
-
-  loadNext();
+  window.ApplicationLoader = loader;
+  const load = compatibilityMode
+    ? loader.loadWithDocumentWrite()
+    : loader.load();
+  load.catch?.(() => {});
 })();
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { APPLICATION_CHUNKS, createApplicationLoader };
+}
