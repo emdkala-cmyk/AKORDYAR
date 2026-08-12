@@ -366,6 +366,31 @@ new EventBindings({
 می‌توانند listener scoped خودشان را داشته باشند، اما نباید به binding عمومی
 تبدیل شوند.
 
+### `KeyboardMappingService`
+
+```js
+const service = KeyboardMappingService.create({
+  documentRef,
+  getLabel: actionId => string,
+  saveShortcut: (actionId, shortcut) => void,
+  formatKeyName: code => string,
+  toast: message => void
+});
+
+service.start(actionId, element)       // boolean
+service.cancel()                       // void
+service.finish(info)                   // void
+service.isActive()                     // boolean
+service.getTarget()                    // string | null
+service.destroy()                      // void
+```
+
+این سرویس فقط lifecycle حالت «یادگیری کلید» را مدیریت می‌کند. listenerهای موقت
+`keydown` و `mousedown` با `start()` ثبت و در `cancel()`، `finish()` یا
+`destroy()` هر دو حذف می‌شوند. ذخیرهٔ `SHORTCUTS` و نمایش UI از طریق callback
+تزریق می‌شود؛ سرویس نباید مستقیماً state ادیتور، `edCur` یا actionهای برنامه را
+مصرف کند.
+
 ### `WindowBridge`
 
 ```js

@@ -4663,8 +4663,9 @@ if ($('edDoBoth')) {
           onToggleColorBrush: () => toggleColorTool('brush'),
           onToggleColorEyedropper: () => toggleColorTool('eyedropper'),
           onDeactivateColorTool: () => deactivateColorTool(),
-          getMappingTarget: () => _mappingTarget,
-          onCancelMapping: () => cancelMapping(),
+          getMappingTarget: () =>
+            getKeyboardMappingService()?.getTarget?.() || null,
+          onCancelMapping: () => getKeyboardMappingService()?.cancel?.(),
           onTogglePanel: panel => togglePanel(panel),
           onPerfStop: () => perfStop(),
           onPerfNextSong: () => perfNextSong(),
@@ -5036,10 +5037,6 @@ if ($('edDoBoth')) {
       }, true);
     })();
 
-    // ===== BUTTON MAPPING (Ctrl+Shift+Alt + Click) =====
-    let _mappingTarget = null; // function id being mapped
-    let _mappingEl = null; // the button element being mapped
-
     // Action -> function mapping
     const ACTION_FUNCTIONS = {
       'play': togglePlay, 'pause': pauseTransport, 'stop': stopTransport,
@@ -5214,6 +5211,28 @@ if ($('edDoBoth')) {
     };
 
     let eventBindings = null;
+    let keyboardMappingService = null;
+
+    function getKeyboardMappingService() {
+      if (
+        !keyboardMappingService &&
+        typeof window.KeyboardMappingService?.create === 'function'
+      ) {
+        keyboardMappingService = window.KeyboardMappingService.create({
+          documentRef: document,
+          getLabel: actionId =>
+            SHORTCUT_DEFAULTS.find(shortcut => shortcut.id === actionId)?.label ||
+            actionId,
+          saveShortcut: (actionId, shortcut) => {
+            SHORTCUTS[actionId] = shortcut;
+            saveShortcuts();
+          },
+          formatKeyName,
+          toast
+        });
+      }
+      return keyboardMappingService;
+    }
 
     function handleGlobalMousedownCapture(e) {
       if (!e.ctrlKey || !e.shiftKey || !e.altKey) return;
@@ -5256,51 +5275,11 @@ if ($('edDoBoth')) {
     function startMapping(actionId, el) {
       // Deactivate any active tools
       if (isColorToolActive()) deactivateColorTool();
-      _mappingTarget = actionId;
-      _mappingEl = el;
-      el.classList.add('mapping-active');
-      // Show toast
-      let toastEl = document.querySelector('.mapping-toast');
-      if (!toastEl) { toastEl = document.createElement('div'); toastEl.className = 'mapping-toast'; document.body.appendChild(toastEl); }
-      const label = SHORTCUT_DEFAULTS.find(s => s.id === actionId)?.label || actionId;
-      toastEl.textContent = '🎹 «' + label + '» — کلید یا نت MIDI را بزنید...';
-      toastEl.style.display = 'block';
-      // Listen for next key or MIDI
-      document.addEventListener('keydown', onMappingKeyHandler, true);
-      document.addEventListener('mousedown', onMappingMidiHandler, true);
-    }
-
-    function onMappingKeyHandler(e) {
-      if (!_mappingTarget) return;
-      e.preventDefault(); e.stopPropagation();
-      if (e.key === 'Escape') { cancelMapping(); return; }
-      if (e.key === 'Control' || e.key === 'Shift' || e.key === 'Alt' || e.key === 'Meta') return;
-      // Save keyboard mapping
-      SHORTCUTS[_mappingTarget] = { code: e.code, ctrl: !!e.ctrlKey, shift: !!e.shiftKey };
-      saveShortcuts();
-      finishMapping('کلید: ' + formatKeyName(e.code) + (e.ctrlKey ? '+Ctrl' : '') + (e.shiftKey ? '+Shift' : ''));
-    }
-
-    function onMappingMidiHandler(e) {
-      if (!_mappingTarget) return;
-      // Check if click is NOT on the mapped button itself (to allow normal clicks)
-      if (e.target.closest('[data-action]') === _mappingEl) return;
+      return getKeyboardMappingService()?.start?.(actionId, el) || false;
     }
 
     function cancelMapping() {
-      if (_mappingEl) _mappingEl.classList.remove('mapping-active');
-      _mappingTarget = null; _mappingEl = null;
-      document.removeEventListener('keydown', onMappingKeyHandler, true);
-      const toastEl = document.querySelector('.mapping-toast');
-      if (toastEl) toastEl.style.display = 'none';
-    }
-
-    function finishMapping(info) {
-      if (_mappingEl) _mappingEl.classList.remove('mapping-active');
-      const toastEl = document.querySelector('.mapping-toast');
-      if (toastEl) { toastEl.textContent = '✅ ذخیره شد: ' + info; setTimeout(() => toastEl.style.display = 'none', 1500); }
-      _mappingTarget = null; _mappingEl = null;
-      document.removeEventListener('keydown', onMappingKeyHandler, true);
+      return getKeyboardMappingService()?.cancel?.();
     }
 
     // Execute MIDI mapped functions on Note On

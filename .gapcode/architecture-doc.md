@@ -213,6 +213,7 @@ Legacy code may temporarily violate this until each domain is migrated.
 - `EditorSongInitializationService`: transaction restore/hydration.
 - `AudioRecoveryService`: بازیابی صوت در startup، arranger و preload با contract
   callback محور.
+- `KeyboardMappingService`: lifecycle موقت یادگیری shortcut و پاک‌سازی listenerها.
 - `EditorChordVersionService`: version snapshot و timeline chord clips.
 - `EditorGlobalBindingsService`: lifecycle listenerهای resize/Alt/scroll.
 - `EditorLyricsRenderer`، `EditorMutationService` و

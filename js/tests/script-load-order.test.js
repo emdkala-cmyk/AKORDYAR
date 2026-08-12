@@ -123,6 +123,10 @@ assert.ok(
     scriptIndex('js/app/core.js')
 );
 assert.ok(
+  scriptIndex('js/editor/KeyboardMappingService.js') <
+    scriptIndex('js/editor/EditorKeyboardService.js')
+);
+assert.ok(
   scriptIndex('js/editor/EditorKeyCommandService.js') <
     scriptIndex('js/app/core.js')
 );

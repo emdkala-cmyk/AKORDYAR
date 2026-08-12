@@ -182,6 +182,7 @@ lifecycle.
 | `EditorSongPersistenceService` | snapshot و ذخیرهٔ song/DAW |
 | `EditorSongInitializationService` | transaction اولیه و hydration |
 | `AudioRecoveryService` | recovery صوت در startup، arranger و preload |
+| `KeyboardMappingService` | lifecycle یادگیری و پاک‌سازی shortcut موقت |
 | `EditorChordVersionService` | نسخه‌های آکورد و clip snapshot |
 | `EditorGlobalBindingsService` | resize، Alt tracker و scroll lifecycle |
 | `EditorLyricsRenderer` | projection متن و آمار چاپ |
