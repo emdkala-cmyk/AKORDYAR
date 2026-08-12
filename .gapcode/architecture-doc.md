@@ -12,12 +12,12 @@
 |---|---|
 | loader | `js/app.js`، loader ترتیبی ۱۱۶ خطی؛ `document.write` فقط compatibility path صریح |
 | هستهٔ برنامه | `js/app/core.js`، ۵٬۸۶۳ خط |
-| ادیتور | `js/app/editor.js`، ۶٬۷۴۸ خط |
-| استخراج‌های جدید | `EditorHydrationService`، `EditorLifecycleService`، `EditorNotationService`، `EditorAnchorService`، `EditorSelectionService`، `EditorChordDragService`، `EditorChordRenderer`، `EditorChordStateService`، `EventBindings` |
+| ادیتور | `js/app/editor.js`، ۶٬۷۵۰ خط |
+| استخراج‌های جدید | `EditorHydrationService`، `EditorLifecycleService`، `EditorNotationService`، `EditorAnchorService`، `EditorSelectionService`، `EditorChordDragService`، `EditorTextSelectionService`، `EditorChordRenderer`، `EditorChordStateService`، `EventBindings` |
 | مالکیت سند فعلی | setter رسمی `setEditorSong` در core و bridge خواندن/نوشتن `EdCurAdapter` |
 | رویدادهای HTML | در محدودهٔ فعلی `Akordyar.html` و مسیرهای app/archive/projecthub/search، بدون `onclick`/`onchange`/`oninput` |
 | Electron | `contextBridge`، whitelist کانال‌ها، sender/origin validation و validation ورودی IPC |
-| تست | `npm test` با ۳۵ ورودی موفق |
+| تست | `npm test` با ۳۶ ورودی موفق |
 
 ### جریان فعلی state
 
@@ -46,6 +46,7 @@ Electron renderer
 - انتخاب لاین، resize عمودی و میانبر `Z` در مرز فعلی core/editor تثبیت شده‌اند و contract test دارند.
 - state انتخاب آکورد از طریق `EditorSelectionService` mutation و projection می‌شود؛ مالکیت آرایهٔ legacy همچنان در editor است.
 - محاسبات مقصد drag از طریق `EditorChordDragService` انجام می‌شود؛ pointer lifecycle و mutation سند هنوز در editor است.
+- ساخت و restore انتخاب متن از طریق `EditorTextSelectionService` انجام می‌شود؛ focus و lifecycle همچنان در wrapper editor کنترل می‌شوند.
 
 ## 1. Overall Architecture (Layered)
 
