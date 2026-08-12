@@ -32,13 +32,13 @@
 | شاخص | مقدار |
 |---|---:|
 | `js/app.js` | ۱۱۶ خط |
-| `js/app/core.js` | ۵٬۸۱۲ خط |
-| `js/app/editor.js` | ۶٬۶۵۶ خط |
+| `js/app/core.js` | ۵٬۸۶۳ خط |
+| `js/app/editor.js` | ۶٬۶۷۲ خط |
 | `js/app/print.js` | ۱۹۷ خط |
 | `js/app/search.js` | ۱۹۵ خط |
 | `js/editor/EditorHydrationService.js` | ۱۷۵ خط |
 | `js/editor/EditorLifecycleService.js` | ۱۰۴ خط |
-| تست‌های `npm test` | ۲۷ ورودی موفق |
+| تست‌های `npm test` | ۳۳ ورودی موفق |
 | inline attribute در مسیرهای برنامه | صفر |
 
 ### قراردادهای تثبیت‌شده
@@ -55,6 +55,8 @@
 - کاهش مصرف مستقیم `DAW` و `PERF` در core/editor و انتقال مالکیت به store/adapter
 - انتقال handlerهای property داخلی به controllerهای editor
 - تکمیل contract test برای adapterهای باقی‌مانده و همسان‌سازی این فایل با گزارش کامل
+- بررسی ادامهٔ extraction محاسبات DOM editor بعد از `EditorAnchorService`
+- نگه‌داشتن رفتار ۶/۸ در regression test تا accent ثانویه دوباره برنگردد
 
 # Akordyar � Audit Report & Dependency Map
 

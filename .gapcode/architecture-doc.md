@@ -11,13 +11,13 @@
 | مورد | وضعیت فعلی |
 |---|---|
 | loader | `js/app.js`، loader ترتیبی ۱۱۶ خطی؛ `document.write` فقط compatibility path صریح |
-| هستهٔ برنامه | `js/app/core.js`، ۵٬۸۱۲ خط |
-| ادیتور | `js/app/editor.js`، ۶٬۶۵۶ خط |
-| استخراج‌های جدید | `EditorHydrationService`، `EditorLifecycleService`، `HistoryService`، `EventBindings` |
+| هستهٔ برنامه | `js/app/core.js`، ۵٬۸۶۳ خط |
+| ادیتور | `js/app/editor.js`، ۶٬۶۷۲ خط |
+| استخراج‌های جدید | `EditorHydrationService`، `EditorLifecycleService`، `HistoryService`، `EditorAnchorService`، `EditorChordRenderer`، `EditorChordStateService`، `EventBindings` |
 | مالکیت سند فعلی | setter رسمی `setEditorSong` در core و bridge خواندن/نوشتن `EdCurAdapter` |
 | رویدادهای HTML | در محدودهٔ فعلی `Akordyar.html` و مسیرهای app/archive/projecthub/search، بدون `onclick`/`onchange`/`oninput` |
 | Electron | `contextBridge`، whitelist کانال‌ها، sender/origin validation و validation ورودی IPC |
-| تست | `npm test` با ۲۷ ورودی موفق |
+| تست | `npm test` با ۳۳ ورودی موفق |
 
 ### جریان فعلی state
 
@@ -42,6 +42,8 @@ Electron renderer
 - `DAW` و `PERF` از طریق adapter قابل مصرف‌اند، اما مالک تاریخی آن‌ها هنوز core است.
 - `DomainBridge` و `PerformanceStore` عمدتاً viewهای performance را پوشش می‌دهند؛ editor/timeline هنوز کاملاً store-driven نیستند.
 - بخش‌هایی از editor هنوز handler property داخلی (`element.onclick = ...`) دارند؛ این‌ها با inline attribute فرق دارند و در extraction بعدی به controller منتقل می‌شوند.
+- مترونوم ۶/۸ اکنون فقط ضرب اول را accent می‌کند؛ صدای مترونوم از تنظیمات قابل preview است.
+- انتخاب لاین، resize عمودی و میانبر `Z` در مرز فعلی core/editor تثبیت شده‌اند و contract test دارند.
 
 ## 1. Overall Architecture (Layered)
 
