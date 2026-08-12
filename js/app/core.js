@@ -260,6 +260,8 @@ let _autoSaveTimer = null;
       }
     }
     let metroActive = false, metroTimer = null, metroBeat = 0;
+    let countInTimer = null;
+    let countInGeneration = 0;
     let countInBars = 0; // 0=off, 1=1 bar, 2=2 bars before playback
     // ===== SNAP TO GRID =====
     let snapEnabled = true;
@@ -2217,14 +2219,30 @@ sels.forEach(c => {
 
     function startTransport() {
       ensureAudioCtx();
-      getEditorDAW().isPlaying = true; getEditorDAW().isScrubbing = false; var _ori = PlayheadMath.createOrigin(performance.now(), getEditorDAW().playhead); getEditorDAW().playOriginPerf = _ori.playOriginPerf; getEditorDAW().playOriginTime = _ori.playOriginTime;
-      $('play-btn').style.color = 'var(--accent-neon-pink)'; scheduleAllFromPlayhead();
+      countInGeneration++;
+      if (countInTimer) {
+        clearTimeout(countInTimer);
+        countInTimer = null;
+      }
 
-      // Update perf play button
-      if (perfModeActive) $('perfPlayBtn').textContent = '⏸';
+      const beginPlayback = () => {
+        getEditorDAW().isPlaying = true;
+        getEditorDAW().isScrubbing = false;
+        var _ori = PlayheadMath.createOrigin(
+          performance.now(),
+          getEditorDAW().playhead
+        );
+        getEditorDAW().playOriginPerf = _ori.playOriginPerf;
+        getEditorDAW().playOriginTime = _ori.playOriginTime;
+        $('play-btn').style.color = 'var(--accent-neon-pink)';
+        scheduleAllFromPlayhead();
 
-      // Auto-start metronome if enabled
-      if (metroActive && !metroTimer) startMetronome();
+        // Update perf play button
+        if (perfModeActive) $('perfPlayBtn').textContent = '⏸';
+
+        // Start the continuous metronome only after count-in completes.
+        if (metroActive && !metroTimer) startMetronome();
+      };
 
       const tick = () => {
         if (!getEditorDAW().isPlaying) return;
@@ -2346,8 +2364,10 @@ sels.forEach(c => {
         getEditorDAW().rafId = requestAnimationFrame(tick);
       };
 
-      // Count-in: play metronome for N bars before starting
-      if (countInBars > 0 && metroActive) {
+      // Count-in must happen before transport/audio scheduling. It is
+      // intentionally independent from metroActive: selecting a count-in
+      // implies that the metronome is available for the count itself.
+      if (countInBars > 0) {
         const bpm = parseInt($('edTempo')?.value) || 120;
         const sig = $('edTimeSig')?.value || '4/4';
         const config = getTimeSignatureGridConfig(sig, bpm);
@@ -2355,32 +2375,41 @@ sels.forEach(c => {
         const beatDur = config.beatDuration;
         let countBeat = 0;
         const totalBeats = countInBars * beatsPerBar;
+        const generation = countInGeneration;
+        getEditorDAW().isPlaying = false;
+        getEditorDAW().isScrubbing = false;
+        stopAllVoices();
+        if (metroTimer) stopMetronome();
         $('play-btn').style.color = 'var(--accent-cyan-glow)';
         toast('🔢 شمارش: ' + countInBars + ' میزان');
         const countInTick = () => {
+          if (generation !== countInGeneration) return;
           if (countBeat >= totalBeats) {
-            getEditorDAW().isPlaying = true; getEditorDAW().isScrubbing = false; var _ori = PlayheadMath.createOrigin(performance.now(), getEditorDAW().playhead); getEditorDAW().playOriginPerf = _ori.playOriginPerf; getEditorDAW().playOriginTime = _ori.playOriginTime;
-            $('play-btn').style.color = 'var(--accent-neon-pink)'; scheduleAllFromPlayhead();
-            if (getEditorDAW().rafId) cancelAnimationFrame(getEditorDAW().rafId); getEditorDAW().rafId = requestAnimationFrame(tick);
+            countInTimer = null;
+            beginPlayback();
+            if (getEditorDAW().rafId) cancelAnimationFrame(getEditorDAW().rafId);
+            getEditorDAW().rafId = requestAnimationFrame(tick);
             return;
           }
           playClick(countBeat % beatsPerBar === 0);
           countBeat++;
-          setTimeout(countInTick, beatDur * 1000);
+          countInTimer = setTimeout(countInTick, beatDur * 1000);
         };
         countInTick();
-        // Stop metronome after count-in — it was only for counting
-        metroActive = false;
-        $('metroToggleBtn').textContent = '🔇';
         return;
       }
 
-      getEditorDAW().isPlaying = true; getEditorDAW().isScrubbing = false; var _ori = PlayheadMath.createOrigin(performance.now(), getEditorDAW().playhead); getEditorDAW().playOriginPerf = _ori.playOriginPerf; getEditorDAW().playOriginTime = _ori.playOriginTime;
-      $('play-btn').style.color = 'var(--accent-neon-pink)'; scheduleAllFromPlayhead();
-      if (getEditorDAW().rafId) cancelAnimationFrame(getEditorDAW().rafId); getEditorDAW().rafId = requestAnimationFrame(tick);
+      beginPlayback();
+      if (getEditorDAW().rafId) cancelAnimationFrame(getEditorDAW().rafId);
+      getEditorDAW().rafId = requestAnimationFrame(tick);
     }
 
     function pauseTransport() {
+      countInGeneration++;
+      if (countInTimer) {
+        clearTimeout(countInTimer);
+        countInTimer = null;
+      }
       if (getEditorDAW().isRecording) endRec();
       getEditorDAW().isPlaying = false; getEditorDAW().isScrubbing = false; if (getEditorDAW().rafId) cancelAnimationFrame(getEditorDAW().rafId); getEditorDAW().rafId = null; stopAllVoices(); $('play-btn').style.color = 'var(--accent-cyan-glow)'; updatePlayheadUI();
 

@@ -100,14 +100,21 @@ class MetronomeScheduler {
     this._beatDuration = config.beatDuration;
     this._beatsPerMeasure = config.beatsPerMeasure || 4;
 
-    // The AudioContext time for beat 0. This can be negative if the
-    // playhead is ahead of ctx.currentTime (e.g. audioCtx just created).
-    // We clamp `_nextNoteTime` to >= 0 because AudioParam times must be
-    // non-negative. The MetronomeEngine still tracks playhead time from
-    // `_startTime` so beat counting stays correct.
+    // The AudioContext time for beat 0. This can be negative when the
+    // playhead is already inside the timeline. Start from the first grid beat
+    // at or after the current playhead; never schedule historical beats in a
+    // burst just because their absolute timeline times are in the past.
     this._startTime = startTime !== null ? startTime : ctx.currentTime;
-    this._nextNoteTime = Math.max(0, this._startTime);
-    this._currentBeat = 0;
+    const playheadAtStart = (ctx.currentTime - this._startTime) / this._beatDuration;
+    const epsilon = 1e-9;
+    this._currentBeat = Math.max(
+      0,
+      Math.ceil(playheadAtStart - epsilon)
+    );
+    this._nextNoteTime = Math.max(
+      ctx.currentTime,
+      this._startTime + this._currentBeat * this._beatDuration
+    );
     this.running = true;
 
     if (this.metronomeEngine) this.metronomeEngine.start();

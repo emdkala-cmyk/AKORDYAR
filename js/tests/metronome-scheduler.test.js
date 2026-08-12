@@ -125,10 +125,11 @@ tests.push(() => {
 // 3. start() returns true and sets state correctly
 tests.push(() => {
   const { fakeCtx, service } = setup();
+  const timer = makeFakeTimer();
   const sched = new MetronomeScheduler({
     audioContextService: service,
     getMeterConfig, isStrongBeat: () => true,
-    timer: makeFakeTimer().fn
+    timer: timer.fn
   });
   assert.strictEqual(sched.start({ bpm: 120, timeSignature: '4/4', startTime: 0 }), true);
   assert.strictEqual(sched.running, true);
@@ -141,21 +142,24 @@ tests.push(() => {
   passCount++;
 });
 
-// 3b. Negative startTime is clamped to 0 (AudioParam times must be non-negative)
+// 3b. Starting mid-timeline skips historical beats and preserves grid phase.
 tests.push(() => {
   const { fakeCtx, service } = setup();
+  const timer = makeFakeTimer();
   const sched = new MetronomeScheduler({
     audioContextService: service,
     getMeterConfig, isStrongBeat: () => true,
-    timer: makeFakeTimer().fn
+    timer: timer.fn
   });
-  // startTime = -2.1181 (playhead ahead of ctx.currentTime)
+  // startTime = -2.1181 means the playhead is around 2.1181s.
   assert.strictEqual(sched.start({ bpm: 120, timeSignature: '4/4', startTime: -2.1181 }), true);
   assert.strictEqual(sched.getState().startTime, -2.1181); // engine keeps original
-  // First beat was scheduled at clamped t=0, then advanced by beatDuration.
-  // All scheduled AudioParam times are non-negative (no RangeError).
-  assert.strictEqual(sched.getState().nextNoteTime, 0.5);
-  assert.ok(fakeCtx._oscs.length >= 1, 'first beat scheduled at t=0 without RangeError');
+  // The next grid beat is timeline 2.5s, i.e. context time 0.3819s.
+  assert.ok(Math.abs(sched.getState().nextNoteTime - 0.3819) < 0.0001);
+  assert.strictEqual(fakeCtx._oscs.length, 0, 'historical beats must not play immediately');
+  fakeCtx.currentTime = 0.3;
+  timer.runNext();
+  assert.ok(fakeCtx._oscs.length >= 1, 'next grid beat should be scheduled in look-ahead');
   passCount++;
 });
 
