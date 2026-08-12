@@ -23,6 +23,39 @@
 
 ---
 
+## ممیزی معتبر فعلی — ۱۲ اوت ۲۰۲۶
+
+> اعداد این بخش از فایل‌های موجود در repository استخراج شده‌اند. بخش‌های قدیمی این فایل baseline تاریخی هستند و نباید مبنای تصمیم جدید قرار گیرند.
+
+### snapshot
+
+| شاخص | مقدار |
+|---|---:|
+| `js/app.js` | ۱۱۶ خط |
+| `js/app/core.js` | ۵٬۸۱۲ خط |
+| `js/app/editor.js` | ۶٬۸۰۵ خط |
+| `js/app/print.js` | ۱۹۷ خط |
+| `js/app/search.js` | ۱۹۵ خط |
+| `js/editor/EditorHydrationService.js` | ۱۷۵ خط |
+| `js/editor/EditorLifecycleService.js` | ۱۰۴ خط |
+| تست‌های `npm test` | ۲۷ ورودی موفق |
+| inline attribute در مسیرهای برنامه | صفر |
+
+### قراردادهای تثبیت‌شده
+
+1. تغییر سند فعلی از `setEditorSong` عبور می‌کند؛ `EdCurAdapter` compatibility bridge رسمی است.
+2. مصرف‌کننده‌های archive، projecthub و editor برای DAW/PERF از adapterها استفاده می‌کنند.
+3. `EventBindings` رویدادهای delegated را ثبت می‌کند و برای فرم‌ها `input`/`change` را از `click` جدا می‌کند.
+4. loader معمولی dynamic است و `document.write` فقط با `data-loader-mode="document-write"` فعال می‌شود.
+5. Electron فقط کانال‌های whitelist‌شده را می‌پذیرد و sender پنجره/‌origin را بررسی می‌کند.
+
+### بدهی‌های قابل پیگیری
+
+- کاهش دسترسی مستقیم legacy به `window.edCur`
+- کاهش مصرف مستقیم `DAW` و `PERF` در core/editor و انتقال مالکیت به store/adapter
+- انتقال handlerهای property داخلی به controllerهای editor
+- تکمیل contract test برای adapterهای باقی‌مانده و همسان‌سازی این فایل با گزارش کامل
+
 # Akordyar � Audit Report & Dependency Map
 
 **Phase 1/15 � Audit ???? | 2026-08-09**

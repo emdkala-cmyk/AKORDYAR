@@ -4,6 +4,45 @@
 
 ---
 
+## وضعیت معتبر فعلی — ۱۲ اوت ۲۰۲۶
+
+این بخش مرجع فعلی معماری است؛ اعداد و مسیرهای قدیمی پایین‌تر، baseline تاریخی هستند.
+
+| مورد | وضعیت فعلی |
+|---|---|
+| loader | `js/app.js`، loader ترتیبی ۱۱۶ خطی؛ `document.write` فقط compatibility path صریح |
+| هستهٔ برنامه | `js/app/core.js`، ۵٬۸۱۲ خط |
+| ادیتور | `js/app/editor.js`، ۶٬۸۰۵ خط |
+| استخراج‌های جدید | `EditorHydrationService`، `EditorLifecycleService`، `HistoryService`، `EventBindings` |
+| مالکیت سند فعلی | setter رسمی `setEditorSong` در core و bridge خواندن/نوشتن `EdCurAdapter` |
+| رویدادهای HTML | در محدودهٔ فعلی `Akordyar.html` و مسیرهای app/archive/projecthub/search، بدون `onclick`/`onchange`/`oninput` |
+| Electron | `contextBridge`، whitelist کانال‌ها، sender/origin validation و validation ورودی IPC |
+| تست | `npm test` با ۲۷ ورودی موفق |
+
+### جریان فعلی state
+
+```text
+Editor / Archive
+    -> setEditorSong / EdCurAdapter
+    -> DomainBridge + PerformanceStore برای viewهای performance
+
+Timeline / DAW
+    -> RuntimeStateAdapter / EditorRuntimeAdapter
+    -> EventBindings و سرویس‌های lifecycle/render
+
+Electron renderer
+    -> preload invoke whitelist
+    -> registerIpcHandler
+    -> sender + origin validation
+```
+
+### بدهی‌های باقی‌مانده
+
+- `window.edCur` هنوز compatibility boundary است و باید مصرف مستقیم legacy به‌تدریج کم شود.
+- `DAW` و `PERF` از طریق adapter قابل مصرف‌اند، اما مالک تاریخی آن‌ها هنوز core است.
+- `DomainBridge` و `PerformanceStore` عمدتاً viewهای performance را پوشش می‌دهند؛ editor/timeline هنوز کاملاً store-driven نیستند.
+- بخش‌هایی از editor هنوز handler property داخلی (`element.onclick = ...`) دارند؛ این‌ها با inline attribute فرق دارند و در extraction بعدی به controller منتقل می‌شوند.
+
 ## 1. Overall Architecture (Layered)
 
 ```

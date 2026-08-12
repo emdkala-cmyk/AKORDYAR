@@ -7,6 +7,39 @@
 
 ---
 
+## وضعیت معتبر فعلی — ۱۲ اوت ۲۰۲۶
+
+نقشهٔ زیر نسخهٔ جاری inventory است؛ line rangeهای قدیمی پایین‌تر برای ردیابی تاریخی extraction نگه داشته شده‌اند.
+
+### خروجی‌های انجام‌شده
+
+| خروجی | مسیر | وضعیت |
+|---|---|---|
+| parser و mapperهای پایه | `js/editor/LyricsParser.js`, `LyricPositionMapper.js` | موجود و تست‌شده |
+| sync آکورد/متن | `js/editor/ChordLineSyncService.js` | موجود و تست‌شده |
+| sync mode | `js/editor/SyncModeController.js` | موجود و contract test دارد |
+| history | `js/editor/HistoryService.js` | موجود؛ autosave bridge تثبیت شده |
+| lifecycle | `js/editor/EditorLifecycleService.js` | استخراج‌شده |
+| hydration/restore | `js/editor/EditorHydrationService.js` | استخراج‌شده؛ ۱۷۵ خط |
+| event binding | `js/core/EventBindings.js` | استخراج‌شده و برای action/form contract تست دارد |
+
+### وضعیت فعلی فایل‌های اصلی
+
+| فایل | خطوط | مرز فعلی |
+|---|---:|---|
+| `js/app/core.js` | ۵٬۸۱۲ | DAW/runtime glue، timeline، transport و compatibility wrapperها |
+| `js/app/editor.js` | ۶٬۸۰۵ | render/editor commandها، audio restore و legacy UI glue |
+| `js/app/search.js` | ۱۹۵ | quick search؛ نتیجهٔ داینامیک با `data-command` |
+
+### extraction بعدی با ریسک کنترل‌شده
+
+1. `EditorRenderer`: جداکردن render editor/chords و DOM projection.
+2. `EditorSelectionService`: selection، drag، commit/restore و chord modal.
+3. `EditorAudioRestoreService`: مسیرهای restore صدا از editor، با حفظ `EditorRuntimeAdapter`.
+4. `TimelineController`: commandهای DAW و render loop با تست load-order.
+
+هر مرحله باید قبل از جابه‌جایی، contract test و regression کامل داشته باشد؛ ترتیب scriptهای `Akordyar.html` بدون عبور تست load-order تغییر نمی‌کند.
+
 ## ۱) نقشهٔ مناطق Editor Domain در app.js
 
 شماره خطوط بر اساس HEAD فعلی (بعد از استخراج ProjectAudioService) است.

@@ -6102,6 +6102,7 @@ if (
         window.quickSearchFilter();
       },
       'quickSearchClearFilters': () => window.quickSearchClearFilters(),
+      'quickSearchLoadSong': (_, element) => window.quickSearchLoadSong(element.dataset.songId),
       toolbarDock: () => toggleToolbarDock(),
       sizeLock: () => toggleSizeLock(),
       lineColorText: event => handleLineColorClick(event, 'text'),

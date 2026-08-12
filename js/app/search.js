@@ -168,7 +168,7 @@ function renderQuickSearchList(songs, container) {
   }
   
   container.innerHTML = songs.map(s => `
-    <button class="qsp-item" data-song-id="${s.id}" onclick="quickSearchLoadSong('${s.id}')">
+    <button class="qsp-item" data-command="quickSearchLoadSong" data-song-id="${escapeHtml(String(s.id))}">
       <div class="qsp-item-title">${escapeHtml(s.title || 'بدون نام')}</div>
       <div class="qsp-item-artist">${escapeHtml(s.artist || '')}</div>
     </button>

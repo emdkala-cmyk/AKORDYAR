@@ -8,6 +8,7 @@ const files = [
   'js/archive/ArchiveModule.js',
   'js/app/core.js',
   'js/app/editor.js',
+  'js/app/search.js',
   'js/projecthub.js'
 ];
 
@@ -38,5 +39,12 @@ const projectHub = fs.readFileSync(
 );
 assert.match(projectHub, /function openArchive\(\)/);
 assert.match(projectHub, /view === ['"]archive['"]\) openArchive\(\)/);
+
+const search = fs.readFileSync(
+  path.join(projectRoot, 'js/app/search.js'),
+  'utf8'
+);
+assert.match(search, /data-command="quickSearchLoadSong"/);
+assert.doesNotMatch(search, /onclick\s*=/i);
 
 console.log('Inline handler contract tests passed');
