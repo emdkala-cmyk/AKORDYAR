@@ -5,53 +5,6 @@
 // Keep selection state initialized before DOM setup can register handlers.
 let edSelectedChords = [];
 
-/**
- * رندر کردن ظاهر تراک‌ها روی تایم‌لاین
- */
-function renderTimeline() {
-  const container = document.getElementById('timeline-tracks-container');
-  if (!container) return;
-  container.innerHTML = '';
-
-  getEditorDAW().tracks.forEach(track => {
-    const trackEl = document.createElement('div');
-    trackEl.className = 'track-row';
-    trackEl.innerHTML = `
-      <div class="track-header">${track.name}</div>
-      <div class="track-content"></div>
-    `;
-    container.appendChild(trackEl);
-  });
-}
-
-// اتصال رویدادهای اولیه صفحه پس از بارگذاری DOM
-document.addEventListener('DOMContentLoaded', () => {
-  const audioInput = document.getElementById('audio-file-input');
-  if (audioInput) {
-    audioInput.addEventListener('change', async (e) => {
-      const file = e.target.files[0];
-
-      if (!file) {
-        return;
-      }
-
-      const copy = confirm("آیا می‌خواهید فایل صوتی در پوشه پروژه کپی شود؟");
-
-      try {
-        await handleAudioImport(file, copy);
-      } catch (error) {
-        console.error('[AudioImport] Failed to import audio file:', error);
-
-        if (typeof toast === 'function') {
-          toast('خطا در وارد کردن فایل صوتی');
-        }
-      } finally {
-        e.target.value = '';
-      }
-    });
-  }
-});
-
     /**
      * همگام‌سازی UI بعد از تغییر آهنگ — فراخوانی مشترک بین loadArrSong و hotSwapToNextSong
      */
@@ -837,12 +790,21 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
     function parseArtistNames(raw) {
       return raw.split(/[,\n،]+/).map(s => s.trim()).filter(s => s.length > 0);
     }
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>"']/g, char => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+      }[char]));
+    }
     function updateAutoArtistTags() {
       const names = parseArtistNames($('autoArtistName')?.value || '');
       const el = $('autoArtistTags');
       if (!el) return;
       el.innerHTML = names.map((n, i) =>
-        `<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(63,184,175,0.15);border:1px solid var(--accent-teal);border-radius:6px;padding:3px 10px;font-size:0.8rem;color:var(--accent-cyan-glow);font-weight:700;">🎵 ${n}${names.length > 1 ? ` <span style="opacity:0.5;font-size:0.7rem;">#${i + 1}</span>` : ''}</span>`
+        `<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(63,184,175,0.15);border:1px solid var(--accent-teal);border-radius:6px;padding:3px 10px;font-size:0.8rem;color:var(--accent-cyan-glow);font-weight:700;">🎵 ${escapeHtml(n)}${names.length > 1 ? ` <span style="opacity:0.5;font-size:0.7rem;">#${i + 1}</span>` : ''}</span>`
       ).join('');
     }
     function normalizeKey(s) { return (s || '').replace(/\s+/g, '').toLowerCase(); }
@@ -863,6 +825,8 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
       if (fill) fill.style.width = pct + '%';
       if (label) label.textContent = `${current} / ${total}`;
       if (pctEl) pctEl.textContent = pct + '%';
+      // Detail markup is assembled locally; every external value is escaped
+      // before interpolation (see escapeHtml calls below).
       if (detailEl && detail) detailEl.innerHTML = detail;
     }
     function showProgressBar() { $('autoProgressBar')?.classList.add('show'); }
@@ -1391,8 +1355,8 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
 
         for (let ai = 0; ai < artistNames.length; ai++) {
           const artistName = artistNames[ai];
-          status.textContent = `🔍 [${ai + 1}/${artistNames.length}] شناسایی ${artistName}...`;
-          updateAutoProgress(grandExpected, grandExpected + 1, `<span style="color:var(--accent-teal);">شناسایی ${artistName}...</span>`);
+          status.textContent = `🔍 [${ai + 1}/${artistNames.length}] شناسایی ${escapeHtml(artistName)}...`;
+          updateAutoProgress(grandExpected, grandExpected + 1, `<span class="auto-progress-teal">شناسایی ${escapeHtml(artistName)}...</span>`);
 
           // Probe: fetch count=1 to get totalSongs
           try {
@@ -1437,8 +1401,8 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
         for (const [artistName, artistData] of Object.entries(window._aiArtistMap)) {
           if (artistData.error) continue;
 
-          status.textContent = `🎵 در حال دریافت ${artistName} (${artistData.expected} ترانه)...`;
-          updateAutoProgress(processedCount, grandExpected, `<span style="color:var(--accent-teal);">دریافت ${artistName}...</span>\n${buildProgressDetail()}`);
+          status.textContent = `🎵 در حال دریافت ${escapeHtml(artistName)} (${artistData.expected} ترانه)...`;
+          updateAutoProgress(processedCount, grandExpected, `<span class="auto-progress-teal">دریافت ${escapeHtml(artistName)}...</span><br>${buildProgressDetail()}`);
 
           const fetchResult = await fetchArtistFromServer(artistName, apiUrl, artistData.expected, (msg) => {
             status.textContent = msg;
@@ -1582,8 +1546,8 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
       let retriedCount = 0;
 
       for (const [artistName, failedSongs] of Object.entries(byArtist)) {
-        status.textContent = `🔄 تلاش مجدد ${artistName} (${failedSongs.length} ترانه)...`;
-        updateAutoProgress(retriedCount, failed.length, `<span style="color:#D69E2E;">تلاش مجدد ${artistName}...</span>`);
+        status.textContent = `🔄 تلاش مجدد ${escapeHtml(artistName)} (${failedSongs.length} ترانه)...`;
+        updateAutoProgress(retriedCount, failed.length, `<span class="auto-progress-retry">تلاش مجدد ${escapeHtml(artistName)}...</span>`);
 
         const fetchResult = await fetchArtistFromServer(artistName, apiUrl, failedSongs.length, (msg) => { status.textContent = msg; });
 
