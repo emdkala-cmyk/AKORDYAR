@@ -1,6 +1,13 @@
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 
 const historyService = require('../editor/HistoryService.js');
+const coreSource = fs.readFileSync(
+  path.resolve(__dirname, '..', 'app', 'core.js'),
+  'utf8'
+);
+assert.match(coreSource, /let _autoSaveTimer = null/);
 const daw = {
   project: { id: 'p1', name: 'Test' },
   tracks: [],

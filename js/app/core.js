@@ -85,6 +85,11 @@ const isBrowser = typeof window !== 'undefined';
 // globalScope فقط برای انتشار runtime state نهایی استفاده می‌شود.
 // placeholder قدیمی DAW حذف شده تا adapter هیچ‌وقت state ناقص را نبیند.
 const globalScope = isBrowser ? window : global;
+
+// Compatibility bridge for HistoryService autosave scheduling.
+// HistoryService owns the timer lifecycle; core only stores the active handle
+// required by the legacy context callbacks.
+let _autoSaveTimer = null;
     /* ===== I18N ===== */
     let currentLang = localStorage.getItem('appLang') || 'fa';
     const I18N = {
