@@ -16,6 +16,9 @@ function createTarget() {
     },
     getElementById() {
       return null;
+    },
+    querySelectorAll() {
+      return [];
     }
   };
 }
@@ -24,10 +27,20 @@ const documentRef = createTarget();
 const windowRef = createTarget();
 const keyupEvents = [];
 const pointerEvents = [];
+let inlineActionCalls = 0;
+const inlineGroup = createTarget();
+inlineGroup.contains = () => true;
+inlineGroup.addEventListener = function(eventName, handler, options) {
+  this.added.push({ eventName, handler, options });
+};
+documentRef.querySelectorAll = () => [inlineGroup];
 
 const bindings = new EventBindings({
   documentRef,
   windowRef,
+  actions: {
+    save: () => { inlineActionCalls++; }
+  },
   onGlobalKeyup: (event) => keyupEvents.push(event),
   onGlobalMousedownCapture: (event) => pointerEvents.push(event)
 });
@@ -50,6 +63,14 @@ pointerHandler({ type: 'mousedown' });
 
 assert.equal(keyupEvents.length, 1);
 assert.equal(pointerEvents.length, 1);
+
+const inlineClickHandler = inlineGroup.added.find(item => item.eventName === 'click').handler;
+inlineClickHandler({
+  target: {
+    closest: () => ({ dataset: { action: 'save' } })
+  }
+});
+assert.equal(inlineActionCalls, 1);
 
 bindings.destroy();
 assert.equal(bindings.initialized, false);

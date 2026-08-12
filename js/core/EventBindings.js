@@ -38,6 +38,7 @@ class EventBindings {
     this.bindTransportControls();
     this.bindNavItems();
     this.bindQuickSearchPanel();
+    this.bindInlineActionGroups();
     this.bindGlobalKeyboard();
     this.bindGlobalPointer();
 
@@ -135,6 +136,29 @@ class EventBindings {
     if (typeof this.onGlobalKeyup === 'function') {
       this.listen(this.window, 'keyup', this.onGlobalKeyup);
     }
+  }
+
+  bindInlineActionGroups() {
+    const groups = this.document.querySelectorAll('[data-inline-actions]');
+    groups.forEach(group => {
+      this.listen(group, 'click', event => {
+        const control = event.target.closest('[data-action]');
+        if (!control || !group.contains(control)) return;
+        this.runAction(control.dataset.action, event, control);
+      });
+
+      this.listen(group, 'input', event => {
+        const control = event.target.closest('[data-action]');
+        if (!control || !group.contains(control)) return;
+        this.runAction(control.dataset.action, event, control);
+      });
+
+      this.listen(group, 'change', event => {
+        const control = event.target.closest('[data-action]');
+        if (!control || !group.contains(control)) return;
+        this.runAction(control.dataset.action, event, control);
+      });
+    });
   }
 
   bindGlobalPointer() {

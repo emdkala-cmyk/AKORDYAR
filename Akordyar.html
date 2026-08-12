@@ -56,9 +56,9 @@
     </aside>
 
     <header class="topbar">
-      <div class="header-center-controls" id="headerCenterControls" style="flex-wrap:wrap; gap:4px;">
+      <div class="header-center-controls" id="headerCenterControls" data-inline-actions style="flex-wrap:wrap; gap:4px;">
         <div class="toolbar-drag-handle" id="toolbarDragHandle" title="بکش برای جابه‌جایی">⠿</div>
-        <button class="toolbar-pin-btn" id="toolbarPinBtn" title="جدا/اتصال (Undock/Dock)" onclick="toggleToolbarDock()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 11l-4 4h14l-4-4"/><path d="M12 3v8"/><path d="M3 11h18"/></svg></button>
+        <button class="toolbar-pin-btn" id="toolbarPinBtn" data-action="toolbarDock" title="جدا/اتصال (Undock/Dock)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 11l-4 4h14l-4-4"/><path d="M12 3v8"/><path d="M3 11h18"/></svg></button>
         <div class="ed-grp">
           <span id="edOrigKeyLabel" style="font-size:0.78rem;font-weight:700;color:#9F7AEA;padding:3px 8px;border-radius:6px;background:rgba(159,122,234,0.12);border:1px solid rgba(159,122,234,0.3);white-space:nowrap;cursor:pointer;" title="گام اورجینال آهنگ"></span>
           <select id="edKey"></select>
@@ -85,10 +85,10 @@
           <label data-i18n="chordLabel">آکورد:</label>
           <input type="number" id="edChordSize" value="23" min="8" max="36">
           <select id="edChordFont"><option selected>JetBrains Mono</option><option>Courier New</option><option>Fira Code</option><option>Source Code Pro</option><option>Consolas</option><option>monospace</option><option>Cairo</option><option>Rubik</option><option>Mada</option><option>Sahel</option></select>
-          <button class="ed-btn" id="edSizeLockBtn" title="قفل اندازه متن و آکورد (تغییر همزمان)" onclick="toggleSizeLock()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg></button>
+          <button class="ed-btn" id="edSizeLockBtn" data-action="sizeLock" title="قفل اندازه متن و آکورد (تغییر همزمان)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg></button>
           <button class="ed-btn active" id="edToggleChords" title="نمایش/مخفی آکورد در ادیتور"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></button>
-          <button class="ed-btn" id="edRandomTextColor" title="رنگ رندوم متن سطر به سطر (Alt+Click = ریست)" onclick="handleLineColorClick(event, 'text')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></button>
-          <button class="ed-btn" id="edRandomChordColor" title="رنگ رندوم آکورد سطر به سطر (Alt+Click = ریست)" onclick="handleLineColorClick(event, 'chord')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/><path d="M12 8v4"/><path d="M10 10l4 2"/></svg></button>
+          <button class="ed-btn" id="edRandomTextColor" data-action="lineColorText" title="رنگ رندوم متن سطر به سطر (Alt+Click = ریست)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></button>
+          <button class="ed-btn" id="edRandomChordColor" data-action="lineColorChord" title="رنگ رندوم آکورد سطر به سطر (Alt+Click = ریست)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/><path d="M12 8v4"/><path d="M10 10l4 2"/></svg></button>
         </div>
         <div class="ed-sep"></div>
         <div class="ed-grp" id="edSeqGroup">
@@ -111,7 +111,7 @@
         <div class="ed-grp">
           <button class="ed-btn" id="edUndoBtn">↩ Undo</button>
           <button class="ed-btn" id="edRedoBtn">↪ Redo</button>
-          <button class="ed-btn" id="edEditorLockBtn" title="قفل ویرایشگر" onclick="toggleEditorLock()" style="font-size:0.85rem;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></button>
+          <button class="ed-btn" id="edEditorLockBtn" data-action="editorLock" title="قفل ویرایشگر" style="font-size:0.85rem;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></button>
         </div>
         <div class="ed-sep"></div>
         <div class="ed-grp">
@@ -121,11 +121,11 @@
         </div>
         <div class="ed-sep"></div>
         <div class="ed-grp">
-          <button class="ed-btn" id="edSyncChordLineBtn" title="بروزرسانی Chord Line از Lyrics Chord" onclick="syncChordLineFromLyrics()" style="border-color:#00F2FE; color:#00F2BE;">🔄 سینک</button>
+          <button class="ed-btn" id="edSyncChordLineBtn" data-action="syncChordLine" title="بروزرسانی Chord Line از Lyrics Chord" style="border-color:#00F2FE; color:#00F2BE;">🔄 سینک</button>
         </div>
       </div>
       <div style="min-width: 120px; display:flex; align-items:center; gap:8px;">
-        <button class="ed-btn" id="sendToArrangerBtn" onclick="sendCurrentSongToArranger()" title="ارسال به ارنجر ترک" style="font-size:0.78rem; font-weight:700; min-width:auto; padding:4px 10px; border-color:var(--accent-cyan-glow); color:var(--accent-cyan-glow);">🎼 ارسال به ارنجر</button>
+        <button class="ed-btn" id="sendToArrangerBtn" data-action="sendToArranger" title="ارسال به ارنجر ترک" style="font-size:0.78rem; font-weight:700; min-width:auto; padding:4px 10px; border-color:var(--accent-cyan-glow); color:var(--accent-cyan-glow);">🎼 ارسال به ارنجر</button>
       </div>
     </header>
 
@@ -175,7 +175,7 @@
       </div>
     </main>
 
-    <aside class="inspector panel">
+    <aside class="inspector panel" data-inline-actions>
       <div class="section-title">SONG PROPERTIES</div>
 
       <div class="ins-card">
@@ -230,8 +230,8 @@
           <label>تمپو</label>
           <div class="tempo-row">
             <input type="number" id="edTempo" min="20" max="300" value="120" placeholder="120">
-            <button class="ed-btn" id="metroToggleBtn" onclick="toggleMetronome()" title="مترونوم" style="min-width:32px;height:34px;font-size:12px;border-radius:4px;">🔇</button>
-            <button class="tempo-tap-btn" onclick="tapTempo()" title="TAP">TAP</button>
+            <button class="ed-btn" id="metroToggleBtn" data-action="toggleMetronome" title="مترونوم" style="min-width:32px;height:34px;font-size:12px;border-radius:4px;">🔇</button>
+            <button class="tempo-tap-btn" data-action="tapTempo" title="TAP">TAP</button>
           </div>
         </div>
         <div class="field">
@@ -250,8 +250,8 @@
         <div class="field">
           <label>تشخیص خودکار</label>
           <div style="display:flex;gap:4px;">
-            <button class="ed-btn" onclick="detectTempo()" style="flex:1;font-size:12px;height:30px;border-radius:4px;">تمپو</button>
-            <button class="ed-btn" onclick="detectKey()" style="flex:1;font-size:12px;height:30px;border-radius:4px;">گام</button>
+            <button class="ed-btn" data-action="detectTempo" style="flex:1;font-size:12px;height:30px;border-radius:4px;">تمپو</button>
+            <button class="ed-btn" data-action="detectKey" style="flex:1;font-size:12px;height:30px;border-radius:4px;">گام</button>
           </div>
         </div>
       </div>
@@ -262,25 +262,25 @@
           <span class="status-tab-label">سینک دستی</span>
           <div class="status-indicator"></div>
         </div>
-        <div class="status-tab" id="tab-midi" onclick="toggleMIDITab()">
+        <div class="status-tab" id="tab-midi" data-action="toggleMIDITab">
           <span class="status-tab-label">میدی کنترلر</span>
           <div class="status-indicator"></div>
         </div>
-        <div class="status-tab" id="tab-midi-sync" onclick="toggleMIDISync()">
+        <div class="status-tab" id="tab-midi-sync" data-action="toggleMIDISync">
           <span class="status-tab-label">هماهنگ پخش</span>
           <div class="status-indicator"></div>
         </div>
-        <button class="ed-btn" onclick="toggleMidiMonitor()" style="margin-top:2px;width:100%;font-size:12px;height:30px;border-radius:4px;">مانیتور MIDI</button>
+        <button class="ed-btn" data-action="toggleMidiMonitor" style="margin-top:2px;width:100%;font-size:12px;height:30px;border-radius:4px;">مانیتور MIDI</button>
       </div>
 
       <div class="ins-card">
         <div class="ins-card-title">افکت هایلایت</div>
         <div class="hl-selector">
-          <div class="hl-opt hl-opt-neon active" data-effect="neon" onclick="setHighlightEffect('neon')" title="Neon Glow"></div>
-          <div class="hl-opt hl-opt-frost" data-effect="frost" onclick="setHighlightEffect('frost')" title="Frosted Glass"></div>
-          <div class="hl-opt hl-opt-shift" data-effect="shift" onclick="setHighlightEffect('shift')" title="Color Shift"></div>
-          <div class="hl-opt hl-opt-depth" data-effect="depth" onclick="setHighlightEffect('depth')" title="Double Shadow"></div>
-          <div class="hl-opt hl-opt-pulse" data-effect="pulse" onclick="setHighlightEffect('pulse')" title="Pulse Glow"></div>
+          <div class="hl-opt hl-opt-neon active" data-effect="neon" data-value="neon" data-action="setHighlightEffect" title="Neon Glow"></div>
+          <div class="hl-opt hl-opt-frost" data-effect="frost" data-value="frost" data-action="setHighlightEffect" title="Frosted Glass"></div>
+          <div class="hl-opt hl-opt-shift" data-effect="shift" data-value="shift" data-action="setHighlightEffect" title="Color Shift"></div>
+          <div class="hl-opt hl-opt-depth" data-effect="depth" data-value="depth" data-action="setHighlightEffect" title="Double Shadow"></div>
+          <div class="hl-opt hl-opt-pulse" data-effect="pulse" data-value="pulse" data-action="setHighlightEffect" title="Pulse Glow"></div>
         </div>
         <div class="hl-name" id="hl-effect-name" style="font-size:12px;color:#6B7280;">Neon Glow</div>
       </div>
@@ -298,35 +298,35 @@
     </aside>
 
     <section class="timeline">
-      <div class="tl-toolbar">
-        <button class="tl-tool-btn rec-btn" id="recBtn" onclick="toggleRec()" title="ضبط صدا از میکروفن/ورودی (R)">● REC</button>
-        <button class="tl-tool-btn" onclick="splitSelectedAtPlayhead()" title="Split (S)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="22"/><polyline points="8 6 12 2 16 6"/><polyline points="8 18 12 22 16 18"/></svg></button>
-        <button class="tl-tool-btn" onclick="cutSelected()" title="Cut (Ctrl+X)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg></button>
-        <button class="tl-tool-btn" onclick="copySelected()" title="Copy (Ctrl+C)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
-        <button class="tl-tool-btn" onclick="pasteClipboard()" title="Paste (Ctrl+V)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg></button>
-        <button class="tl-tool-btn danger" onclick="deleteSelected()" title="Delete (Del)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg></button>
+      <div class="tl-toolbar" data-inline-actions>
+        <button class="tl-tool-btn rec-btn" id="recBtn" data-action="toggleRec" title="ضبط صدا از میکروفن/ورودی (R)">● REC</button>
+        <button class="tl-tool-btn" data-action="split" title="Split (S)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="22"/><polyline points="8 6 12 2 16 6"/><polyline points="8 18 12 22 16 18"/></svg></button>
+        <button class="tl-tool-btn" data-action="cut" title="Cut (Ctrl+X)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg></button>
+        <button class="tl-tool-btn" data-action="copy" title="Copy (Ctrl+C)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+        <button class="tl-tool-btn" data-action="paste" title="Paste (Ctrl+V)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg></button>
+        <button class="tl-tool-btn danger" data-action="delete" title="Delete (Del)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg></button>
         <div style="width:1px;height:20px;background:var(--border-subtle);margin:0 4px;"></div>
-        <button class="tl-tool-btn" id="loopToggleBtn" onclick="toggleLoop()" title="Loop ON/OFF (/)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg></button>
-        <button class="tl-tool-btn" onclick="setLoopA()" title="Set Loop A (I)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><polyline points="12 5 5 12 12 19"/></svg></button>
-        <button class="tl-tool-btn" onclick="setLoopB()" title="Set Loop B (O)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><polyline points="12 19 19 12 12 5"/></svg></button>
-        <button class="tl-tool-btn" onclick="clearLoop()" title="Clear Loop"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+        <button class="tl-tool-btn" id="loopToggleBtn" data-action="toggleLoop" title="Loop ON/OFF (/)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg></button>
+        <button class="tl-tool-btn" data-action="setLoopA" title="Set Loop A (I)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><polyline points="12 5 5 12 12 19"/></svg></button>
+        <button class="tl-tool-btn" data-action="setLoopB" title="Set Loop B (O)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><polyline points="12 19 19 12 12 5"/></svg></button>
+        <button class="tl-tool-btn" data-action="clearLoop" title="Clear Loop"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
         <div style="width:1px;height:20px;background:var(--border-subtle);margin:0 4px;"></div>
-        <button class="tl-tool-btn" id="playheadModeBtn" onclick="togglePlayheadMode()" title="Playhead Mode: Page Scroll / Center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="22"/><polyline points="8 6 12 2 16 6"/><polyline points="8 18 12 22 16 18"/></svg></button>
-        <button class="tl-snap-btn active" id="snapBtn" onclick="toggleSnap()" title="Snap (S)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 3L3 21"/><path d="M21 3v7"/><path d="M21 3h-7"/></svg></button>
-        <button class="tl-tool-btn" onclick="showQuantizeModal()" title="Quantize"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg></button>
+        <button class="tl-tool-btn" id="playheadModeBtn" data-action="togglePlayheadMode" title="Playhead Mode: Page Scroll / Center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="22"/><polyline points="8 6 12 2 16 6"/><polyline points="8 18 12 22 16 18"/></svg></button>
+        <button class="tl-snap-btn active" id="snapBtn" data-action="toggleSnap" title="Snap (S)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 3L3 21"/><path d="M21 3v7"/><path d="M21 3h-7"/></svg></button>
+        <button class="tl-tool-btn" data-action="showQuantize" title="Quantize"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg></button>
         <div class="color-tool-group">
-          <button class="color-tool-btn" id="colorBrushBtn" onclick="toggleColorTool('brush')" title="Paint Brush (C)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg></button>
-          <button class="color-tool-btn" id="colorEyedropperBtn" onclick="toggleColorTool('eyedropper')" title="Eyedropper (Alt+C)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 22l1-1h3l9-9"/><path d="M3 21v-3l9-9"/><path d="M14.5 5.5l4 4"/><path d="M18.5 1.5l4 4-3 3-4-4 3-3z"/><path d="M11 13l-1.5-7.5"/></svg></button>
-          <input type="color" id="colorPickerInput" value="#3FB8AF" style="width:22px;height:26px;padding:1px;border:1px solid #4B5563;border-radius:3px;background:transparent;cursor:pointer;" onchange="selectColor(this.value)" title="انتخاب رنگ سفارشی">
+          <button class="color-tool-btn" id="colorBrushBtn" data-action="toggleColorTool" data-value="brush" title="Paint Brush (C)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg></button>
+          <button class="color-tool-btn" id="colorEyedropperBtn" data-action="toggleColorTool" data-value="eyedropper" title="Eyedropper (Alt+C)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 22l1-1h3l9-9"/><path d="M3 21v-3l9-9"/><path d="M14.5 5.5l4 4"/><path d="M18.5 1.5l4 4-3 3-4-4 3-3z"/><path d="M11 13l-1.5-7.5"/></svg></button>
+          <input type="color" id="colorPickerInput" data-action="selectColor" value="#3FB8AF" style="width:22px;height:26px;padding:1px;border:1px solid #4B5563;border-radius:3px;background:transparent;cursor:pointer;" title="انتخاب رنگ سفارشی">
         </div>
         <div class="color-quick-bar" id="colorQuickBar">
           <!-- quick swatches populated by JS -->
         </div>
-        <button class="tl-tool-btn" id="mixerBtn" onclick="toggleMixer()" title="باز/بستن میکسر صدا">🎛 میکسر</button>
-        <button class="tl-tool-btn" onclick="openSettings()" title="تنظیمات برنامه">⚙️ تنظیمات</button>
+        <button class="tl-tool-btn" id="mixerBtn" data-action="toggleMixer" title="باز/بستن میکسر صدا">🎛 میکسر</button>
+        <button class="tl-tool-btn" data-action="openSettings" title="تنظیمات برنامه">⚙️ تنظیمات</button>
         <div class="tl-zoom">
           <span>Zoom</span>
-          <input type="range" min="5" max="260" value="70" id="zoom-range" oninput="setZoom(+this.value, null)">
+          <input type="range" min="5" max="260" value="70" id="zoom-range" data-action="setZoom">
         </div>
         <div class="tl-info">
           <span>Playhead: <strong id="ph-label">00:00.000</strong></span>
@@ -797,20 +797,20 @@
       <h4>📝 یادداشت آهنگ</h4>
       <div id="arrSongNoteTitle" style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:10px;"></div>
       <textarea id="arrSongNoteText" placeholder="یادداشت‌ها، نکات اجرا، کیبورد دوم..."></textarea>
-      <div class="note-actions">
-        <button onclick="closeArrSongNote()">لغو</button>
-        <button class="btn-save" onclick="saveArrSongNote()">💾 ذخیره</button>
+      <div class="note-actions" data-inline-actions>
+        <button data-action="closeArrSongNote">لغو</button>
+        <button class="btn-save" data-action="saveArrSongNote">💾 ذخیره</button>
       </div>
     </div>
   </div>
 
   <!-- Performance Mode: Right-side panel (not full overlay) -->
-  <div class="arr-perf-panel" id="arrPerfOverlay" style="display:none;">
+  <div class="arr-perf-panel" id="arrPerfOverlay" data-inline-actions style="display:none;">
     <div class="arr-perf-panel-header" id="arrPerfDragHandle">
       <span class="perf-title" id="perfArrangerName">🎤 حالت اجرا</span>
       <div class="perf-controls">
-        <button onclick="perfTogglePauseMode()" id="perfPauseModeBtn" title="توقف خودکار">⏸</button>
-        <button onclick="perfStop()" class="perf-stop" title="توقف">⏹</button>
+        <button data-action="perfPause" id="perfPauseModeBtn" title="توقف خودکار">⏸</button>
+        <button data-action="perfStop" class="perf-stop" title="توقف">⏹</button>
       </div>
     </div>
     <div class="arr-perf-song-info">
@@ -821,18 +821,18 @@
     </div>
     <div class="arr-perf-setlist" id="perfSetlist"></div>
     <div class="arr-perf-section-nav" id="perfSectionNav"></div>
-    <div class="arr-perf-note-badge" id="perfNoteBadge"><span class="note-close" onclick="this.parentElement.classList.remove('show')"><span class="ir-icon" data-ir="✕" aria-hidden="true"></span></span><span id="perfNoteText"></span></div>
+     <div class="arr-perf-note-badge" id="perfNoteBadge"><span class="note-close" data-action="perfNoteClose"><span class="ir-icon" data-ir="✕" aria-hidden="true"></span></span><span id="perfNoteText"></span></div>
     <div class="arr-perf-footer">
-      <button class="perf-nav-btn" onclick="perfNextSong()" title="بعدی">⏭</button>
-      <button class="perf-nav-btn" onclick="perfRestartSong()" title="شروع مجدد">🔄</button>
-      <button class="perf-nav-btn play-btn" onclick="perfTogglePlay()" id="perfPlayBtn" title="پخش/توقف">▶</button>
-      <button class="perf-nav-btn" onclick="perfPrevSong()" title="قبلی">⏮</button>
+       <button class="perf-nav-btn" data-action="perfNext" title="بعدی">⏭</button>
+       <button class="perf-nav-btn" data-action="perfRestart" title="شروع مجدد">🔄</button>
+       <button class="perf-nav-btn play-btn" data-action="perfPlay" id="perfPlayBtn" title="پخش/توقف">▶</button>
+       <button class="perf-nav-btn" data-action="perfPrev" title="قبلی">⏮</button>
       <div class="perf-time" id="perfTime">00:00</div>
       <div class="perf-trans-ctrl">
         <label>گام:</label>
-        <button onclick="perfTranspose(-1)">♭</button>
+         <button data-action="perfTransposeDown">♭</button>
         <span class="perf-trans-val" id="perfTransVal">0</span>
-        <button onclick="perfTranspose(1)">♯</button>
+         <button data-action="perfTransposeUp">♯</button>
       </div>
     </div>
   </div>
