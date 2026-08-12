@@ -13,6 +13,28 @@ function editorPopupDocument(popup) {
   return window.WindowBridge?.getDocument?.(popup) || null;
 }
 
+let edSongTransitionService = null;
+function getEditorSongTransitionService() {
+  if (
+    !edSongTransitionService &&
+    typeof window.EditorSongTransitionService?.create === 'function'
+  ) {
+    edSongTransitionService = window.EditorSongTransitionService.create({
+      getDAW: () => getEditorDAW(),
+      setSong: song => setEditorSong(song),
+      repairSong: song => window.TextEncodingService?.repairSong?.(song) || song,
+      ensureSongParsed,
+      hydrationService: window.EditorHydrationService,
+      updateNextIdFromClips,
+      ensureAudioCtx,
+      updateTrackMix,
+      restoreAudio: (...args) => restoreAudioForProjectSilently(...args),
+      logger: console
+    });
+  }
+  return edSongTransitionService;
+}
+
     /**
      * همگام‌سازی UI بعد از تغییر آهنگ — فراخوانی مشترک بین loadArrSong و hotSwapToNextSong
      */
@@ -54,42 +76,25 @@ function editorPopupDocument(popup) {
 
       // ─── پاک‌سازی نودهای صوتی ترک‌های قدیمی ───
       // این نودها هنوز به masterGain وصلی هستن و باید قطع بشن تا bleed صدا نداشته باشیم
-      getEditorDAW().tracks.forEach(tr => {
-        if (tr._gainNode) { try { tr._gainNode.disconnect(); } catch(_){} tr._gainNode = null; }
-        if (tr._pannerNode) { try { tr._pannerNode.disconnect(); } catch(_){} tr._pannerNode = null; }
+      const transition = getEditorSongTransitionService()?.applyPreparedState({
+        song: ns.song,
+        clips: ns.clips,
+        sections: ns.sections,
+        tracks: ns.tracks,
+        loopState: ns.loopState
       });
-
-      getEditorDAW().clips = ns.clips;
-      getEditorDAW().sections = ns.sections;
-      getEditorDAW().tracks = ns.tracks;
-      updateNextIdFromClips();
-      getEditorDAW().selectedIds.clear(); getEditorDAW().selectedSectionIds = new Set();
-      getEditorDAW().loopEnabled = ns.loopState.loopEnabled;
-      getEditorDAW().loopA = ns.loopState.loopA;
-      getEditorDAW().loopB = ns.loopState.loopB;
+      if (!transition) {
+        console.error('[Arranger] Song transition service is unavailable');
+        return false;
+      }
       selectionEnd = ns.selectionEnd;
       isRecordingChords = false; currentRecordingClipId = null;
 
-      setEditorSong(window.TextEncodingService?.repairSong?.(ns.song) || ns.song);
-
-      ensureAudioCtx();
-      // ساخت نودهای صوتی جدید برای ترک‌های آهنگ جدید
-      getEditorDAW().tracks.forEach(tr => {
-        if (tr.type === 'audio') {
-          if (tr.transpose === undefined) tr.transpose = 0;
-          tr._pannerNode = getEditorDAW().audioCtx.createStereoPanner();
-          tr._gainNode = getEditorDAW().audioCtx.createGain();
-          tr._pannerNode.connect(tr._gainNode);
-          tr._gainNode.connect(getEditorDAW().masterGain);
-          updateTrackMix(tr.id);
-        }
-      });
-
-      // بررسی: آیا بافرهای صوتی بارگذاری شدن؟
-      const audioClips = getEditorDAW().clips.filter(c => c.type !== 'chord' && c.bufferKey);
-      const loadedClips = audioClips.filter(c => getEditorDAW().bufferCache.has(c.bufferKey));
-      const missingClips = audioClips.filter(c => !getEditorDAW().bufferCache.has(c.bufferKey));
-      console.log(`[Arranger] Audio clips: ${loadedClips.length}/${audioClips.length} loaded` + (missingClips.length > 0 ? `, ${missingClips.length} missing: ${missingClips.map(c=>c.fileName||c.bufferKey).join(', ')}` : ''));
+      const audio = transition.audio;
+      console.log(`[Arranger] Audio clips: ${audio.loaded}/${audio.total} loaded` +
+        (audio.missing > 0
+          ? `, ${audio.missing} missing: ${audio.missingNames.join(', ')}`
+          : ''));
 
       getEditorDAW().playhead = 0;
       var _ori2 = PlayheadMath.createOrigin(performance.now(), 0); getEditorDAW().playOriginPerf = _ori2.playOriginPerf;
@@ -155,66 +160,42 @@ function editorPopupDocument(popup) {
       console.log(`[Arranger] loadArrSong(${idx}): "${song.title}"`);
 
       pauseTransport(); stopAllVoices();
-      getEditorDAW().clips = []; getEditorDAW().sections = []; getEditorDAW().selectedIds.clear(); getEditorDAW().selectedSectionIds = new Set();
-
       // ─── مهم: bufferCache رو پاک نکن! ───
       // قبلاً اینجا getEditorDAW().bufferCache.clear() بود که همه بافرهای preload شده رو پاک می‌کرد.
       // این باعث می‌شد هر بار که آهنگ لود می‌شه، همه فایل‌ها دوباره از اول لود بشن.
       // به‌جاش، فقط waveCache (تصاویر waveform) رو پاک می‌کنیم که اون هم بعداً rebuild می‌شه.
-      getEditorDAW().waveCache.clear();
-
-      getEditorDAW().loopEnabled = false; getEditorDAW().loopA = 0; getEditorDAW().loopB = 10;
       selectionEnd = 0;
       isRecordingChords = false; currentRecordingClipId = null;
 
-      const clonedSong = JSON.parse(JSON.stringify(song));
-      setEditorSong(window.TextEncodingService?.repairSong?.(clonedSong) || clonedSong);
-      window.EditorHydrationService.hydrateSong(edCur, {
-        daw: getEditorDAW(),
-        ensureSongParsed,
+      const setting = getArrItemSetting(arr, song.id);
+      const transition = await getEditorSongTransitionService()?.loadSong(song, {
+        transpose: setting.transpose || 0,
         styleDefaults: {
           tSize: 23, tColor: '#0fa966', tFont: 'Vazirmatn', tBold: true,
           align: 'center', cSize: 23, cColor: '#e6aa28',
           cFont: 'JetBrains Mono'
-        },
-        cloneTracks: true,
-        cloneClips: true,
-        cloneSections: true,
-        sectionsFallbackEmpty: true,
-        updateNextIdFromClips
+        }
       });
+      if (!transition) {
+        console.error('[Arranger] Song transition service is unavailable');
+        return;
+      }
+
       selectionEnd = (getEditorDAW().loopA < getEditorDAW().loopB)
         ? getEditorDAW().loopB
         : 0;
 
-      // Apply per-song transpose
-      const setting = getArrItemSetting(arr, song.id);
-      if (setting.transpose) {
-        getEditorDAW().tracks.forEach(t => { if (t.type === 'audio') t.transpose = (t.transpose || 0) + setting.transpose; });
-      }
-
-      // ─── پاک‌سازی نودهای صوتی قدیمی قبل از ساخت نودهای جدید ───
-      getEditorDAW().tracks.forEach(tr => {
-        if (tr._gainNode) { try { tr._gainNode.disconnect(); } catch(_){} tr._gainNode = null; }
-        if (tr._pannerNode) { try { tr._pannerNode.disconnect(); } catch(_){} tr._pannerNode = null; }
-      });
-
-      ensureAudioCtx();
-      getEditorDAW().tracks.forEach(t => { if (t.type === 'audio') { if (t.transpose === undefined) t.transpose = 0; t._pannerNode = getEditorDAW().audioCtx.createStereoPanner(); t._gainNode = getEditorDAW().audioCtx.createGain(); t._pannerNode.connect(t._gainNode); t._gainNode.connect(getEditorDAW().masterGain); updateTrackMix(t.id); } });
-
-      // لود کامل صدا از تمام منابع (IndexedDB، filePath، FileHandle، dirHandle)
-      // این خط قبلاً فقط loadAudioBlobsForProject رو صدا می‌زد و فایل‌های linked لود نمی‌شدن
-      try {
-        const restoreResult = await restoreAudioForProjectSilently(edCur.id, true);
+      const restoreResult = transition.restoreResult;
+      if (transition.restoreError) {
+        console.warn('Audio load error:', transition.restoreError);
+        toast('⚠ خطا در لود فایل صوتی');
+      } else if (restoreResult) {
         if (restoreResult.missing > 0) {
           console.warn(`[Arranger] ${restoreResult.missing} audio clip(s) could not be loaded:`, restoreResult.missingNames);
           toast(`⚠ ${restoreResult.missing} فایل صوتی پیدا نشد — ${restoreResult.missingNames.slice(0, 2).join(', ')}${restoreResult.missingNames.length > 2 ? '...' : ''}`);
         } else {
           console.log(`[Arranger] ✓ Audio loaded for "${song.title}" (${restoreResult.loaded} clips)`);
         }
-      } catch(e) {
-        console.warn('Audio load error:', e);
-        toast('⚠ خطا در لود فایل صوتی');
       }
 
       resetHistory();

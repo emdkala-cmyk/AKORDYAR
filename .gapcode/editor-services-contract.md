@@ -88,6 +88,39 @@ deactivateHistory
 در طول restore و hydration نباید history یا autosave به state نیمه‌کاره دسترسی
 داشته باشد.
 
+### `EditorSongTransitionService`
+
+```js
+const service = EditorSongTransitionService.create({
+  getDAW: () => DAW,
+  setSong: song => void,
+  repairSong: song => Song,
+  hydrationService,
+  updateNextIdFromClips,
+  ensureAudioCtx,
+  updateTrackMix,
+  restoreAudio: async (projectId, silent) => result
+});
+
+service.applyPreparedState({
+  song,
+  tracks,
+  clips,
+  sections,
+  loopState
+}) // { song, audio } | null
+
+await service.loadSong(song, {
+  transpose,
+  styleDefaults
+}) // { song, audio, restoreResult, restoreError } | null
+```
+
+این سرویس فقط orchestration تعویض song و آماده‌سازی trackهای صوتی را انجام
+می‌دهد. `hotSwapToNextSong` و `loadArrSong` نباید cleanup نودها، hydration،
+ساخت panner/gain یا restore audio را به‌صورت موازی پیاده‌سازی کنند. سرویس
+نباید DOM، `window.edCur`، `DAW` یا `PERF` global را مستقیماً مصرف کند.
+
 ### `EditorCommitService`
 
 ```js
