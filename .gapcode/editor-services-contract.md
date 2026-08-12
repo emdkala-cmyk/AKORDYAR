@@ -54,7 +54,7 @@ EdCurAdapter.syncViewStyles()       // void
 ### `EditorSongInitializationService`
 
 ```js
-await EditorSongInitializationService.initializeEditor({
+const initializer = EditorSongInitializationService.create({
   getSong: () => Song | null,
   setSong: song => void,
   blankSong: () => Song,
@@ -71,7 +71,10 @@ await EditorSongInitializationService.initializeEditor({
   saveState: () => void,
   rebuildSongDocument: song => void,
   syncViewStyles: song => void
-}) // Song
+});
+
+await initializer.initializeEditor() // Song
+await initializer.initialize({ storage }) // Song
 ```
 
 `initialize` همچنان alias سازگار با نسخه‌های قبلی است. سرویس lifecycle مالک state

@@ -127,7 +127,21 @@
     return song;
   }
 
+  function create(defaultOptions = {}) {
+    const withDefaults = options => ({
+      ...defaultOptions,
+      ...(options || {})
+    });
+
+    return Object.freeze({
+      initialize: options => initialize(withDefaults(options)),
+      initializeEditor: options => initialize(withDefaults(options)),
+      restoreAudio: (song, options) => restoreAudio(song, withDefaults(options))
+    });
+  }
+
   const service = Object.freeze({
+    create,
     initialize,
     initializeEditor: initialize,
     restoreAudio

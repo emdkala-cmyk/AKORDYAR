@@ -2986,24 +2986,11 @@ function edBlankSong() {
     }
 
     let edSongInitializationService = null;
+    let edSongInitializationOptions = null;
     function getEditorSongInitializationService() {
-      if (
-        !edSongInitializationService &&
-        (
-          typeof window.EditorSongInitializationService?.initializeEditor === 'function' ||
-          typeof window.EditorSongInitializationService?.initialize === 'function'
-        )
-      ) {
-        edSongInitializationService = window.EditorSongInitializationService;
-      }
-      return edSongInitializationService;
-    }
-
-    async function edInitSong() {
-      const initializationService = getEditorSongInitializationService();
-      const initializeEditor = initializationService?.initializeEditor
-        || initializationService?.initialize;
-      return initializeEditor?.({
+    if (!edSongInitializationService) {
+      const service = window.EditorSongInitializationService;
+      const defaults = {
         storage: localStorage,
         getSong: getCurrentEditorSong,
         setSong: setEditorSong,
@@ -3012,11 +2999,11 @@ function edBlankSong() {
         hydrationService: window.EditorHydrationService,
         documentRef: document,
         daw: getEditorDAW(),
-         updateNextIdFromClips,
-         ensureAudioCtx,
-         updateTrackMix,
-         audioRecoveryService: getEditorAudioRecoveryService(),
-         loadAudioBlobsForProject,
+        updateNextIdFromClips,
+        ensureAudioCtx,
+        updateTrackMix,
+        audioRecoveryService: getEditorAudioRecoveryService(),
+        loadAudioBlobsForProject,
         getAudioBlobFromDB,
         decodeFileToBuffer,
         loadAudioFromHardDrive,
@@ -3050,8 +3037,31 @@ function edBlankSong() {
           }
         },
         toast
-      });
-     }
+      };
+      edSongInitializationOptions = defaults;
+
+      if (typeof service?.create === 'function') {
+        edSongInitializationService = service.create(defaults);
+      } else if (
+        typeof service?.initializeEditor === 'function' ||
+        typeof service?.initialize === 'function'
+      ) {
+        // Compatibility path for an older loaded service during hot-swap.
+        edSongInitializationService = service;
+      }
+    }
+    return edSongInitializationService;
+  }
+
+  async function edInitSong() {
+    const initializationService = getEditorSongInitializationService();
+    const initializeEditor = initializationService?.initializeEditor
+      || initializationService?.initialize;
+    return initializeEditor?.({
+      ...(edSongInitializationOptions || {}),
+      storage: localStorage
+    });
+  }
 
     // -- Unified Save/Load (Timeline + Lyrics + Audio) --
     // IndexedDB for audio blob storage

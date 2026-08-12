@@ -210,7 +210,9 @@ Legacy code may temporarily violate this until each domain is migrated.
 
 - `EditorToolbarService`: metadata/style/key/tempo و lock bindings.
 - `EditorSongPersistenceService`: snapshot و persistence سند + DAW.
-- `EditorSongInitializationService`: transaction restore/hydration.
+- `EditorSongInitializationService`: transaction restore/hydration؛ با factory
+  تزریقی، wiring initialization یک‌بار ساخته می‌شود و `editor.js` فقط lifecycle
+  را اجرا می‌کند.
 - `AudioRecoveryService`: بازیابی صوت در startup، arranger و preload با contract
   callback محور.
 - `KeyboardMappingService`: lifecycle موقت یادگیری shortcut و پاک‌سازی listenerها.

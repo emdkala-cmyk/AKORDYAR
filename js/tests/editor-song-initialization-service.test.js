@@ -42,7 +42,7 @@ let highlight = 0;
 const lifecycle = [];
 
 (async () => {
-  const restored = await context.EditorSongInitializationService.initialize({
+  const initializer = context.EditorSongInitializationService.create({
     storage,
     getSong: () => currentSong,
     setSong: value => { currentSong = value; },
@@ -78,6 +78,7 @@ const lifecycle = [];
     },
     initHighlightEffect: () => { highlight += 1; }
   });
+  const restored = await initializer.initializeEditor();
 
   assert.equal(restored.title, 'Saved');
   assert.equal(restored.repaired, true);
