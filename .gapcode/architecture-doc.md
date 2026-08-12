@@ -11,13 +11,13 @@
 | مورد | وضعیت فعلی |
 |---|---|
 | loader | `js/app.js`، loader ترتیبی ۱۱۶ خطی؛ `document.write` فقط compatibility path صریح |
-| هستهٔ برنامه | `js/app/core.js`، ۵٬۸۶۳ خط |
+| هستهٔ برنامه | `js/app/core.js`، ۵٬۸۸۹ خط |
 | ادیتور | `js/app/editor.js`، ۶٬۷۶۵ خط |
-| استخراج‌های جدید | `EditorHydrationService`، `EditorLifecycleService`، `EditorNotationService`، `EditorAnchorService`، `EditorSelectionService`، `EditorChordDragService`، `EditorTextSelectionService`، `EditorChordCommandService`، `EditorKeyCommandService`، `EditorChordRenderer`، `EditorChordStateService`، `EventBindings` |
+| استخراج‌های جدید | `EditorHydrationService`، `EditorLifecycleService`، `EditorNotationService`، `EditorAnchorService`، `EditorSelectionService`، `EditorChordDragService`، `EditorTextSelectionService`، `EditorChordCommandService`، `EditorKeyCommandService`، `EditorSongStateService`، `EditorChordRenderer`، `EditorChordStateService`، `EventBindings` |
 | مالکیت سند فعلی | setter رسمی `setEditorSong` در core و bridge خواندن/نوشتن `EdCurAdapter` |
 | رویدادهای HTML | در محدودهٔ فعلی `Akordyar.html` و مسیرهای app/archive/projecthub/search، بدون `onclick`/`onchange`/`oninput` |
 | Electron | `contextBridge`، whitelist کانال‌ها، sender/origin validation و validation ورودی IPC |
-| تست | `npm test` با ۳۸ ورودی موفق |
+| تست | `npm test` با ۳۹ ورودی موفق |
 
 ### جریان فعلی state
 
@@ -49,6 +49,8 @@ Electron renderer
 - ساخت و restore انتخاب متن از طریق `EditorTextSelectionService` انجام می‌شود؛ focus و lifecycle همچنان در wrapper editor کنترل می‌شوند.
 - نرمال‌سازی، parse و mutation نام آکورد از طریق `EditorChordCommandService` انجام می‌شود؛ modal، sequence progression و render همچنان در editor باقی مانده‌اند.
 - mutationهای تغییر گام، ترنسپوز، تغییر گام اصلی و reset از طریق `EditorKeyCommandService` انجام می‌شود؛ refresh، save و sync تایم‌لاین همچنان orchestration editor است.
+- خواندن و mutation محدود state آهنگ در core از طریق `EditorSongStateService` انجام می‌شود؛ quantize، tempo/key detection، timeline grid، popupها، performance tempo، history و audio-save دیگر برای این مسیرها مستقیماً `edCur` را لمس نمی‌کنند.
+- direct `edCur` در core اکنون به setter رسمی، sequence legacy و compatibility state ارنجر محدود شده و extraction بعدی باید روی sequence/CL state متمرکز شود.
 
 ## 1. Overall Architecture (Layered)
 

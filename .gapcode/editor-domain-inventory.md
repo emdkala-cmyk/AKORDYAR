@@ -28,6 +28,7 @@
 | text selection restore | `js/editor/EditorTextSelectionService.js` | استخراج‌شده؛ mapping offset به Range و restore Selection |
 | chord commands | `js/editor/EditorChordCommandService.js` | استخراج‌شده؛ نرمال‌سازی، parse و mutation نام آکورد با callback نام پایه |
 | key/transpose commands | `js/editor/EditorKeyCommandService.js` | استخراج‌شده؛ mutation تغییر گام، ترنسپوز، گام اصلی و reset با callbackهای notation/state |
+| song state boundary | `js/core/EditorSongStateService.js` | استخراج‌شده؛ accessor و mutation محدود timing، metadata، chords، popup state و تنظیمات song |
 | lifecycle | `js/editor/EditorLifecycleService.js` | استخراج‌شده |
 | hydration/restore | `js/editor/EditorHydrationService.js` | استخراج‌شده؛ ۱۷۵ خط |
 | event binding | `js/core/EventBindings.js` | استخراج‌شده و برای action/form contract تست دارد |
@@ -36,7 +37,7 @@
 
 | فایل | خطوط | مرز فعلی |
 |---|---:|---|
-| `js/app/core.js` | ۵٬۸۶۳ | DAW/runtime glue، timeline، transport و compatibility wrapperها |
+| `js/app/core.js` | ۵٬۸۸۹ | DAW/runtime glue، timeline، transport و compatibility wrapperها؛ مسیرهای عمومی song state از `EditorSongStateService` |
 | `js/app/editor.js` | ۶٬۷۶۵ | render/editor commandها، audio restore و legacy UI glue؛ selection، drag، text restore، chord command و key/transpose mutation از مسیر سرویس |
 | `js/app/search.js` | ۱۹۵ | quick search؛ نتیجهٔ داینامیک با `data-command` |
 
@@ -53,6 +54,13 @@
 - `EditorKeyCommandService` در commit `6039a81` اضافه شد.
 - `editor.js` در این مرحله ۳ خط خالص کاهش یافت؛ mutationهای key/transpose از orchestration مربوط به UI، save و timeline جدا شدند.
 - `npm test` پس از مرحله ۳۸ ورودی موفق دارد.
+
+## آخرین مرحلهٔ ثبت‌شده — کنترل دسترسی state آهنگ در core
+
+- `EditorSongStateService` در commit `163806a` اضافه شد.
+- مسیرهای عمومی core برای timing، quantize، tempo/key detection، popupها، highlight، performance tempo، history و audio-save از accessor رسمی استفاده می‌کنند.
+- direct `edCur` در core از مسیرهای عمومی حذف شد؛ sequence/CL legacy و setter سازگاری هنوز برای مرحلهٔ بعد باقی مانده‌اند.
+- `core.js` در snapshot فعلی ۵٬۸۸۹ خط و `npm test` برابر ۳۹ ورودی موفق است.
 
 ## ۱) نقشهٔ مناطق Editor Domain در app.js
 

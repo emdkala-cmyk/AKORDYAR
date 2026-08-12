@@ -95,6 +95,44 @@
 - `node --check` و `git diff --check`: موفق.
 - commit فنی: `6039a81`.
 
+---
+
+## به‌روزرسانی معتبر — ۱۲ اوت ۲۰۲۶
+
+### snapshot پس از کنترل دسترسی state آهنگ در core
+
+| شاخص | مقدار |
+|---|---:|
+| `js/app.js` | ۱۱۶ خط |
+| `js/app/core.js` | ۵٬۸۸۹ خط |
+| `js/app/editor.js` | ۶٬۷۶۵ خط |
+| `js/core/EditorSongStateService.js` | ۱۴۱ خط |
+| تست‌های `npm test` | ۳۹ ورودی موفق |
+| inline attribute در مسیرهای برنامه | صفر |
+
+### مرز جدید
+
+`EditorSongStateService` دسترسی callbackمحور به سند جاری، metadata نمایشی، timing، chords، syncTimes، chordLineClips و styleها می‌دهد و mutationهای محدود tempo، key، transpose، highlight و sync را انجام می‌دهد. این سرویس به DOM، `DAW`، `PERF` و `window.edCur` وابسته نیست.
+
+### مسیرهای مهاجرت‌شده
+
+- quantize و timeline grid از timing سرویس استفاده می‌کنند.
+- تشخیص tempo/key و تغییر tempo در performance از setterهای سرویس عبور می‌کنند.
+- popupهای lyric، chord line و highlight از snapshot/accessor سرویس استفاده می‌کنند.
+- History، SyncModeController، arranger و audio blob save برای current song از accessor رسمی استفاده می‌کنند.
+
+### debt باقی‌مانده
+
+- mutationهای `seqPoints` و CL در legacy sequence block هنوز در core/editor باقی مانده‌اند.
+- setter رسمی `setEditorSong` و state compatibility ارنجر عمداً حفظ شده‌اند.
+
+### کنترل
+
+- `npm test`: هر ۳۹ ورودی موفق.
+- runtime dependency budget، load-order و تست pure سرویس: موفق.
+- `node --check` و `git diff --check`: موفق.
+- commit فنی: `163806a`.
+
 # Akordyar � Audit Report & Dependency Map
 
 **Phase 1/15 � Audit ???? | 2026-08-09**
