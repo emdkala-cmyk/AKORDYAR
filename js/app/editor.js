@@ -4295,24 +4295,7 @@ function edBlankSong() {
 
 
     function edSyncToolbar() {
-      if (!edCur) return;
-      const st = edCur.styles;
-      if ($('edArtist')) $('edArtist').value = edCur.artist;
-      if ($('edTitle')) $('edTitle').value = edCur.title;
-      refreshKeyUI();
-      if ($('edTextSize')) $('edTextSize').value = st.tSize;
-      if ($('edTextColor')) $('edTextColor').value = st.tColor;
-      if ($('edTextFont')) $('edTextFont').value = st.tFont;
-      if ($('edTextBold')) $('edTextBold').classList.toggle('active', st.tBold);
-      if ($('edChordSize')) $('edChordSize').value = st.cSize;
-      if ($('edChordColor')) $('edChordColor').value = st.cColor;
-      if ($('edChordFont')) $('edChordFont').value = st.cFont;
-      ['edAlignRight','edAlignCenter','edAlignLeft'].forEach(b => {
-        if ($(b)) $(b).classList.toggle('active', ({right:'edAlignRight',center:'edAlignCenter',left:'edAlignLeft'})[st.align] === b);
-      });
-      if ($('edTimeSig')) $('edTimeSig').value = edCur.timeSignature || '4/4';
-      if ($('edTempo')) $('edTempo').value = edCur.tempo || 120;
-      if ($('edGenre')) $('edGenre').value = edCur.genre || '';
+      getEditorToolbarService()?.syncToolbar?.();
     }
 
     let edLyricsRenderer = null;
@@ -5299,45 +5282,46 @@ if ($('edDoBoth')) {
       toast('گام اورجینال ذخیره و اعمال شد: ' + newKey + (newMode === 'min' ? 'm' : ''));
     });
 
-    // -- Style Bindings --
-    function edBindStyle(id, key, isColor) {
-      const el = $(id); if (!el) return;
-      const handler = () => { if (!edCur || edCur.editorLocked) return; edCur.styles[key] = isColor ? el.value : (el.type==='number' ? +el.value : el.value); edRenderEditor(false); setTimeout(() => edRenderChords(true), 0); edSaveSong(); };
-      if (el.tagName === 'SELECT') el.onchange = handler; else el.oninput = handler;
-    }
-    edBindStyle('edTextSize','tSize'); edBindStyle('edTextFont','tFont');
-    edBindStyle('edChordSize','cSize'); edBindStyle('edChordFont','cFont');
-
-    // Hook up size lock sync to size inputs
-    if ($('edTextSize')) $('edTextSize').addEventListener('input', () => syncSizeLocked('edTextSize'));
-    if ($('edChordSize')) $('edChordSize').addEventListener('input', () => syncSizeLocked('edChordSize'));
-    // ===== SIZE LOCK: sync text and chord sizes =====
+    // -- Toolbar bindings --
     let _sizeLocked = false;
+    let edToolbarService = null;
+
+    function getEditorToolbarService() {
+      if (
+        !edToolbarService &&
+        typeof window.EditorToolbarService?.create === 'function'
+      ) {
+        edToolbarService = window.EditorToolbarService.create({
+          documentRef: document,
+          getSong: () => edCur,
+          getElement: id => $(id),
+          isKeySyncing: () => _edSyncingKey,
+          archArtistKey,
+          render: rebuild => edRenderEditor(rebuild),
+          renderChords: immediate => edRenderChords(immediate),
+          save: () => edSaveSong(),
+          applyKeyChange: (key, mode) => applyKeyChange(key, mode),
+          refreshKeyUI: () => refreshKeyUI(),
+          renderTracks: () => renderTracks(),
+          renderRuler: () => renderRuler(),
+          renderClips: () => renderClips(),
+          toast: message => toast(message),
+          noteNames: typeof ED_ALL_NOTE_NAMES !== 'undefined'
+            ? ED_ALL_NOTE_NAMES
+            : []
+        });
+      }
+      return edToolbarService;
+    }
 
     function toggleSizeLock() {
-      _sizeLocked = !_sizeLocked;
-      const btn = $('edSizeLockBtn');
-      if (btn) {
-        // Locked: closed lock icon; Unlocked: open lock icon
-        btn.innerHTML = _sizeLocked
-          ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>'
-          : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>';
-        btn.classList.toggle('active', _sizeLocked);
-      }
-      toast(_sizeLocked ? '🔗 قفل اندازه فعال — متن و آکورد همزمان تغییر می‌کنند' : '🔓 قفل اندازه غیرفعال');
+      const next = getEditorToolbarService()?.toggleSizeLock?.();
+      if (typeof next === 'boolean') _sizeLocked = next;
+      return next;
     }
 
-    // Sync text size to chord size and vice versa when locked
     function syncSizeLocked(changedId) {
-      if (!_sizeLocked || !edCur || edCur.editorLocked) return;
-      const val = parseInt($(changedId).value) || 23;
-      if (changedId === 'edTextSize') {
-        edCur.styles.cSize = val;
-        if ($('edChordSize')) $('edChordSize').value = val;
-      } else {
-        edCur.styles.tSize = val;
-        if ($('edTextSize')) $('edTextSize').value = val;
-      }
+      return getEditorToolbarService()?.syncSizeLocked?.(changedId);
     }
 
     // ===== RANDOM LINE COLORS =====
@@ -5402,60 +5386,10 @@ if ($('edDoBoth')) {
       edSaveSong();
     }
 
-    // Editor lock replaces old size lock
     function toggleEditorLock() {
-      if (!edCur) return;
-      edCur.editorLocked = !edCur.editorLocked;
-      const btn = $('edEditorLockBtn');
-      if (btn) {
-        btn.innerHTML = edCur.editorLocked ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>' : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>';
-        btn.classList.toggle('editor-lock-blink', edCur.editorLocked);
-      }
-      const editor = $('editor');
-      if (editor) editor.contentEditable = edCur.editorLocked ? 'false' : 'true';
-      const controls = ['edTextSize', 'edChordSize', 'edTextFont', 'edChordFont', 'edTextBold',
-        'edAlignRight', 'edAlignCenter', 'edAlignLeft', 'edRemoveAsterisks', 'edReverseChords', 'edDoBoth'];
-      controls.forEach(id => { if ($(id)) $(id).disabled = edCur.editorLocked; });
-      toast(edCur.editorLocked ? '🔒 ویرایشگر قفل شد' : '🔓 ویرایشگر باز شد');
+      return getEditorToolbarService()?.toggleEditorLock?.();
     }
-    // Size lock is now part of editor lock — remove old sync behavior
-    if ($('edTextBold')) $('edTextBold').onclick = () => { if (!edCur || edCur.editorLocked) return; edCur.styles.tBold = !edCur.styles.tBold; $('edTextBold').classList.toggle('active', edCur.styles.tBold); edRenderEditor(false); edSaveSong(); };
-    [['edAlignRight','right'],['edAlignCenter','center'],['edAlignLeft','left']].forEach(([id,v]) => { if ($(id)) $(id).onclick = () => { if (!edCur || edCur.editorLocked) return; edCur.styles.align = v; edSyncToolbar(); edRenderEditor(false); edSaveSong(); }; });
-
-    // -- Toolbar Input Handlers --
-    if ($('edArtist')) $('edArtist').oninput = () => { if (edCur) { edCur.artist = $('edArtist').value; edCur.artistKey = archArtistKey(edCur.artist); edRenderEditor(false); edSaveSong(); } };
-    if ($('edTitle')) $('edTitle').oninput = () => { if (edCur) { edCur.title = $('edTitle').value; edRenderEditor(false); edSaveSong(); } };
-    if ($('edKey')) $('edKey').onchange = () => { if (_edSyncingKey) return; if (!edCur) return; if (edCur.editorLocked) { toast('🔒 ویرایشگر قفل است'); $('edKey').value = edCur.key; return; } applyKeyChange($('edKey').value, $('edKeyMode')?.value || edCur.keyMode || 'maj'); };
-    if ($('edKeyMode')) $('edKeyMode').onchange = () => { if (_edSyncingKey) return; if (edCur) { applyKeyChange(edCur.key, $('edKeyMode').value); } };
-    if ($('edTimeSig')) $('edTimeSig').onchange = () => { if (edCur) { edCur.timeSignature = $('edTimeSig').value; edSaveSong(); renderTracks(); renderRuler(); renderClips(); } };
-    if ($('edTempo')) $('edTempo').oninput = () => { if (edCur) { edCur.tempo = parseInt($('edTempo').value) || 120; edSaveSong(); } };
-    if ($('edGenre')) $('edGenre').onchange = () => { if (edCur) { edCur.genre = $('edGenre').value; edSaveSong(); } };
-
-    // Populate key select (both sharp and flat options)
-    ED_ALL_NOTE_NAMES.forEach(n => { if ($('edKey')) $('edKey').add(new Option(n, n)); });
-
-    // -- Mouse wheel on toolbar inputs (number + select) --
-    document.querySelector('.header-center-controls')?.addEventListener('wheel', e => {
-      const el = e.target;
-      if (el.type === 'number') {
-        e.preventDefault();
-        const step = e.shiftKey ? 5 : 1;
-        const min = parseFloat(el.min) || -Infinity;
-        const max = parseFloat(el.max) || Infinity;
-        const val = parseFloat(el.value) || 0;
-        el.value = Math.max(min, Math.min(max, val + (e.deltaY < 0 ? step : -step)));
-        el.dispatchEvent(new Event('input', { bubbles: true }));
-        return;
-      }
-      if (el.tagName === 'SELECT') {
-        e.preventDefault();
-        const opts = el.options; if (!opts.length) return;
-        el.selectedIndex = (el.selectedIndex + (e.deltaY < 0 ? -1 : 1) + opts.length) % opts.length;
-        el.dispatchEvent(new Event('change', { bubbles: true }));
-        el.dispatchEvent(new Event('input', { bubbles: true }));
-        return;
-      }
-    }, { passive: false });
+    getEditorToolbarService()?.bind?.();
 
     // -- Keyboard Shortcuts for Editor (chord modal + chord movement) --
     window.addEventListener('keydown', e => {
