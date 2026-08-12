@@ -298,6 +298,7 @@ let _autoSaveTimer = null;
     // ===== SNAP TO GRID =====
     let snapEnabled = true;
     let snapValue = 0.25; // seconds (default: 1/4 beat)
+    let snapPreset = '1/4';
 
     /**
      * getTimeSignatureGridConfig - تبدیل Time Signature به مشخصات گرید
@@ -367,29 +368,27 @@ let _autoSaveTimer = null;
       $('quantizeModal').classList.toggle('show');
     }
 
-    function applyQuantize(preset) {
+    function getActiveQuantizeGridStep(config) {
+      const service = typeof EditorChordQuantizeService !== 'undefined'
+        ? EditorChordQuantizeService
+        : null;
+      return service?.gridStepForPreset?.(config, snapPreset)
+        || Number(config?.beatDuration)
+        || snapValue;
+    }
+
+    function applyQuantize(preset, sourceElement) {
       const timing = requireEditorSongStateService().getTimingContext();
       const bpm = timing.tempo;
       const sig = timing.timeSignature;
       const config = getTimeSignatureGridConfig(sig, bpm);
-      const beatDur = config.beatDuration; // مدت واحد مخرج (سیاه در x/4، چنگ در x/8)
-      const barDur = config.measureDuration; // مدت زمان یک میزان بر اساس Time Signature فعال
-
-      switch(preset) {
-        case '1/1': snapValue = barDur; break;           // 1 bar (بر اساس Time Signature فعال)
-        case '1/2': snapValue = barDur / 2; break;       // half bar
-        case '1/4': snapValue = beatDur; break;          // 1 beat
-        case '1/8': snapValue = beatDur / 2; break;      // half beat
-        case '1/16': snapValue = beatDur / 4; break;     // quarter beat
-        case '1/32': snapValue = beatDur / 8; break;     // 1/8 beat
-        case 'triplet': snapValue = beatDur / 3; break;
-        case 'dotted': snapValue = beatDur * 1.5; break;
-        default: snapValue = beatDur;
-      }
+      snapPreset = preset || '1/4';
+      snapValue = getActiveQuantizeGridStep(config);
 
       // Update UI
       document.querySelectorAll('.q-preset').forEach(el => el.classList.remove('active'));
-      event.target.closest('.q-preset').classList.add('active');
+      (sourceElement?.closest?.('.q-preset') ||
+        document.querySelector(`.q-preset[data-value="${snapPreset}"]`))?.classList.add('active');
       snapEnabled = true;
       $('snapBtn').classList.add('active');
 
@@ -430,31 +429,22 @@ let _autoSaveTimer = null;
       const bpm = timing.tempo;
       const sig = timing.timeSignature;
       const config = getTimeSignatureGridConfig(sig, bpm);
-      const beatsPerBar = config.beatsPerMeasure;
-      const beatDur = config.beatDuration; // مدت واحد مخرج (سیاه در x/4، چنگ در x/8)
-      const barDur = config.measureDuration;
+      const gridStep = getActiveQuantizeGridStep(config);
+      const quantizer = typeof EditorChordQuantizeService !== 'undefined'
+        ? EditorChordQuantizeService
+        : null;
+      const result = quantizer?.quantizeSelectedChords?.(
+        daw.clips,
+        daw.selectedIds,
+        gridStep,
+        { round: roundMs }
+      ) || { changed: false, count: 0 };
 
-      // محاسبه گام گرید بر اساس پریست فعلی
-      // snapValue در applyQuantize تنظیم می‌شود (مثلاً 1/1 = barDur، 1/2 = barDur/2، 1/4 = beatDur)
-      let gridStep = snapValue;
-      if (!gridStep || gridStep <= 0) gridStep = beatDur;
-
-      // برای هر آکورد انتخاب‌شده، start را به نزدیک‌ترین نقطه گرید بچسبان
-      let quantizedCount = 0;
-      selectedChordClips.forEach(clip => {
-        const origStart = clip.start;
-        // گرد کردن به نزدیک‌ترین مضرب gridStep
-        const snapped = Math.round(origStart / gridStep) * gridStep;
-        // جلوگیری از منفی شدن
-        clip.start = roundMs(Math.max(0, snapped));
-        if (Math.abs(clip.start - origStart) > 0.001) quantizedCount++;
-      });
-
-      if (quantizedCount > 0) {
+      if (result.changed) {
         saveState();
         renderClips();
         renderRuler();
-        toast(`کوانتایز شد: ${quantizedCount} آکورد`);
+        toast(`کوانتایز شد: ${result.count} آکورد`);
       } else {
         toast('آکوردها از قبل روی گرید هستند');
       }

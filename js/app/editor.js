@@ -2528,11 +2528,6 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
       else if (matchShortcut(e, 'loopB')) { e.preventDefault(); setLoopB(); }
       else if (e.code === 'KeyV' && !e.ctrlKey && !e.metaKey && !e.altKey && !isInput && !isContentEditable) { e.preventDefault(); togglePlayheadMode(); }
       else if (e.code === 'KeyR' && !e.ctrlKey && !e.metaKey && !e.altKey && !isInput && !isContentEditable) { e.preventDefault(); toggleRec(); }
-      // Q: کوانتایز آکوردهای انتخاب‌شده در کورد لاین
-      else if (e.code === 'KeyQ' && !e.ctrlKey && !e.metaKey && !e.altKey && !isInput && !isContentEditable) {
-        e.preventDefault();
-        quantizeSelectedChords();
-      }
       else if (e.code === 'KeyZ' && !e.ctrlKey && !e.metaKey && !e.altKey && !isInput && !isContentEditable) {
         e.preventDefault();
         toggleSelectedTrackHeight();
@@ -5169,6 +5164,24 @@ if ($('edDoBoth')) {
     }
     getEditorToolbarService()?.bind?.();
 
+    function isEditorVisualRTL() {
+      const editor = $('editor');
+      if (editor && typeof getComputedStyle === 'function') {
+        const direction = getComputedStyle(editor).direction;
+        if (direction) return direction === 'rtl';
+      }
+      return document.documentElement?.dir === 'rtl';
+    }
+
+    function hasSelectedChordLineClip() {
+      const daw = typeof getEditorDAW === 'function' ? getEditorDAW() : null;
+      return Boolean(
+        daw?.clips?.some(clip =>
+          clip?.type === 'chord' && daw.selectedIds?.has(clip.id)
+        )
+      );
+    }
+
     // -- Keyboard Shortcuts for Editor (chord modal + chord movement) --
     window.addEventListener('keydown', e => {
       const isInput = e.target?.tagName === 'INPUT' || e.target?.tagName === 'TEXTAREA' || e.target?.tagName === 'SELECT';
@@ -5179,6 +5192,24 @@ if ($('edDoBoth')) {
 
       // TAP TEMPO shortcut (T key, not in input/editor)
       if (e.key === 't' && !isInput && !isEditing && !e.ctrlKey && !e.metaKey && !e.altKey) { e.preventDefault(); tapTempo(); return; }
+
+      // Q quantizes selected chord-line clips using the active meter/grid.
+      // Keep this in the editor command boundary so it cannot be swallowed by
+      // unrelated DAW shortcuts or run twice through the global binding.
+      if (
+        e.code === 'KeyQ' &&
+        !isInput &&
+        !isEditing &&
+        !e.ctrlKey &&
+        !e.metaKey &&
+        !e.altKey &&
+        hasSelectedChordLineClip()
+      ) {
+        e.preventDefault();
+        e.stopImmediatePropagation?.();
+        quantizeSelectedChords();
+        return;
+      }
 
       // Chord-line tap: عدد ۰ هر بار یک نقطه روی تایم لاین می‌گذارد (فقط وقتی ⏺ فعال است)
       if ((e.code === 'Digit0' || e.code === 'Numpad0') && edClTapActive && !isInput && !isEditing && !e.ctrlKey && !e.metaKey && !e.altKey) {
@@ -5220,7 +5251,7 @@ if (
     direction,
     lineIndex => $('editor')?.children[lineIndex]?.textContent
       ?.replace(/\u200B/g, '').length || 0,
-    false
+    isEditorVisualRTL()
   )?.changed;
   if (changed) {
     edRenderChords();
@@ -5691,7 +5722,7 @@ if (
       clearMidiLog: () => clearMidiLog(),
       toggleMidiMonitorAutoScroll: () => toggleMidiMonitorAutoScroll(),
       toggleMidiSync: () => toggleMIDISync(),
-      applyQuantize: (_, element) => applyQuantize(element.dataset.value),
+      applyQuantize: (_, element) => applyQuantize(element.dataset.value, element),
       closeImportChordModal: () => closeImportChordModal(),
       fetchFromUrl: () => fetchFromUrl(),
       applyImportChords: () => applyImportChords(),

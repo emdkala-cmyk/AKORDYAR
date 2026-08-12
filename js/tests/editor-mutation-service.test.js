@@ -47,6 +47,38 @@ assert.equal(song.chords[0].charIndex, 1);
 assert.equal(song.chords[0].anchorType, 'OnCharacter');
 assert.equal(song.chords[2].charIndex, 2);
 
+const rtlSong = {
+  lyrics: 'אבג',
+  chords: [{ lineIndex: 0, charIndex: 1, anchorType: 'OnCharacter', name: 'Dm' }]
+};
+const movedVisualRight = service.moveChords(
+  rtlSong,
+  [0],
+  'right',
+  () => 3,
+  true
+);
+assert.equal(movedVisualRight.changed, true);
+assert.equal(
+  rtlSong.chords[0].charIndex,
+  0,
+  'ArrowRight in an RTL editor must move toward the visual right'
+);
+
+const movedVisualLeft = service.moveChords(
+  rtlSong,
+  [0],
+  'left',
+  () => 3,
+  true
+);
+assert.equal(movedVisualLeft.changed, true);
+assert.equal(
+  rtlSong.chords[0].charIndex,
+  1,
+  'ArrowLeft in an RTL editor must move toward the visual left'
+);
+
 const copied = service.moveChordsByDelta(
   song,
   [1],
