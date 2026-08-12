@@ -10,7 +10,7 @@ function editorPopupIsOpen(popup) {
 }
 
 function editorPopupDocument(popup) {
-  return window.WindowBridge?.getDocument?.(popup) || popup?.document || null;
+  return window.WindowBridge?.getDocument?.(popup) || null;
 }
 
     /**
@@ -2828,137 +2828,31 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
 
       // ===== DRAG & DROP audio files onto timeline =====
       const tlScroll = $('tl-scroll');
-      tlScroll.addEventListener('dragover', (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; tlScroll.style.outline = '2px dashed var(--accent-teal)'; });
-      tlScroll.addEventListener('dragleave', () => { tlScroll.style.outline = ''; });
-      tlScroll.addEventListener('drop', async (e) => {
-        e.preventDefault();
-        tlScroll.style.outline = '';
-        const files = [...(e.dataTransfer.files || [])].filter(f => f.type.startsWith('audio/') || /\.(mp3|wav|ogg|m4a|flac|aac)$/i.test(f.name));
-        if (files.length === 0) return;
-
-        // Clear all selections before import
-        clearSelection();
-        ensureAudioCtx();
-        
-        // Detect which track lane the file was dropped on
-        const droppedLane = e.target.closest('.track-lane');
-        let targetTrackId = null;
-        if (droppedLane) {
-          const laneTrackId = droppedLane.dataset.trackId;
-          const targetTrack = getEditorDAW().tracks.find(t => t.id === laneTrackId);
-          // Only accept drop on audio tracks (not section or chord)
-          if (targetTrack && targetTrack.type === 'audio') {
-            targetTrackId = laneTrackId;
-          }
-        }
-        
-        let audioTracks = getEditorDAW().tracks.filter(t => t.type === 'audio');
-        
-        // If dropped on a specific audio track, use only that track
-        if (targetTrackId) {
-          audioTracks = [getEditorDAW().tracks.find(t => t.id === targetTrackId)];
-        }
-
-        // اگه ترک صوتی کمتر از تعداد فایلهاست، خودکار ترک جدید بساز
-        while (audioTracks.length < files.length) {
-          addNewTrack();
-          audioTracks = getEditorDAW().tracks.filter(t => t.type === 'audio');
-        }
-
-        const doCopy = await askAudioCopyMode(`${files.length} فایل صوتی`);
-
-        for (let i = 0; i < files.length; i++) {
-          const file = files[i];
-          const trackIdx = i % audioTracks.length;
-          const trackId = audioTracks[trackIdx].id;
-          try {
-            toast(`لود ${i + 1}/${files.length}: ${file.name}`);
-            const { buffer } = await decodeFileToBuffer(file);
-            const bufferKey = 'buf_' + uid('b') + '_' + file.name;
-            getEditorDAW().bufferCache.set(bufferKey, buffer);
-
-            // Start each file after the previous one ends
-            const lastClipEnd = getEditorDAW().clips.filter(c => c.trackId === trackId).reduce((max, c) => Math.max(max, c.start + c.duration), 0);
-
-            const clip = {
-              id: uid('c'), type: 'audio', trackId,
-              name: file.name.replace(/\.[^.]+$/, ''),
-              fileName: file.name,
-              start: roundMs(Math.max(lastClipEnd, getEditorDAW().playhead)),
-              duration: buffer.duration, offset: 0,
-              sourceDuration: buffer.duration,
-              color: COLORS[getEditorDAW().clips.length % COLORS.length],
-              bufferKey,
-              _peaks: peaksFromBuffer(buffer, 2000),
-              waveUrl: null,
-              _embedded: doCopy,
-              // ─── ذخیره Blob اصلی برای ذخیره حجم (به‌جای Base64) ───
-              _originalBlob: doCopy ? file : null
-            };
-            // ذخیره مسیر/هندل فایل برای لینک‌شده‌ها
-            if (!doCopy) {
-              if (isElectron && file.path) {
-                clip._filePath = file.path;
-                console.log(`[DROP] Electron file path saved: ${file.name} → ${file.path}`);
-              } else if (isElectron) {
-                // در الکترون ولی file.path موجود نیست (الکترون 32+)
-                console.warn(`[DROP] Electron but file.path is missing for: ${file.name}`);
-                // fallback: استفاده از webUtils.getPathForFile اگه موجود باشه
-                if (window.electronAPI && window.electronAPI.getPathForFile) {
-                  try {
-                    const filePath = await window.electronAPI.getPathForFile(file);
-                    if (filePath) {
-                      clip._filePath = filePath;
-                      console.log(`[DROP] Got path via webUtils: ${file.name} → ${filePath}`);
-                    }
-                  } catch(_) {}
-                }
-                // اگه هنوز مسیر نداریم، فایل رو به‌صورت Blob ذخیره کن
-                if (!clip._filePath) {
-                  try {
-                    await saveAudioBlobToDB(bufferKey, file, file.name);
-                    console.log(`[DROP] Saved as blob fallback: ${file.name}`);
-                  } catch(_) {}
-                }
-              } else {
-                // ─── در مرورگر: فایل درگ‌شده رو به‌صورت Blob در IndexedDB ذخیره کن ───
-                try {
-                  await saveAudioBlobToDB(bufferKey, file, file.name);
-                } catch(_) {}
-              }
-            }
-            refreshClipWaveImage(clip);
-            getEditorDAW().clips.push(clip);
-            ensureTimelineFits(clip.start + clip.duration + 5);
-          } catch (err) {
-            console.error(err);
-            toast(`خطا در لود ${file.name}`);
-          }
-        }
-
-        if (doCopy) saveAudioBlobsForProject(edCur.id).catch(() => {});
-        // ذخیره مسیر فایل‌های لینک‌شده در edCur._audioPaths
-        if (!doCopy) {
-          if (!edCur._audioPaths) edCur._audioPaths = [];
-          for (const clip of getEditorDAW().clips.slice(-files.length)) {
-            if (!clip._embedded && clip.bufferKey) {
-              const existing = edCur._audioPaths.find(p => p.bufferKey === clip.bufferKey);
-              if (!existing) {
-                edCur._audioPaths.push({
-                  bufferKey: clip.bufferKey,
-                  fileName: clip.fileName || clip.name,
-                  trackId: clip.trackId,
-                  filePath: clip._filePath || null
-                });
-              }
-            }
-          }
-        }
-        getEditorDAW().selectedIds = new Set(getEditorDAW().clips.slice(-files.length).map(c => c.id));
-        saveState(); renderAll();
-        toast(`${files.length} فایل صوتی لود شد`);
-        edSaveSong();
+      const audioDropService = window.AudioDropImportService?.create?.({
+        getDAW: () => getEditorDAW(),
+        getSong: getCurrentEditorSong,
+        clearSelection,
+        ensureAudioCtx,
+        addNewTrack,
+        askAudioCopyMode,
+        decodeFileToBuffer,
+        uid,
+        roundMs,
+        colors: COLORS,
+        peaksFromBuffer,
+        refreshClipWaveImage,
+        ensureTimelineFits,
+        saveAudioBlobToDB,
+        saveAudioBlobsForProject,
+        saveState,
+        renderAll,
+        saveSong: edSaveSong,
+        toast,
+        isElectron,
+        electronAPI: window.electronAPI,
+        logger: console
       });
+      audioDropService?.bind?.(tlScroll);
 
       // Timeline resizable separator
       const sep = $('timelineSep');
@@ -3011,6 +2905,13 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
       set: song => { edCur = song; }
     };
     setEditorSong(edCur);
+
+    // سرویس‌های جدید از reference رسمی runtime می‌خوانند؛
+    // متغیر lexical فقط برای کد legacy همین فایل باقی مانده است.
+    function getCurrentEditorSong() {
+      return window.EditorRuntimeAdapter?.getSong?.() || edCur || null;
+    }
+
     let edUndoStack = [], edRedoStack = [];
     let edChordIdx = null, edPendingAnchor = null;
     let edTransposing = 0;
@@ -3061,7 +2962,7 @@ function edBlankSong() {
     async function edInitSong() {
       return getEditorSongInitializationService()?.initialize?.({
         storage: localStorage,
-        getSong: () => edCur,
+        getSong: getCurrentEditorSong,
         setSong: setEditorSong,
         blankSong: edBlankSong,
         repairSong: song => window.TextEncodingService?.repairSong?.(song) || song,
@@ -4028,7 +3929,7 @@ function edBlankSong() {
         typeof window.EditorSongPersistenceService?.create === 'function'
       ) {
         edSongPersistenceService = window.EditorSongPersistenceService.create({
-          getSong: () => edCur,
+          getSong: getCurrentEditorSong,
           getDAW: () => getEditorDAW(),
           syncMetadata: song => SongMetadata.syncFromDom(song),
           artistKey: artist => archArtistKey(artist),
@@ -4072,7 +3973,7 @@ function edBlankSong() {
       ) {
         edLyricsRenderer = window.EditorLyricsRenderer.create({
           getState: () => ({
-            song: edCur,
+            song: getCurrentEditorSong(),
             editor: $('editor'),
             printTitle: $('edPrintTitle'),
             printSub: $('edPrintSub'),
@@ -4277,7 +4178,7 @@ function edBlankSong() {
       }
       edChordRenderer = window.EditorChordRenderer.create({
         getState: () => ({
-          song: edCur,
+          song: getCurrentEditorSong(),
           editor: $('editor'),
           layer: $('chordLayer'),
           wrap: $('editorWrap'),
@@ -4291,7 +4192,7 @@ function edBlankSong() {
         anchorRectIn,
         attachDrag: edAttachChordDrag,
         onPopupSync: () => {
-          if (_lyricPopup && !_lyricPopup.closed) {
+          if (editorPopupIsOpen(_lyricPopup)) {
             setTimeout(() => syncLyricPopup(), 100);
           }
         }
@@ -4417,7 +4318,7 @@ function edBlankSong() {
         typeof window.EditorChordInteractionService?.create === 'function'
       ) {
         edChordInteractionService = window.EditorChordInteractionService.create({
-          getSong: () => edCur,
+          getSong: getCurrentEditorSong,
           getSelected: () => edSelectedChords,
           selectChord: (index, withToggle) => edSelectChord(index, withToggle),
           clearSelection: () => edClearChordSelection(),
@@ -4468,7 +4369,7 @@ function edAttachChordDrag(el, idx) {
         edGlobalBindingsService = window.EditorGlobalBindingsService.create({
           windowRef: window,
           documentRef: document,
-          getSong: () => edCur,
+          getSong: getCurrentEditorSong,
           renderChords: () => edRenderChords(),
           getEditorWrap: () => $('editorWrap'),
           isDragging: () => edChordDragActive,
@@ -4514,7 +4415,7 @@ function edAttachChordDrag(el, idx) {
         typeof window.EditorCommitService?.create === 'function'
       ) {
         edCommitService = window.EditorCommitService.create({
-          getSong: () => edCur,
+          getSong: getCurrentEditorSong,
           isHistoryApplying,
           syncMetadata: (song, options) => SongMetadata.syncFromDom(song, options),
           getSeqPoints: () => edSeqPoints,
@@ -4650,7 +4551,7 @@ if ($('edDoBoth')) {
         typeof window.EditorChordVersionService?.create === 'function'
       ) {
         edChordVersionService = window.EditorChordVersionService.create({
-          getSong: () => edCur,
+          getSong: getCurrentEditorSong,
           getDAW: () => getEditorDAW(),
           uid,
           roundMs,
@@ -4990,7 +4891,7 @@ if ($('edDoBoth')) {
       ) {
         edToolbarService = window.EditorToolbarService.create({
           documentRef: document,
-          getSong: () => edCur,
+          getSong: getCurrentEditorSong,
           getElement: id => $(id),
           isKeySyncing: () => _edSyncingKey,
           archArtistKey,

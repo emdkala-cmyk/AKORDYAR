@@ -8,12 +8,16 @@ const read = file => fs.readFileSync(path.join(root, file), 'utf8');
 const core = read('js/app/core.js');
 const editor = read('js/app/editor.js');
 const keyboardService = read('js/editor/EditorKeyboardService.js');
+const timelineRenderer = read('js/core/TimelineTrackRendererService.js');
 const html = read('Akordyar.html');
 const timelineCss = read('styles/timeline.css');
 
 assert.match(core, /selectedTrackId:\s*null/);
 assert.match(core, /function selectTrack\(trackId\)/);
-assert.match(core, /selectTrack\(tr\.id\)/);
+assert.match(core, /getTimelineTrackRendererService/);
+assert.match(timelineRenderer, /function selectTrack\(trackId\)/);
+assert.match(timelineRenderer, /selectTrack\(track\.id\)/);
+assert.match(html, /js\/core\/TimelineTrackRendererService\.js/);
 assert.doesNotMatch(
   core,
   /h\.addEventListener\('click',\s*\(e\)\s*=>\s*\{[^}]*openChordEditor\(\)/

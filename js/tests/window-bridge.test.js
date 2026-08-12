@@ -37,6 +37,33 @@ assert.deepEqual(WindowBridge.getDocument(popup), { body: {} });
 WindowBridge.focus(popup);
 assert.equal(popup.focused, true);
 
+popup._pCfg = { cSize: 20 };
+popup._pChordEls = {
+  first: { remove() { this.removed = true; } }
+};
+let renderReason = null;
+popup._pScheduleChordRender = reason => {
+  renderReason = reason;
+};
+let dispatchContext = null;
+popup.dispatchEvent = function dispatchEvent(event) {
+  dispatchContext = this;
+  this.lastEvent = event;
+};
+assert.equal(WindowBridge.get(popup, '_pCfg').cSize, 20);
+assert.equal(WindowBridge.set(popup, '_pCfg', { cSize: 24 }), true);
+assert.equal(WindowBridge.get(popup, '_pCfg').cSize, 24);
+assert.equal(
+  WindowBridge.call(popup, '_pScheduleChordRender', 'style'),
+  true
+);
+assert.equal(renderReason, 'style');
+assert.equal(WindowBridge.call(popup, 'dispatchEvent', { type: 'resize' }), true);
+assert.equal(dispatchContext, popup);
+assert.deepEqual(popup.lastEvent, { type: 'resize' });
+assert.equal(WindowBridge.clearManagedNodes(popup, ['_pChordEls']), true);
+assert.equal(Object.keys(popup._pChordEls).length, 0);
+
 const off = WindowBridge.onMessage({
   windowRef,
   getSource: () => popup,

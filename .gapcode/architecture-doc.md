@@ -237,3 +237,36 @@ orchestration اصلی DOM و command keyboard در `editor.js` باقی مان�
 
 `EditorCommitService` نیز اکنون مرز commit به History و PerformanceStore را
 فراهم می‌کند؛ `edCommit()` فقط wrapper سازگاری است.
+
+## آخرین snapshot عملیاتی — ۱۲ اوت ۲۰۲۶، extraction رندر timeline و popup seam
+
+### extractionهای این موج
+
+- `TimelineTrackRendererService` projection ساخت هدر ترک، lane، selection،
+  resize، drag reorder، کنترل mute/solo/lock/transpose و chord-version header
+  را از `js/app/core.js` خارج کرد.
+- `AudioDropImportService` مسیر drag/drop فایل صوتی، ساخت track، decode،
+  linked Electron path و fallback ذخیرهٔ Blob را از orchestration editor جدا کرد.
+- `EdCurAdapter` یک مالک canonical برای song نگه می‌دارد و `window.edCur` فقط
+  facade سازگاری getter/setter است؛ listener تغییر نیز contract تست دارد.
+- `WindowBridge` اکنون get/set/call و پاک‌سازی registryهای popup را پوشش می‌دهد؛
+  دسترسی مستقیم popup property و `dispatchEvent` از core/editor حذف شد.
+- contract test قدیمی timeline به محل جدید سرویس منتقل شد و تست seam مستقل برای
+  selection سرویس اضافه شد.
+
+### شمارش و کیفیت واقعی
+
+```text
+js/app.js       117 خط
+js/app/core.js  5662 خط در quality line-budget
+js/app/editor.js 6208 خط در quality line-budget
+TimelineTrackRendererService.js 535 خط
+AudioDropImportService.js       214 خط
+npm test         59 ورودی موفق
+npm run lint     موفق — 68 فایل
+quality:legacy-deps موفق
+```
+
+`core.js` و `editor.js` هنوز warning هدف extraction دارند، اما هر دو زیر سقف
+سخت ۶۰۰۰ و ۶۵۰۰ خط هستند. مرحلهٔ بعد باید روی hydration/restore و keyboard
+seamهای باقی‌مانده تمرکز کند؛ بدنهٔ legacy رندر ترک دیگر در core باقی نمانده است.

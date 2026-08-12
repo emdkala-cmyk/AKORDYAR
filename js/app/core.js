@@ -1145,398 +1145,71 @@ function applyState(stateStr) {
 }
 
 
+    let timelineTrackRendererService = null;
+
+    function getTimelineTrackRendererService() {
+      if (!timelineTrackRendererService && window.TimelineTrackRendererService?.create) {
+        timelineTrackRendererService = window.TimelineTrackRendererService.create({
+          documentRef: document,
+          windowRef: window,
+          getDAW: () => getEditorDAW(),
+          getSongState: () => requireEditorSongStateService(),
+          getIconSvg,
+          getIsRecordingChords: () => isRecordingChords,
+          setIsRecordingChords: value => { isRecordingChords = Boolean(value); },
+          switchChordVersion: direction => typeof switchChordVersion === 'function' && switchChordVersion(direction),
+          addChordVersion: () => typeof addChordVersion === 'function' && addChordVersion(),
+          renameChordVersion: () => typeof renameChordVersion === 'function' && renameChordVersion(),
+          saveState,
+          renderAll,
+          renderClips,
+          renderMixer: () => typeof renderMixer === 'function' && renderMixer(),
+          toast,
+          translate: t,
+          openFileForTrack: trackId => typeof openFileForTrack === 'function' && openFileForTrack(trackId),
+          openIconPicker,
+          updateTrackMix,
+          scheduleAllFromPlayhead,
+          ensureAudioCtx,
+          startPointerDrag: (...args) => startEditorPointerDrag(...args),
+          setLaneHeight: (...args) => typeof setLaneHeight === 'function' && setLaneHeight(...args),
+          clearEditorTextSelection: (...args) =>
+            typeof clearEditorTextSelection === 'function' &&
+            clearEditorTextSelection(...args),
+          clearChordSelection: () => typeof edClearChordSelection === 'function' && edClearChordSelection(),
+          clearSelection,
+          clientToTime,
+          customPrompt,
+          openChordEditor: (...args) => typeof openChordEditor === 'function' && openChordEditor(...args),
+          uid,
+          roundMs,
+          ensureTimelineFits,
+          cutAtTime,
+          seekTransport,
+          clientToInnerPoint,
+          onDocumentMouseMove: (...args) =>
+            typeof onDocMouseMove === 'function' && onDocMouseMove(...args),
+          onDocumentMouseUp: (...args) =>
+            typeof onDocMouseUp === 'function' && onDocMouseUp(...args),
+          drawLaneGrid: canvas => drawLaneGrid(canvas)
+        });
+      }
+      return timelineTrackRendererService;
+    }
+
     function updateTrackSelectionUI() {
-      const selectedId = getEditorDAW().selectedTrackId;
-      document.querySelectorAll('.track-name[data-track-id], .track-lane[data-track-id]')
-        .forEach(el => el.classList.toggle('selected-track', el.dataset.trackId === selectedId));
+      const service = getTimelineTrackRendererService();
+      return service?.updateTrackSelectionUI?.();
     }
 
     function selectTrack(trackId) {
-      const track = getEditorDAW().tracks.find(tr => tr.id === trackId);
-      if (!track) return null;
-      getEditorDAW().selectedTrackId = track.id;
-      updateTrackSelectionUI();
-      return track;
+      const service = getTimelineTrackRendererService();
+      return service?.selectTrack?.(trackId) || null;
     }
 
     function renderTracks() {
-      const names = $('track-names-container'); const lanes = $('lanes-container'); names.innerHTML = ''; lanes.innerHTML = '';
-      const tracks = getEditorDAW().tracks;
-      if (!tracks.some(tr => tr.id === getEditorDAW().selectedTrackId)) {
-        getEditorDAW().selectedTrackId = tracks[0]?.id || null;
-      }
-      tracks.forEach((tr) => {
-        const h = document.createElement('div'); h.className = 'track-name' + (getEditorDAW().loadTrackId === tr.id ? ' active-load' : '') + (getEditorDAW().selectedTrackId === tr.id ? ' selected-track' : ''); h.dataset.trackId = tr.id;
-        if (tr.muted) h.classList.add('muted-track');
-        if (getEditorDAW().tracks.some(t => t.solo) && !tr.solo && tr.type !== 'chord') h.classList.add('solo-dim-track');
-        if (tr.type === 'chord') {
-  const chordTarget = requireEditorSongStateService().currentSong() || tr;
-
-  if (!Array.isArray(chordTarget.chordVersions)) {
-    chordTarget.chordVersions = [];
-  }
-
-  const verCount = chordTarget.chordVersions.length;
-
-  const curVer = Number.isInteger(chordTarget.activeChordVersion)
-    ? chordTarget.activeChordVersion
-    : 0;
-
-  h.innerHTML = `
-    <span
-      class="t-icon"
-      data-icon-pick="${tr.id}"
-      title="تغییر آیکون"
-    >${getIconSvg(tr.icon)}</span>
-
-    <span class="t-label">${tr.name}</span>
-
-    <div style="display:flex;gap:2px;align-items:center;">
-      <button
-        class="t-btn"
-        data-chord-ver-prev=""
-        title="ورژن قبلی"
-        style="font-size:0.55rem;"
-      >◀</button>
-
-      <span
-        style="font-size:0.55rem;color:var(--accent-cyan-glow);min-width:46px;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center;font-family:'JetBrains Mono';cursor:pointer;"
-        data-chord-ver-label=""
-        title="دوبار کلیک برای تغییر نام ورژن"
-      >${chordTarget.chordVersions[curVer] && chordTarget.chordVersions[curVer].name ? chordTarget.chordVersions[curVer].name : 'V' + (curVer + 1)}</span>
-
-      <button
-        class="t-btn"
-        data-chord-ver-next=""
-        title="ورژن بعدی"
-        style="font-size:0.55rem;"
-      >▶</button>
-
-      <button
-        class="t-btn"
-        data-chord-ver-add=""
-        title="ورژن جدید"
-        style="font-size:0.55rem;"
-      >+</button>
-    </div>
-
-    <button
-      class="t-btn ${tr.locked ? 'on-lock' : ''}"
-      data-lock="${tr.id}"
-      title="قفل"
-    >
-      <svg width="10" height="10" viewBox="0 0 24 24" fill="none"
-        stroke="currentColor" stroke-width="2">
-        <rect x="3" y="11" width="18" height="11" rx="2"/>
-        <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-      </svg>
-    </button>
-
-    <button
-      class="t-btn ${isRecordingChords ? 'on-rec' : ''}"
-      data-rec="chord"
-      title="ضبط آکورد"
-    >
-      <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
-        <circle cx="12" cy="12" r="8"/>
-      </svg>
-    </button>
-  `;
-
-  // ── اتصال ابزارهای کورد لاین ──
-  h.querySelector('[data-rec]').addEventListener('click', (e) => {
-    e.stopPropagation();
-    isRecordingChords = !isRecordingChords;
-    renderAll();
-    toast(isRecordingChords ? t('chordRecOn') : t('chordRecOff'));
-  });
-  h.querySelector('[data-lock]')?.addEventListener('click', (e) => {
-    e.stopPropagation();
-    tr.locked = !tr.locked;
-    saveState();
-    renderTracks();
-    renderClips();
-    toast(tr.locked ? '🔒 آکوردهای کورد لاین قفل شد' : '🔓 آکوردهای کورد لاین باز شد');
-  });
-  h.querySelector('[data-chord-ver-prev]')?.addEventListener('click', (e) => { e.stopPropagation(); switchChordVersion(-1); });
-  h.querySelector('[data-chord-ver-next]')?.addEventListener('click', (e) => { e.stopPropagation(); switchChordVersion(1); });
-  h.querySelector('[data-chord-ver-add]')?.addEventListener('click', (e) => { e.stopPropagation(); addChordVersion(); });
-  const _verLabel = h.querySelector('[data-chord-ver-label]');
-  if (_verLabel) _verLabel.addEventListener('dblclick', (e) => { e.stopPropagation(); renameChordVersion(); });
-        } else if (tr.type === 'section') {
-            h.innerHTML = `<span class="t-icon" data-icon-pick="${tr.id}" title="تغییر آیکون">${getIconSvg(tr.icon)}</span><span class="t-label">${tr.name}</span>`;
-            h.querySelector('[data-icon-pick]')?.addEventListener('click', (e) => { e.stopPropagation(); openIconPicker(tr); });
-        } else {
-          const panPct = ((tr.pan + 1) / 2) * 100;
-          const panLeftW = tr.pan < 0 ? Math.abs(tr.pan) * 50 : 0;
-          const panRightW = tr.pan > 0 ? tr.pan * 50 : 0;
-          const panColor = tr.pan === 0 ? '#E2E8F0' : (tr.pan < 0 ? 'var(--accent-neon-pink)' : 'var(--accent-teal)');
-          h.innerHTML = `
-            <div class="track-name-top-row">
-              <span class="t-icon" data-icon-pick="${tr.id}" title="تغییر آیکون">${getIconSvg(tr.icon)}</span>
-              <span class="t-label" contenteditable="true" spellcheck="false" style="cursor:text;min-width:40px;outline:none;">${tr.name}</span>
-              <button class="t-btn" data-load="${tr.id}" title="لود آهنگ" style="font-size:0.7rem;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></button>
-            </div>
-            <div class="track-name-bottom-row">
-              <button class="t-btn ${tr.muted ? 'on' : ''}" data-mute="${tr.id}">M</button>
-              <button class="t-btn ${tr.solo ? 'on-solo' : ''}" data-solo="${tr.id}">S</button>
-              <button class="t-btn ${tr.locked ? 'on-lock' : ''}" data-lock="${tr.id}" title="قفل ترک"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></button>
-              <input type="range" class="t-vol" min="0" max="1" step="0.01" value="${tr.vol}" data-vol="${tr.id}">
-              <div class="pan-wrap" data-pan-wrap="${tr.id}">
-                  <div class="pan-track">
-                      <div class="pan-fill-left" style="width:${panLeftW}%;right:50%;"></div>
-                      <div class="pan-fill-right" style="width:${panRightW}%;left:50%;"></div>
-                  </div>
-                  <div class="pan-center"></div>
-                  <div class="pan-thumb" style="left:${panPct}%;border-color:${panColor};"></div>
-                  <div class="pan-labels"><span>L</span><span>R</span></div>
-              </div>
-              <input type="range" class="t-pan" min="-1" max="1" step="0.01" value="${tr.pan}" data-pan="${tr.id}">
-              <div class="t-transpose">
-                <button class="t-trans-btn" data-trans-down="${tr.id}" title="بمل">♭</button>
-                <span class="t-trans-val" data-trans-val="${tr.id}">${tr.transpose || 0}</span>
-                <button class="t-trans-btn" data-trans-up="${tr.id}" title="دیز">♯</button>
-              </div>
-            </div>`;
-          // Editable track name
-          const label = h.querySelector('.t-label');
-          label.addEventListener('blur', () => { tr.name = label.textContent.trim() || tr.name; if (typeof renderMixer === 'function' && $('mixerPanel') && $('mixerPanel').classList.contains('show')) renderMixer(); });
-          label.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); label.blur(); } });
-          label.addEventListener('mousedown', e => e.stopPropagation());
-          // Load audio via dedicated button
-          h.querySelector('[data-load]')?.addEventListener('click', (e) => { e.stopPropagation(); openFileForTrack(tr.id); });
-          // Icon picker
-          h.querySelector('[data-icon-pick]')?.addEventListener('click', (e) => { e.stopPropagation(); openIconPicker(tr); });
-          h.querySelector('[data-mute]').addEventListener('click', (e) => { e.stopPropagation(); tr.muted = !tr.muted; updateTrackMix(tr.id); renderAll(); if(getEditorDAW().isPlaying) scheduleAllFromPlayhead(); });
-          h.querySelector('[data-solo]').addEventListener('click', (e) => { e.stopPropagation(); tr.solo = !tr.solo; getEditorDAW().tracks.forEach(t => updateTrackMix(t.id)); renderAll(); if(getEditorDAW().isPlaying) scheduleAllFromPlayhead(); });
-          h.querySelector('[data-lock]')?.addEventListener('click', (e) => { e.stopPropagation(); tr.locked = !tr.locked; saveState(); renderTracks(); renderClips(); toast(tr.locked ? 'ترک قفل شد' : 'ترک باز شد'); });
-          // جلوگیری از درگ شدن هدر روی دکمه‌ها و کنترل‌ها
-          h.querySelectorAll('button, input, .pan-wrap, .t-transpose').forEach(el => { el.draggable = false; el.addEventListener('mousedown', (e) => e.stopPropagation()); });
-          h.querySelector('[data-vol]').addEventListener('input', (e) => { e.stopPropagation(); tr.vol = +e.target.value; updateTrackMix(tr.id); });
-          // Pan wrapper interaction
-          const panWrap = h.querySelector(`[data-pan-wrap="${tr.id}"]`);
-          if (panWrap) {
-            const updatePanVisual = () => {
-              const panPctV = ((tr.pan + 1) / 2) * 100;
-              const pL = tr.pan < 0 ? Math.abs(tr.pan) * 50 : 0;
-              const pR = tr.pan > 0 ? tr.pan * 50 : 0;
-              const pC = tr.pan === 0 ? '#E2E8F0' : (tr.pan < 0 ? 'var(--accent-neon-pink)' : 'var(--accent-teal)');
-              panWrap.querySelector('.pan-fill-left').style.width = pL + '%';
-              panWrap.querySelector('.pan-fill-right').style.width = pR + '%';
-              panWrap.querySelector('.pan-thumb').style.left = panPctV + '%';
-              panWrap.querySelector('.pan-thumb').style.borderColor = pC;
-            };
-            const onPanDrag = (e) => {
-              const rect = panWrap.getBoundingClientRect();
-              const x = (e.clientX || e.touches[0].clientX) - rect.left;
-              const norm = Math.max(-1, Math.min(1, (x / rect.width) * 2 - 1));
-              tr.pan = Math.round(norm * 100) / 100;
-              h.querySelector('[data-pan]').value = tr.pan;
-              ensureAudioCtx(); updateTrackMix(tr.id); updatePanVisual();
-            };
-            panWrap.addEventListener('pointerdown', (e) => {
-              if (e.button !== 0) return;
-              e.stopPropagation(); e.preventDefault(); onPanDrag(e);
-              startEditorPointerDrag(panWrap, e, onPanDrag, saveState);
-            });
-            panWrap.addEventListener('click', (e) => e.stopPropagation());
-            panWrap.addEventListener('dblclick', (e) => {
-              e.stopPropagation(); e.preventDefault();
-              tr.pan = 0;
-              h.querySelector('[data-pan]').value = 0;
-              ensureAudioCtx(); updateTrackMix(tr.id); updatePanVisual(); saveState();
-            });
-          }
-          h.querySelector('[data-pan]').addEventListener('input', (e) => { e.stopPropagation(); tr.pan = +e.target.value; updateTrackMix(tr.id); });
-          // Transpose controls
-          const updateTransVal = () => {
-            const v = tr.transpose || 0;
-            const el = h.querySelector(`[data-trans-val="${tr.id}"]`);
-            if (el) el.textContent = (v > 0 ? '+' : '') + v;
-          };
-          h.querySelector(`[data-trans-down="${tr.id}"]`)?.addEventListener('click', (e) => {
-            e.stopPropagation();
-            tr.transpose = Math.max(-12, (tr.transpose || 0) - 1);
-            updateTransVal();
-            if (getEditorDAW().isPlaying) scheduleAllFromPlayhead();
-            saveState();
-          });
-          h.querySelector(`[data-trans-up="${tr.id}"]`)?.addEventListener('click', (e) => {
-            e.stopPropagation();
-            tr.transpose = Math.min(12, (tr.transpose || 0) + 1);
-            updateTransVal();
-            if (getEditorDAW().isPlaying) scheduleAllFromPlayhead();
-            saveState();
-          });
-        }
-        names.appendChild(h);
-
-        // Track drag reordering — فقط از نواحی خالی هدر قابل درگ است
-        h.addEventListener('mousedown', (e) => {
-          // اگر روی دکمه، اسلایدر، لیبل، پن یا ترنپوز کلیک شده، درگ فعال نشود
-          if (e.target.closest('button, input, .pan-wrap, .t-label, .t-transpose, .t-btn, .t-icon')) {
-            h.draggable = false;
-          } else {
-            h.draggable = true;
-          }
-        });
-        h.addEventListener('dragstart', (e) => {
-          if (!h.draggable) { e.preventDefault(); return; }
-          e.dataTransfer.setData('text/plain', tr.id);
-          e.dataTransfer.effectAllowed = e.altKey ? 'copy' : 'move';
-          h.style.opacity = '0.4';
-        });
-        h.addEventListener('dragend', () => { h.style.opacity = ''; });
-        h.addEventListener('dragover', (e) => { e.preventDefault(); e.dataTransfer.dropEffect = e.altKey ? 'copy' : 'move'; h.style.borderTop = '2px solid var(--accent-teal)'; });
-        h.addEventListener('dragleave', () => { h.style.borderTop = ''; });
-        h.addEventListener('drop', (e) => {
-          e.preventDefault(); h.style.borderTop = '';
-          const draggedId = e.dataTransfer.getData('text/plain');
-          if (!draggedId || draggedId === tr.id) return;
-          const fromIdx = getEditorDAW().tracks.findIndex(t => t.id === draggedId);
-          const toIdx = getEditorDAW().tracks.findIndex(t => t.id === tr.id);
-          if (fromIdx < 0 || toIdx < 0 || fromIdx === toIdx) return;
-          if (e.altKey) {
-            // ALT+drag = copy
-            const src = getEditorDAW().tracks[fromIdx];
-            const copy = JSON.parse(JSON.stringify(src));
-            copy.id = uid('t');
-            copy.name = src.name + ' (copy)';
-            getEditorDAW().tracks.splice(toIdx + 1, 0, copy);
-          } else {
-            // Normal drag = move
-            const [moved] = getEditorDAW().tracks.splice(fromIdx, 1);
-            getEditorDAW().tracks.splice(toIdx, 0, moved);
-          }
-          saveState(); renderAll();
-        });
-
-        const lane = document.createElement('div'); lane.className = 'track-lane' + (tr.type === 'chord' ? ' chord-lane' : '') + (tr.type === 'section' ? ' section-lane' : '') + (getEditorDAW().selectedTrackId === tr.id ? ' selected-track' : ''); lane.dataset.trackId = tr.id;
-        // Apply per-lane height if set
-        if (tr.laneHeight) { h.style.setProperty('--lane-h', tr.laneHeight + 'px'); h.style.height = tr.laneHeight + 'px'; lane.style.setProperty('--lane-h', tr.laneHeight + 'px'); lane.style.height = tr.laneHeight + 'px'; }
-        // Apply muted/solo/locked visual states to lane
-        if (tr.muted) lane.classList.add('muted-lane');
-        if (tr.locked) lane.classList.add('locked-lane');
-        if (getEditorDAW().tracks.some(t => t.solo) && !tr.solo && tr.type !== 'chord') lane.classList.add('solo-dim-lane');
-        // Per-lane resize handle (Cubase-style: drag bottom border)
-        const resizeHandle = document.createElement('div');
-        resizeHandle.className = 'lane-resize-handle bottom';
-        resizeHandle.addEventListener('pointerdown', (e) => {
-          if (e.button !== 0) return;
-          e.stopPropagation(); e.preventDefault();
-          resizeHandle.classList.add('active');
-          const startY = e.clientY; const origH = tr.laneHeight || getEditorDAW().laneHeight;
-          const onMove = (ev) => { const newH = Math.max(32, Math.min(240, origH + (ev.clientY - startY))); setLaneHeight(tr.id, newH); };
-          startEditorPointerDrag(resizeHandle, e, onMove, () => { resizeHandle.classList.remove('active'); saveState(); });
-        });
-        lane.appendChild(resizeHandle);
-        lane.addEventListener('pointerdown', (e) => {
-        if (e.button !== 0) return;
-        selectTrack(tr.id);
-        clearEditorTextSelection();
-        edClearChordSelection();
-        if (e.target.closest('.clip') || e.target.closest('.section-tag')) return;
-        // Clear section selection on any empty-area click (all lanes)
-        if (getEditorDAW().selectedSectionIds.size > 0) { getEditorDAW().selectedSectionIds.clear(); renderClips(); }
-        if (tr.locked) { toast('🔒 ترک قفل است'); return; }
-
-        // Alt+Click on section track: create tag with styled modal
-        if (tr.type === 'section' && e.altKey) {
-          e.preventDefault(); e.stopPropagation();
-          const t = clientToTime(e.clientX);
-          // Use customPrompt for a styled modal instead of native prompt
-          customPrompt('نام بخش:', 'ورس').then(name => {
-            if (name && name.trim()) {
-              const sec = { id: uid('c'), trackId: tr.id, label: name.trim(), start: roundMs(t), duration: 4, color: '#3FB8AF' };
-              getEditorDAW().sections.push(sec);
-              ensureTimelineFits(sec.start + sec.duration + 5);
-              saveState(); renderClips();
-            }
-          });
-          return;
-        }
-
-        // Alt+Click on chord track: open chord editor
-        if (tr.type === 'chord' && e.altKey) {
-          e.preventDefault(); e.stopPropagation();
-          const t = clientToTime(e.clientX);
-          // Create a temporary anchor at clicked time and open chord modal
-          // IMPORTANT: Don't change the current song state; use a local variable
-          const chordTrack = getEditorDAW().tracks.find(track => track.id === tr.id);
-          if (chordTrack) {
-            const anchor = { time: t, x: e.clientX, y: e.clientY };
-            // Store in a temp variable; don't overwrite the current song state
-            window._tempChordTrackAnchor = anchor;
-            window._tempChordTrack = chordTrack;
-            // Open the regular chord editor (not the song chord editor)
-            openChordEditor(null);
-            renderClips();
-          }
-          return;
-        }
-
-        // Double-click on section track: create tag with styled modal
-        if (tr.type === 'section' && e.detail === 2) {
-          e.preventDefault(); e.stopPropagation();
-          const t = clientToTime(e.clientX);
-          // Use customPrompt for a styled modal instead of native prompt
-          customPrompt('نام بخش:', 'ورس').then(name => {
-            if (name && name.trim()) {
-              const sec = { id: uid('c'), trackId: tr.id, label: name.trim(), start: roundMs(t), duration: 4, color: '#3FB8AF' };
-              getEditorDAW().sections.push(sec);
-              ensureTimelineFits(sec.start + sec.duration + 5);
-              saveState(); renderClips();
-            }
-          });
-          return;
-        }
-
-  const t = clientToTime(e.clientX);
-
-
-            
-            if (e.shiftKey && lane) {
-              e.preventDefault();
-              cutAtTime(t, lane.dataset.trackId);
-              return;
-            }
-
-            seekTransport(t, true);
-            if (!e.ctrlKey && !e.metaKey) clearSelection();
-            const p = clientToInnerPoint(e.clientX, e.clientY); getEditorDAW().marquee = { x0: p.x, y0: p.y };
-            startEditorPointerDrag(lane, e, onDocMouseMove, onDocMouseUp);
-        });
-        const grid = document.createElement('canvas'); grid.className = 'lane-grid'; lane.appendChild(grid);
-        if (!getEditorDAW().clips.some(c => c.trackId === tr.id) && !(tr.type === 'section' && (getEditorDAW().sections || []).some(s => s.trackId === tr.id))) {
-          const hint = document.createElement('div'); 
-          hint.className = 'empty-lane-hint' + (tr.type === 'section' ? ' section-hint' : ''); 
-          hint.textContent = tr.type === 'chord' ? t('clickHint') : (tr.type === 'section' ? 'دوبار کلیک برای ساخت بخش' : t('loadHint'));
-          if (tr.type === 'section') {
-            hint.addEventListener('dblclick', (e) => {
-              e.preventDefault(); e.stopPropagation();
-              const t = clientToTime(e.clientX);
-              customPrompt('نام بخش:', 'ورس').then(name => {
-                if (name && name.trim()) {
-                  const sec = { id: uid('c'), trackId: tr.id, label: name.trim(), start: roundMs(t), duration: 4, color: '#3FB8AF' };
-                  getEditorDAW().sections.push(sec);
-                  ensureTimelineFits(sec.start + sec.duration + 5);
-                  saveState(); renderClips();
-                }
-              });
-            });
-          }
-          lane.appendChild(hint); 
-        }
-        lanes.appendChild(lane); drawLaneGrid(grid);
-
-        // Clicking a track header selects the track. The chord header no
-        // longer opens the chord editor; editing remains available in the
-        // lane itself.
-        h.addEventListener('click', (e) => {
-          if (e.target.closest('button, input, select, textarea, .pan-wrap, .t-transpose, .t-icon')) return;
-          selectTrack(tr.id);
-        });
-      });
+      const service = getTimelineTrackRendererService();
+      return service?.renderTracks?.();
     }
 
     // ===== Cubase-style Timeline Grid =====
@@ -2453,7 +2126,7 @@ sels.forEach(c => {
         }
         // Update sync highlight during playback (works for both sync mode and popup)
         if (syncActive) updateSyncHighlight();
-        else if (_lyricPopup && !_lyricPopup.closed) updateSyncHighlight();
+        else if (isPopupOpen(_lyricPopup)) updateSyncHighlight();
         getEditorDAW().rafId = requestAnimationFrame(tick);
       };
 
@@ -2969,7 +2642,7 @@ sels.forEach(c => {
       songState.markChordLineSynced(song);
       
       // Re-render Chord Line popup if open
-      if (_chordLinePopup && !_chordLinePopup.closed) {
+      if (isPopupOpen(_chordLinePopup)) {
         syncChordLinePopup();
       }
       
@@ -3228,7 +2901,7 @@ sels.forEach(c => {
       return popupWindowBridge?.isOpen?.(popup) ?? Boolean(popup && !popup.closed);
     }
     function popupDocument(popup) {
-      return popupWindowBridge?.getDocument?.(popup) || popup?.document || null;
+      return popupWindowBridge?.getDocument?.(popup) || null;
     }
     function openPopupWindow(name, features) {
       return popupWindowBridge?.open?.({
@@ -3236,7 +2909,7 @@ sels.forEach(c => {
         url: '',
         name,
         features
-      }) || window.open('', name, features);
+      }) || null;
     }
 
     let _lyricPopup = null;
@@ -3267,7 +2940,7 @@ sels.forEach(c => {
       if (isPopupOpen(_lyricPopup)) { popupWindowBridge?.focus?.(_lyricPopup); return; }
       _lyricPopup = openPopupWindow('lyricPopup', 'width=900,height=700,menubar=no,toolbar=no,location=no,status=no');
       if (!_lyricPopup) { toast(t('popupBlocked')); return; }
-      try { _lyricPopup.__popupRole = 'player'; } catch(_) {}
+      popupWindowBridge?.set?.(_lyricPopup, '__popupRole', 'player');
       syncLyricPopup();
       setTimeout(safeMirrorTimeline, 1000);
     }
@@ -3278,7 +2951,7 @@ sels.forEach(c => {
       if (isPopupOpen(_lyricOnlyPopup)) { popupWindowBridge?.focus?.(_lyricOnlyPopup); return; }
       _lyricOnlyPopup = openPopupWindow('lyricOnlyPopup', 'width=650,height=400,menubar=no,toolbar=no,location=no,status=no');
       if (!_lyricOnlyPopup) { toast(t('popupBlocked')); return; }
-      try { _lyricOnlyPopup.__popupRole = 'singer'; } catch(_) {}
+      popupWindowBridge?.set?.(_lyricOnlyPopup, '__popupRole', 'singer');
       syncLyricOnlyPopup();
     }
     function syncLyricOnlyPopup() {
@@ -3391,7 +3064,7 @@ sels.forEach(c => {
           }
         }
       }
-      _lyricOnlyPopup._syncHighlight = _syncSingerHighlight;
+      popupWindowBridge?.set?.(_lyricOnlyPopup, '_syncHighlight', _syncSingerHighlight);
     }
 
     // ===== CHORD LINE POPUP (detachable, small) =====
@@ -3702,8 +3375,9 @@ sels.forEach(c => {
       const pDoc = popupDocument(_lyricPopup);
       if (!pDoc) return;
       // Remove old handler if exists
-      if (_lyricPopup._pvWheelHandler) {
-        pDoc.removeEventListener('wheel', _lyricPopup._pvWheelHandler);
+      const previousWheelHandler = popupWindowBridge?.get?.(_lyricPopup, '_pvWheelHandler');
+      if (previousWheelHandler) {
+        pDoc.removeEventListener('wheel', previousWheelHandler);
       }
       // Create new handler
       const handler = (e) => {
@@ -3742,7 +3416,7 @@ sels.forEach(c => {
           return;
         }
       };
-      _lyricPopup._pvWheelHandler = handler;
+      popupWindowBridge?.set?.(_lyricPopup, '_pvWheelHandler', handler);
       pDoc.addEventListener('wheel', handler, { passive: false });
     }
 
@@ -3800,36 +3474,59 @@ sels.forEach(c => {
         });
 
         // آپدیت chord data و رندر
-        _lyricPopup._pChords = chords;
         try {
-          _lyricPopup._pStructureVersion = (_lyricPopup._pStructureVersion || 0) + (structureChanged ? 1 : 0);
+          const previousVersion = Number(
+            popupWindowBridge?.get?.(_lyricPopup, '_pStructureVersion')
+          ) || 0;
+          const nextVersion = previousVersion + (structureChanged ? 1 : 0);
+
           // اگر ساختار عوض شده، کش المان‌های chord قبلی را پاک کن
           if (structureChanged) {
-            _lyricPopup.eval('if(typeof _pChordEls!=="undefined"){Object.keys(_pChordEls).forEach(function(k){var el=_pChordEls[k];if(el&&el.isConnected)el.remove();delete _pChordEls[k];});}if(typeof _pChordLineEls!=="undefined"){Object.keys(_pChordLineEls).forEach(function(k){var el=_pChordLineEls[k];if(el&&el.isConnected)el.remove();delete _pChordLineEls[k];});}');
+            popupWindowBridge?.clearManagedNodes?.(
+              _lyricPopup,
+              ['_pChordEls', '_pChordLineEls']
+            );
           }
-          const _evalChords = '_pChords=' + JSON.stringify(chords) + ';' +
-            'window._pStructureVersion=' + JSON.stringify(_lyricPopup._pStructureVersion || 0) + ';' +
-            'if(typeof _pScheduleChordRender==="function"){_pScheduleChordRender("' + (structureChanged ? 'structure' : 'data') + '");' +
-            '}else if(typeof _pRenderChords==="function"){_pRenderChords();}';
-          _lyricPopup.eval('(function(){' + _evalChords + '})();');
+          popupWindowBridge?.set?.(_lyricPopup, '_pChords', chords);
+          popupWindowBridge?.set?.(_lyricPopup, '_pStructureVersion', nextVersion);
+          const renderReason = structureChanged ? 'structure' : 'data';
+          const rendered = popupWindowBridge?.call?.(
+            _lyricPopup,
+            '_pScheduleChordRender',
+            renderReason
+          );
+          if (!rendered) {
+            popupWindowBridge?.call?.(_lyricPopup, '_pRenderChords');
+          }
+
           // Fallback chain: اگر rAF یا layout هنوز آماده نباشد
           if (structureChanged) {
             [120, 300, 600].forEach(function(ms) {
               setTimeout(function() {
                 try {
-                  if (_lyricPopup && !_lyricPopup.closed && typeof _lyricPopup._pRenderChords === 'function') {
-                    _lyricPopup.eval('(function(){' + _evalChords + 'window._pRenderReason="fallback";if(typeof _pScheduleChordRender==="function"){_pScheduleChordRender("structure");}else{_pRenderChords();}})();');
+                  if (isPopupOpen(_lyricPopup)) {
+                    const scheduled = popupWindowBridge?.call?.(
+                      _lyricPopup,
+                      '_pScheduleChordRender',
+                      'structure'
+                    );
+                    if (!scheduled) {
+                      popupWindowBridge?.call?.(
+                        _lyricPopup,
+                        '_pRenderChords'
+                      );
+                    }
                   }
                 } catch(_) {}
               }, ms);
             });
           }
         } catch(_) {
-          // اگر eval کل fail شد، fallback بعد از layout
+          // اگر bridge یا layout موقتاً آماده نبود، بعد از layout دوباره تلاش کن.
           setTimeout(function() {
             try {
-              if (_lyricPopup && !_lyricPopup.closed && typeof _lyricPopup._pRenderChords === 'function') {
-                _lyricPopup._pRenderChords();
+              if (isPopupOpen(_lyricPopup)) {
+                popupWindowBridge?.call?.(_lyricPopup, '_pRenderChords');
               }
             } catch(_) {}
           }, 250);
@@ -3845,20 +3542,26 @@ sels.forEach(c => {
             el.style.fontFamily = "'" + (s.font || tFont) + "', sans-serif";
           });
           if (s.cSize || s.cColor) {
-            _lyricPopup.eval(
-              '(function(){' +
-                '_pCfg.cSize=' + JSON.stringify(s.cSize || 38) + ';' +
-                '_pCfg.cColor=' + JSON.stringify(s.cColor || '#e6aa28') + ';' +
-                'if(typeof _pScheduleChordRender==="function"){_pScheduleChordRender("style");' +
-                '}else if(typeof _pRenderChords==="function"){_pRenderChords();}' +
-              '})();'
-            );
+            const popupConfig = popupWindowBridge?.get?.(_lyricPopup, '_pCfg');
+            if (popupConfig && typeof popupConfig === 'object') {
+              popupConfig.cSize = s.cSize || 38;
+              popupConfig.cColor = s.cColor || '#e6aa28';
+              popupWindowBridge?.set?.(_lyricPopup, '_pCfg', popupConfig);
+              const scheduled = popupWindowBridge?.call?.(
+                _lyricPopup,
+                '_pScheduleChordRender',
+                'style'
+              );
+              if (!scheduled) {
+                popupWindowBridge?.call?.(_lyricPopup, '_pRenderChords');
+              }
+            }
           }
         } catch(_) {}
         // Force Reflow: مجبور کردن مرورگر به محاسبه مجدد چیدمان
         try { void pb.offsetHeight; } catch(_) {}
         // Dispatch resize event to force layout recalculation
-        try { _lyricPopup.dispatchEvent(new Event('resize')); } catch(_) {}
+        popupWindowBridge?.call?.(_lyricPopup, 'dispatchEvent', new Event('resize'));
         return;
       }
       const snapshot = requireEditorSongStateService().getPresentationSnapshot();
@@ -4210,7 +3913,11 @@ body.hl-pulse .popup-sync-line.active::before { content: ''; position: absolute;
       `;
       popupDoc.body.appendChild(sc);
       // Override _pCfg with saved Player View settings (not editor defaults)
-      _lyricPopup._pCfg = { cSize: _pvSettings.cSize, cColor: _pvSettings.cColor, cFont: 'JetBrains Mono' };
+      popupWindowBridge?.set?.(_lyricPopup, '_pCfg', {
+        cSize: _pvSettings.cSize,
+        cColor: _pvSettings.cColor,
+        cFont: 'JetBrains Mono'
+      });
 
 // ==========================================
 // PART 3: Project Load & Audio Export (WAV)
@@ -4386,8 +4093,13 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 }
-      // Also override on the popup's global scope for the chord script
-      try { _lyricPopup.eval('_pCfg.cSize=' + _pvSettings.cSize + ';_pCfg.cColor="' + _pvSettings.cColor + '";'); } catch(_) {}
+      // تنظیمات popup فقط از مسیر WindowBridge به runtime پنجره می‌رسد.
+      const initialPopupConfig = popupWindowBridge?.get?.(_lyricPopup, '_pCfg');
+      if (initialPopupConfig && typeof initialPopupConfig === 'object') {
+        initialPopupConfig.cSize = _pvSettings.cSize;
+        initialPopupConfig.cColor = _pvSettings.cColor;
+        popupWindowBridge?.set?.(_lyricPopup, '_pCfg', initialPopupConfig);
+      }
       // Settings panel initialization — use persistent _pvSettings from outer scope
       const _pvDoc = popupDocument(_lyricPopup);
       if (!_pvDoc) return;
@@ -4401,10 +4113,22 @@ document.addEventListener('DOMContentLoaded', () => {
           el.style.fontWeight = _pvSettings.bold ? 'bold' : 'normal';
           el.style.fontFamily = _getFontFamilyCSS(_pvSettings.font);
         });
-        // Update chord config in popup's global scope
-        try { _lyricPopup.eval('_pCfg.cSize=' + _pvSettings.cSize + ';_pCfg.cColor="' + _pvSettings.cColor + '";'); } catch(_) {}
-        // Re-render chords with new sizes
-        try { _lyricPopup.eval('if(typeof _pScheduleChordRender==="function"){_pScheduleChordRender("style");}else if(typeof _pRenderChords==="function"){_pRenderChords();}'); } catch(_) {}
+        // Update chord config and re-render through the popup bridge.
+        const popupConfig = popupWindowBridge?.get?.(_lyricPopup, '_pCfg');
+        if (popupConfig && typeof popupConfig === 'object') {
+          popupConfig.cSize = _pvSettings.cSize;
+          popupConfig.cColor = _pvSettings.cColor;
+          popupConfig.cFont = 'JetBrains Mono';
+          popupWindowBridge?.set?.(_lyricPopup, '_pCfg', popupConfig);
+          const scheduled = popupWindowBridge?.call?.(
+            _lyricPopup,
+            '_pScheduleChordRender',
+            'style'
+          );
+          if (!scheduled) {
+            popupWindowBridge?.call?.(_lyricPopup, '_pRenderChords');
+          }
+        }
       }
       // Toggle settings panel (auto-hide: clicking outside closes it)
       const _pvToggle = _pvDoc.getElementById('pv-settings-toggle');
@@ -4478,13 +4202,13 @@ document.addEventListener('DOMContentLoaded', () => {
           }
         }
       }
-      _lyricPopup._syncHighlight = _syncLyricPopupHighlight;
+      popupWindowBridge?.set?.(_lyricPopup, '_syncHighlight', _syncLyricPopupHighlight);
       // Fallback chord render chain: اگر rAF اولیه در full rebuild fail شد
       [200, 500, 1000].forEach(function(ms) {
         setTimeout(function() {
           try {
-            if (isPopupOpen(_lyricPopup) && typeof _lyricPopup._pRenderChords === 'function') {
-              _lyricPopup._pRenderChords();
+            if (isPopupOpen(_lyricPopup)) {
+              popupWindowBridge?.call?.(_lyricPopup, '_pRenderChords');
             }
           } catch(_) {}
         }, ms);
@@ -4493,7 +4217,7 @@ document.addEventListener('DOMContentLoaded', () => {
       try {
         const _pb = popupDocument(_lyricPopup)?.getElementById('popupBody');
         if (_pb) void _pb.offsetHeight;
-        _lyricPopup.dispatchEvent(new Event('resize'));
+        popupWindowBridge?.call?.(_lyricPopup, 'dispatchEvent', new Event('resize'));
       } catch(_) {}
     }
 

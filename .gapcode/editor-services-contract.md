@@ -138,6 +138,47 @@ hydrateSong(song, {
 
 وظیفه‌اش normalize/hydrate کردن song و runtime DAW است، نه ذخیره‌سازی یا history.
 
+### `AudioDropImportService`
+
+```js
+const service = AudioDropImportService.create({
+  getDAW: () => DAW,
+  getSong: () => Song | null,
+  clearSelection,
+  ensureAudioCtx,
+  addNewTrack,
+  askAudioCopyMode,
+  decodeFileToBuffer,
+  saveAudioBlobToDB,
+  saveAudioBlobsForProject,
+  saveState,
+  renderAll,
+  saveSong
+});
+
+service.audioFilesFrom(dataTransfer) // File[]
+await service.importFiles(files, event) // boolean
+service.bind(target) // unsubscribe()
+```
+
+این سرویس مالک state، persistence یا DOM نیست؛ import فایل صوتی را با callbackهای
+runtime انجام می‌دهد و مسیر Electron، IndexedDB و linked file را در یک contract
+قابل تست نگه می‌دارد.
+
+### `TimelineTrackRendererService`
+
+```js
+const service = TimelineTrackRendererService.create(context);
+
+service.renderTracks()                 // void
+service.selectTrack(trackId)           // Track | null
+service.updateTrackSelectionUI()       // void
+```
+
+projection هدر ترک و lane در این سرویس است. mutationهای DAW، chord version،
+transport، selection و lifecycle از طریق callbackهای context تزریق می‌شوند؛
+`core.js` فقط wrapper سازگاری و orchestration عمومی را نگه می‌دارد.
+
 ## قانون seam
 
 هر تغییر در `setEditorSong`، `EditorRuntimeAdapter`، `EdCurAdapter` یا
@@ -201,11 +242,16 @@ WindowBridge.focus(popup)
 WindowBridge.close(popup)
 WindowBridge.onMessage({ windowRef, getSource, type, origin, handler })
 WindowBridge.postMessage(popup, payload, targetOrigin)
+WindowBridge.get(popup, property)
+WindowBridge.set(popup, property, value)
+WindowBridge.call(popup, method, ...args)
+WindowBridge.clearManagedNodes(popup, registryNames)
 ```
 
 پیام‌های popup باید نوع و منبع پنجره را بررسی کنند. دسترسی مستقیم به
-`popup.document` فقط در مسیر compatibility باقی می‌ماند و مسیرهای جدید باید
-از `WindowBridge` استفاده کنند.
+`popup.document`، propertyهای داخلی، `dispatchEvent` و handlerهای cross-document
+نباید در مسیرهای جدید استفاده شوند؛ مسیرهای runtime فعلی از `WindowBridge`
+مصرف می‌کنند و فقط خود bridge محل compatibility مستقیم است.
 
 ## قرارداد DAW/PERF
 

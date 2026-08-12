@@ -83,6 +83,65 @@
     return true;
   }
 
+  function get(popup, property) {
+    if (!isOpen(popup) || !property) return undefined;
+    try {
+      return popup[property];
+    } catch (_) {
+      return undefined;
+    }
+  }
+
+  function set(popup, property, value) {
+    if (!isOpen(popup) || !property) return false;
+    try {
+      popup[property] = value;
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function call(popup, method, ...args) {
+    if (!isOpen(popup) || !method) return false;
+    try {
+      const callback = popup[method];
+      if (typeof callback !== 'function') return false;
+      callback.apply(popup, args);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function clearManagedNodes(popup, registryNames = []) {
+    if (!isOpen(popup) || !Array.isArray(registryNames)) return false;
+    let cleared = false;
+
+    registryNames.forEach(name => {
+      let registry;
+      try {
+        registry = popup[name];
+      } catch (_) {
+        registry = null;
+      }
+      if (!registry || typeof registry !== 'object') return;
+
+      Object.keys(registry).forEach(key => {
+        const element = registry[key];
+        try {
+          element?.remove?.();
+        } catch (_) {}
+        try {
+          delete registry[key];
+        } catch (_) {}
+        cleared = true;
+      });
+    });
+
+    return cleared;
+  }
+
   const WindowBridge = Object.freeze({
     isOpen,
     getDocument,
@@ -90,7 +149,11 @@
     focus,
     close,
     onMessage,
-    postMessage
+    postMessage,
+    get,
+    set,
+    call,
+    clearManagedNodes
   });
 
   globalScope.WindowBridge = WindowBridge;

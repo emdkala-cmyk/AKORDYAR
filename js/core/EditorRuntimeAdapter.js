@@ -29,7 +29,7 @@
     },
 
     getSong() {
-      return globalScope.EdCurAdapter?.getEdCur?.() || globalScope.edCur || null;
+      return globalScope.EdCurAdapter?.getEdCur?.() || null;
     },
 
     setSong(song) {

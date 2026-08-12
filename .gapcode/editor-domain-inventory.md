@@ -208,3 +208,24 @@ setter، تست hot-swap و Electron را اضافه کند.
 `EditorCommitService` نیز به فهرست مرزهای فعال اضافه شده است؛ این سرویس state
 را مالک نمی‌شود و فقط ترتیب commit به History، seq state و Performance bridge
 را از طریق callbackها تضمین می‌کند.
+
+## آخرین snapshot واقعی — ۱۲ اوت ۲۰۲۶، پس از extraction timeline/popup
+
+| بخش | مالک فعلی |
+|---|---|
+| projection هدر ترک و lane | `js/core/TimelineTrackRendererService.js` |
+| drag/drop فایل صوتی | `js/editor/AudioDropImportService.js` |
+| مالک canonical song و facade `window.edCur` | `js/core/EdCurAdapter.js` |
+| popup lifecycle و cross-document property access | `js/core/WindowBridge.js` |
+
+```text
+js/app.js        117
+js/app/core.js   5662 (line-budget)
+js/app/editor.js 6208 (line-budget)
+npm test         59 test entries passed
+```
+
+در این موج بدنهٔ قدیمی `renderTracks` به‌طور کامل از `core.js` حذف شد؛
+wrapperهای `renderTracks`، `selectTrack` و `updateTrackSelectionUI` برای حفظ
+نام‌های legacy باقی مانده‌اند و به سرویس جدید delegate می‌کنند. callbackهای
+وابسته به `editor.js` lazy هستند تا ترتیب load در وب و Electron تغییر نکند.
