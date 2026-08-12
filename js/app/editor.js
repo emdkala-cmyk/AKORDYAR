@@ -5222,9 +5222,31 @@ if ($('edDoBoth')) {
 
     // -- Transposition --
     let _edSyncingKey = false; // flag to prevent onchange during programmatic key update
+    let edKeyCommandService = null;
+    function getEditorKeyCommandService() {
+      if (
+        !edKeyCommandService &&
+        typeof window.EditorKeyCommandService?.create === 'function'
+      ) {
+        edKeyCommandService = window.EditorKeyCommandService.create({
+          transposeChord: (name, semitones) => edTransposeChord(name, semitones),
+          transposeKey: (key, semitones, preferSharp) =>
+            window.EditorNotationService?.transposeKey(
+              key,
+              semitones,
+              preferSharp
+            ) || key,
+          keyDelta: (fromKey, toKey) =>
+            window.EditorNotationService?.keyDelta(fromKey, toKey),
+          ensureBaseChordNamesAligned: song =>
+            getEditorChordStateService()?.ensureBaseChordNamesAligned(song)
+        });
+      }
+      return edKeyCommandService;
+    }
+
     function edTransposeKeyName(key, semitones) {
-      if (!key || !semitones) return key;
-      return window.EditorNotationService?.transposeKey(
+      return getEditorKeyCommandService()?.transposeKeyName(
         key,
         semitones,
         resolveAccidentalPreference()
@@ -5267,18 +5289,17 @@ if ($('edDoBoth')) {
     }
 
     // ===== CENTRAL KEY/TRANSPOSE FUNCTIONS =====
-    function keyToSemi(key) { return ED_SEMITONE[key] != null ? ED_SEMITONE[key] : -1; }
-    function keyDelta(fromKey, toKey) {
-      return window.EditorNotationService?.keyDelta(fromKey, toKey)
-        || ((keyToSemi(toKey) - keyToSemi(fromKey)) % 12 + 12) % 12;
+    function keyToSemi(key) {
+      return getEditorKeyCommandService()?.keyToSemi(key) ?? -1;
     }
-
-    // Only modify ch.name in place — preserves position, spacing, alignment, everything
+    function keyDelta(fromKey, toKey) {
+      return getEditorKeyCommandService()?.keyDelta(fromKey, toKey) ?? 0;
+    }
     function transposeChordNamesInPlace(chords, semitones) {
-      if (!chords || !chords.length || !semitones) return;
-      for (const ch of chords) {
-        if (ch.name) ch.name = edTransposeChord(ch.name, semitones);
-      }
+      return getEditorKeyCommandService()?.transposeChordNamesInPlace(
+        chords,
+        semitones
+      ) || 0;
     }
 
     // Central refresh: update all UI from state
@@ -5310,15 +5331,12 @@ if ($('edDoBoth')) {
 
     // TRANSPOSE: always compute from baseChordNames (never from already-transposed chords)
     function applyTranspose(newTranspose) {
-      if (!edCur || edCur.editorLocked) return;
-      const names = edEnsureBaseChordNamesAligned();
-      edCur.chords.forEach((ch, i) => {
-        const baseName = (i < names.length) ? names[i] : ch.name;
-        if (baseName) ch.name = edTransposeChord(baseName, newTranspose);
-      });
-      edCur.transpose = newTranspose;
-      edCur.key = edTransposeKeyName(edCur.originalKey || edCur.key, newTranspose) || edCur.key;
-      edCur.keyMode = edCur.keyMode || 'maj';
+      const result = getEditorKeyCommandService()?.applyTranspose(
+        edCur,
+        newTranspose,
+        resolveAccidentalPreference()
+      );
+      if (!result?.changed) return;
       // همگام‌سازی ترنسپز با ورژن فعال فعلی
       if (typeof saveCurrentVersion === 'function') saveCurrentVersion();
       refreshKeyUI();
@@ -5330,18 +5348,12 @@ if ($('edDoBoth')) {
 
     // KEY CHANGE: only modify chord names in current state (from baseChordNames)
     function applyKeyChange(newKey, newMode) {
-      if (!edCur || edCur.editorLocked) return;
-      const origKey = edCur.originalKey || edCur.key;
-      const delta = keyDelta(origKey, newKey);
-      // Restore original names first, then apply new key
-      const names = edEnsureBaseChordNamesAligned();
-      edCur.chords.forEach((ch, i) => {
-        const baseName = (i < names.length) ? names[i] : ch.name;
-        if (baseName) ch.name = edTransposeChord(baseName, delta);
-      });
-      edCur.key = newKey;
-      edCur.keyMode = newMode;
-      edCur.transpose = 0;
+      const result = getEditorKeyCommandService()?.applyKeyChange(
+        edCur,
+        newKey,
+        newMode
+      );
+      if (!result?.changed) return;
       refreshKeyUI();
       renderAllChordsAndText();
       edSaveSong();
@@ -5351,21 +5363,12 @@ if ($('edDoBoth')) {
 
     // ORIGINAL KEY CHANGE: update baseChordNames and apply
     function applyOriginalKeyChange(newKey, newMode) {
-      if (!edCur) return;
-      const oldOrigKey = edCur.originalKey || edCur.key;
-      const delta = keyDelta(oldOrigKey, newKey);
-      edEnsureBaseChordNamesAligned();
-      // Update baseChordNames
-      if (delta && edCur.baseChordNames.length) {
-        edCur.baseChordNames = edCur.baseChordNames.map(name => name ? edTransposeChord(name, delta) : name);
-      }
-      // Apply to current chords
-      if (delta) transposeChordNamesInPlace(edCur.chords, delta);
-      edCur.originalKey = newKey;
-      edCur.originalKeyMode = newMode;
-      edCur.key = newKey;
-      edCur.keyMode = newMode;
-      edCur.transpose = 0;
+      const result = getEditorKeyCommandService()?.applyOriginalKeyChange(
+        edCur,
+        newKey,
+        newMode
+      );
+      if (!result?.changed) return;
       refreshKeyUI();
       renderAllChordsAndText();
       edSaveSong();
@@ -5373,14 +5376,8 @@ if ($('edDoBoth')) {
 
     // RESET TO ORIGINAL: restore chord names from baseChordNames, preserve positions
     function resetToOriginalKey() {
-      if (!edCur) return;
-      const names = edCur.baseChordNames || [];
-      edCur.chords.forEach((ch, i) => {
-        if (i < names.length && names[i]) ch.name = names[i];
-      });
-      edCur.key = edCur.originalKey || edCur.key;
-      edCur.keyMode = edCur.originalKeyMode || edCur.keyMode || 'maj';
-      edCur.transpose = 0;
+      const result = getEditorKeyCommandService()?.resetToOriginalKey(edCur);
+      if (!result?.changed) return;
       refreshKeyUI();
       renderAllChordsAndText();
       edSaveSong();
