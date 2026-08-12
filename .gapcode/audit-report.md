@@ -33,12 +33,16 @@
 |---|---:|
 | `js/app.js` | ۱۱۶ خط |
 | `js/app/core.js` | ۵٬۸۶۳ خط |
-| `js/app/editor.js` | ۶٬۶۷۲ خط |
+| `js/app/editor.js` | ۶٬۷۰۰ خط |
 | `js/app/print.js` | ۱۹۷ خط |
 | `js/app/search.js` | ۱۹۵ خط |
+| `js/editor/EditorAnchorService.js` | ۱۹۷ خط |
+| `js/editor/EditorSelectionService.js` | ۶۱ خط |
+| `js/editor/EditorChordRenderer.js` | ۱۵۶ خط |
+| `js/editor/EditorChordStateService.js` | ۸۵ خط |
 | `js/editor/EditorHydrationService.js` | ۱۷۵ خط |
 | `js/editor/EditorLifecycleService.js` | ۱۰۴ خط |
-| تست‌های `npm test` | ۳۳ ورودی موفق |
+| تست‌های `npm test` | ۳۴ ورودی موفق |
 | inline attribute در مسیرهای برنامه | صفر |
 
 ### قراردادهای تثبیت‌شده
@@ -48,6 +52,7 @@
 3. `EventBindings` رویدادهای delegated را ثبت می‌کند و برای فرم‌ها `input`/`change` را از `click` جدا می‌کند.
 4. loader معمولی dynamic است و `document.write` فقط با `data-loader-mode="document-write"` فعال می‌شود.
 5. Electron فقط کانال‌های whitelist‌شده را می‌پذیرد و sender پنجره/‌origin را بررسی می‌کند.
+6. state انتخاب آکورد از مسیر `EditorSelectionService` عبور می‌کند و wrapperهای legacy حفظ شده‌اند.
 
 ### بدهی‌های قابل پیگیری
 

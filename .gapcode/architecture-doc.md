@@ -12,12 +12,12 @@
 |---|---|
 | loader | `js/app.js`، loader ترتیبی ۱۱۶ خطی؛ `document.write` فقط compatibility path صریح |
 | هستهٔ برنامه | `js/app/core.js`، ۵٬۸۶۳ خط |
-| ادیتور | `js/app/editor.js`، ۶٬۶۷۲ خط |
-| استخراج‌های جدید | `EditorHydrationService`، `EditorLifecycleService`، `HistoryService`، `EditorAnchorService`، `EditorChordRenderer`، `EditorChordStateService`، `EventBindings` |
+| ادیتور | `js/app/editor.js`، ۶٬۷۰۰ خط |
+| استخراج‌های جدید | `EditorHydrationService`، `EditorLifecycleService`، `EditorNotationService`، `EditorAnchorService`، `EditorSelectionService`، `EditorChordRenderer`، `EditorChordStateService`، `EventBindings` |
 | مالکیت سند فعلی | setter رسمی `setEditorSong` در core و bridge خواندن/نوشتن `EdCurAdapter` |
 | رویدادهای HTML | در محدودهٔ فعلی `Akordyar.html` و مسیرهای app/archive/projecthub/search، بدون `onclick`/`onchange`/`oninput` |
 | Electron | `contextBridge`، whitelist کانال‌ها، sender/origin validation و validation ورودی IPC |
-| تست | `npm test` با ۳۳ ورودی موفق |
+| تست | `npm test` با ۳۴ ورودی موفق |
 
 ### جریان فعلی state
 
@@ -44,6 +44,7 @@ Electron renderer
 - بخش‌هایی از editor هنوز handler property داخلی (`element.onclick = ...`) دارند؛ این‌ها با inline attribute فرق دارند و در extraction بعدی به controller منتقل می‌شوند.
 - مترونوم ۶/۸ اکنون فقط ضرب اول را accent می‌کند؛ صدای مترونوم از تنظیمات قابل preview است.
 - انتخاب لاین، resize عمودی و میانبر `Z` در مرز فعلی core/editor تثبیت شده‌اند و contract test دارند.
+- state انتخاب آکورد از طریق `EditorSelectionService` mutation و projection می‌شود؛ مالکیت آرایهٔ legacy همچنان در editor است.
 
 ## 1. Overall Architecture (Layered)
 

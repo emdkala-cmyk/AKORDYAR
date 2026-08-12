@@ -23,6 +23,7 @@
 | chord renderer | `js/editor/EditorChordRenderer.js` | استخراج‌شده؛ projection callbackمحور با حفظ wrapper legacy |
 | chord state | `js/editor/EditorChordStateService.js` | استخراج‌شده؛ mutationهای deterministic برای chords/base names |
 | anchor geometry | `js/editor/EditorAnchorService.js` | استخراج‌شده؛ Range، caret و تشخیص anchor با DOM dependency تزریقی |
+| selection state | `js/editor/EditorSelectionService.js` | استخراج‌شده؛ انتخاب، toggle، clear و projection کلاس selected |
 | lifecycle | `js/editor/EditorLifecycleService.js` | استخراج‌شده |
 | hydration/restore | `js/editor/EditorHydrationService.js` | استخراج‌شده؛ ۱۷۵ خط |
 | event binding | `js/core/EventBindings.js` | استخراج‌شده و برای action/form contract تست دارد |
@@ -32,15 +33,15 @@
 | فایل | خطوط | مرز فعلی |
 |---|---:|---|
 | `js/app/core.js` | ۵٬۸۶۳ | DAW/runtime glue، timeline، transport و compatibility wrapperها |
-| `js/app/editor.js` | ۶٬۶۷۲ | render/editor commandها، audio restore و legacy UI glue |
+| `js/app/editor.js` | ۶٬۷۰۰ | render/editor commandها، audio restore و legacy UI glue؛ selection از مسیر سرویس |
 | `js/app/search.js` | ۱۹۵ | quick search؛ نتیجهٔ داینامیک با `data-command` |
 
 ### extraction بعدی با ریسک کنترل‌شده
 
-1. `EditorRenderer`: جداکردن render editor/chords و DOM projection.
-2. `EditorSelectionService`: selection، drag، commit/restore و chord modal.
-3. `EditorAudioRestoreService`: مسیرهای restore صدا از editor، با حفظ `EditorRuntimeAdapter`.
-4. `TimelineController`: commandهای DAW و render loop با تست load-order.
+1. `EditorSelectionService`: تکمیل مرز drag، commit/restore و chord modal.
+2. `EditorAudioRestoreService`: مسیرهای restore صدا از editor، با حفظ `EditorRuntimeAdapter`.
+3. `TimelineController`: commandهای DAW و render loop با تست load-order.
+4. `LyricPopupController`: پاپ‌اپ‌های lyric/chord line پس از تثبیت مرزهای state.
 
 هر مرحله باید قبل از جابه‌جایی، contract test و regression کامل داشته باشد؛ ترتیب scriptهای `Akordyar.html` بدون عبور تست load-order تغییر نمی‌کند.
 
