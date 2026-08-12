@@ -69,6 +69,32 @@
 - بررسی ادامهٔ extraction محاسبات DOM editor بعد از `EditorAnchorService`
 - نگه‌داشتن رفتار ۶/۸ در regression test تا accent ثانویه دوباره برنگردد
 
+---
+
+## به‌روزرسانی معتبر — ۱۲ اوت ۲۰۲۶
+
+### snapshot پس از استخراج فرمان‌های گام و ترنسپوز
+
+| شاخص | مقدار |
+|---|---:|
+| `js/app.js` | ۱۱۶ خط |
+| `js/app/core.js` | ۵٬۸۶۳ خط |
+| `js/app/editor.js` | ۶٬۷۶۵ خط |
+| `js/editor/EditorKeyCommandService.js` | ۱۶۷ خط |
+| تست‌های `npm test` | ۳۸ ورودی موفق |
+| inline attribute در مسیرهای برنامه | صفر |
+
+### مرز جدید
+
+`EditorKeyCommandService` فقط mutationهای deterministic مربوط به `transpose`، تغییر گام جاری، تغییر گام اصلی و reset را انجام می‌دهد. editor همچنان مالک `edCur`، render، persistence، نسخهٔ آکورد و sync کلیپ‌های timeline است.
+
+### کنترل
+
+- تست مستقل سرویس و load-order contract موفق.
+- `npm test`: هر ۳۸ ورودی موفق.
+- `node --check` و `git diff --check`: موفق.
+- commit فنی: `6039a81`.
+
 # Akordyar � Audit Report & Dependency Map
 
 **Phase 1/15 � Audit ???? | 2026-08-09**
