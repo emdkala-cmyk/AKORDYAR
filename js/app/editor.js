@@ -4630,6 +4630,16 @@ function edBlankSong() {
         el.classList.toggle('selected', edSelectedChords.includes(chordIndex));
       });
     }
+    let edChordDragService = null;
+    function getEditorChordDragService() {
+      if (
+        !edChordDragService &&
+        typeof window.EditorChordDragService?.create === 'function'
+      ) {
+        edChordDragService = window.EditorChordDragService.create();
+      }
+      return edChordDragService;
+    }
     // Clear selection when clicking empty area
 if ($('editorWrap')) {
   $('editorWrap').addEventListener('mousedown', e => {
@@ -4707,20 +4717,58 @@ function edAttachChordDrag(el, idx) {
           if (ev.clientX < wrapRect.left || ev.clientX > wrapRect.right || ev.clientY < wrapRect.top || ev.clientY > wrapRect.bottom) {
             edSelectedChords.sort((a,b)=>b-a).forEach(i => edRemoveChordAt(i)); edClearChordSelection();
           } else {
-            function findNearestChar(lineEl, mouseX) {
-              const text = lineEl.textContent.replace(/\u200B/g,''); if (!text.length) return 0;
-              let bestChar = 0, bestDist = Infinity, charCount = 0;
-              const walker = document.createTreeWalker(lineEl, NodeFilter.SHOW_TEXT); let node;
-              while (node = walker.nextNode()) { for (let j = 0; j < node.textContent.length; j++) { try { const r = document.createRange(); r.setStart(node,j); r.setEnd(node,j+1); const rect = r.getBoundingClientRect(); if (rect.width===0) continue; const dist = Math.abs(mouseX-(rect.left+rect.width/2)); if (dist<bestDist) { bestDist=dist; bestChar=charCount; } } catch(ex) {} charCount++; } }
-              return Math.max(0, Math.min(bestChar, text.length));
-            }
-            let anchorIdx=0, anchorDist=Infinity;
-            edSelectedChords.forEach((i,si) => { const c=edCur.chords[i]; if(!c)return; const le=$('editor').children[c.lineIndex]; if(!le)return; const lr=le.getBoundingClientRect(); const midX=lr.left+c.charIndex*(lr.width/Math.max(le.textContent.replace(/\u200B/g,'').length,1)); const d=Math.abs(ev.clientX-midX); if(d<anchorDist){anchorDist=d;anchorIdx=si;} });
+            const dragService = getEditorChordDragService();
+            const anchorIdx = dragService
+              ? dragService.findAnchorSelectionPosition(
+                  edSelectedChords,
+                  edCur.chords,
+                  lineIndex => $('editor').children[lineIndex],
+                  ev.clientX
+                )
+              : 0;
             const anchorOrig=edCur.chords[edSelectedChords[anchorIdx]];
             const anchorLine=$('editor').children[anchorOrig.lineIndex];
-            const anchorNewChar=findNearestChar(anchorLine, ev.clientX);
+            const anchorNewChar = dragService
+              ? dragService.findNearestChar(anchorLine, ev.clientX)
+              : 0;
             const charDelta=anchorNewChar-anchorOrig.charIndex;
-            edSelectedChords.forEach(i => { const c=edCur.chords[i]; if(!c)return; const lineEl=$('editor').children[c.lineIndex]; const textLen=lineEl?lineEl.textContent.replace(/\u200B/g,'').length:0; let newChar=c.charIndex+charDelta; newChar=Math.max(0,Math.min(newChar,textLen)); if(isCopy){edCur.chords.push({lineIndex:c.lineIndex,charIndex:newChar,anchorType:newChar<=0?'LineStart':newChar>=textLen?'LineEnd':'OnCharacter',name:c.name});if(!Array.isArray(edCur.baseChordNames))edCur.baseChordNames=[];edCur.baseChordNames.push(edBaseNameFromDisplayed(c.name));}else{c.charIndex=newChar;c.anchorType=newChar<=0?'LineStart':newChar>=textLen?'LineEnd':'OnCharacter';} });
+            edSelectedChords.forEach(i => {
+              const c=edCur.chords[i]; if(!c)return;
+              const lineEl=$('editor').children[c.lineIndex];
+              const textLen=lineEl
+                ? lineEl.textContent.replace(/\u200B/g,'').length
+                : 0;
+              const moved = dragService
+                ? dragService.moveChord(c, charDelta, textLen)
+                : (() => {
+                    const charIndex = Math.max(
+                      0,
+                      Math.min((c.charIndex || 0) + charDelta, textLen)
+                    );
+                    return {
+                      charIndex,
+                      anchorType:
+                        charIndex <= 0
+                          ? 'LineStart'
+                          : charIndex >= textLen
+                            ? 'LineEnd'
+                            : 'OnCharacter'
+                    };
+                  })();
+              if(isCopy){
+                edCur.chords.push({
+                  lineIndex:c.lineIndex,
+                  charIndex:moved.charIndex,
+                  anchorType:moved.anchorType,
+                  name:c.name
+                });
+                if(!Array.isArray(edCur.baseChordNames))edCur.baseChordNames=[];
+                edCur.baseChordNames.push(edBaseNameFromDisplayed(c.name));
+              }else{
+                c.charIndex=moved.charIndex;
+                c.anchorType=moved.anchorType;
+              }
+            });
           }
           edRenderChords();
           edCommit();

@@ -55,6 +55,10 @@ assert.ok(
     scriptIndex('js/app/core.js')
 );
 assert.ok(
+  scriptIndex('js/editor/EditorChordDragService.js') <
+    scriptIndex('js/app/core.js')
+);
+assert.ok(
   scriptIndex('js/core/EdCurAdapter.js') <
     scriptIndex('js/archive/ArchiveRuntimeAdapter.js')
 );
