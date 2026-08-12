@@ -4315,74 +4315,57 @@ function edBlankSong() {
       if ($('edGenre')) $('edGenre').value = edCur.genre || '';
     }
 
+    let edLyricsRenderer = null;
+    function getEditorLyricsRenderer() {
+      if (
+        !edLyricsRenderer &&
+        typeof window.EditorLyricsRenderer?.create === 'function'
+      ) {
+        edLyricsRenderer = window.EditorLyricsRenderer.create({
+          getState: () => ({
+            song: edCur,
+            editor: $('editor'),
+            printTitle: $('edPrintTitle'),
+            printSub: $('edPrintSub'),
+            statChordCount: $('statChordCount'),
+            statLineCount: $('statLineCount'),
+            titleFallback: t('untitled'),
+            buildSubtext: song => {
+              const displayKey = song.transpose
+                ? (edTransposeKeyName(
+                    song.originalKey || song.key,
+                    song.transpose
+                  ) || song.key)
+                : song.key;
+              const keyStr =
+                displayKey + (song.keyMode === 'min' ? 'm' : '');
+              return [
+                song.artist,
+                song.key
+                  ? (currentLang === 'fa' ? 'گام: ' : 'Key: ') + keyStr
+                  : null,
+                song.transpose
+                  ? (
+                      currentLang === 'fa'
+                        ? 'ترنسپوز '
+                        : 'Transpose '
+                    ) +
+                    (song.transpose > 0 ? '+' : '') +
+                    song.transpose
+                  : null
+              ].filter(Boolean).join('  ·  ');
+            }
+          })
+        });
+      }
+      return edLyricsRenderer;
+    }
+
     function edRenderEditor(rebuildContent) {
-  if (!edCur) return;
-  const ed = $('editor');
-  if (!ed) return;
-
-  const st = edCur.styles || {};
-  if (!edCur.lineColors) edCur.lineColors = [];
-
-  ed.style.fontSize = st.tSize + 'px';
-  ed.style.color = st.tColor;
-  ed.style.fontFamily = st.tFont;
-  ed.style.fontWeight = st.tBold ? 'bold' : 'normal';
-  ed.style.textAlign = st.align || 'center';
-
-  const displayKey = edCur.transpose ? (edTransposeKeyName(edCur.originalKey || edCur.key, edCur.transpose) || edCur.key) : edCur.key;
-  const keyStr = displayKey + (edCur.keyMode === 'min' ? 'm' : '');
-  const sub = [
-    edCur.artist,
-    edCur.key ? (currentLang === 'fa' ? 'گام: ' : 'Key: ') + keyStr : null,
-    edCur.transpose
-      ? ((currentLang === 'fa' ? 'ترنسپوز ' : 'Transpose ') +
-         (edCur.transpose > 0 ? '+' : '') + edCur.transpose)
-      : null
-  ].filter(Boolean).join('  ·  ');
-
-  if ($('edPrintTitle')) $('edPrintTitle').textContent = edCur.title || t('untitled');
-  if ($('edPrintSub')) $('edPrintSub').textContent = sub;
-
-  if (rebuildContent !== false) {
-    const frag = document.createDocumentFragment();
-
-    edCur.lyrics.split('\n').forEach((line, li) => {
-      const d = document.createElement('div');
-      d.className = 'eline';
-      d.dir = 'auto';
-      d.dataset.lineIndex = li;
-      const lineColor = edCur.lineColors[li];
-      d.style.fontSize = st.tSize + 'px';
-      d.style.color = lineColor || st.tColor;
-      d.style.fontFamily = st.tFont;
-      d.style.fontWeight = st.tBold ? 'bold' : 'normal';
-      d.style.textAlign = st.align || 'center';
-      d.textContent = line || '\u200B';
-      frag.appendChild(d);
-    });
-
-    ed.innerHTML = '';
-    ed.appendChild(frag);
-  } else {
-    ed.querySelectorAll('.eline').forEach((el, li) => {
-      const lineColor = edCur.lineColors[li];
-      el.style.fontSize = st.tSize + 'px';
-      el.style.color = lineColor || st.tColor;
-      el.style.fontFamily = st.tFont;
-      el.style.fontWeight = st.tBold ? 'bold' : 'normal';
-      el.style.textAlign = st.align || 'center';
-    });
-  }
-
-  edRenderChords();
-  // Update song stats panel
-  if (edCur) {
-    const chordCount = (edCur.chords || []).filter(c => c.name).length;
-    const lineCount = (edCur.lyrics || '').split('\n').length;
-    if ($('statChordCount')) $('statChordCount').textContent = chordCount;
-    if ($('statLineCount')) $('statLineCount').textContent = lineCount;
-  }
-}
+      if (!edCur) return;
+      getEditorLyricsRenderer()?.render(rebuildContent !== false);
+      edRenderChords();
+    }
 
 
     // -- Chord Rendering --
