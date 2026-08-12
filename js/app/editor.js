@@ -4838,6 +4838,24 @@ function getEditorTextSelectionService() {
   return edTextSelectionService;
 }
 
+let edChordCommandService = null;
+function getEditorChordCommandService() {
+  if (
+    !edChordCommandService &&
+    typeof window.EditorChordCommandService?.create === 'function'
+  ) {
+    edChordCommandService = window.EditorChordCommandService.create({
+      baseNameFromDisplayed: (name, song) => {
+        const transpose = Number(song?.transpose) || 0;
+        return transpose && name
+          ? edTransposeChord(name, -transpose)
+          : (name || '');
+      }
+    });
+  }
+  return edChordCommandService;
+}
+
 function edRestoreSelectionState(state) {
   const service = getEditorTextSelectionService();
   if (service) {
@@ -5127,9 +5145,8 @@ if ($('edDoBoth')) {
       edChordModalMode = 'editor';
       // Set currentChord from existing chord
       if (idx !== null && edCur.chords[idx]) {
-        const m = edCur.chords[idx].name.match(/^([A-G][#b]?)(maj|m(?:in)?|dim|aug|sus2|sus4)?(M7|7|9|b9|#9|11|#11|13|6)?(?:\/([A-G][#b]?))?$/);
-        if (m) { let tp = m[2] || 'None'; if (tp === 'm') tp = 'min'; currentChord = { root: m[1] || 'None', type: tp, tension: m[3] || '', bass: m[4] || 'None' }; }
-        else currentChord = { root: 'None', type: 'None', tension: '', bass: 'None' };
+        const parsed = getEditorChordCommandService()?.parseName(edCur.chords[idx].name);
+        currentChord = parsed || { root: 'None', type: 'None', tension: '', bass: 'None' };
       } else {
         currentChord = { root: 'None', type: 'None', tension: '', bass: 'None' };
       }
@@ -5162,20 +5179,21 @@ if ($('edDoBoth')) {
     function edCloseChordModal() { $('chord-modal').classList.remove('show'); edPendingAnchor = null; edChordIdx = null; edChordModalMode = null; }
     function edConfirmChord() {
       if (!edCur || edChordModalMode !== 'editor') return;
-      let name = ($('chordManual')?.value || '').trim();
-      name = name.replace(/^([A-G][#b]?)maj$/, '$1');
-      name = name.replace(/^([A-G][#b]?)min/i, '$1m');
+      const commandService = getEditorChordCommandService();
+      const name = commandService
+        ? commandService.normalizeName($('chordManual')?.value || '')
+        : ($('chordManual')?.value || '').trim();
       if (!name) { edCloseChordModal(); return; }
-      if (edChordIdx !== null && edCur.chords[edChordIdx]) {
-        edCur.chords[edChordIdx].name = name;
-      } else if (edPendingAnchor) {
-        edCur.chords.push({ ...edPendingAnchor, name });
-      }
-      // Keep baseChordNames in sync with chord edits
-      if (!edCur.baseChordNames) edCur.baseChordNames = [];
-      if (edChordIdx !== null && edCur.chords[edChordIdx]) {
-        edSyncBaseChordName(edChordIdx);
-      } else if (edPendingAnchor) {
+      const chordIndex = edChordIdx;
+      const pendingAnchor = edPendingAnchor;
+      if (commandService) {
+        commandService.applyName(edCur, chordIndex, pendingAnchor, name);
+      } else if (chordIndex !== null && edCur.chords[chordIndex]) {
+        edCur.chords[chordIndex].name = name;
+        edSyncBaseChordName(chordIndex);
+      } else if (pendingAnchor) {
+        edCur.chords.push({ ...pendingAnchor, name });
+        if (!edCur.baseChordNames) edCur.baseChordNames = [];
         edCur.baseChordNames.push(edBaseNameFromDisplayed(name));
       }
       edPendingAnchor = null; edChordIdx = null;
