@@ -383,8 +383,8 @@ ipcMain.handle('print:open-window', async (event, htmlContent) => {
       title: 'Print Preview - Akordyar',
       webPreferences: {
         nodeIntegration: false,
-        contextIsolation: false,
-        sandbox: false,
+        contextIsolation: true,
+        sandbox: true,
         webSecurity: false
       }
     });
@@ -620,11 +620,11 @@ function createWindow() {
     minHeight: 700,
     title: 'Akordyar',
     backgroundColor: '#0d1117',
-    webPreferences: {
-     nodeIntegration: true,
-     contextIsolation: true,
-     webSecurity: false,
-     preload: path.join(__dirname, 'preload.js')
+   webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      webSecurity: false,
+      preload: path.join(__dirname, 'preload.js')
     }
 
   });

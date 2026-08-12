@@ -899,67 +899,6 @@
   <script src="js/core/AudioFileLoader.js"></script>
   <script src="js/core/ProjectStore.js"></script>
 
-  <!-- Electron API Bridge -->
-  <script>
-    if (typeof require !== 'undefined' && typeof window !== 'undefined') {
-      // Only set up inline bridge if preload.js hasn't already exposed electronAPI
-      if (!window.electronAPI || !window.electronAPI.isElectron) {
-        try {
-          const electron = window.require('electron');
-          window.electronAPI = {
-            isElectron: true,
-            readAudioFile: async (filePath) => {
-              const result = await electron.ipcRenderer.invoke('audio:read-file', filePath);
-              return result;
-            },
-            copyFile: async (sourcePath, projectAudioDir) => {
-              return await electron.ipcRenderer.invoke('audio:copy-to-project', sourcePath, projectAudioDir);
-            },
-            deleteFile: async (filePath) => {
-              return await electron.ipcRenderer.invoke('audio:delete-file', filePath);
-            },
-            resolvePath: async (projectFilePath, relativePath) => {
-              return await electron.ipcRenderer.invoke('audio:resolve-path', projectFilePath, relativePath);
-            },
-            showMessageBox: async (options) => {
-              return await electron.ipcRenderer.invoke('dialog:show-message-box', options);
-            },
-            openFileDialog: async () => {
-              return await electron.ipcRenderer.invoke('dialog:open-file');
-            },
-            saveFileDialog: async () => {
-              return await electron.ipcRenderer.invoke('dialog:save-file');
-            },
-            saveProjectWithAudio: async (projectData, projectFilePath) => {
-              return await electron.ipcRenderer.invoke('project:save-with-audio', projectData, projectFilePath);
-            },
-            loadProjectFile: async (filePath) => {
-              return await electron.ipcRenderer.invoke('project:load-file', filePath);
-            },
-            getProjectDir: async (filePath) => {
-              const path = window.require('path');
-              return path.dirname(filePath);
-            },
-            checkFileExists: async (filePath) => {
-              return await electron.ipcRenderer.invoke('fs:check-exists', filePath);
-            },
-            getPlatformInfo: () => ({
-              platform: window.require('os').platform(),
-              arch: window.require('os').arch(),
-              nodeVersion: process.versions.node,
-              electronVersion: process.versions.electron
-            })
-          };
-          console.log('[Bridge] Electron API bridge initialized (inline mode)');
-        } catch (e) {
-          console.log('[Bridge] Not in Electron environment or preload not available');
-        }
-      } else {
-        console.log('[Bridge] Using preload.js electronAPI');
-      }
-    }
-  </script>
-
   <script src="js/laminor-extractor.js"></script>
   <script src="js/importers/laminor/extractLaminorAkordyarLines.js"></script>
   <script src="js/archive/ArchiveRuntimeAdapter.js"></script>

@@ -38,7 +38,11 @@
     }
 
     function getArchiveDAW() {
-      const daw = getArchiveRuntimeAdapter().getDAW?.();
+      const adapter = getArchiveRuntimeAdapter();
+      if (typeof adapter.getDAWOrThrow === 'function') {
+        return adapter.getDAWOrThrow();
+      }
+      const daw = adapter.getDAW?.();
       if (!daw) throw new Error('ArchiveRuntimeAdapter: DAW is unavailable');
       return daw;
     }

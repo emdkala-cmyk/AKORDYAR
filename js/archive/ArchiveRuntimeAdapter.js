@@ -12,8 +12,20 @@ const ArchiveRuntimeAdapter = Object.freeze({
     return archiveRuntimeGlobal.EdCurAdapter?.getEdCur?.() || null;
   },
 
+  getSongOrThrow() {
+    const song = this.getSong();
+    if (!song) {
+      throw new Error('ArchiveRuntimeAdapter: editor song is unavailable');
+    }
+    return song;
+  },
+
   setSong(song) {
-    archiveRuntimeGlobal.EdCurAdapter?.setEdCur?.(song);
+    const setEdCur = archiveRuntimeGlobal.EdCurAdapter?.setEdCur;
+    if (typeof setEdCur !== 'function') {
+      throw new Error('ArchiveRuntimeAdapter: EdCurAdapter.setEdCur is unavailable');
+    }
+    setEdCur(song);
     return song;
   },
 
@@ -21,12 +33,33 @@ const ArchiveRuntimeAdapter = Object.freeze({
     return archiveRuntimeGlobal.RuntimeStateAdapter?.getDAW?.() || null;
   },
 
+  getDAWOrThrow() {
+    const daw = this.getDAW();
+    if (!daw) {
+      throw new Error('ArchiveRuntimeAdapter: DAW state is unavailable');
+    }
+    return daw;
+  },
+
   getPERF() {
     return archiveRuntimeGlobal.RuntimeStateAdapter?.getPERF?.() || null;
   },
 
-  resetPerformanceSerialization() {
+  getPERFOrThrow() {
     const perf = this.getPERF();
+    if (!perf) {
+      throw new Error('ArchiveRuntimeAdapter: PERF state is unavailable');
+    }
+    return perf;
+  },
+
+  getPerformanceStore() {
+    return archiveRuntimeGlobal.RuntimeStateAdapter?.getPerformanceStore?.()
+      || this.getPERF();
+  },
+
+  resetPerformanceSerialization() {
+    const perf = this.getPerformanceStore();
     if (perf) perf.lastSerializedState = '';
   }
 });
