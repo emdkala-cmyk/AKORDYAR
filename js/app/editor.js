@@ -4588,16 +4588,32 @@ function edAttachChordDrag(el, idx) {
     // -- Scroll to reposition chords (handled above with rAF) --
 
     // -- Commit & Undo/Redo --
-function edCommit() {
-  if (!edCur || isHistoryApplying()) return;
+    let edCommitService = null;
+    function getEditorCommitService() {
+      if (
+        !edCommitService &&
+        typeof window.EditorCommitService?.create === 'function'
+      ) {
+        edCommitService = window.EditorCommitService.create({
+          getSong: () => edCur,
+          isHistoryApplying,
+          syncMetadata: (song, options) => SongMetadata.syncFromDom(song, options),
+          getSeqPoints: () => edSeqPoints,
+          setSeqPoints: points => getEditorSongStateService()?.setSeqPoints(points),
+          saveState,
+          rebuildSongDocument: () => {
+            if (typeof rebuildSongDocumentFromEdCur === 'function') {
+              rebuildSongDocumentFromEdCur();
+            }
+          }
+        });
+      }
+      return edCommitService;
+    }
 
-  SongMetadata.syncFromDom(edCur, {includeTimeSig: false, includeTempo: false, includeGenre: false});
-  getEditorSongStateService()?.setSeqPoints(edSeqPoints);
-
-  saveState();
-  // === Performance Architecture v2: sync key/transpose ===
-  if (typeof rebuildSongDocumentFromEdCur === 'function') rebuildSongDocumentFromEdCur();
-}
+    function edCommit() {
+      return getEditorCommitService()?.commit?.() || false;
+    }
 
 let edTextSelectionService = null;
 function getEditorTextSelectionService() {

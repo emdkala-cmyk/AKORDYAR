@@ -171,3 +171,40 @@ lifecycle.
 - `node --check`: موفق.
 - `git diff --check`: موفق.
 - commit فنی: `56d087e`.
+
+## آخرین snapshot واقعی — ۱۲ اوت ۲۰۲۶
+
+### extractionهای تکمیل‌شده
+
+| سرویس | مسئولیت |
+|---|---|
+| `EditorToolbarService` | binding نوار ابزار، style، metadata، key و lock |
+| `EditorSongPersistenceService` | snapshot و ذخیرهٔ song/DAW |
+| `EditorSongInitializationService` | restore، hydration و audio recovery |
+| `EditorChordVersionService` | نسخه‌های آکورد و clip snapshot |
+| `EditorGlobalBindingsService` | resize، Alt tracker و scroll lifecycle |
+| `EditorLyricsRenderer` | projection متن و آمار چاپ |
+| `EditorMutationService` | mutation خالص آکورد و حرکت/حذف |
+| `EditorChordInteractionService` | pointer/drag و commit interaction |
+
+### خطوط و تست
+
+```text
+js/app.js        116
+js/app/core.js   5893
+js/app/editor.js 6326
+npm test         47 test entries passed
+```
+
+### وضعیت مرز legacy
+
+`edCur` در `core.js` به setter رسمی و compatibility state ارنجر محدود شده
+است؛ `editor.js` هنوز ۲۰۱ رفرنس دارد، اما مسیرهای toolbar، persistence،
+initialization، version و listenerهای کوچک از آن خارج شده‌اند. `DAW` و `PERF`
+در سرویس‌های جدید فقط callback/adapter هستند. extraction بعدی باید روی popupهای
+cross-document و keyboard command بزرگ تمرکز کند و قبل از حذف compatibility
+setter، تست hot-swap و Electron را اضافه کند.
+
+`EditorCommitService` نیز به فهرست مرزهای فعال اضافه شده است؛ این سرویس state
+را مالک نمی‌شود و فقط ترتیب commit به History، seq state و Performance bridge
+را از طریق callbackها تضمین می‌کند.

@@ -275,3 +275,32 @@
   نگه داشته شده‌اند.
 - `window.edCur` در adapter مرز compatibility است و باید به‌تدریج تنها نقطهٔ
   legacy باقی‌مانده شود.
+
+## به‌روزرسانی معتبر — موج extraction ادیتور، ۱۲ اوت ۲۰۲۶
+
+در این موج، پنج مرز اجرایی جدید اضافه شد:
+
+1. `EditorToolbarService`
+2. `EditorSongPersistenceService`
+3. `EditorSongInitializationService`
+4. `EditorChordVersionService`
+5. `EditorGlobalBindingsService`
+
+همراه آن‌ها renderer متن، mutation/interaction آکورد و commandهای key/transpose
+در مسیرهای مستقل تست‌پذیر قرار گرفتند. `editor.js` از snapshot قبلی به ۶٬۳۲۶ خط
+رسیده است؛ `core.js` برابر ۵٬۸۹۳ خط و `app.js` برابر ۱۱۶ خط است.
+
+کنترل dependency budget اکنون نشان می‌دهد:
+
+- `core.js` فقط ۷ رفرنس `edCur` دارد و مسیرهای عمومی `DAW/PERF` را مستقیم لمس
+  نمی‌کند.
+- سرویس‌های جدید به `window.edCur`، `DAW` و `PERF` وابسته نیستند.
+- listenerهای کوچک global ادیتور یک‌بار ثبت می‌شوند و lifecycle destroy دارند.
+- `npm test` شامل ۴۷ ورودی موفق است.
+
+ریسک‌های باقی‌مانده شامل keyboard command بزرگ، popupهای cross-document،
+compatibility setter `setEditorSong` و بدنهٔ legacy render/mutation ادیتور است.
+
+آخرین extraction این موج، `EditorCommitService` است که commit/undo orchestration
+را callback محور کرده و contract آن تست مستقل دارد. شمارش فعلی `editor.js`
+۶٬۳۴۲ خط و suite کامل پس از این مرحله ۴۸ ورودی موفق است.

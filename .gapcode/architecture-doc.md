@@ -203,3 +203,37 @@ Legacy code may temporarily violate this until each domain is migrated.
 مرحلهٔ بعد باید روی `EditorSelectionService`/`EditorMutationService` و سپس
 `EditorRenderer` متمرکز شود؛ حذف مستقیم `edCur` از این بخش‌ها بدون contract test
 برای selection، transpose و lifecycle انجام نشود.
+
+## Snapshot معماری — ۱۲ اوت ۲۰۲۶، پس از موج extraction ادیتور
+
+### مرزهای جدید
+
+- `EditorToolbarService`: metadata/style/key/tempo و lock bindings.
+- `EditorSongPersistenceService`: snapshot و persistence سند + DAW.
+- `EditorSongInitializationService`: restore/hydration و بازیابی صوت.
+- `EditorChordVersionService`: version snapshot و timeline chord clips.
+- `EditorGlobalBindingsService`: lifecycle listenerهای resize/Alt/scroll.
+- `EditorLyricsRenderer`، `EditorMutationService` و
+  `EditorChordInteractionService`: renderer و interactionهای قبلی.
+
+### شمارش واقعی
+
+```text
+app.js       116
+core.js      5893
+editor.js    6326
+print.js     197
+search.js    195
+edCur refs در editor.js  201
+edCur refs در core.js      7
+npm test     47 test entries passed
+```
+
+این وضعیت هنوز hybrid است: مسیرهای جدید callback/adapter محور هستند، اما
+orchestration اصلی DOM و command keyboard در `editor.js` باقی مانده است. هدف
+مرحلهٔ بعد انتقال popup/keyboard بزرگ و کاهش مستقیم mutationهای `edCur` است؛
+حذف compatibility boundary تا زمانی که hot-swap و Electron contract تست نشده‌اند
+مجاز نیست.
+
+`EditorCommitService` نیز اکنون مرز commit به History و PerformanceStore را
+فراهم می‌کند؛ `edCommit()` فقط wrapper سازگاری است.
