@@ -31,6 +31,14 @@ assert.ok(
     scriptIndex('js/archive/ArchiveRuntimeAdapter.js')
 );
 assert.ok(
+  scriptIndex('js/core/TransposeService.js') <
+    scriptIndex('js/editor/EditorNotationService.js')
+);
+assert.ok(
+  scriptIndex('js/editor/EditorNotationService.js') <
+    scriptIndex('js/app/core.js')
+);
+assert.ok(
   scriptIndex('js/core/EdCurAdapter.js') <
     scriptIndex('js/archive/ArchiveRuntimeAdapter.js')
 );

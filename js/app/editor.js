@@ -4460,34 +4460,13 @@ function edBlankSong() {
       host.appendChild(wrap);
     }
 
-    function edShiftNote(n, semi) {
-      if (!n) return n;
-      if (typeof window.TransposeService === 'object' && window.TransposeService && typeof window.TransposeService.transposeNote === 'function') {
-        return window.TransposeService.transposeNote(n, semi, resolveAccidentalPreference());
-      }
-      // fallback (legacy) — never reachable if sharedEngine loaded first
-      const map = NOTE_SEMITONE || {'C':0,'C#':1,'Db':1,'D':2,'D#':3,'Eb':3,'E':4,'F':5,'F#':6,'Gb':6,'G':7,'G#':8,'Ab':8,'A':9,'A#':10,'Bb':10,'B':11};
-      if (!(n in map)) return n;
-      const sharp = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
-      const idx = (map[n] + semi%12 + 12) % 12;
-      const pref = resolveAccidentalPreference();
-      if (pref === false) {
-        const flat = ED_FLAT_MAP || {1:'Db',3:'Eb',6:'Gb',8:'Ab',10:'Bb'};
-        return flat[idx] || sharp[idx];
-      }
-      if (n.includes('b') && pref !== true) {
-        const flat = ED_FLAT_MAP || {1:'Db',3:'Eb',6:'Gb',8:'Ab',10:'Bb'};
-        return flat[idx] || sharp[idx];
-      }
-      return sharp[idx];
-    }
     function edTransposeChord(name, semi) {
       if (!semi || !name) return name;
-      if (typeof window.TransposeService === 'object' && window.TransposeService && typeof window.TransposeService.transposeChordName === 'function') {
-        return window.TransposeService.transposeChordName(name, semi, resolveAccidentalPreference());
-      }
-      // fallback (legacy)
-      return name.split('/').map(part => part.replace(/^([A-G][b#]?)/, (_,root) => edShiftNote(root,semi))).join('/');
+      return window.EditorNotationService?.transposeChord(
+        name,
+        semi,
+        resolveAccidentalPreference()
+      ) || name;
     }
 
     let edRenderChordsToken = 0;
@@ -5251,21 +5230,11 @@ if ($('edDoBoth')) {
     let _edSyncingKey = false; // flag to prevent onchange during programmatic key update
     function edTransposeKeyName(key, semitones) {
       if (!key || !semitones) return key;
-      if (typeof window.TransposeService === 'object' && window.TransposeService && typeof window.TransposeService.transposeKeyName === 'function') {
-        return window.TransposeService.transposeKeyName(key, semitones, resolveAccidentalPreference());
-      }
-      // fallback (legacy)
-      const idx = ED_SEMITONE[key];
-      if (idx == null) return key;
-      const newIdx = ((idx + semitones) % 12 + 12) % 12;
-      const pref = resolveAccidentalPreference();
-      if (pref === false) {
-        return ED_FLAT_NOTES[newIdx] || ED_NOTES[newIdx];
-      }
-      if (key.includes('b') && pref !== true) {
-        return ED_FLAT_NOTES[newIdx] || ED_NOTES[newIdx];
-      }
-      return ED_NOTES[newIdx];
+      return window.EditorNotationService?.transposeKey(
+        key,
+        semitones,
+        resolveAccidentalPreference()
+      ) || key;
     }
 
     // ===== Convert Accidental Spelling (دیز/بمل toggle) =====
@@ -5306,10 +5275,8 @@ if ($('edDoBoth')) {
     // ===== CENTRAL KEY/TRANSPOSE FUNCTIONS =====
     function keyToSemi(key) { return ED_SEMITONE[key] != null ? ED_SEMITONE[key] : -1; }
     function keyDelta(fromKey, toKey) {
-      if (typeof window.TransposeService === 'object' && window.TransposeService && typeof window.TransposeService.keyDelta === 'function') {
-        return window.TransposeService.keyDelta(fromKey, toKey);
-      }
-      return ((keyToSemi(toKey) - keyToSemi(fromKey)) % 12 + 12) % 12;
+      return window.EditorNotationService?.keyDelta(fromKey, toKey)
+        || ((keyToSemi(toKey) - keyToSemi(fromKey)) % 12 + 12) % 12;
     }
 
     // Only modify ch.name in place — preserves position, spacing, alignment, everything

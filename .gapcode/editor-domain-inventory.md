@@ -19,6 +19,7 @@
 | sync آکورد/متن | `js/editor/ChordLineSyncService.js` | موجود و تست‌شده |
 | sync mode | `js/editor/SyncModeController.js` | موجود و contract test دارد |
 | history | `js/editor/HistoryService.js` | موجود؛ autosave bridge تثبیت شده |
+| notation | `js/editor/EditorNotationService.js` | استخراج‌شده؛ delegation به `TransposeService` |
 | lifecycle | `js/editor/EditorLifecycleService.js` | استخراج‌شده |
 | hydration/restore | `js/editor/EditorHydrationService.js` | استخراج‌شده؛ ۱۷۵ خط |
 | event binding | `js/core/EventBindings.js` | استخراج‌شده و برای action/form contract تست دارد |
@@ -28,7 +29,7 @@
 | فایل | خطوط | مرز فعلی |
 |---|---:|---|
 | `js/app/core.js` | ۵٬۸۱۲ | DAW/runtime glue، timeline، transport و compatibility wrapperها |
-| `js/app/editor.js` | ۶٬۸۰۵ | render/editor commandها، audio restore و legacy UI glue |
+| `js/app/editor.js` | ۶٬۷۷۳ | render/editor commandها، audio restore و legacy UI glue |
 | `js/app/search.js` | ۱۹۵ | quick search؛ نتیجهٔ داینامیک با `data-command` |
 
 ### extraction بعدی با ریسک کنترل‌شده
