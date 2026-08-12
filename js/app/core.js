@@ -82,16 +82,9 @@ if (typeof window !== 'undefined') window.customPrompt = customPrompt;
 // تشخیص محیط مرورگر/پنجره الکترون
 const isBrowser = typeof window !== 'undefined';
 
-// تعریف ایمن DAW جهت جلوگیری از خطای window is not defined
+// globalScope فقط برای انتشار runtime state نهایی استفاده می‌شود.
+// placeholder قدیمی DAW حذف شده تا adapter هیچ‌وقت state ناقص را نبیند.
 const globalScope = isBrowser ? window : global;
-
-globalScope.DAW = {
-  audioContext: isBrowser ? new (window.AudioContext || window.webkitAudioContext)() : null,
-  tracks: [],
-  projectDuration: 0,
-  selectedSectionIds: new Set(),
-  player: null
-};
     /* ===== I18N ===== */
     let currentLang = localStorage.getItem('appLang') || 'fa';
     const I18N = {

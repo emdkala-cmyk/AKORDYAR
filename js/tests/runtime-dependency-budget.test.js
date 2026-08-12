@@ -55,6 +55,16 @@ assert.doesNotMatch(appCore, /\bDAW\s*\./);
 assert.doesNotMatch(editor, /\bPERF\s*\./);
 assert.doesNotMatch(editor, /\bDAW\s*\./);
 assert.equal(
+  (appCore.match(/globalScope\.DAW\s*=/g) || []).length,
+  1,
+  'core must publish exactly one DAW runtime object'
+);
+assert.doesNotMatch(
+  appCore,
+  /globalScope\.DAW\s*=\s*\{\s*audioContext:/,
+  'core must not publish a placeholder DAW'
+);
+assert.equal(
   (appCore.match(/function setEditorSong\s*\(/g) || []).length,
   1,
   'core must expose exactly one editor-song setter'
