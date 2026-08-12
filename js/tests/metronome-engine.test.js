@@ -13,11 +13,7 @@ function getMeterConfig(timeSignature, bpm) {
 }
 
 function isStrongBeat(beatIndex, timeSignature) {
-  if (beatIndex === 0) return true;
-  const [numerator, denominator] = timeSignature.split('/').map(Number);
-  return denominator === 8 &&
-    numerator % 3 === 0 &&
-    beatIndex % 3 === 0;
+  return beatIndex === 0;
 }
 
 const engine = new MetronomeEngine({
@@ -49,8 +45,8 @@ engine.start();
 
 assert.deepStrictEqual(
   engine.nextBeat(0.75, { bpm: 120, timeSignature: '6/8' }),
-  { beatIndex: 3, beatInMeasure: 3, isAccent: true },
-  'compound-meter secondary accent must be preserved'
+  { beatIndex: 3, beatInMeasure: 3, isAccent: false },
+  '6/8 must keep only the first beat accented'
 );
 
 engine.stop();

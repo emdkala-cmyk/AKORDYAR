@@ -34,8 +34,9 @@
 .track-names-container { display: flex; flex-direction: column; overflow-y: auto; flex: 1; }
 
 /* ===== Track Names ===== */
-.track-name { background: #161B26; padding: 0 10px; border-bottom: 1px solid var(--border-subtle); display: flex; align-items: center; gap: 6px; height: var(--lane-h); color: var(--text-primary); cursor: default; transition: 0.15s; position: relative; }
+.track-name { background: #161B26; padding: 0 10px; border-bottom: 1px solid var(--border-subtle); display: flex; align-items: center; gap: 6px; height: var(--lane-h); min-height: var(--lane-h); flex: 0 0 var(--lane-h); color: var(--text-primary); cursor: pointer; transition: background 0.15s, box-shadow 0.15s; position: relative; }
 .track-name:hover { background: #1c2433; }
+.track-name.selected-track { background: rgba(63,184,175,0.14); box-shadow: inset 3px 0 0 var(--accent-teal); }
 .track-name.active-load { outline: 1px solid var(--accent-teal); background: rgba(63, 184, 175, 0.08); }
 .track-name .t-icon { font-size: 1.1rem; cursor: pointer; padding: 2px; border-radius: 4px; transition: 0.15s; display: inline-flex; align-items: center; }
 .track-name .t-icon svg { pointer-events: none; }
@@ -102,9 +103,10 @@
 .ruler-tick-label { position: absolute; top: 4px; transform: translateX(-50%); font-size: 10px; color: #718096; font-family: 'JetBrains Mono', monospace; white-space: nowrap; }
 .ruler-tick-label.major { color: #A0AEC0; font-weight: 600; }
 .lanes-container { position: relative; display: flex; flex-direction: column; }
-.track-lane { height: var(--lane-h); position: relative; border-bottom: 1px solid rgba(255,255,255,0.04); background-color: #0E121B; }
+.track-lane { height: var(--lane-h); min-height: var(--lane-h); flex: 0 0 var(--lane-h); position: relative; overflow: hidden; border-bottom: 1px solid rgba(255,255,255,0.04); background-color: #0E121B; }
 .track-lane:nth-child(even) { background-color: #0B0F17; }
 .track-lane.chord-lane { background-color: #1a1f2e; }
+.track-lane.selected-track { box-shadow: inset 0 0 0 1px rgba(63,184,175,0.5); }
 
 /* ===== موقت: مارکرهای نقطه‌گذاری کورد لاین (لایه جدا) ===== */
 .cl-markers-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; z-index: 25; }

@@ -81,8 +81,8 @@ var Meter = (function() {
   /**
    * Check if a beat index is a strong (emphasized) beat.
    *   - beatIndex 0 (first beat of measure) is always strong (downbeat).
-   *   - Compound meters (6/8, 9/8, 12/8) have secondary strong beats
-   *     at multiples of 3.
+   *   - 6/8 intentionally keeps one downbeat here. This makes playback
+   *     «تیک تاک تاک تاک تاک تاک» with no secondary accent.
    * @param {number} beatIndex - zero-based index within measure
    * @param {string} timeSignature
    * @returns {boolean}
@@ -92,6 +92,7 @@ var Meter = (function() {
     var parts = (timeSignature || '4/4').split('/');
     var num = parseInt(parts[0]) || 4;
     var den = parseInt(parts[1]) || 4;
+    if (den === 8 && num === 6) return false;
     if (den === 8 && num % 3 === 0) {
       return beatIndex % 3 === 0;
     }

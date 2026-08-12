@@ -399,12 +399,15 @@
               <option value="default">پیش‌فرض سیستم</option>
             </select>
             <label class="settings-label">صدای مترونوم</label>
-            <select id="setMetroSound" data-action="applyMetroSound">
-              <option value="classic">کلاسیک (تیک)</option>
-              <option value="wood">چوبی (Woodblock)</option>
-              <option value="beep">بیپ الکترونیک</option>
-              <option value="click">کلیک نرم</option>
-            </select>
+            <div style="display:flex;gap:6px;align-items:center;">
+              <select id="setMetroSound" data-action="applyMetroSound" style="flex:1;">
+                <option value="classic">کلاسیک (تیک)</option>
+                <option value="wood">چوبی (Woodblock)</option>
+                <option value="beep">بیپ الکترونیک</option>
+                <option value="click">کلیک نرم</option>
+              </select>
+              <button class="settings-btn" type="button" data-action="previewMetroSound" title="پخش آزمایشی صدای مترونوم">▶ تست</button>
+            </div>
           </div>
           <div class="settings-group">
             <div class="settings-group-title">🎛 عمومی</div>

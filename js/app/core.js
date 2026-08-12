@@ -781,6 +781,7 @@ const requestRenderSyncLyrics = debounce(() => { renderSyncLyrics(); }, 120);
       tracks: [], clips: [], sections: [], selectedIds: new Set(), selectedSectionIds: new Set(), clipboard: [],
       playhead: 0, isPlaying: false, isScrubbing: false,
       timelineDuration: 120, pxPerSecond: 70, laneHeight: 64, loadTrackId: null,
+      selectedTrackId: null,
       rafId: null, playOriginPerf: 0, playOriginTime: 0,
       audioCtx: null, masterGain: null, voices: new Map(),
       nextId: 100, bufferCache: new Map(), waveCache: new Map(),
@@ -1119,10 +1120,28 @@ function applyState(stateStr) {
 }
 
 
+    function updateTrackSelectionUI() {
+      const selectedId = getEditorDAW().selectedTrackId;
+      document.querySelectorAll('.track-name[data-track-id], .track-lane[data-track-id]')
+        .forEach(el => el.classList.toggle('selected-track', el.dataset.trackId === selectedId));
+    }
+
+    function selectTrack(trackId) {
+      const track = getEditorDAW().tracks.find(tr => tr.id === trackId);
+      if (!track) return null;
+      getEditorDAW().selectedTrackId = track.id;
+      updateTrackSelectionUI();
+      return track;
+    }
+
     function renderTracks() {
       const names = $('track-names-container'); const lanes = $('lanes-container'); names.innerHTML = ''; lanes.innerHTML = '';
-      getEditorDAW().tracks.forEach((tr) => {
-        const h = document.createElement('div'); h.className = 'track-name' + (getEditorDAW().loadTrackId === tr.id ? ' active-load' : ''); h.dataset.trackId = tr.id;
+      const tracks = getEditorDAW().tracks;
+      if (!tracks.some(tr => tr.id === getEditorDAW().selectedTrackId)) {
+        getEditorDAW().selectedTrackId = tracks[0]?.id || null;
+      }
+      tracks.forEach((tr) => {
+        const h = document.createElement('div'); h.className = 'track-name' + (getEditorDAW().loadTrackId === tr.id ? ' active-load' : '') + (getEditorDAW().selectedTrackId === tr.id ? ' selected-track' : ''); h.dataset.trackId = tr.id;
         if (tr.muted) h.classList.add('muted-track');
         if (getEditorDAW().tracks.some(t => t.solo) && !tr.solo && tr.type !== 'chord') h.classList.add('solo-dim-track');
         if (tr.type === 'chord') {
@@ -1222,8 +1241,6 @@ function applyState(stateStr) {
   h.querySelector('[data-chord-ver-add]')?.addEventListener('click', (e) => { e.stopPropagation(); addChordVersion(); });
   const _verLabel = h.querySelector('[data-chord-ver-label]');
   if (_verLabel) _verLabel.addEventListener('dblclick', (e) => { e.stopPropagation(); renameChordVersion(); });
-  h.addEventListener('click', (e) => { if(!e.target.closest('button') && !e.target.closest('.t-icon') && !e.target.closest('[data-chord-ver-label]')) openChordEditor(); });
-
         } else if (tr.type === 'section') {
             h.innerHTML = `<span class="t-icon" data-icon-pick="${tr.id}" title="تغییر آیکون">${getIconSvg(tr.icon)}</span><span class="t-label">${tr.name}</span>`;
             h.querySelector('[data-icon-pick]')?.addEventListener('click', (e) => { e.stopPropagation(); openIconPicker(tr); });
@@ -1372,7 +1389,7 @@ function applyState(stateStr) {
           saveState(); renderAll();
         });
 
-        const lane = document.createElement('div'); lane.className = 'track-lane' + (tr.type === 'chord' ? ' chord-lane' : '') + (tr.type === 'section' ? ' section-lane' : ''); lane.dataset.trackId = tr.id;
+        const lane = document.createElement('div'); lane.className = 'track-lane' + (tr.type === 'chord' ? ' chord-lane' : '') + (tr.type === 'section' ? ' section-lane' : '') + (getEditorDAW().selectedTrackId === tr.id ? ' selected-track' : ''); lane.dataset.trackId = tr.id;
         // Apply per-lane height if set
         if (tr.laneHeight) { h.style.setProperty('--lane-h', tr.laneHeight + 'px'); h.style.height = tr.laneHeight + 'px'; lane.style.setProperty('--lane-h', tr.laneHeight + 'px'); lane.style.height = tr.laneHeight + 'px'; }
         // Apply muted/solo/locked visual states to lane
@@ -1387,12 +1404,13 @@ function applyState(stateStr) {
           e.stopPropagation(); e.preventDefault();
           resizeHandle.classList.add('active');
           const startY = e.clientY; const origH = tr.laneHeight || getEditorDAW().laneHeight;
-          const onMove = (ev) => { const newH = Math.max(24, Math.min(200, origH + (ev.clientY - startY))); setLaneHeight(tr.id, newH); };
+          const onMove = (ev) => { const newH = Math.max(32, Math.min(240, origH + (ev.clientY - startY))); setLaneHeight(tr.id, newH); };
           startEditorPointerDrag(resizeHandle, e, onMove, () => { resizeHandle.classList.remove('active'); saveState(); });
         });
         lane.appendChild(resizeHandle);
         lane.addEventListener('pointerdown', (e) => {
         if (e.button !== 0) return;
+        selectTrack(tr.id);
         clearEditorTextSelection();
         edClearChordSelection();
         if (e.target.closest('.clip') || e.target.closest('.section-tag')) return;
@@ -1488,6 +1506,14 @@ function applyState(stateStr) {
           lane.appendChild(hint); 
         }
         lanes.appendChild(lane); drawLaneGrid(grid);
+
+        // Clicking a track header selects the track. The chord header no
+        // longer opens the chord editor; editing remains available in the
+        // lane itself.
+        h.addEventListener('click', (e) => {
+          if (e.target.closest('button, input, select, textarea, .pan-wrap, .t-transpose, .t-icon')) return;
+          selectTrack(tr.id);
+        });
       });
     }
 
@@ -2219,17 +2245,22 @@ sels.forEach(c => {
     }
 
     // Return-to-start on pause (Cubase style)
-    let returnToStartOnPause = false;
+    let returnToStartOnPause = true;
     let playStartPos = 0;
+
+    function updateReturnToStartButton() {
+      const btn = $('returnToStartBtn');
+      if (!btn) return;
+      btn.classList.toggle('active', returnToStartOnPause);
+      btn.style.background = returnToStartOnPause ? 'var(--accent-teal)' : '';
+      btn.style.color = returnToStartOnPause ? '#000' : '';
+      btn.style.borderColor = returnToStartOnPause ? 'var(--accent-teal)' : '';
+      btn.setAttribute('aria-pressed', String(returnToStartOnPause));
+    }
 
     function toggleReturnToStart() {
       returnToStartOnPause = !returnToStartOnPause;
-      const btn = $('returnToStartBtn');
-      if (btn) {
-        btn.style.background = returnToStartOnPause ? 'var(--accent-teal)' : '';
-        btn.style.color = returnToStartOnPause ? '#000' : '';
-        btn.style.borderColor = returnToStartOnPause ? 'var(--accent-teal)' : '';
-      }
+      updateReturnToStartButton();
       toast(returnToStartOnPause ? 'برگشت به ابتدا فعال شد' : 'برگشت به ابتدا غیرفعال شد');
     }
 
@@ -2775,7 +2806,12 @@ sels.forEach(c => {
        ============================================================ */
     const SETTINGS_KEY = 'ed_app_settings';
     let APP_SETTINGS = {};
-    function loadSettings(){ try { APP_SETTINGS = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}'); } catch(_){ APP_SETTINGS = {}; } }
+    function loadSettings(){
+      try { APP_SETTINGS = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}'); }
+      catch(_){ APP_SETTINGS = {}; }
+      returnToStartOnPause = APP_SETTINGS.returnToStart !== false;
+      updateReturnToStartButton();
+    }
     function saveSettings(){ try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(APP_SETTINGS)); } catch(_){} }
     const THEMES = {
       dark:     { '--dark-bg':'#0F131E', '--panel-bg':'#161B26', '--workspace-bg':'#121622', '--timeline-bg':'#0D1017', '--accent-teal':'#3FB8AF', '--accent-cyan-glow':'#00F2FE', '--accent-neon-pink':'#FF2E93' },
@@ -2819,14 +2855,28 @@ sels.forEach(c => {
       } catch(_) { toast('تغییر دستگاه خروجی پشتیبانی نمی‌شود'); }
     }
     function applyMetroSound(val) {
-      APP_SETTINGS.metroSound = val; saveSettings();
+      APP_SETTINGS.metroSound = val || 'classic';
+      saveSettings();
+      previewMetronomeSound(APP_SETTINGS.metroSound);
+      if (metroActive && getEditorDAW().isPlaying) {
+        stopMetronome();
+        startMetronome();
+      }
+    }
+
+    function previewMetronomeSound(soundType = APP_SETTINGS.metroSound || 'classic') {
+      if (!audioContextServiceBridge) return false;
+      const played = audioContextServiceBridge.playClick(true, soundType);
+      if (played) toast('صدای مترونوم آزمایش شد');
+      return played;
     }
     function applySettingsToggles() {
       const metro = $('setMetronome').checked;
       if (metro !== metroActive) toggleMetronome();
       APP_SETTINGS.metronome = metro;
-      returnToStartOnPause = $('setReturnToStart').checked;
+      returnToStartOnPause = $('setReturnToStart')?.checked ?? true;
       APP_SETTINGS.returnToStart = returnToStartOnPause;
+      updateReturnToStartButton();
       const wantLock = $('setSizeLock').checked;
       if (wantLock !== !!_sizeLocked) toggleSizeLock();
       APP_SETTINGS.sizeLock = wantLock;
@@ -2911,7 +2961,8 @@ sels.forEach(c => {
       const r = document.documentElement.style;
       r.removeProperty('--accent-teal'); r.removeProperty('--accent-cyan-glow'); r.removeProperty('--accent-neon-pink');
       metroActive = false; if ($('metroToggleBtn')) $('metroToggleBtn').textContent = '🔇';
-      returnToStartOnPause = false;
+      returnToStartOnPause = true;
+      updateReturnToStartButton();
       if (_sizeLocked) toggleSizeLock();
       openSettings();
       toast('تنظیمات بازنشانی شد');

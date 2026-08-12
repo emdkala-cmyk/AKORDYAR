@@ -249,8 +249,11 @@ let edSelectedChords = [];
       updateZoomFontScale();
     }
 
+    const MIN_LANE_HEIGHT = 32;
+    const MAX_LANE_HEIGHT = 240;
+
     function setVerticalZoom(newH) {
-      newH = clamp(Math.round(newH), 24, 200);
+      newH = clamp(Math.round(newH), MIN_LANE_HEIGHT, MAX_LANE_HEIGHT);
       if (Math.abs(newH - getEditorDAW().laneHeight) < 1) return;
       getEditorDAW().laneHeight = newH;
       document.documentElement.style.setProperty('--lane-h', newH + 'px');
@@ -275,7 +278,7 @@ let edSelectedChords = [];
     }
 
     function setLaneHeight(trackId, newH) {
-      newH = clamp(Math.round(newH), 24, 200);
+      newH = clamp(Math.round(newH), MIN_LANE_HEIGHT, MAX_LANE_HEIGHT);
       const track = getEditorDAW().tracks.find(t => t.id === trackId);
       if (!track) return;
       track.laneHeight = newH;
@@ -283,6 +286,39 @@ let edSelectedChords = [];
       const name = document.querySelector(`.track-name[data-track-id="${trackId}"]`);
       if (lane) { lane.style.setProperty('--lane-h', newH + 'px'); lane.style.height = newH + 'px'; drawLaneGrid(lane.querySelector('.lane-grid')); }
       if (name) { name.style.setProperty('--lane-h', newH + 'px'); name.style.height = newH + 'px'; }
+      updateZoomFontScale();
+    }
+
+    function toggleSelectedTrackHeight() {
+      const daw = getEditorDAW();
+      const track = daw.tracks.find(tr => tr.id === daw.selectedTrackId);
+      if (!track) {
+        toast('ابتدا یک لاین را انتخاب کنید');
+        return;
+      }
+
+      const baseHeight = clamp(Math.round(daw.laneHeight || 64), MIN_LANE_HEIGHT, MAX_LANE_HEIGHT);
+      const expandedHeight = clamp(Math.round(Math.max(96, baseHeight * 1.75)), MIN_LANE_HEIGHT, MAX_LANE_HEIGHT);
+      const currentHeight = track.laneHeight || baseHeight;
+
+      if (track.laneHeight && currentHeight >= expandedHeight - 1) {
+        track.laneHeight = null;
+        const lane = document.querySelector(`.track-lane[data-track-id="${track.id}"]`);
+        const name = document.querySelector(`.track-name[data-track-id="${track.id}"]`);
+        [lane, name].forEach(el => {
+          if (!el) return;
+          el.style.removeProperty('--lane-h');
+          el.style.removeProperty('height');
+        });
+        const grid = lane?.querySelector('.lane-grid');
+        if (grid) drawLaneGrid(grid);
+        updateZoomFontScale();
+      } else {
+        setLaneHeight(track.id, expandedHeight);
+      }
+      updateTrackSelectionUI();
+      saveState();
+      toast(track.laneHeight ? 'لاین بزرگ شد' : 'اندازه لاین به حالت عادی برگشت');
     }
 
     /* ===== CHORD EDITOR & MIDI ===== */
@@ -2492,6 +2528,10 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
       else if (e.code === 'KeyQ' && !e.ctrlKey && !e.metaKey && !e.altKey && !isInput && !isContentEditable) {
         e.preventDefault();
         quantizeSelectedChords();
+      }
+      else if (e.code === 'KeyZ' && !e.ctrlKey && !e.metaKey && !e.altKey && !isInput && !isContentEditable) {
+        e.preventDefault();
+        toggleSelectedTrackHeight();
       }
       else if (e.key === 'Escape') {
         if (_focusMode) { toggleFocusMode(); return; }
@@ -5974,6 +6014,7 @@ if (
       applyAccent: (_, element) => applyAccent(element.value),
       applyOutputDevice: (_, element) => applyOutputDevice(element.value),
       applyMetroSound: (_, element) => applyMetroSound(element.value),
+      previewMetroSound: () => previewMetronomeSound(),
       applySettingsToggles: () => applySettingsToggles(),
       resetSettings: () => resetSettings(),
       closeSettings: () => closeSettings(),
