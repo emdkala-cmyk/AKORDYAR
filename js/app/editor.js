@@ -4590,17 +4590,45 @@ function edBlankSong() {
         document.execCommand('insertText', false, text);
       });
     }
+    let edSelectionService = null;
+    function getEditorSelectionService() {
+      if (
+        !edSelectionService &&
+        typeof window.EditorSelectionService?.create === 'function'
+      ) {
+        edSelectionService = window.EditorSelectionService.create({
+          getSelected: () => edSelectedChords,
+          setSelected: next => {
+            edSelectedChords = next;
+          },
+          queryChordElements: () => document.querySelectorAll('.chord')
+        });
+      }
+      return edSelectionService;
+    }
     function edClearChordSelection() {
+      const service = getEditorSelectionService();
+      if (service) return service.clear();
       edSelectedChords = [];
       document.querySelectorAll('.chord')
-      .forEach(el => el.classList.remove('selected'));
-}
+        .forEach(el => el.classList.remove('selected'));
+    }
 
     // -- Chord Selection --
     function edSelectChord(idx, isShift) {
-      if (isShift) { const i = edSelectedChords.indexOf(idx); if (i > -1) edSelectedChords.splice(i, 1); else edSelectedChords.push(idx); }
-      else { edSelectedChords = [idx]; }
-      document.querySelectorAll('.chord').forEach(el => { const cIdx = parseInt(el.dataset.idx); el.classList.toggle('selected', edSelectedChords.includes(cIdx)); });
+      const service = getEditorSelectionService();
+      if (service) return service.select(idx, isShift);
+      if (isShift) {
+        const position = edSelectedChords.indexOf(idx);
+        if (position > -1) edSelectedChords.splice(position, 1);
+        else edSelectedChords.push(idx);
+      } else {
+        edSelectedChords = [idx];
+      }
+      document.querySelectorAll('.chord').forEach(el => {
+        const chordIndex = Number.parseInt(el.dataset.idx, 10);
+        el.classList.toggle('selected', edSelectedChords.includes(chordIndex));
+      });
     }
     // Clear selection when clicking empty area
 if ($('editorWrap')) {
@@ -4677,7 +4705,7 @@ function edAttachChordDrag(el, idx) {
           if (!wasDrag) return;
           const wrapRect = $('editorWrap').getBoundingClientRect();
           if (ev.clientX < wrapRect.left || ev.clientX > wrapRect.right || ev.clientY < wrapRect.top || ev.clientY > wrapRect.bottom) {
-            edSelectedChords.sort((a,b)=>b-a).forEach(i => edRemoveChordAt(i)); edSelectedChords = [];
+            edSelectedChords.sort((a,b)=>b-a).forEach(i => edRemoveChordAt(i)); edClearChordSelection();
           } else {
             function findNearestChar(lineEl, mouseX) {
               const text = lineEl.textContent.replace(/\u200B/g,''); if (!text.length) return 0;
@@ -5574,7 +5602,7 @@ if (
     .sort((a,b) => b-a)
     .forEach(i => edRemoveChordAt(i));
 
-  edSelectedChords = [];
+  edClearChordSelection();
   edRenderChords();
   edCommit();
 }
