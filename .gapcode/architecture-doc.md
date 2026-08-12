@@ -252,8 +252,10 @@ orchestration اصلی DOM و command keyboard در `editor.js` باقی مان�
   linked Electron path و fallback ذخیرهٔ Blob را از orchestration editor جدا کرد.
 - `EdCurAdapter` یک مالک canonical برای song نگه می‌دارد و `window.edCur` فقط
   facade سازگاری getter/setter است؛ listener تغییر نیز contract تست دارد.
-- `WindowBridge` اکنون get/set/call و پاک‌سازی registryهای popup را پوشش می‌دهد؛
-  دسترسی مستقیم popup property و `dispatchEvent` از core/editor حذف شد.
+- `WindowBridge` اکنون get/set/call/dispatch و پاک‌سازی registryهای popup را
+  پوشش می‌دهد؛ دسترسی مستقیم popup property و `dispatchEvent` از core/editor
+  حذف شد و `SyncModeController` نیز highlight پنجره‌ها را از همین bridge عبور
+  می‌دهد.
 - contract test قدیمی timeline به محل جدید سرویس منتقل شد و تست seam مستقل برای
   selection سرویس اضافه شد.
 

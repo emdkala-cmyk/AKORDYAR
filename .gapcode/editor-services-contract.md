@@ -404,6 +404,7 @@ WindowBridge.postMessage(popup, payload, targetOrigin)
 WindowBridge.get(popup, property)
 WindowBridge.set(popup, property, value)
 WindowBridge.call(popup, method, ...args)
+WindowBridge.dispatch(popup, event)
 WindowBridge.clearManagedNodes(popup, registryNames)
 ```
 

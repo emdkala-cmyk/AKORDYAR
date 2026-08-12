@@ -58,7 +58,7 @@ assert.equal(
   true
 );
 assert.equal(renderReason, 'style');
-assert.equal(WindowBridge.call(popup, 'dispatchEvent', { type: 'resize' }), true);
+assert.equal(WindowBridge.dispatch(popup, { type: 'resize' }), true);
 assert.equal(dispatchContext, popup);
 assert.deepEqual(popup.lastEvent, { type: 'resize' });
 assert.equal(WindowBridge.clearManagedNodes(popup, ['_pChordEls']), true);

@@ -114,6 +114,17 @@
     }
   }
 
+  function dispatch(popup, event) {
+    if (!isOpen(popup) || !event) return false;
+    try {
+      if (typeof popup.dispatchEvent !== 'function') return false;
+      popup.dispatchEvent(event);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   function clearManagedNodes(popup, registryNames = []) {
     if (!isOpen(popup) || !Array.isArray(registryNames)) return false;
     let cleared = false;
@@ -153,6 +164,7 @@
     get,
     set,
     call,
+    dispatch,
     clearManagedNodes
   });
 

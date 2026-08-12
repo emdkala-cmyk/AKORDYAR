@@ -202,6 +202,33 @@ test('updateSyncHighlight: lastActiveLi از playhead و syncTimes محاسبه 
   assert.strictEqual(state.lastActiveLi, -1);
 });
 
+test('updateSyncHighlight: فراخوانی popup از مسیر WindowBridge انجام می‌شود', () => {
+  const popup = { closed: false, _syncHighlight() {} };
+  const calls = [];
+  const windowBridge = {
+    isOpen(target) {
+      calls.push(['isOpen', target]);
+      return target === popup;
+    },
+    call(target, method) {
+      calls.push(['call', target, method]);
+      target._syncHighlight();
+      return true;
+    }
+  };
+  const { controller } = createController({
+    getLyricPopup: () => popup,
+    windowBridge
+  });
+
+  controller.updateSyncHighlight();
+
+  assert.deepStrictEqual(calls, [
+    ['isOpen', popup],
+    ['call', popup, '_syncHighlight']
+  ]);
+});
+
 test('renderSyncLyrics: نبود پنل syncLyrics بدون خطا no-op است', () => {
   const { controller } = createController();
   controller.renderSyncLyrics(); // $ همیشه null برمی‌گرداند

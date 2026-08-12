@@ -43,6 +43,7 @@ class SyncModeController {
     openChordLinePopup,
     getPerformanceStore,
     windowRef,
+    windowBridge,
     logger = console
   } = {}) {
     if (!state) {
@@ -99,8 +100,33 @@ class SyncModeController {
     this.window =
       windowRef ||
       (typeof window !== 'undefined' ? window : null);
+    this.windowBridge =
+      windowBridge ||
+      this.window?.WindowBridge ||
+      null;
 
     this.logger = logger || console;
+  }
+
+  _syncPopupHighlight(popup) {
+    if (!popup) return false;
+
+    if (this.windowBridge?.isOpen && this.windowBridge?.call) {
+      if (!this.windowBridge.isOpen(popup)) return false;
+      return this.windowBridge.call(popup, '_syncHighlight');
+    }
+
+    // Compatibility fallback for isolated legacy callers that do not inject
+    // WindowBridge yet. The application path always uses the bridge.
+    if (popup.closed === true || typeof popup._syncHighlight !== 'function') {
+      return false;
+    }
+    try {
+      popup._syncHighlight();
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 
   _requireSeqState() {
@@ -342,19 +368,11 @@ class SyncModeController {
       if (curTime) curTime.textContent = this.formatSyncTime(t);
     }
 
-    // Sync highlight to popup windows (direct DOM update, not postMessage)
-    const lyricPopup = this.getLyricPopup();
-    if (lyricPopup && !lyricPopup.closed && lyricPopup._syncHighlight) {
-      lyricPopup._syncHighlight();
-    }
-    const lyricOnlyPopup = this.getLyricOnlyPopup();
-    if (lyricOnlyPopup && !lyricOnlyPopup.closed && lyricOnlyPopup._syncHighlight) {
-      lyricOnlyPopup._syncHighlight();
-    }
-    const chordLinePopup = this.getChordLinePopup();
-    if (chordLinePopup && !chordLinePopup.closed && chordLinePopup._syncHighlight) {
-      chordLinePopup._syncHighlight();
-    }
+    // Sync highlight through WindowBridge; popup DOM remains outside this
+    // controller's ownership boundary.
+    this._syncPopupHighlight(this.getLyricPopup());
+    this._syncPopupHighlight(this.getLyricOnlyPopup());
+    this._syncPopupHighlight(this.getChordLinePopup());
   }
 
   // Sync tick loop

@@ -3574,7 +3574,7 @@ sels.forEach(c => {
         // Force Reflow: مجبور کردن مرورگر به محاسبه مجدد چیدمان
         try { void pb.offsetHeight; } catch(_) {}
         // Dispatch resize event to force layout recalculation
-        popupWindowBridge?.call?.(_lyricPopup, 'dispatchEvent', new Event('resize'));
+        popupWindowBridge?.dispatch?.(_lyricPopup, new Event('resize'));
         return;
       }
       const snapshot = requireEditorSongStateService().getPresentationSnapshot();
@@ -4230,7 +4230,7 @@ document.addEventListener('DOMContentLoaded', () => {
       try {
         const _pb = popupDocument(_lyricPopup)?.getElementById('popupBody');
         if (_pb) void _pb.offsetHeight;
-        popupWindowBridge?.call?.(_lyricPopup, 'dispatchEvent', new Event('resize'));
+        popupWindowBridge?.dispatch?.(_lyricPopup, new Event('resize'));
       } catch(_) {}
     }
 
@@ -4302,6 +4302,7 @@ let syncTapKeyHandler = null;
             openChordLinePopup: () => openChordLinePopup(),
             getPerformanceStore: () => window.RuntimeStateAdapter?.getPerformanceStore?.() || null,
             windowRef: window,
+            windowBridge: popupWindowBridge,
             logger: console
           });
       return syncModeControllerBridge;
