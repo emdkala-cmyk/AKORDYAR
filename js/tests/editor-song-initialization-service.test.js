@@ -7,8 +7,13 @@ const source = fs.readFileSync(
   path.resolve(__dirname, '..', 'editor', 'EditorSongInitializationService.js'),
   'utf8'
 );
+const recoverySource = fs.readFileSync(
+  path.resolve(__dirname, '..', 'editor', 'AudioRecoveryService.js'),
+  'utf8'
+);
 
 const context = { console };
+vm.runInNewContext(recoverySource, context);
 vm.runInNewContext(source, context);
 
 const song = {

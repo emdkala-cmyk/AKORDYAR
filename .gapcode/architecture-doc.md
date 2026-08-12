@@ -210,7 +210,9 @@ Legacy code may temporarily violate this until each domain is migrated.
 
 - `EditorToolbarService`: metadata/style/key/tempo و lock bindings.
 - `EditorSongPersistenceService`: snapshot و persistence سند + DAW.
-- `EditorSongInitializationService`: restore/hydration و بازیابی صوت.
+- `EditorSongInitializationService`: transaction restore/hydration.
+- `AudioRecoveryService`: بازیابی صوت در startup، arranger و preload با contract
+  callback محور.
 - `EditorChordVersionService`: version snapshot و timeline chord clips.
 - `EditorGlobalBindingsService`: lifecycle listenerهای resize/Alt/scroll.
 - `EditorLyricsRenderer`، `EditorMutationService` و

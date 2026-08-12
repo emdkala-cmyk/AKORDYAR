@@ -180,7 +180,8 @@ lifecycle.
 |---|---|
 | `EditorToolbarService` | binding نوار ابزار، style، metadata، key و lock |
 | `EditorSongPersistenceService` | snapshot و ذخیرهٔ song/DAW |
-| `EditorSongInitializationService` | restore، hydration و audio recovery |
+| `EditorSongInitializationService` | transaction اولیه و hydration |
+| `AudioRecoveryService` | recovery صوت در startup، arranger و preload |
 | `EditorChordVersionService` | نسخه‌های آکورد و clip snapshot |
 | `EditorGlobalBindingsService` | resize، Alt tracker و scroll lifecycle |
 | `EditorLyricsRenderer` | projection متن و آمار چاپ |

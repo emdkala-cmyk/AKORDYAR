@@ -55,6 +55,10 @@ assert.ok(
     scriptIndex('js/app/core.js')
 );
 assert.ok(
+  scriptIndex('js/editor/AudioRecoveryService.js') <
+    scriptIndex('js/editor/EditorSongInitializationService.js')
+);
+assert.ok(
   scriptIndex('js/editor/EditorSongInitializationService.js') <
     scriptIndex('js/app/core.js')
 );

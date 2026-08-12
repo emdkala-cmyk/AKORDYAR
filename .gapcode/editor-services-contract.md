@@ -61,6 +61,7 @@ await EditorSongInitializationService.initializeEditor({
   repairSong: song => Song,
   hydrationService,
   daw,
+  audioRecoveryService: AudioRecoveryService.create({...}),
   syncToolbar: () => void,
   renderEditor: force => void,
   resetHistory: () => void,
@@ -87,6 +88,34 @@ deactivateHistory
 
 در طول restore و hydration نباید history یا autosave به state نیمه‌کاره دسترسی
 داشته باشد.
+
+### `AudioRecoveryService`
+
+```js
+const service = AudioRecoveryService.create({
+  getDAW: () => DAW,
+  getSong: () => Song | null,
+  loadAudioBlobsForProject: async projectId => void,
+  getAudioBlobFromDB: async bufferKey => record | null,
+  decodeFileToBuffer: async file => ({ buffer, ...meta }),
+  loadAudioFromHardDrive: async filePath => AudioBuffer,
+  getFileHandle: async bufferKey => FileSystemFileHandle | null,
+  getDirHandle: async options => FileSystemDirectoryHandle | null,
+  setDirHandle: async handle => void,
+  saveDirHandle: async handle => void
+});
+
+await service.restoreSongAudio(song, options)
+await service.restoreProjectAudio(projectId, silent, options)
+await service.preloadAudioForSong(songData, options)
+```
+
+این سرویس ترتیب recovery را یک‌دست می‌کند: embedded IndexedDB، مسیر Electron،
+Blob و FileHandle ذخیره‌شده، پوشهٔ ذخیره‌شده و در صورت مجاز بودن directory picker.
+سرویس به `edCur`، `DAW`، `PERF`، DOM و Electron global دسترسی مستقیم ندارد؛ همهٔ
+دسترسی‌ها از callback وارد می‌شوند. `EditorSongInitializationService`، arranger
+و preload پس‌زمینه باید از همین contract استفاده کنند تا رفتار بازیابی در startup
+و hot-swap دوگانه نشود.
 
 ### `EditorSongTransitionService`
 

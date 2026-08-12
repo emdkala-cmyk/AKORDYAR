@@ -1,204 +1,18 @@
 /**
  * EditorSongInitializationService
  *
- * هماهنگ‌کنندهٔ restore سند، hydration تایم‌لاین و بازیابی فایل‌های صوتی.
- * مالک state نیست؛ song و runtime فقط از طریق callback وارد می‌شوند.
+ * Coordinates the initial song transaction. Audio recovery is delegated to
+ * AudioRecoveryService so hydration and file loading share one contract.
  */
 (function attachEditorSongInitializationService(globalScope) {
-  function audioClips(daw) {
-    return (daw?.clips || []).filter(
-      clip => clip.type !== 'chord' && clip.bufferKey
-    );
-  }
-
-  function missingAudioClips(daw) {
-    return audioClips(daw).filter(
-      clip => !daw.bufferCache?.has?.(clip.bufferKey)
-    );
-  }
-
-  function cacheBuffer(clip, buffer, daw, peaksFromBuffer, refreshClipWaveImage) {
-    daw.bufferCache.set(clip.bufferKey, buffer);
-    clip.sourceDuration = buffer.duration;
-    clip._peaks = peaksFromBuffer(buffer, 2000);
-    refreshClipWaveImage(clip);
-  }
-
-  async function restoreAudio(song, {
-    daw,
-    loadAudioBlobsForProject,
-    getAudioBlobFromDB,
-    decodeFileToBuffer,
-    loadAudioFromHardDrive,
-    getFileHandle,
-    getDirHandle,
-    setDirHandle,
-    saveDirHandle,
-    showDirectoryPicker,
-    isElectron = false,
-    electronAvailable = false,
-    peaksFromBuffer = () => [],
-    refreshClipWaveImage = () => {},
-    toast = () => {},
-    logger = console
-  } = {}) {
-    if (!song || !daw) return;
-
-    try {
-      await loadAudioBlobsForProject?.(song.id);
-      audioClips(daw).forEach(clip => {
-        const buffer = daw.bufferCache?.get?.(clip.bufferKey);
-        if (buffer) {
-          cacheBuffer(clip, buffer, daw, peaksFromBuffer, refreshClipWaveImage);
-        }
-      });
-    } catch (error) {
-      logger?.warn?.('Audio init load error:', error);
-    }
-
-    const paths = Array.isArray(song._audioPaths) ? song._audioPaths : [];
-    let missing = missingAudioClips(daw);
-    logger?.log?.(
-      `[Audio Init] ${missing.length} clip(s) need audio loading. ` +
-      `isElectron=${isElectron}, _audioPaths=${paths.length}`
-    );
-    if (!missing.length || !paths.length) return;
-
-    if (isElectron && electronAvailable && typeof loadAudioFromHardDrive === 'function') {
-      for (const audioPath of paths) {
-        if (!audioPath.filePath) {
-          logger?.warn?.('[LINK] No filePath for:', audioPath.fileName);
-          continue;
-        }
-        const clip = audioClips(daw).find(
-          item => item.bufferKey === audioPath.bufferKey
-        );
-        if (!clip || daw.bufferCache.has(clip.bufferKey)) continue;
-        try {
-          const buffer = await loadAudioFromHardDrive(audioPath.filePath);
-          cacheBuffer(clip, buffer, daw, peaksFromBuffer, refreshClipWaveImage);
-          clip._filePath = audioPath.filePath;
-          logger?.log?.('[LINK] Loaded:', audioPath.fileName);
-        } catch (error) {
-          logger?.warn?.(
-            '[LINK] File not found at path:',
-            audioPath.filePath,
-            error?.message
-          );
-        }
-      }
-    }
-
-    missing = missingAudioClips(daw);
-    for (const clip of missing) {
-      try {
-        const record = await getAudioBlobFromDB?.(clip.bufferKey);
-        if (!record) continue;
-        const decoded = await decodeFileToBuffer(record.blob);
-        cacheBuffer(clip, decoded.buffer, daw, peaksFromBuffer, refreshClipWaveImage);
-        logger?.log?.('[BLOB] Auto-reloaded:', record.fileName);
-      } catch (error) {
-        logger?.warn?.(
-          '[BLOB] Auto-reload failed for',
-          clip.bufferKey,
-          error?.message
-        );
-      }
-    }
-
-    missing = missingAudioClips(daw);
-    for (const clip of missing) {
-      try {
-        const handle = await getFileHandle?.(clip.bufferKey);
-        if (!handle?.requestPermission) continue;
-        const permission = await handle.requestPermission({ mode: 'read' });
-        if (permission !== 'granted') continue;
-        const decoded = await decodeFileToBuffer(await handle.getFile());
-        cacheBuffer(clip, decoded.buffer, daw, peaksFromBuffer, refreshClipWaveImage);
-        logger?.log?.('[HANDLE] Auto-reloaded:', clip.fileName);
-      } catch (error) {
-        logger?.warn?.(
-          '[HANDLE] Auto-reload failed for',
-          clip.bufferKey,
-          error?.message
-        );
-      }
-    }
-
-    missing = missingAudioClips(daw);
-    if (!missing.length) return;
-
-    let directory = await getDirHandle?.();
-    if (!directory) {
-      try {
-        directory = await getDirHandle?.({ load: true });
-      } catch (_) {}
-    }
-    if (directory) {
-      try {
-        const permission = await directory.requestPermission({ mode: 'read' });
-        if (permission === 'granted') {
-          const notFound = [];
-          for (const audioPath of paths) {
-            const clip = audioClips(daw).find(
-              item => item.bufferKey === audioPath.bufferKey
-            );
-            if (!clip || daw.bufferCache.has(clip.bufferKey)) continue;
-            let loaded = false;
-            const candidates = [
-              audioPath.fileName,
-              audioPath.fileName?.replace(/\.[^.]+$/, '')
-            ];
-            for (const name of candidates.filter(Boolean)) {
-              try {
-                const file = await (await directory.getFileHandle(name)).getFile();
-                const decoded = await decodeFileToBuffer(file);
-                cacheBuffer(clip, decoded.buffer, daw, peaksFromBuffer, refreshClipWaveImage);
-                loaded = true;
-                break;
-              } catch (_) {}
-            }
-            if (!loaded) notFound.push(audioPath.fileName || 'نام‌ناشناخته');
-          }
-          if (notFound.length) {
-            toast('فایل‌های صوتی پیدا نشد: ' + notFound.join(', '));
-          }
-        }
-      } catch (_) {}
-    }
-
-    missing = missingAudioClips(daw);
-    if (!missing.length || isElectron || typeof showDirectoryPicker !== 'function') {
-      return;
-    }
-
-    try {
-      const selectedDirectory = await showDirectoryPicker({ mode: 'read' });
-      await setDirHandle?.(selectedDirectory);
-      const permission = await selectedDirectory.requestPermission({ mode: 'read' });
-      if (permission !== 'granted') return;
-
-      for (const audioPath of paths) {
-        const clip = audioClips(daw).find(
-          item => item.bufferKey === audioPath.bufferKey
-        );
-        if (!clip || daw.bufferCache.has(clip.bufferKey)) continue;
-        const candidates = [
-          audioPath.fileName,
-          audioPath.fileName?.replace(/\.[^.]+$/, '')
-        ];
-        for (const name of candidates.filter(Boolean)) {
-          try {
-            const file = await (await selectedDirectory.getFileHandle(name)).getFile();
-            const decoded = await decodeFileToBuffer(file);
-            cacheBuffer(clip, decoded.buffer, daw, peaksFromBuffer, refreshClipWaveImage);
-            break;
-          } catch (_) {}
-        }
-      }
-    } catch (_) {
-      // لغو انتخاب پوشه توسط کاربر، بخشی از جریان عادی است.
-    }
+  async function restoreAudio(song, options = {}) {
+    const candidate =
+      options.audioRecoveryService || globalScope.AudioRecoveryService;
+    const recoveryService =
+      typeof candidate?.restoreSongAudio === 'function'
+        ? candidate
+        : candidate?.create?.(options);
+    return recoveryService?.restoreSongAudio?.(song, options);
   }
 
   async function initialize({
@@ -214,6 +28,10 @@
     updateNextIdFromClips,
     ensureAudioCtx,
     updateTrackMix,
+    audioRecoveryService = globalScope.AudioRecoveryService,
+
+    // Compatibility callbacks for callers that still construct the recovery
+    // service through this initializer.
     loadAudioBlobsForProject,
     getAudioBlobFromDB,
     decodeFileToBuffer,
@@ -227,6 +45,7 @@
     electronAvailable = false,
     peaksFromBuffer,
     refreshClipWaveImage,
+
     syncToolbar,
     renderEditor,
     resetHistory,
@@ -275,6 +94,7 @@
     });
 
     await restoreAudio(song, {
+      audioRecoveryService,
       daw,
       loadAudioBlobsForProject,
       getAudioBlobFromDB,

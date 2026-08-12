@@ -23,6 +23,7 @@ function load(relativePath) {
 load('js/core/EdCurAdapter.js');
 load('js/core/EditorRuntimeAdapter.js');
 load('js/core/EditorSongRuntimeService.js');
+load('js/editor/AudioRecoveryService.js');
 load('js/editor/EditorSongInitializationService.js');
 
 let legacySong = null;
