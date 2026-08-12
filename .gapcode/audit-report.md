@@ -245,3 +245,33 @@
 10. Laminor parser (known input ? expected output)
 | No comprehensive regression suite (scattered tests exist) | HIGH |
 | No comprehensive regression suite (scattered tests exist) | HIGH |
+
+## به‌روزرسانی معتبر — ۱۲ اوت ۲۰۲۶
+
+### مرز state در Sync و Sequential/Chord Line
+
+- `EditorSongStateService` اکنون accessor و mutation رسمی برای `syncTimes`,
+  `seqPoints` و chordهای تولیدشده دارد.
+- `SyncModeController` دیگر `getEdCur` نمی‌گیرد و مسیرهای sync، undo/redo زمان‌ها،
+  sequential chording و CL را از `songState` مصرف می‌کند.
+- `core.js` برای ساخت controller فقط `songState` را inject می‌کند.
+- نقاط انتخاب sequential در event handler و `edCommit` نیز از setter رسمی سرویس
+  عبور می‌کنند.
+
+### کنترل
+
+- `node --check` برای فایل‌های تغییرکرده: موفق.
+- تست سرویس state: موفق.
+- تست SyncModeController: ۱۵ موفق.
+- `npm test`: هر ۳۹ ورودی موفق.
+- `git diff --check`: موفق.
+- commit فنی: `56d087e`.
+
+### بدهی باقی‌مانده
+
+- `editor.js` هنوز در render، selection، modal و mutationهای عمومی chord مسیرهای
+  legacy دارد.
+- `setEditorSong` و state compatibility Arranger عمداً برای حفظ load/hot-swap
+  نگه داشته شده‌اند.
+- `window.edCur` در adapter مرز compatibility است و باید به‌تدریج تنها نقطهٔ
+  legacy باقی‌مانده شود.

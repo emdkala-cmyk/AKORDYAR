@@ -181,3 +181,25 @@ Everything else:     onclick → app.js global → edCur mutation → direct DOM
 
 **Migration rule:** New modules must NOT directly mutate edCur or DOM.
 Legacy code may temporarily violate this until each domain is migrated.
+
+## Current refactor snapshot — ۱۲ اوت ۲۰۲۶
+
+- `js/app.js`: ۱۱۶ خط
+- `js/app/core.js`: ۵٬۸۹۳ خط
+- `js/app/editor.js`: ۶٬۷۸۷ خط
+- `js/core/EditorSongStateService.js`: ۱۹۰ خط
+- `npm test`: ۳۹ ورودی موفق
+
+در commit `56d087e`، مسیرهای sync، نقاط sequential و ثبت آکوردهای CL از
+`SyncModeController` به `EditorSongStateService` منتقل شدند. کنترلر دیگر
+`getEdCur` دریافت نمی‌کند و bridge آن را با `songState` می‌سازد.
+
+باقی‌ماندهٔ مجاز فعلی:
+
+- setter سازگاری `setEditorSong` در core
+- فیلد compatibility مربوط به آماده‌سازی Arranger
+- بدنهٔ بزرگ editor که هنوز برای render و mutationهای قدیمی به `edCur` متکی است
+
+مرحلهٔ بعد باید روی `EditorSelectionService`/`EditorMutationService` و سپس
+`EditorRenderer` متمرکز شود؛ حذف مستقیم `edCur` از این بخش‌ها بدون contract test
+برای selection، transpose و lifecycle انجام نشود.

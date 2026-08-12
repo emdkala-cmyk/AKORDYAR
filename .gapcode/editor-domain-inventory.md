@@ -136,3 +136,38 @@ Commitهای 1+2+3 به‌تنهایی از هدف ۱٬۰۰۰ خط عبور می
 ## ۶) قاعدهٔ اجرا
 
 هیچ جابه‌جایی قبل از ثبت commit مربوطه در «گزارش کامل روند» انجام نمی‌شود. هر commit: `node --check` + تست اختصاصی + رگرسیون چهار تست موجود + `git diff --check`.
+
+## 2026-08-12 — انتقال sync و seq/CL به song state service
+
+### تغییرات
+
+- `EditorSongStateService` به accessorهای `seqPoints` و mutationهای
+  `setSyncTime`، `replaceSyncTimes`، `setSeqPoints`، `appendChords` و
+  `setChordName` مجهز شد.
+- `SyncModeController` از `getEdCur` جدا شد و فقط `songState` دریافت می‌کند.
+- `edRemapSeqPoints`، placement نقاط در editor و commitهای sequential از مرز
+  رسمی state استفاده می‌کنند.
+- رفتار DOM و transport کنترلر حفظ شد و فقط مالکیت mutationهای song state تغییر کرد.
+
+### وضعیت واقعی پس از این مرحله
+
+| فایل | خطوط |
+|---|---:|
+| `js/app.js` | ۱۱۶ |
+| `js/app/core.js` | ۵٬۸۹۳ |
+| `js/app/editor.js` | ۶٬۷۸۷ |
+| `js/core/EditorSongStateService.js` | ۱۹۰ |
+| تست‌های `npm test` | ۳۹ ورودی موفق |
+
+### مرحلهٔ بعد
+
+استخراج selection و mutationهای عمومی chord از `editor.js` در سرویس‌های مستقل؛
+سپس انتقال renderer و bindingهای editor با contract test برای RTL، drag، undo و
+lifecycle.
+
+### کنترل
+
+- `npm test`: موفق.
+- `node --check`: موفق.
+- `git diff --check`: موفق.
+- commit فنی: `56d087e`.
