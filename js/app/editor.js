@@ -4706,142 +4706,55 @@ if ($('edDoBoth')) {
 
 
     // -- Chord Version System --
-    function ensureChordVersionsInit() {
-      if (!edCur) return;
-      if (!edCur.chordVersions) edCur.chordVersions = [];
-      if (edCur.activeChordVersion === undefined) edCur.activeChordVersion = 0;
-      // Auto-save current chords+clips to V1 if no versions exist yet
-      if (edCur.chordVersions.length === 0) {
-        const chordTrack = getEditorDAW().tracks.find(t => t.type === 'chord');
-        const clips = chordTrack ? getEditorDAW().clips.filter(c => c.type === 'chord' && c.trackId === chordTrack.id) : [];
-        edCur.chordVersions.push({
-          name: 'V1',
-          chords: JSON.parse(JSON.stringify(edCur.chords)),
-          clips: JSON.parse(JSON.stringify(clips.map(c => ({ start: c.start, duration: c.duration, color: c.color })))),
-          transpose: edCur.transpose || 0,
-          key: edCur.key || 'C',
-          keyMode: edCur.keyMode || 'maj'
+    let edChordVersionService = null;
+    function getEditorChordVersionService() {
+      if (
+        !edChordVersionService &&
+        typeof window.EditorChordVersionService?.create === 'function'
+      ) {
+        edChordVersionService = window.EditorChordVersionService.create({
+          getSong: () => edCur,
+          getDAW: () => getEditorDAW(),
+          uid,
+          roundMs,
+          renderEditor: rebuild => edRenderEditor(rebuild),
+          saveState,
+          renderTracks,
+          renderClips,
+          refreshKeyUI,
+          customPrompt,
+          toast
         });
-        edCur.activeChordVersion = 0;
       }
+      return edChordVersionService;
+    }
+
+    function ensureChordVersionsInit() {
+      return getEditorChordVersionService()?.ensureInitialized?.();
     }
 
     function saveCurrentVersion() {
-      if (!edCur || !edCur.chordVersions) return;
-      const curVer = edCur.activeChordVersion || 0;
-      if (!edCur.chordVersions[curVer]) return;
-      edCur.chordVersions[curVer].chords = JSON.parse(JSON.stringify(edCur.chords));
-      // ذخیره ترنسپوز و گام به‌صورت مستقل برای هر ورژن
-      edCur.chordVersions[curVer].transpose = edCur.transpose || 0;
-      edCur.chordVersions[curVer].key = edCur.key || 'C';
-      edCur.chordVersions[curVer].keyMode = edCur.keyMode || 'maj';
-      // Also save timeline clip positions
-      const chordTrack = getEditorDAW().tracks.find(t => t.type === 'chord');
-      if (chordTrack) {
-        const clips = getEditorDAW().clips.filter(c => c.type === 'chord' && c.trackId === chordTrack.id);
-        edCur.chordVersions[curVer].clips = JSON.parse(JSON.stringify(clips.map(c => ({ start: c.start, duration: c.duration, color: c.color, name: c.name }))));
-      }
+      return getEditorChordVersionService()?.saveCurrent?.();
     }
 
-    function loadVersionToTimeline(verIdx) {
-      if (!edCur || !edCur.chordVersions[verIdx]) return;
-      const ver = edCur.chordVersions[verIdx];
-      const chordTrack = getEditorDAW().tracks.find(t => t.type === 'chord');
-      if (!chordTrack) return;
-      // Remove existing chord clips
-      getEditorDAW().clips = getEditorDAW().clips.filter(c => !(c.type === 'chord' && c.trackId === chordTrack.id));
-      // Add clips from version snapshot (هر کلیپ نام خودش را دارد)
-      const savedClips = Array.isArray(ver.clips) ? ver.clips : [];
-      savedClips.forEach((saved, i) => {
-        const name = (saved && saved.name) || (ver.chords && ver.chords[i] && ver.chords[i].name) || '';
-        if (!name) return;
-        const start = saved && saved.start != null ? saved.start : roundMs(i * 2);
-        const duration = saved && saved.duration ? saved.duration : 2;
-        const color = saved && saved.color ? saved.color : '#9F7AEA';
-        getEditorDAW().clips.push({ id: uid('c'), type: 'chord', trackId: chordTrack.id, name, start, duration, color });
-      });
+    function loadVersionToTimeline(versionIndex) {
+      return getEditorChordVersionService()?.loadToTimeline?.(versionIndex);
     }
 
-    function switchChordVersion(dir) {
-      if (!edCur) return;
-      ensureChordVersionsInit();
-      // Save current state first
-      saveCurrentVersion();
-      // Switch version
-      const curVer = edCur.activeChordVersion || 0;
-      let newVer = curVer + dir;
-      if (newVer < 0) newVer = 0;
-      if (newVer >= edCur.chordVersions.length) newVer = edCur.chordVersions.length - 1;
-      if (newVer === curVer) { toast('ورژن ' + (curVer + 1) + ' (آخرین)'); return; }
-      // Load target version
-      const ver = edCur.chordVersions[newVer];
-      edCur.activeChordVersion = newVer;
-      edCur.chords = JSON.parse(JSON.stringify(ver.chords || []));
-      // بازیابی ترنسپوز و گام مختص همین ورژن
-      edCur.transpose = ver.transpose !== undefined ? ver.transpose : 0;
-      if (ver.key) edCur.key = ver.key;
-      if (ver.keyMode) edCur.keyMode = ver.keyMode;
-      // Rebuild editor + timeline
-      edRenderEditor(true);
-      loadVersionToTimeline(newVer);
-      saveState();
-      renderTracks();
-      renderClips();
-      if (typeof refreshKeyUI === 'function') refreshKeyUI();
-      toast('ورژن: ' + (ver.name || 'V' + (newVer + 1)));
+    function switchChordVersion(direction) {
+      return getEditorChordVersionService()?.switchVersion?.(direction);
     }
 
     function addChordVersion() {
-      if (!edCur) return;
-      ensureChordVersionsInit();
-      if (edCur.chordVersions.length >= 10) { toast('حداکثر ۱۰ ورژن'); return; }
-      // Save current state
-      saveCurrentVersion();
-      // Create new empty version
-      const newVer = edCur.chordVersions.length;
-      edCur.chordVersions.push({ name: 'V' + (newVer + 1), chords: [], clips: [], transpose: edCur.transpose || 0, key: edCur.key || 'C', keyMode: edCur.keyMode || 'maj' });
-      edCur.activeChordVersion = newVer;
-      edCur.chords = [];
-      // Clear timeline chord clips
-      const chordTrack = getEditorDAW().tracks.find(t => t.type === 'chord');
-      if (chordTrack) getEditorDAW().clips = getEditorDAW().clips.filter(c => !(c.type === 'chord' && c.trackId === chordTrack.id));
-      edRenderEditor(true);
-      saveState();
-      renderTracks();
-      renderClips();
-      toast('ورژن جدید: V' + (newVer + 1));
+      return getEditorChordVersionService()?.addVersion?.();
     }
 
-    async function renameChordVersion() {
-      if (!edCur || !edCur.chordVersions) return;
-      const curVer = edCur.activeChordVersion || 0;
-      const ver = edCur.chordVersions[curVer];
-      if (!ver) return;
-      const newName = await customPrompt('نام ورژن:', ver.name || 'V' + (curVer + 1));
-      if (newName !== null && newName.trim()) {
-        ver.name = newName.trim();
-        saveState();
-        renderTracks();
-        toast('نام ورژن: ' + ver.name);
-      }
+    function renameChordVersion() {
+      return getEditorChordVersionService()?.renameVersion?.();
     }
 
-    // -- Sync transpose/key changes to timeline chord clips --
     function syncTransposeToTimelineChords() {
-      if (!edCur) return;
-      const chordTrack = getEditorDAW().tracks.find(t => t.type === 'chord');
-      if (!chordTrack) return;
-      // Only update existing timeline chord clips in place (never add/remove)
-      const existingClips = getEditorDAW().clips.filter(c => c.type === 'chord' && c.trackId === chordTrack.id);
-      // آکوردها در edCur.chords به ترتیب موسیقایی ذخیره شده‌اند (از بیت اول تا آخر)
-      // Chord Line فقط جهت نمایش LTR دارد — ترتیب موسیقایی باید حفظ شود
-      existingClips.forEach((clip, i) => {
-        if (i < edCur.chords.length && edCur.chords[i].name) {
-          clip.name = edCur.chords[i].name;
-        }
-      });
-      saveState();
-      renderClips();
+      return getEditorChordVersionService()?.syncTransposeToTimeline?.();
     }
     function edFillCol(el, items, cb) { el.innerHTML = ''; items.forEach(v => { const d = document.createElement('div'); d.className = 'chord-item'; d.textContent = v === '' ? '—' : v; d.onclick = () => { [...el.children].forEach(c => c.classList.remove('active')); d.classList.add('active'); cb(v); updateChordPreview(); }; el.appendChild(d); }); }
 
