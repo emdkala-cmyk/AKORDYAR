@@ -4535,28 +4535,30 @@ if ($('editorWrap')) {
 
 
 
-    // Redraw chords on scroll — immediate render for smooth sync
-    if ($('editorWrap')) {
-      let _edScrollRaf = null;
-      $('editorWrap').addEventListener('scroll', () => {
-        if (!edCur || edChordDragActive) return;
-        if (_edScrollRaf) cancelAnimationFrame(_edScrollRaf);
-        _edScrollRaf = requestAnimationFrame(() => { _edScrollRaf = null; edRenderChords(true); });
-      });
-    }
-
     // -- Chord Drag --
 function edAttachChordDrag(el, idx) {
   getEditorChordInteractionService()?.attach(el, idx);
 }
-    // Redraw chords on window resize
-    window.addEventListener('resize', () => { if (edCur) edRenderChords(); });
-
-    // -- Global Alt key tracker --
     let edAltDown = false;
-    window.addEventListener('keydown', e => { if (e.key === 'Alt') edAltDown = true; });
-    window.addEventListener('keyup', e => { if (e.key === 'Alt') edAltDown = false; });
-    window.addEventListener('blur', () => { edAltDown = false; });
+    let edGlobalBindingsService = null;
+    function getEditorGlobalBindingsService() {
+      if (
+        !edGlobalBindingsService &&
+        typeof window.EditorGlobalBindingsService?.create === 'function'
+      ) {
+        edGlobalBindingsService = window.EditorGlobalBindingsService.create({
+          windowRef: window,
+          documentRef: document,
+          getSong: () => edCur,
+          renderChords: () => edRenderChords(),
+          getEditorWrap: () => $('editorWrap'),
+          isDragging: () => edChordDragActive,
+          onAltChange: value => { edAltDown = value; }
+        });
+      }
+      return edGlobalBindingsService;
+    }
+    getEditorGlobalBindingsService()?.bind?.();
 
     // -- Mousedown on editorWrap: Alt+Click = add chord --
     if ($('editorWrap')) {
