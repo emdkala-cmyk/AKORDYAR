@@ -108,7 +108,7 @@ document.addEventListener('DOMContentLoaded', () => {
       selectionEnd = ns.selectionEnd;
       isRecordingChords = false; currentRecordingClipId = null;
 
-      edCur = ns.edCur;
+      edCur = window.TextEncodingService?.repairSong?.(ns.edCur) || ns.edCur;
 
       ensureAudioCtx();
       // ساخت نودهای صوتی جدید برای ترک‌های آهنگ جدید
@@ -205,7 +205,8 @@ document.addEventListener('DOMContentLoaded', () => {
       selectionEnd = 0;
       isRecordingChords = false; currentRecordingClipId = null;
 
-      edCur = JSON.parse(JSON.stringify(song));
+      const clonedSong = JSON.parse(JSON.stringify(song));
+      edCur = window.TextEncodingService?.repairSong?.(clonedSong) || clonedSong;
       window.EdCurAdapter?.setEdCur?.(edCur); // sync legacy reference after loading song
       // اگر lyrics خالیه ولی rawText داریم، parse کن
       if (typeof ensureSongParsed === 'function') ensureSongParsed(edCur);
@@ -3120,7 +3121,14 @@ function edBlankSong() {
 
     async function edInitSong() {
       const saved = localStorage.getItem('ed_current_song');
-      if (saved) { try { edCur = JSON.parse(saved); } catch(e) { edCur = null; } }
+      if (saved) {
+        try {
+          const parsedSong = JSON.parse(saved);
+          edCur = window.TextEncodingService?.repairSong?.(parsedSong) || parsedSong;
+        } catch(e) {
+          edCur = null;
+        }
+      }
       if (!edCur) edCur = edBlankSong();
       window.EdCurAdapter?.setEdCur?.(edCur); // sync legacy reference
       if (!edCur.styles) edCur.styles = {};

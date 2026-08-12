@@ -19,6 +19,7 @@ class ProjectAudioService {
     ensureAudioCtx,
     renderTimeline = null,
     getLoadingIndicator = null,
+    repairSong = null,
     logger = console
   } = {}) {
     if (!state) {
@@ -50,6 +51,15 @@ class ProjectAudioService {
       typeof getLoadingIndicator === 'function'
         ? getLoadingIndicator
         : () => null;
+
+    this.repairSong =
+      typeof repairSong === 'function'
+        ? repairSong
+        : (song) => (
+            typeof window !== 'undefined'
+              ? window.TextEncodingService?.repairSong?.(song) || song
+              : song
+          );
 
     this.logger = logger || console;
   }
@@ -247,11 +257,17 @@ class ProjectAudioService {
    * @returns {Promise<void>}
    */
   async loadProject(projectData, projectFilePath = null) {
+    if (!projectData || typeof projectData !== 'object') {
+      throw new TypeError('loadProject requires project data');
+    }
+
     const loader = this.getLoadingIndicator();
 
     if (loader) {
       loader.style.display = 'block';
     }
+
+    try {
 
     // رفتار قبلی عمداً حفظ شده: در صورت خطای غیرمنتظره، loader همانند قبل
     // توسط caller یا مسیر بعدی مدیریت می‌شود.
@@ -279,7 +295,7 @@ class ProjectAudioService {
     this.state.tracks = projectData.tracks || [];
     this.state.clips = projectData.clips || [];
     this.state.sections = projectData.sections || [];
-    this.state.edCur = projectData.edCur || null;
+    this.state.edCur = this.repairSong(projectData.edCur || null);
     this.state.edSeqPoints = projectData.edSeqPoints || [];
 
     for (const [clipId, clip] of Object.entries(this.state.pool)) {
@@ -349,8 +365,10 @@ class ProjectAudioService {
       this.renderTimeline();
     }
 
-    if (loader) {
-      loader.style.display = 'none';
+    } finally {
+      if (loader) {
+        loader.style.display = 'none';
+      }
     }
   }
 

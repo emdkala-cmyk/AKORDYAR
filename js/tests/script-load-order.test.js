@@ -22,6 +22,10 @@ assert.ok(
     scriptIndex('js/archive/ArchiveRuntimeAdapter.js')
 );
 assert.ok(
+  scriptIndex('js/core/TextEncodingService.js') <
+    scriptIndex('js/app/core.js')
+);
+assert.ok(
   scriptIndex('js/archive/ArchiveRuntimeAdapter.js') <
     scriptIndex('js/archive/ArchiveModule.js')
 );

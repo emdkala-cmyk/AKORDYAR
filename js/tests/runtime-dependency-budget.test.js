@@ -21,6 +21,7 @@ const performanceBridge = executableLines(read('js/performanceBridge.js'));
 const archiveRuntimeAdapter = read('js/archive/ArchiveRuntimeAdapter.js');
 const editorRuntimeAdapter = read('js/core/EditorRuntimeAdapter.js');
 const domainBridge = read('js/core/DomainBridge.js');
+const textEncodingService = read('js/core/TextEncodingService.js');
 const editor = executableLines(read('js/app/editor.js'));
 const appCore = executableLines(read('js/app/core.js'));
 const search = executableLines(read('js/app/search.js'));
@@ -47,6 +48,7 @@ assert.match(editorRuntimeAdapter, /startPointerDrag/);
 assert.match(domainBridge, /getPerformanceStore/);
 assert.match(domainBridge, /callRuntime/);
 assert.doesNotMatch(domainBridge, /window\.edCur/);
+assert.match(textEncodingService, /repairSong/);
 
 assert.doesNotMatch(appCore, /\bPERF\s*\./);
 assert.doesNotMatch(appCore, /\bDAW\s*\./);

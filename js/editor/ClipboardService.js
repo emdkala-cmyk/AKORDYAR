@@ -90,8 +90,9 @@ class ClipboardService {
             };
             delete newClip.relStart;
 
-            if (DAW.bufferCache[newClip.bufferId]) {
-                newClip._peaks = this.d.peaksFromBuffer(DAW.bufferCache[newClip.bufferId]);
+            const buffer = this.getBuffer(newClip.bufferId || newClip.bufferKey);
+            if (buffer) {
+                newClip._peaks = this.d.peaksFromBuffer(buffer);
                 newClip.waveUrl = this.d.refreshClipWaveImage(newClip);
             }
             return newClip;
@@ -123,8 +124,9 @@ class ClipboardService {
                 id: this.d.uid(),
                 start: this.d.roundMs(c.start + offset)
             };
-            if (DAW.bufferCache[newClip.bufferId]) {
-                newClip._peaks = this.d.peaksFromBuffer(DAW.bufferCache[newClip.bufferId]);
+            const buffer = this.getBuffer(newClip.bufferId || newClip.bufferKey);
+            if (buffer) {
+                newClip._peaks = this.d.peaksFromBuffer(buffer);
                 newClip.waveUrl = this.d.refreshClipWaveImage(newClip);
             }
             return newClip;
@@ -142,6 +144,13 @@ class ClipboardService {
 
     getDAW() {
         return typeof this.d.getDAW === 'function' ? this.d.getDAW() : this.d.DAW;
+    }
+
+    getBuffer(bufferKey) {
+        const DAW = this.getDAW();
+        const cache = DAW?.bufferCache;
+        if (!cache) return null;
+        return typeof cache.get === 'function' ? cache.get(bufferKey) : cache[bufferKey];
     }
 }
 

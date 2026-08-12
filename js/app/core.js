@@ -798,13 +798,14 @@ const requestRenderSyncLyrics = debounce(() => { renderSyncLyrics(); }, 120);
     }
 
     function ensureAudioCtx() {
-      if (!getEditorDAW().audioCtx) {
+      const daw = getEditorDAW();
+      if (!daw.audioCtx) {
         const Ctx = window.AudioContext || window.webkitAudioContext;
-        getEditorDAW().audioCtx = new Ctx(); getEditorDAW().masterGain = getEditorDAW().audioCtx.createGain();
-        getEditorDAW().masterGain.gain.value = 1; getEditorDAW().masterGain.connect(getEditorDAW().audioCtx.destination);
+        daw.audioCtx = new Ctx(); daw.masterGain = daw.audioCtx.createGain();
+        daw.masterGain.gain.value = 1; daw.masterGain.connect(daw.audioCtx.destination);
       }
-      if (getEditorDAW().audioCtx.state === 'suspended') getEditorDAW().audioCtx.resume().catch(() => {});
-      return getEditorDAW().audioCtx;
+      if (daw.audioCtx.state === 'suspended') daw.audioCtx.resume().catch(() => {});
+      return daw.audioCtx;
     }
 
 // ==========================================
@@ -838,6 +839,9 @@ const projectAudioServiceBridge =
           typeof document !== 'undefined'
             ? document.getElementById('loading-indicator')
             : null,
+
+        repairSong: (song) =>
+          window.TextEncodingService?.repairSong?.(song) || song,
 
         logger: console
       })
@@ -968,10 +972,22 @@ function attachHistoryService() {
     });
     const xToTime = (x) => x / getEditorDAW().pxPerSecond;
 
-    function getProjectEnd() { let end = 30; for (const c of getEditorDAW().clips) end = Math.max(end, c.start + c.duration); for (const s of (getEditorDAW().sections || [])) end = Math.max(end, s.start + s.duration); return Math.max(getEditorDAW().timelineDuration, end + 8); }
+    function getProjectEnd() {
+      const daw = getEditorDAW();
+      let end = 30;
+      for (const c of daw.clips) end = Math.max(end, c.start + c.duration);
+      for (const s of (daw.sections || [])) end = Math.max(end, s.start + s.duration);
+      return Math.max(daw.timelineDuration, end + 8);
+    }
     function getClip(id) { return getEditorDAW().clips.find(c => c.id === id); }
-    function selectedClips() { return getEditorDAW().clips.filter(c => getEditorDAW().selectedIds.has(c.id)); }
-    function ensureTimelineFits(needed) { if (needed > getEditorDAW().timelineDuration) getEditorDAW().timelineDuration = needed; }
+    function selectedClips() {
+      const daw = getEditorDAW();
+      return daw.clips.filter(c => daw.selectedIds.has(c.id));
+    }
+    function ensureTimelineFits(needed) {
+      const daw = getEditorDAW();
+      if (needed > daw.timelineDuration) daw.timelineDuration = needed;
+    }
 
    function serializeState() {
   const tracks = getEditorDAW().tracks.map(t => {
@@ -1075,7 +1091,7 @@ function applyState(stateStr) {
 
     if (state.edCur) {
       const keepId = edCur?.id;
-      edCur = state.edCur;
+      edCur = window.TextEncodingService?.repairSong?.(state.edCur) || state.edCur;
       window.EdCurAdapter?.setEdCur?.(edCur); // sync legacy reference after loading state
       if (keepId != null) edCur.id = keepId;
     } else {

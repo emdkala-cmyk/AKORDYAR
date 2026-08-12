@@ -73,4 +73,34 @@ const serviceWithInvalidStop = new ClipboardService({
 
 assert.doesNotThrow(() => serviceWithInvalidStop.deleteSelected());
 
+const buffer = { duration: 3 };
+const serviceWithMapCache = new ClipboardService({
+  DAW: {
+    clips: [{ id: 'clip-4', type: 'audio', start: 0, duration: 1, bufferKey: 'buf-1' }],
+    sections: [],
+    selectedIds: new Set(['clip-4']),
+    selectedSectionIds: new Set(),
+    isPlaying: false,
+    playhead: 2,
+    bufferCache: new Map([['buf-1', buffer]]),
+    clipboard: []
+  },
+  selectedClips() { return this.DAW.clips.filter(c => this.DAW.selectedIds.has(c.id)); },
+  uid: () => 'clip-5',
+  roundMs: value => value,
+  peaksFromBuffer: value => ({ duration: value.duration }),
+  refreshClipWaveImage: () => 'wave',
+  ensureTimelineFits() {},
+  saveState() {},
+  renderAll() {},
+  scheduleAllFromPlayhead() {},
+  toast() {},
+  t: key => key,
+  edSaveSong() {}
+});
+serviceWithMapCache.copySelected();
+serviceWithMapCache.pasteClipboard();
+assert.equal(serviceWithMapCache.getDAW().clips.length, 2);
+assert.deepEqual(serviceWithMapCache.getDAW().clips[1]._peaks, { duration: 3 });
+
 console.log('ClipboardService tests passed');

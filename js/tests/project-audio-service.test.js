@@ -63,6 +63,7 @@ function createService(options = {}) {
   };
 
   let renderCount = 0;
+  const loader = options.loader || null;
 
   const service = new ProjectAudioService({
     state,
@@ -72,7 +73,8 @@ function createService(options = {}) {
     renderTimeline: () => {
       renderCount++;
     },
-    getLoadingIndicator: () => null,
+    getLoadingIndicator: () => loader,
+    repairSong: options.repairSong || null,
     logger: {
       warn() {},
       error() {}
@@ -84,7 +86,8 @@ function createService(options = {}) {
     state,
     audioCtx,
     electronAPI,
-    getRenderCount: () => renderCount
+    getRenderCount: () => renderCount,
+    loader
   };
 }
 
@@ -313,6 +316,49 @@ test('loadProject state را بازیابی و audio pool را load می‌کن�
     getRenderCount(),
     1
   );
+});
+
+test('loadProject loader را در موفقیت پنهان می‌کند و edCur را repair می‌کند', async () => {
+  const loader = { style: { display: 'none' } };
+  const repairedSong = { title: 'ترمیم‌شده' };
+  const { service, state } = createService({
+    isElectron: false,
+    loader,
+    repairSong: () => repairedSong
+  });
+
+  await service.loadProject({
+    project: {},
+    edCur: { title: 'خراب' },
+    tracks: [],
+    clips: [],
+    sections: []
+  });
+
+  assert.equal(state.edCur, repairedSong);
+  assert.equal(loader.style.display, 'none');
+});
+
+test('loadProject دادهٔ نامعتبر را سریع رد می‌کند', async () => {
+  const { service } = createService();
+  await assert.rejects(
+    () => service.loadProject(null),
+    /requires project data/
+  );
+});
+
+test('loadProject در خطای داخلی هم loader را رها نمی‌کند', async () => {
+  const loader = { style: { display: 'none' } };
+  const { service } = createService({
+    loader,
+    repairSong: () => { throw new Error('repair failed'); }
+  });
+
+  await assert.rejects(
+    () => service.loadProject({ edCur: {}, tracks: [], clips: [], sections: [] }),
+    /repair failed/
+  );
+  assert.equal(loader.style.display, 'none');
 });
 
 process.on('beforeExit', () => {

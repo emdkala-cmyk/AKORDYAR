@@ -218,6 +218,7 @@ function wirePerformanceBroadcasts() {
 
 let _singerPopup = null;
 let _singerUnsubs = [];
+let _singerCloseTimer = null;
 
 function _clearSingerUnsubs() {
   _singerUnsubs.forEach(function (u) {
@@ -298,9 +299,11 @@ function openSingerView() {
 
   startPlaybackSync();
 
-  const closeTimer = setInterval(function () {
+  if (_singerCloseTimer) clearInterval(_singerCloseTimer);
+  _singerCloseTimer = setInterval(function () {
     if (!_singerPopup || _singerPopup.closed) {
-      clearInterval(closeTimer);
+      clearInterval(_singerCloseTimer);
+      _singerCloseTimer = null;
       _clearSingerUnsubs();
       _singerPopup = null;
     }
@@ -384,6 +387,7 @@ function detachEmbeddedView() {
   _embeddedUnsubs.forEach(fn => fn());
   _embeddedUnsubs = [];
   _embeddedContainer = null;
+  _forceRenderEmbedded = null;
 }
 
 /* ═══════════════════════════════════════════════
@@ -426,8 +430,18 @@ function _forceRenderOpenPopupsFull() {
 
 function destroyPerformanceBridge() {
   stopPlaybackSync();
+  if (_singerCloseTimer) {
+    clearInterval(_singerCloseTimer);
+    _singerCloseTimer = null;
+  }
   if (_singerPopup && !_singerPopup.closed) _singerPopup.close();
   if (_playerPopup && !_playerPopup.closed) _playerPopup.close();
+  if (_performanceChannel && typeof _performanceChannel.close === 'function') {
+    _performanceChannel.close();
+    _performanceChannel = null;
+  }
+  _clearSingerUnsubs();
+  _clearPlayerUnsubs();
   _singerPopup = null;
   _playerPopup = null;
   detachEmbeddedView();
