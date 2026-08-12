@@ -45,6 +45,10 @@
       return song?.lyrics || '';
     }
 
+    function getLineColors(song = currentSong()) {
+      return Array.isArray(song?.lineColors) ? song.lineColors : [];
+    }
+
     function getStyles(song = currentSong()) {
       return song?.styles || {};
     }
@@ -83,6 +87,85 @@
     function setTempo(value, song = currentSong()) {
       if (!song) return false;
       song.tempo = value;
+      return true;
+    }
+
+    function setLyrics(value, song = currentSong()) {
+      if (!song) return false;
+      song.lyrics = value == null ? '' : String(value);
+      return true;
+    }
+
+    function ensureStyles(song = currentSong()) {
+      if (!song) return null;
+      if (!song.styles || typeof song.styles !== 'object') song.styles = {};
+      return song.styles;
+    }
+
+    function setTextColor(color, song = currentSong()) {
+      const styles = ensureStyles(song);
+      if (!styles) return false;
+      styles.tColor = color;
+      return true;
+    }
+
+    function setChordColorStyle(color, song = currentSong()) {
+      const styles = ensureStyles(song);
+      if (!styles) return false;
+      styles.cColor = color;
+      return true;
+    }
+
+    function setLineColor(index, color, song = currentSong()) {
+      if (!song || !Number.isInteger(index) || index < 0) return false;
+      if (!Array.isArray(song.lineColors)) song.lineColors = [];
+      song.lineColors[index] = color;
+      return true;
+    }
+
+    function replaceLineColors(colors, song = currentSong()) {
+      if (!song || !Array.isArray(colors)) return false;
+      song.lineColors = colors;
+      return true;
+    }
+
+    function clearLineColors(song = currentSong()) {
+      return replaceLineColors([], song);
+    }
+
+    function getLineColor(index, fallback = null, song = currentSong()) {
+      return getLineColors(song)[index] || getStyles(song).tColor || fallback;
+    }
+
+    function getChordColor(index, fallback = null, song = currentSong()) {
+      const chord = getChords(song)[index];
+      return chord?.color || getStyles(song).cColor || fallback;
+    }
+
+    function setChordColor(index, color, song = currentSong()) {
+      const chord = getChords(song)[index];
+      if (!chord || !Number.isInteger(index) || index < 0) return false;
+      chord.color = color;
+      return true;
+    }
+
+    function colorChordsByLine(colorForLine, song = currentSong()) {
+      if (!song || typeof colorForLine !== 'function') return false;
+      getChords(song).forEach(chord => {
+        chord.color = colorForLine(chord.lineIndex, chord);
+      });
+      return true;
+    }
+
+    function resetChordColors(color, song = currentSong()) {
+      if (!song) return false;
+      getChords(song).forEach(chord => { chord.color = color; });
+      return true;
+    }
+
+    function clearChordColors(song = currentSong()) {
+      if (!song) return false;
+      getChords(song).forEach(chord => { delete chord.color; });
       return true;
     }
 
@@ -168,10 +251,24 @@
       getSeqPoints,
       getChords,
       getLyrics,
+      getLineColors,
       getStyles,
       getChordLineClips,
       getPresentationSnapshot,
       setTempo,
+      setLyrics,
+      ensureStyles,
+      setTextColor,
+      setChordColorStyle,
+      setLineColor,
+      replaceLineColors,
+      clearLineColors,
+      getLineColor,
+      getChordColor,
+      setChordColor,
+      colorChordsByLine,
+      resetChordColors,
+      clearChordColors,
       setTranspose,
       setKey,
       setHighlightEffect,

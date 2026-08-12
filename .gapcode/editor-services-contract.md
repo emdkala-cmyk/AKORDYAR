@@ -49,6 +49,32 @@ EdCurAdapter.syncViewStyles()       // void
 کد جدید نباید مستقیماً `window.edCur` را بخواند یا بنویسد.
 این قاعده با `npm run quality:legacy-deps` روی سرویس‌های `js/editor` کنترل می‌شود.
 
+### `EditorSongStateService`
+
+```js
+const state = EditorSongStateService.create({
+  getSong: () => Song | null
+});
+
+state.getLyrics()                         // string
+state.setLyrics(value)                    // boolean
+state.getLineColor(index, fallback)       // string | null
+state.setLineColor(index, color)          // boolean
+state.replaceLineColors(colors)           // boolean
+state.clearLineColors()                   // boolean
+state.setTextColor(color)                 // boolean
+state.setChordColorStyle(color)           // boolean
+state.getChordColor(index, fallback)     // string | null
+state.setChordColor(index, color)         // boolean
+state.colorChordsByLine(colorForLine)     // boolean
+state.resetChordColors(color)             // boolean
+state.clearChordColors()                  // boolean
+```
+
+این API مرز رسمی mutationهای سادهٔ lyrics، رنگ متن و رنگ آکورد است؛
+orchestrator نباید برای این تغییرات مستقیماً `song.lyrics`، `song.lineColors`
+یا `song.styles` را mutate کند.
+
 ## قرارداد lifecycle و commit
 
 ### `EditorSongInitializationService`

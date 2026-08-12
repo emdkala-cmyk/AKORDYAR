@@ -46,6 +46,28 @@ assert.equal(snapshot.lyrics, 'خط اول\nخط دوم');
 
 assert.equal(service.setTempo(120), true);
 assert.equal(song.tempo, 120);
+assert.equal(service.setLyrics('خط تازه'), true);
+assert.equal(song.lyrics, 'خط تازه');
+assert.equal(service.setTextColor('#123456'), true);
+assert.equal(service.setChordColorStyle('#654321'), true);
+assert.equal(service.setLineColor(1, '#abcdef'), true);
+assert.equal(service.getLineColor(1), '#abcdef');
+assert.equal(service.getLineColor(9, '#fallback'), '#123456');
+assert.equal(service.setChordColor(0, '#fedcba'), true);
+assert.equal(service.getChordColor(0), '#fedcba');
+assert.equal(service.colorChordsByLine((lineIndex) => lineIndex ? '#222' : '#111'), true);
+assert.equal(song.chords[0].color, '#111');
+assert.equal(service.resetChordColors('#999999'), true);
+assert.equal(song.chords[0].color, '#999999');
+assert.equal(service.clearChordColors(), true);
+assert.equal(song.chords[0].color, undefined);
+assert.equal(service.replaceLineColors(['red', 'blue']), true);
+assert.equal(
+  JSON.stringify(service.getLineColors()),
+  JSON.stringify(['red', 'blue'])
+);
+assert.equal(service.clearLineColors(), true);
+assert.equal(JSON.stringify(service.getLineColors()), JSON.stringify([]));
 assert.equal(service.setKey('D', 'min'), true);
 assert.equal(song.key, 'D');
 assert.equal(song.keyMode, 'min');

@@ -665,7 +665,9 @@ function getEditorSongImportService() {
                 if (newBPM >= 20 && newBPM <= 300 && newBPM !== midiSyncBPM) {
                   midiSyncBPM = newBPM;
                   $('edTempo').value = newBPM;
-                  if (edCur) { edCur.tempo = newBPM; edSaveSong(); }
+                  if (getEditorSongStateService()?.setTempo?.(newBPM)) {
+                    edSaveSong();
+                  }
                   toast(`تمپوی کیوبیس: ${newBPM} BPM`);
                 }
               }
@@ -3804,21 +3806,25 @@ function edBlankSong() {
     function edGetLyricsFromDOM() { return $('editor')?.innerText?.replace(/\u200B/g,'').replace(/\r\n?/g,'\n') || ''; }
 
     function edRemapAnchors(oldText, newText) {
-      if (oldText === newText || !edCur) return;
+      const songState = getEditorSongStateService();
+      if (oldText === newText || !songState?.currentSong?.()) return;
       // منطق remap به js/editor/LyricPositionMapper.js منتقل شده است.
-      edCur.chords.forEach(ch => requireLyricPositionMapper().remapAnchorToNewText(ch, oldText, newText));
+      songState.getChords().forEach(ch =>
+        requireLyricPositionMapper().remapAnchorToNewText(ch, oldText, newText)
+      );
       edFilterChordsWithBase(ch => ch.lineIndex >= 0);
     }
 
     if ($('editor')) {
       $('editor').addEventListener('input', () => {
-  if (!edCur) return;
+  const songState = getEditorSongStateService();
+  if (!songState?.currentSong?.()) return;
 
-  const oldText = edCur.lyrics;
+  const oldText = songState.getLyrics();
   const newText = edGetLyricsFromDOM();
   if (oldText === newText) return;
 
-  edCur.lyrics = newText;
+  songState.setLyrics(newText);
 
   // Remap anchors and sequence points immediately
   edRemapAnchors(oldText, newText);
@@ -4529,22 +4535,23 @@ if ($('edDoBoth')) {
     }
 
     function randomizeLineColor(type) {
-      if (!edCur || edCur.editorLocked) return;
-      const lines = edCur.lyrics.split('\n');
+      const songState = getEditorSongStateService();
+      const song = songState?.currentSong?.();
+      if (!song || song.editorLocked) return;
+      const lines = songState.getLyrics().split('\n');
       if (lines.length === 0) return;
       const shuffled = _shufflePalette();
 
       if (type === 'text') {
-        if (!edCur.lineColors) edCur.lineColors = [];
-        for (let i = 0; i < lines.length; i++) {
-          edCur.lineColors[i] = shuffled[i % shuffled.length];
-        }
+        songState.replaceLineColors(
+          lines.map((_, index) => shuffled[index % shuffled.length])
+        );
         edRenderEditor(false);
         toast('🎨 رنگ متن رندوم شد');
       } else {
-        edCur.chords.forEach(ch => {
-          ch.color = shuffled[ch.lineIndex % shuffled.length];
-        });
+        songState.colorChordsByLine(
+          lineIndex => shuffled[lineIndex % shuffled.length]
+        );
         edRenderChords();
         toast('🎨 رنگ آکوردها رندوم شد');
       }
@@ -4552,17 +4559,18 @@ if ($('edDoBoth')) {
     }
 
     function resetLineColor(type) {
-      if (!edCur) return;
+      const songState = getEditorSongStateService();
+      if (!songState?.currentSong?.()) return;
       const defaultTextColor = '#0fa966';
       const defaultChordColor = '#e6aa28';
       if (type === 'text') {
-        edCur.lineColors = [];
-        edCur.styles.tColor = defaultTextColor;
+        songState.clearLineColors();
+        songState.setTextColor(defaultTextColor);
         edRenderEditor(false);
         toast('🔄 رنگ متن ریست شد');
       } else {
-        edCur.chords.forEach(ch => { ch.color = defaultChordColor; });
-        edCur.styles.cColor = defaultChordColor;
+        songState.resetChordColors(defaultChordColor);
+        songState.setChordColorStyle(defaultChordColor);
         edRenderChords();
         toast('🔄 رنگ آکوردها ریست شد');
       }
@@ -4844,6 +4852,8 @@ if ($('edDoBoth')) {
     // Regular click = paint ONLY this item (per-item)
     function paintContextAware(e) {
       const isGlobal = e.shiftKey;
+      const songState = getEditorSongStateService();
+      const song = songState?.currentSong?.();
 
       if (colorToolMode === 'brush') {
         // 0. Section tag (decoupled from clips)
@@ -4878,18 +4888,17 @@ if ($('edDoBoth')) {
         }
         // 2. Editor text line (check BEFORE chord — chords overlay text via z-index)
         const eline = e.target.closest('.eline');
-        if (eline && edCur) {
+        if (eline && song) {
           const li = parseInt(eline.dataset.lineIndex);
-          if (!edCur.lineColors) edCur.lineColors = [];
           if (isGlobal) {
-            edCur.styles.tColor = currentColor;
-            edCur.lineColors = [];
+            songState.setTextColor(currentColor);
+            songState.clearLineColors();
             // Apply to ALL eline elements directly
             document.querySelectorAll('#editor .eline').forEach(el => { el.style.color = currentColor; });
             saveState(); edSaveSong();
             toast('رنگ همه متن: ' + currentColor);
           } else if (li >= 0) {
-            edCur.lineColors[li] = currentColor;
+            songState.setLineColor(li, currentColor);
             // Apply color directly — do NOT call edRenderEditor which may interfere
             eline.style.color = currentColor;
             saveState(); edSaveSong();
@@ -4899,25 +4908,25 @@ if ($('edDoBoth')) {
         }
         // 3. Editor chord (after text line — so text always gets colored)
         const chordEl = e.target.closest('.chord');
-        if (chordEl && edCur) {
+        if (chordEl && song) {
           const ci = parseInt(chordEl.dataset.idx);
           if (isGlobal) {
-            edCur.styles.cColor = currentColor;
-            edCur.chords.forEach(ch => delete ch.color);
+            songState.setChordColorStyle(currentColor);
+            songState.clearChordColors();
             saveState(); edRenderChords(); edSaveSong();
             toast('رنگ همه آکوردها: ' + currentColor);
-          } else if (ci >= 0 && edCur.chords[ci]) {
-            edCur.chords[ci].color = currentColor;
+          } else if (ci >= 0 && songState.getChords()[ci]) {
+            songState.setChordColor(ci, currentColor);
             saveState(); edRenderChords(); edSaveSong();
             toast('رنگ آکورد: ' + currentColor);
           }
           return true;
         }
         // 4. Editor general area (not on specific element)
-        if (e.target.closest('#editor') && edCur) {
+        if (e.target.closest('#editor') && song) {
           if (isGlobal) {
-            edCur.styles.tColor = currentColor;
-            edCur.lineColors = [];
+            songState.setTextColor(currentColor);
+            songState.clearLineColors();
             document.querySelectorAll('#editor .eline').forEach(el => { el.style.color = currentColor; });
             saveState(); edSaveSong();
             toast('رنگ همه متن: ' + currentColor);
@@ -4948,22 +4957,20 @@ if ($('edDoBoth')) {
         }
         // 2. Editor text line → sample per-line or global (check before chord)
         const eline = e.target.closest('.eline');
-        if (eline && edCur) {
+        if (eline && song) {
           const li = parseInt(eline.dataset.lineIndex);
-          const lineColors = edCur.lineColors || [];
-          selectColor(lineColors[li] || edCur.styles.tColor || '#0fa966');
+          selectColor(songState.getLineColor(li, '#0fa966'));
           toast('رنگ نمونه: ' + currentColor); deactivateColorTool(); return true;
         }
         // 3. Editor chord → sample per-chord or global
         const chordEl = e.target.closest('.chord');
-        if (chordEl && edCur) {
+        if (chordEl && song) {
           const ci = parseInt(chordEl.dataset.idx);
-          const ch = ci >= 0 ? edCur.chords[ci] : null;
-          selectColor(ch?.color || edCur.styles.cColor || '#e6aa28');
+          selectColor(songState.getChordColor(ci, '#e6aa28'));
           toast('رنگ نمونه: ' + currentColor); deactivateColorTool(); return true;
         }
-        if (e.target.closest('#editor') && edCur) {
-          selectColor(edCur.styles.tColor || '#0fa966');
+        if (e.target.closest('#editor') && song) {
+          selectColor(songState.getStyles().tColor || '#0fa966');
           toast('رنگ نمونه: ' + currentColor); deactivateColorTool(); return true;
         }
         // 4. Track lane → sample first clip color
