@@ -221,7 +221,7 @@ Legacy code may temporarily violate this until each domain is migrated.
 ```text
 app.js       116
 core.js      5893
-editor.js    6326
+editor.js    6342
 print.js     197
 search.js    195
 edCur refs در editor.js  201

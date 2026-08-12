@@ -192,14 +192,14 @@ lifecycle.
 ```text
 js/app.js        116
 js/app/core.js   5893
-js/app/editor.js 6326
+js/app/editor.js 6342
 npm test         47 test entries passed
 ```
 
 ### وضعیت مرز legacy
 
 `edCur` در `core.js` به setter رسمی و compatibility state ارنجر محدود شده
-است؛ `editor.js` هنوز ۲۰۱ رفرنس دارد، اما مسیرهای toolbar، persistence،
+است؛ `editor.js` هنوز ۲۰۰ رفرنس دارد، اما مسیرهای toolbar، persistence،
 initialization، version و listenerهای کوچک از آن خارج شده‌اند. `DAW` و `PERF`
 در سرویس‌های جدید فقط callback/adapter هستند. extraction بعدی باید روی popupهای
 cross-document و keyboard command بزرگ تمرکز کند و قبل از حذف compatibility
