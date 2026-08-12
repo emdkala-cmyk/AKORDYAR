@@ -61,7 +61,6 @@ class SyncModeController {
 
     this.state = state;
     this.getDAW = typeof getDAW === 'function' ? getDAW : () => runtimeDAW;
-    this.DAW = runtimeDAW;
     this.getEdCur = getEdCur;
     this.$ = $;
 
@@ -224,7 +223,8 @@ class SyncModeController {
     const edCur = this.getEdCur();
     const lines = (edCur?.lyrics || '').split('\n');
     if (state.cursor >= lines.length) return;
-    const t = this.DAW.playhead;
+    const daw = this.getDAW();
+    const t = daw.playhead;
     state.history.push(JSON.stringify(edCur?.syncTimes || []));
     state.redoHistory = [];
     if (!edCur.syncTimes) edCur.syncTimes = [];
@@ -240,13 +240,13 @@ class SyncModeController {
       // TypeError می‌داد؛ بنابراین مسیر پایان sync هرگز toast/save را کامل نمی‌کرد.
       // اینجا this.t (i18n واقعی) استفاده می‌شود. — ثبت در گزارش روند، Commit 2a.
       this.toast(this.t('syncFinished'));
-      if (this.DAW.isPlaying) this.pauseTransport();
+      if (this.getDAW().isPlaying) this.pauseTransport();
     }
     this.edSaveSong();
   }
 
   updateSyncHighlight() {
-    const t = this.DAW.playhead;
+    const t = this.getDAW().playhead;
     const edCur = this.getEdCur();
     const times = edCur?.syncTimes || [];
     let activeLi = -1;
@@ -270,7 +270,7 @@ class SyncModeController {
       songDocument &&
       typeof sharedEngine.computeHighlight === 'function'
     ) {
-      store.setPlaybackState({ time: t, isPlaying: !!this.DAW.isPlaying });
+      store.setPlaybackState({ time: t, isPlaying: !!this.getDAW().isPlaying });
       const hl = sharedEngine.computeHighlight(
         store.getState().playbackState,
         songDocument
@@ -495,8 +495,9 @@ class SyncModeController {
   edClTap() {
     const ss = this._requireSeqState();
     if (!ss.clTapActive) { this.toast('اول روی ⏺ کلیک کن تا نقطه‌گذاری با آهنگ فعال شود'); return; }
-    if (!this.DAW || typeof this.DAW.playhead !== 'number') return;
-    const t = this.roundMs(Math.max(0, this.DAW.playhead));
+    const daw = this.getDAW();
+    if (!daw || typeof daw.playhead !== 'number') return;
+    const t = this.roundMs(Math.max(0, daw.playhead));
     ss.clMarkers.push({ time: t });
     this.ensureTimelineFits(t + 6);
     this.edRenderClMarkers(); this.edUpdateClCount();
@@ -524,12 +525,13 @@ class SyncModeController {
       this.toast('⚠️ تعداد آکوردهای لایرس (' + lyrics.length + ') با تعداد نقاط تایم‌لاین (' + ss.clMarkers.length + ') یکی نیست — اول تعداد را برابر کن');
       return;
     }
-    const chordTrack = this.DAW.tracks.find(t => t.type === 'chord');
+    const daw = this.getDAW();
+    const chordTrack = daw.tracks.find(t => t.type === 'chord');
     if (!chordTrack) { this.toast('ترک کورد لاین پیدا نشد'); return; }
     // آکوردها در edCur.chords به ترتیب موسیقایی ذخیره شده‌اند (از بیت اول تا آخر)
     // Chord Line فقط جهت نمایش LTR دارد — ترتیب موسیقایی باید حفظ شود
     ss.clMarkers.forEach((m, i) => {
-      this.DAW.clips.push({ id: this.uid('c'), type: 'chord', trackId: chordTrack.id, name: lyrics[i].name, start: this.roundMs(m.time), duration: 2, color: '#9F7AEA' });
+      daw.clips.push({ id: this.uid('c'), type: 'chord', trackId: chordTrack.id, name: lyrics[i].name, start: this.roundMs(m.time), duration: 2, color: '#9F7AEA' });
     });
     const lastT = ss.clMarkers[ss.clMarkers.length - 1].time;
     ss.clMarkers = []; ss.clTapActive = false;
@@ -552,21 +554,21 @@ class SyncModeController {
     };
     if (this.$('syncExitBtn')) this.$('syncExitBtn').onclick = () => { this.exitSyncMode(); const tab = this.$('tab-sync'); if (tab) tab.classList.remove('active-teal'); };
     if (this.$('syncPlayBtn')) this.$('syncPlayBtn').onclick = () => {
-      if (this.DAW.isPlaying) { this.pauseTransport(); this.$('syncPlayBtn').textContent = this.t('syncPlay'); } else { this.startTransport(); this.$('syncPlayBtn').textContent = this.t('syncPause'); }
+      if (this.getDAW().isPlaying) { this.pauseTransport(); this.$('syncPlayBtn').textContent = this.t('syncPlay'); } else { this.startTransport(); this.$('syncPlayBtn').textContent = this.t('syncPause'); }
     };
     if (this.$('syncTapBtn')) this.$('syncTapBtn').onclick = () => this.syncTap();
     if (this.$('syncMinus')) this.$('syncMinus').onclick = () => {
       const edCur = edCurRef();
       if (!edCur?.syncTimes) return;
       state.history.push(JSON.stringify(edCur.syncTimes)); state.redoHistory = [];
-      let t = edCur.syncTimes[state.cursor]; if (!Number.isFinite(t)) t = this.DAW.playhead;
+      let t = edCur.syncTimes[state.cursor]; if (!Number.isFinite(t)) t = this.getDAW().playhead;
       edCur.syncTimes[state.cursor] = Math.max(0, t - 0.1); this.renderSyncLyrics(); this.edSaveSong();
     };
     if (this.$('syncPlus')) this.$('syncPlus').onclick = () => {
       const edCur = edCurRef();
       if (!edCur?.syncTimes) return;
       state.history.push(JSON.stringify(edCur.syncTimes)); state.redoHistory = [];
-      let t = edCur.syncTimes[state.cursor]; if (!Number.isFinite(t)) t = this.DAW.playhead;
+      let t = edCur.syncTimes[state.cursor]; if (!Number.isFinite(t)) t = this.getDAW().playhead;
       edCur.syncTimes[state.cursor] = t + 0.1; this.renderSyncLyrics(); this.edSaveSong();
     };
     if (this.$('syncDelBtn')) this.$('syncDelBtn').onclick = () => {

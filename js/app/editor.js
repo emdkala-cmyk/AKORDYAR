@@ -13,7 +13,7 @@ function renderTimeline() {
   if (!container) return;
   container.innerHTML = '';
 
-  DAW.tracks.forEach(track => {
+  getEditorDAW().tracks.forEach(track => {
     const trackEl = document.createElement('div');
     trackEl.className = 'track-row';
     trackEl.innerHTML = `
@@ -92,19 +92,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // ─── پاک‌سازی نودهای صوتی ترک‌های قدیمی ───
       // این نودها هنوز به masterGain وصلی هستن و باید قطع بشن تا bleed صدا نداشته باشیم
-      DAW.tracks.forEach(tr => {
+      getEditorDAW().tracks.forEach(tr => {
         if (tr._gainNode) { try { tr._gainNode.disconnect(); } catch(_){} tr._gainNode = null; }
         if (tr._pannerNode) { try { tr._pannerNode.disconnect(); } catch(_){} tr._pannerNode = null; }
       });
 
-      DAW.clips = ns.clips;
-      DAW.sections = ns.sections;
-      DAW.tracks = ns.tracks;
+      getEditorDAW().clips = ns.clips;
+      getEditorDAW().sections = ns.sections;
+      getEditorDAW().tracks = ns.tracks;
       updateNextIdFromClips();
-      DAW.selectedIds.clear(); DAW.selectedSectionIds = new Set();
-      DAW.loopEnabled = ns.loopState.loopEnabled;
-      DAW.loopA = ns.loopState.loopA;
-      DAW.loopB = ns.loopState.loopB;
+      getEditorDAW().selectedIds.clear(); getEditorDAW().selectedSectionIds = new Set();
+      getEditorDAW().loopEnabled = ns.loopState.loopEnabled;
+      getEditorDAW().loopA = ns.loopState.loopA;
+      getEditorDAW().loopB = ns.loopState.loopB;
       selectionEnd = ns.selectionEnd;
       isRecordingChords = false; currentRecordingClipId = null;
 
@@ -112,29 +112,29 @@ document.addEventListener('DOMContentLoaded', () => {
 
       ensureAudioCtx();
       // ساخت نودهای صوتی جدید برای ترک‌های آهنگ جدید
-      DAW.tracks.forEach(tr => {
+      getEditorDAW().tracks.forEach(tr => {
         if (tr.type === 'audio') {
           if (tr.transpose === undefined) tr.transpose = 0;
-          tr._pannerNode = DAW.audioCtx.createStereoPanner();
-          tr._gainNode = DAW.audioCtx.createGain();
+          tr._pannerNode = getEditorDAW().audioCtx.createStereoPanner();
+          tr._gainNode = getEditorDAW().audioCtx.createGain();
           tr._pannerNode.connect(tr._gainNode);
-          tr._gainNode.connect(DAW.masterGain);
+          tr._gainNode.connect(getEditorDAW().masterGain);
           updateTrackMix(tr.id);
         }
       });
 
       // بررسی: آیا بافرهای صوتی بارگذاری شدن؟
-      const audioClips = DAW.clips.filter(c => c.type !== 'chord' && c.bufferKey);
-      const loadedClips = audioClips.filter(c => DAW.bufferCache.has(c.bufferKey));
-      const missingClips = audioClips.filter(c => !DAW.bufferCache.has(c.bufferKey));
+      const audioClips = getEditorDAW().clips.filter(c => c.type !== 'chord' && c.bufferKey);
+      const loadedClips = audioClips.filter(c => getEditorDAW().bufferCache.has(c.bufferKey));
+      const missingClips = audioClips.filter(c => !getEditorDAW().bufferCache.has(c.bufferKey));
       console.log(`[Arranger] Audio clips: ${loadedClips.length}/${audioClips.length} loaded` + (missingClips.length > 0 ? `, ${missingClips.length} missing: ${missingClips.map(c=>c.fileName||c.bufferKey).join(', ')}` : ''));
 
-      DAW.playhead = 0;
-      var _ori2 = PlayheadMath.createOrigin(performance.now(), 0); DAW.playOriginPerf = _ori2.playOriginPerf;
-      DAW.playOriginTime = _ori2.playOriginTime;
+      getEditorDAW().playhead = 0;
+      var _ori2 = PlayheadMath.createOrigin(performance.now(), 0); getEditorDAW().playOriginPerf = _ori2.playOriginPerf;
+      getEditorDAW().playOriginTime = _ori2.playOriginTime;
       scheduleAllFromPlayhead();
 
-      undoStack = []; undoIndex = -1; PERF.lastSerializedState = '';
+      undoStack = []; undoIndex = -1; getEditorPERF().lastSerializedState = '';
       edSyncToolbar(); edRenderEditor(true); renderAll(); saveState();
       initHighlightEffect();
 
@@ -193,15 +193,15 @@ document.addEventListener('DOMContentLoaded', () => {
       console.log(`[Arranger] loadArrSong(${idx}): "${song.title}"`);
 
       pauseTransport(); stopAllVoices();
-      DAW.clips = []; DAW.sections = []; DAW.selectedIds.clear(); DAW.selectedSectionIds = new Set();
+      getEditorDAW().clips = []; getEditorDAW().sections = []; getEditorDAW().selectedIds.clear(); getEditorDAW().selectedSectionIds = new Set();
 
       // ─── مهم: bufferCache رو پاک نکن! ───
-      // قبلاً اینجا DAW.bufferCache.clear() بود که همه بافرهای preload شده رو پاک می‌کرد.
+      // قبلاً اینجا getEditorDAW().bufferCache.clear() بود که همه بافرهای preload شده رو پاک می‌کرد.
       // این باعث می‌شد هر بار که آهنگ لود می‌شه، همه فایل‌ها دوباره از اول لود بشن.
       // به‌جاش، فقط waveCache (تصاویر waveform) رو پاک می‌کنیم که اون هم بعداً rebuild می‌شه.
-      DAW.waveCache.clear();
+      getEditorDAW().waveCache.clear();
 
-      DAW.loopEnabled = false; DAW.loopA = 0; DAW.loopB = 10;
+      getEditorDAW().loopEnabled = false; getEditorDAW().loopA = 0; getEditorDAW().loopB = 10;
       selectionEnd = 0;
       isRecordingChords = false; currentRecordingClipId = null;
 
@@ -213,29 +213,29 @@ document.addEventListener('DOMContentLoaded', () => {
       const defaults = { tSize:23,tColor:'#0fa966',tFont:'Vazirmatn',tBold:true,align:'center',cSize:23,cColor:'#e6aa28',cFont:'JetBrains Mono' };
       Object.keys(defaults).forEach(k => { if (edCur.styles[k] === undefined) edCur.styles[k] = defaults[k]; });
 
-      if (edCur._dawTracks) DAW.tracks = JSON.parse(JSON.stringify(edCur._dawTracks));
-      if (edCur._dawClips) DAW.clips = JSON.parse(JSON.stringify(edCur._dawClips));
-      if (edCur._dawSections) DAW.sections = JSON.parse(JSON.stringify(edCur._dawSections)); else DAW.sections = [];
+      if (edCur._dawTracks) getEditorDAW().tracks = JSON.parse(JSON.stringify(edCur._dawTracks));
+      if (edCur._dawClips) getEditorDAW().clips = JSON.parse(JSON.stringify(edCur._dawClips));
+      if (edCur._dawSections) getEditorDAW().sections = JSON.parse(JSON.stringify(edCur._dawSections)); else getEditorDAW().sections = [];
       updateNextIdFromClips();
-      const _oldSec = DAW.clips.filter(c => c.type === 'section');
-      if (_oldSec.length) { _oldSec.forEach(c => { DAW.sections.push({ id: c.id, trackId: c.trackId, label: c.name, start: c.start, duration: c.duration, color: c.color }); }); DAW.clips = DAW.clips.filter(c => c.type !== 'section'); }
-      if (edCur._dawLoop) { DAW.loopEnabled = !!edCur._dawLoop.loopEnabled; DAW.loopA = edCur._dawLoop.loopA || 0; DAW.loopB = edCur._dawLoop.loopB || 10; }
-      selectionEnd = (DAW.loopA < DAW.loopB) ? DAW.loopB : 0;
+      const _oldSec = getEditorDAW().clips.filter(c => c.type === 'section');
+      if (_oldSec.length) { _oldSec.forEach(c => { getEditorDAW().sections.push({ id: c.id, trackId: c.trackId, label: c.name, start: c.start, duration: c.duration, color: c.color }); }); getEditorDAW().clips = getEditorDAW().clips.filter(c => c.type !== 'section'); }
+      if (edCur._dawLoop) { getEditorDAW().loopEnabled = !!edCur._dawLoop.loopEnabled; getEditorDAW().loopA = edCur._dawLoop.loopA || 0; getEditorDAW().loopB = edCur._dawLoop.loopB || 10; }
+      selectionEnd = (getEditorDAW().loopA < getEditorDAW().loopB) ? getEditorDAW().loopB : 0;
 
       // Apply per-song transpose
       const setting = getArrItemSetting(arr, song.id);
       if (setting.transpose) {
-        DAW.tracks.forEach(t => { if (t.type === 'audio') t.transpose = (t.transpose || 0) + setting.transpose; });
+        getEditorDAW().tracks.forEach(t => { if (t.type === 'audio') t.transpose = (t.transpose || 0) + setting.transpose; });
       }
 
       // ─── پاک‌سازی نودهای صوتی قدیمی قبل از ساخت نودهای جدید ───
-      DAW.tracks.forEach(tr => {
+      getEditorDAW().tracks.forEach(tr => {
         if (tr._gainNode) { try { tr._gainNode.disconnect(); } catch(_){} tr._gainNode = null; }
         if (tr._pannerNode) { try { tr._pannerNode.disconnect(); } catch(_){} tr._pannerNode = null; }
       });
 
       ensureAudioCtx();
-      DAW.tracks.forEach(t => { if (t.type === 'audio') { if (t.transpose === undefined) t.transpose = 0; t._pannerNode = DAW.audioCtx.createStereoPanner(); t._gainNode = DAW.audioCtx.createGain(); t._pannerNode.connect(t._gainNode); t._gainNode.connect(DAW.masterGain); updateTrackMix(t.id); } });
+      getEditorDAW().tracks.forEach(t => { if (t.type === 'audio') { if (t.transpose === undefined) t.transpose = 0; t._pannerNode = getEditorDAW().audioCtx.createStereoPanner(); t._gainNode = getEditorDAW().audioCtx.createGain(); t._pannerNode.connect(t._gainNode); t._gainNode.connect(getEditorDAW().masterGain); updateTrackMix(t.id); } });
 
       // لود کامل صدا از تمام منابع (IndexedDB، filePath، FileHandle، dirHandle)
       // این خط قبلاً فقط loadAudioBlobsForProject رو صدا می‌زد و فایل‌های linked لود نمی‌شدن
@@ -252,7 +252,7 @@ document.addEventListener('DOMContentLoaded', () => {
         toast('⚠ خطا در لود فایل صوتی');
       }
 
-      undoStack = []; undoIndex = -1; PERF.lastSerializedState = '';
+      undoStack = []; undoIndex = -1; getEditorPERF().lastSerializedState = '';
       edSyncToolbar(); edRenderEditor(true); renderAll(); saveState();
       initHighlightEffect();
       // Sync popup windows, SongDocument, and embedded view
@@ -261,7 +261,7 @@ document.addEventListener('DOMContentLoaded', () => {
       toast(`${t('songN')} ${idx + 1}/${arr.items.length}: ${song.title || t('untitled')}`);
       seekTransport(0, false);
       ensureAudioCtx();
-      if (arrPerformActive && !DAW.isPlaying && !perfPauseMode) startTransport();
+      if (arrPerformActive && !getEditorDAW().isPlaying && !perfPauseMode) startTransport();
       if (arrPerformActive && idx + 1 < arr.items.length) {
         // ─── شروع prep آهنگ بعدی با delay کوتاه ───
         // تا playback فعلی شروع بشه و بعد prep شروع شه
@@ -282,24 +282,24 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function setZoom(pps, anchorClientX) {
-      const scroll = $('tl-scroll'); const oldPps = DAW.pxPerSecond; const newPps = clamp(pps, 5, 260);
+      const scroll = $('tl-scroll'); const oldPps = getEditorDAW().pxPerSecond; const newPps = clamp(pps, 5, 260);
       if (Math.abs(newPps - oldPps) < 0.01) return;
-      let anchorTime = DAW.playhead; if (typeof anchorClientX === 'number') anchorTime = clientToTime(anchorClientX);
-      const rel = timeToX(anchorTime) - scroll.scrollLeft; DAW.pxPerSecond = newPps; $('zoom-range').value = String(Math.round(newPps));
+      let anchorTime = getEditorDAW().playhead; if (typeof anchorClientX === 'number') anchorTime = clientToTime(anchorClientX);
+      const rel = timeToX(anchorTime) - scroll.scrollLeft; getEditorDAW().pxPerSecond = newPps; $('zoom-range').value = String(Math.round(newPps));
       // خودکار بزرگ کردن تایم‌لاین بر اساس عرض صفحه نمایش
       const visibleTime = scroll.clientWidth / newPps;
       ensureTimelineFits(visibleTime + 10);
-      DAW.clips.forEach(c => refreshClipWaveImage(c)); requestRenderAll(); scroll.scrollLeft = Math.max(0, timeToX(anchorTime) - rel);
+      getEditorDAW().clips.forEach(c => refreshClipWaveImage(c)); requestRenderAll(); scroll.scrollLeft = Math.max(0, timeToX(anchorTime) - rel);
       updateZoomFontScale();
     }
 
     function setVerticalZoom(newH) {
       newH = clamp(Math.round(newH), 24, 200);
-      if (Math.abs(newH - DAW.laneHeight) < 1) return;
-      DAW.laneHeight = newH;
+      if (Math.abs(newH - getEditorDAW().laneHeight) < 1) return;
+      getEditorDAW().laneHeight = newH;
       document.documentElement.style.setProperty('--lane-h', newH + 'px');
       // Reset all per-lane heights to follow global zoom
-      DAW.tracks.forEach(t => { t.laneHeight = null; });
+      getEditorDAW().tracks.forEach(t => { t.laneHeight = null; });
       document.querySelectorAll('.track-lane').forEach(el => { el.style.removeProperty('--lane-h'); el.style.removeProperty('height'); });
       document.querySelectorAll('.track-name').forEach(el => { el.style.removeProperty('--lane-h'); el.style.removeProperty('height'); });
       document.querySelectorAll('.lane-grid').forEach(c => drawLaneGrid(c));
@@ -311,8 +311,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const BASE_FONT = 16; // 1rem in px
       const DEFAULT_PPS = 70;
       const DEFAULT_LANE_H = 64;
-      const vScale = DAW.laneHeight / DEFAULT_LANE_H;
-      const hScale = DAW.pxPerSecond / DEFAULT_PPS;
+      const vScale = getEditorDAW().laneHeight / DEFAULT_LANE_H;
+      const hScale = getEditorDAW().pxPerSecond / DEFAULT_PPS;
       const combined = Math.sqrt(vScale * hScale);
       const scaled = clamp(BASE_FONT * combined, 10, 32);
       document.documentElement.style.setProperty('--zoom-font', scaled + 'px');
@@ -320,7 +320,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function setLaneHeight(trackId, newH) {
       newH = clamp(Math.round(newH), 24, 200);
-      const track = DAW.tracks.find(t => t.id === trackId);
+      const track = getEditorDAW().tracks.find(t => t.id === trackId);
       if (!track) return;
       track.laneHeight = newH;
       const lane = document.querySelector(`.track-lane[data-track-id="${trackId}"]`);
@@ -394,7 +394,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function openChordEditor(clipId = null) {
-      DAW.editingChordClipId = clipId;
+      getEditorDAW().editingChordClipId = clipId;
       edChordModalMode = null;
       if (clipId) {
         const clip = getClip(clipId);
@@ -426,7 +426,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function closeChordEditor() {
       $('chord-modal').classList.remove('show');
-      DAW.editingChordClipId = null;
+      getEditorDAW().editingChordClipId = null;
       if (edChordModalMode === 'editor') { edChordModalMode = null; edChordIdx = null; edPendingAnchor = null; }
     }
 
@@ -438,8 +438,8 @@ document.addEventListener('DOMContentLoaded', () => {
     function chordModalDelete() {
       if (edChordModalMode === 'editor') { edDeleteChord(); }
       else {
-        if (DAW.editingChordClipId) {
-          const c = getClip(DAW.editingChordClipId);
+        if (getEditorDAW().editingChordClipId) {
+          const c = getClip(getEditorDAW().editingChordClipId);
           if (c) { c.name = ''; renderClips(); saveState(); }
         }
         closeChordEditor();
@@ -460,21 +460,21 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         name = `${root}${chordTypeDisplay(type)}${tension}${bass !== 'None' && bass !== root ? '/' + bass : ''}`;
       }
-      if (DAW.editingChordClipId) {
-        const clip = getClip(DAW.editingChordClipId);
-        if (clip) { clip.name = name; DAW.editingChordClipId = null; saveState(); renderAll(); closeChordEditor(); toast(`${t('chordEditedTo')} ${name}`); return; }
+      if (getEditorDAW().editingChordClipId) {
+        const clip = getClip(getEditorDAW().editingChordClipId);
+        if (clip) { clip.name = name; getEditorDAW().editingChordClipId = null; saveState(); renderAll(); closeChordEditor(); toast(`${t('chordEditedTo')} ${name}`); return; }
       }
       // Check if we're placing from Alt+Click on chord track (use mouse position)
-      let targetTime = DAW.playhead;
+      let targetTime = getEditorDAW().playhead;
       if (window._tempChordTrackAnchor && window._tempChordTrack) {
         targetTime = window._tempChordTrackAnchor.time;
         // Clean up temp variables to prevent interference with future clicks
         delete window._tempChordTrackAnchor;
         delete window._tempChordTrack;
       }
-      const chordTrack = DAW.tracks.find(t => t.type === 'chord'); if (!chordTrack) return;
+      const chordTrack = getEditorDAW().tracks.find(t => t.type === 'chord'); if (!chordTrack) return;
       const clip = { id: uid('c'), type: 'chord', trackId: chordTrack.id, name, start: roundMs(targetTime), duration: 4, color: '#9F7AEA' };
-      DAW.clips.push(clip); DAW.selectedIds = new Set([clip.id]); saveState(); ensureTimelineFits(clip.start + clip.duration + 5);
+      getEditorDAW().clips.push(clip); getEditorDAW().selectedIds = new Set([clip.id]); saveState(); ensureTimelineFits(clip.start + clip.duration + 5);
       renderAll(); closeChordEditor(); toast(`${t('chordPlaced')} ${name}`);
       edSaveSong();
     }
@@ -550,14 +550,14 @@ document.addEventListener('DOMContentLoaded', () => {
         midiClockRunning = true;
         if (midiSyncActive) {
           seekTransport(0, false);
-          if (!DAW.isPlaying) startTransport();
+          if (!getEditorDAW().isPlaying) startTransport();
         }
         return;
       }
       // MIDI Stop (0xFC)
       if (status === 0xFC) {
         midiClockRunning = false;
-        if (midiSyncActive && DAW.isPlaying) {
+        if (midiSyncActive && getEditorDAW().isPlaying) {
           pauseTransport();
         }
         return;
@@ -565,7 +565,7 @@ document.addEventListener('DOMContentLoaded', () => {
       // MIDI Continue (0xFB)
       if (status === 0xFB) {
         midiClockRunning = true;
-        if (midiSyncActive && !DAW.isPlaying) {
+        if (midiSyncActive && !getEditorDAW().isPlaying) {
           startTransport();
         }
         return;
@@ -581,7 +581,7 @@ document.addEventListener('DOMContentLoaded', () => {
             clockIntervals = [];
             clockCount = 0;
             midiSyncStartTime = now;
-            if (!DAW.isPlaying) {
+            if (!getEditorDAW().isPlaying) {
               seekTransport(0, false);
               startTransport();
             }
@@ -623,7 +623,7 @@ document.addEventListener('DOMContentLoaded', () => {
               midiClockRunning = false;
               lastClockTime = 0;
               clockIntervals = [];
-              if (DAW.isPlaying) pauseTransport();
+              if (getEditorDAW().isPlaying) pauseTransport();
             }
           }, 500);
         }
@@ -671,7 +671,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (activeMidiNotes.size === 0) {
         if (isRecordingChords && currentRecordingClipId) {
-          const c = getClip(currentRecordingClipId); if (c) c.duration = roundMs(Math.max(0.5, DAW.playhead - c.start));
+          const c = getClip(currentRecordingClipId); if (c) c.duration = roundMs(Math.max(0.5, getEditorDAW().playhead - c.start));
           currentRecordingClipId = null; saveState(); renderAll();
         }
         return;
@@ -745,17 +745,17 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
       // Update DAW timeline recording
       if (isRecordingChords) {
         if (!currentRecordingClipId || getClip(currentRecordingClipId)?.name !== name) {
-          if (currentRecordingClipId) { const oldC = getClip(currentRecordingClipId); if (oldC) oldC.duration = roundMs(Math.max(0.5, DAW.playhead - oldC.start)); }
-          const chordTrack = DAW.tracks.find(t => t.type === 'chord');
+          if (currentRecordingClipId) { const oldC = getClip(currentRecordingClipId); if (oldC) oldC.duration = roundMs(Math.max(0.5, getEditorDAW().playhead - oldC.start)); }
+          const chordTrack = getEditorDAW().tracks.find(t => t.type === 'chord');
           if (chordTrack) {
-            const newClip = { id: uid('c'), type: 'chord', trackId: chordTrack.id, name, start: roundMs(DAW.playhead), duration: 2, color: '#9F7AEA' };
-            DAW.clips.push(newClip); currentRecordingClipId = newClip.id; ensureTimelineFits(newClip.start + newClip.duration + 5); renderAll();
+            const newClip = { id: uid('c'), type: 'chord', trackId: chordTrack.id, name, start: roundMs(getEditorDAW().playhead), duration: 2, color: '#9F7AEA' };
+            getEditorDAW().clips.push(newClip); currentRecordingClipId = newClip.id; ensureTimelineFits(newClip.start + newClip.duration + 5); renderAll();
           }
         } else {
-          const clip = getClip(currentRecordingClipId); if (clip) { clip.duration = roundMs(Math.max(0.5, DAW.playhead - clip.start)); renderClips(); }
+          const clip = getClip(currentRecordingClipId); if (clip) { clip.duration = roundMs(Math.max(0.5, getEditorDAW().playhead - clip.start)); renderClips(); }
         }
-      } else if (DAW.selectedIds.size === 1) {
-        const selId = [...DAW.selectedIds][0]; const clip = getClip(selId);
+      } else if (getEditorDAW().selectedIds.size === 1) {
+        const selId = [...getEditorDAW().selectedIds][0]; const clip = getClip(selId);
         if (clip && clip.type === 'chord' && clip.name !== name) { clip.name = name; renderClips(); }
       }
     }
@@ -2347,7 +2347,7 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
       if (!edCur.chordLineClips) edCur.chordLineClips = [];
       if (!edCur.hasManualChordLineEdits) edCur.hasManualChordLineEdits = false;
 
-      DAW.clips = DAW.clips.filter(c => c.type !== 'chord');
+      getEditorDAW().clips = getEditorDAW().clips.filter(c => c.type !== 'chord');
 
       // --- Update UI ---
       edSyncToolbar();
@@ -2477,7 +2477,7 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
       // F9: Singer (monitor چپ) + Player (monitor لپ‌تاپ) + پخش
       if (matchShortcut(e, 'fullscreen')) {
         e.preventDefault();
-        if (!DAW.isPlaying) { ensureAudioCtx(); if (DAW.playhead <= 0) seekTransport(0, false); startTransport(); }
+        if (!getEditorDAW().isPlaying) { ensureAudioCtx(); if (getEditorDAW().playhead <= 0) seekTransport(0, false); startTransport(); }
         // Singer View — monitor 2 (چپ)
         openLyricOnlyPopup();
         // Player View — monitor 1 (لپ‌تاپ)
@@ -2495,12 +2495,12 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
         const barDur = getTimeSignatureGridConfig(($('edTimeSig')?.value || '4/4'), (parseInt($('edTempo')?.value) || 120)).measureDuration;
         const step = e.shiftKey ? barDur : 0.05;
         e.preventDefault();
-        seekTransport(DAW.playhead + (e.code === 'ArrowRight' ? step : -step), true, true);
+        seekTransport(getEditorDAW().playhead + (e.code === 'ArrowRight' ? step : -step), true, true);
         return;
       }
 
       // Delete — when NOT in text field and clips selected
-      if (matchShortcut(e, 'delete') && !isInput && !isContentEditable && DAW.selectedIds.size > 0) {
+      if (matchShortcut(e, 'delete') && !isInput && !isContentEditable && getEditorDAW().selectedIds.size > 0) {
         e.preventDefault(); deleteSelected();
         return;
       }
@@ -2513,7 +2513,7 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
       else if (matchShortcut(e, 'copy')) { e.preventDefault(); copySelected(); }
       else if (matchShortcut(e, 'cut')) { e.preventDefault(); cutSelected(); }
       else if (matchShortcut(e, 'paste')) { e.preventDefault(); pasteClipboard(); }
-      else if (matchShortcut(e, 'selectAll')) { e.preventDefault(); setSelection(DAW.clips.map(c => c.id)); }
+      else if (matchShortcut(e, 'selectAll')) { e.preventDefault(); setSelection(getEditorDAW().clips.map(c => c.id)); }
       else if (matchShortcut(e, 'duplicate')) { e.preventDefault(); duplicateSelected(); }
       else if (matchShortcut(e, 'goStart')) { transportToStart(); }
       else if (matchShortcut(e, 'setLoopFromSel')) { e.preventDefault(); setLoopFromSelection(); }
@@ -2541,7 +2541,7 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
     /* ===================== INIT & INTERACTIONS ===================== */
     function init() {
       ensureAudioCtx();
-      DAW.tracks = [
+      getEditorDAW().tracks = [
         { id: 't0', name: 'Chord Line', icon: '♫', type: 'chord' },
         { id: 't0s', name: 'Section', icon: '🏷', type: 'section' },
         { id: 't1', name: 'Vocals', icon: '🎤', type: 'audio', muted: false, solo: false, vol: 0.8, pan: 0, transpose: 0 },
@@ -2550,15 +2550,15 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
         { id: 't4', name: 'Keys', icon: '🎹', type: 'audio', muted: false, solo: false, vol: 0.8, pan: 0, transpose: 0 },
         { id: 't5', name: 'Drums', icon: '🥁', type: 'audio', muted: false, solo: false, vol: 0.8, pan: 0, transpose: 0 }
       ];
-      DAW.tracks.forEach(t => {
+      getEditorDAW().tracks.forEach(t => {
         if (t.type === 'audio') {
-          t._pannerNode = DAW.audioCtx.createStereoPanner(); t._gainNode = DAW.audioCtx.createGain();
-          t._pannerNode.connect(t._gainNode); t._gainNode.connect(DAW.masterGain); updateTrackMix(t.id);
+          t._pannerNode = getEditorDAW().audioCtx.createStereoPanner(); t._gainNode = getEditorDAW().audioCtx.createGain();
+          t._pannerNode.connect(t._gainNode); t._gainNode.connect(getEditorDAW().masterGain); updateTrackMix(t.id);
         }
       });
       ensureRecLane();
-      DAW.sections = []; DAW.selectedSectionIds = new Set();
-      DAW.timelineDuration = 120; DAW.pxPerSecond = 70; saveState(); renderAll();
+      getEditorDAW().sections = []; getEditorDAW().selectedSectionIds = new Set();
+      getEditorDAW().timelineDuration = 120; getEditorDAW().pxPerSecond = 70; saveState(); renderAll();
       updateZoomFontScale();
 
       const scroll = $('tl-scroll');
@@ -2791,27 +2791,27 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
         if (e.ctrlKey && e.altKey) {
           // Vertical zoom: Ctrl+Alt+wheel
           const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
-          setVerticalZoom(DAW.laneHeight * factor);
+          setVerticalZoom(getEditorDAW().laneHeight * factor);
         } else {
           // Horizontal zoom: Ctrl+wheel or Alt+wheel
-          const factor = e.deltaY < 0 ? 1.12 : 1 / 1.12; setZoom(DAW.pxPerSecond * factor, e.clientX);
+          const factor = e.deltaY < 0 ? 1.12 : 1 / 1.12; setZoom(getEditorDAW().pxPerSecond * factor, e.clientX);
         }
       }, { passive: false });
 
       const beginScrub = (e) => {
-  if (DAW.isRecording) { toast('در حال ضبط — برای جابه‌جایی پلی‌هد ابتدا توقف کنید'); return; }
+  if (getEditorDAW().isRecording) { toast('در حال ضبط — برای جابه‌جایی پلی‌هد ابتدا توقف کنید'); return; }
   clearEditorTextSelection();
   edClearChordSelection();
 
   // Shift+click on playhead-hit: toggle playhead selection (draggable)
   if (e.shiftKey && e.currentTarget === $('playhead-hit')) {
     e.preventDefault();
-    DAW.selectedPlayhead = !DAW.selectedPlayhead;
-    $('main-playhead').classList.toggle('selected', DAW.selectedPlayhead);
-    if (DAW.selectedPlayhead) {
+    getEditorDAW().selectedPlayhead = !getEditorDAW().selectedPlayhead;
+    $('main-playhead').classList.toggle('selected', getEditorDAW().selectedPlayhead);
+    if (getEditorDAW().selectedPlayhead) {
       // Start dragging the selected playhead
-      const startX = e.clientX; const origTime = DAW.playhead;
-      const startY = e.clientY; const origPxPerSec = DAW.pxPerSecond;
+      const startX = e.clientX; const origTime = getEditorDAW().playhead;
+      const startY = e.clientY; const origPxPerSec = getEditorDAW().pxPerSecond;
       const onMove = (ev) => {
         const dx = ev.clientX - startX;
         seekTransport(Math.max(0, origTime + xToTime(dx)), false);
@@ -2830,7 +2830,7 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
   }
 
   clearSelection();
-  DAW.selectedPlayhead = false; $('main-playhead').classList.remove('selected');
+  getEditorDAW().selectedPlayhead = false; $('main-playhead').classList.remove('selected');
   e.preventDefault();
 
   // Cubase-style: click on upper half of ruler to set locators
@@ -2840,15 +2840,15 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
     const localY = e.clientY - rulerRect.top;
     const isUpperHalf = localY < rulerRect.height * 0.5;
 
-    if (isUpperHalf && DAW.loopEnabled) {
+    if (isUpperHalf && getEditorDAW().loopEnabled) {
       const t = clientToTime(e.clientX);
       if (e.ctrlKey || e.metaKey) {
         // Ctrl+Click = set right locator
-        DAW.loopB = Math.max(t, DAW.loopA + 0.5);
+        getEditorDAW().loopB = Math.max(t, getEditorDAW().loopA + 0.5);
         renderLoopRegion(); saveState();
       } else {
         // Click = set left locator
-        DAW.loopA = Math.min(t, DAW.loopB - 0.5);
+        getEditorDAW().loopA = Math.min(t, getEditorDAW().loopB - 0.5);
         renderLoopRegion(); saveState();
       }
       return;
@@ -2857,7 +2857,7 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
 
   seekTransport(clientToTime(e.clientX), true);
 
-        const scrubStartX = e.clientX; const scrubStartY = e.clientY; const scrubOrigPxPerSec = DAW.pxPerSecond;
+        const scrubStartX = e.clientX; const scrubStartY = e.clientY; const scrubOrigPxPerSec = getEditorDAW().pxPerSecond;
         const move = (ev) => {
           seekTransport(clientToTime(ev.clientX), true);
           // Cubase-style vertical zoom: up = zoom in, down = zoom out
@@ -2881,7 +2881,7 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
         sepEl.addEventListener('pointerdown', (e) => {
           e.preventDefault();
           const startY = e.clientY;
-          const origH = DAW.laneHeight;
+          const origH = getEditorDAW().laneHeight;
           const onMove = (ev) => { const dy = startY - ev.clientY; setVerticalZoom(origH + dy * 0.5); };
           startPointerDrag(sepEl, e, onMove);
         });
@@ -2898,7 +2898,7 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
 
       // Update loop toggle button state
       const loopBtn = $('loopToggleBtn');
-      if (loopBtn) loopBtn.classList.toggle('loop-active', DAW.loopEnabled);
+      if (loopBtn) loopBtn.classList.toggle('loop-active', getEditorDAW().loopEnabled);
       renderLoopRegion();
 
       // ===== DRAG & DROP audio files onto timeline =====
@@ -2920,24 +2920,24 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
         let targetTrackId = null;
         if (droppedLane) {
           const laneTrackId = droppedLane.dataset.trackId;
-          const targetTrack = DAW.tracks.find(t => t.id === laneTrackId);
+          const targetTrack = getEditorDAW().tracks.find(t => t.id === laneTrackId);
           // Only accept drop on audio tracks (not section or chord)
           if (targetTrack && targetTrack.type === 'audio') {
             targetTrackId = laneTrackId;
           }
         }
         
-        let audioTracks = DAW.tracks.filter(t => t.type === 'audio');
+        let audioTracks = getEditorDAW().tracks.filter(t => t.type === 'audio');
         
         // If dropped on a specific audio track, use only that track
         if (targetTrackId) {
-          audioTracks = [DAW.tracks.find(t => t.id === targetTrackId)];
+          audioTracks = [getEditorDAW().tracks.find(t => t.id === targetTrackId)];
         }
 
         // اگه ترک صوتی کمتر از تعداد فایلهاست، خودکار ترک جدید بساز
         while (audioTracks.length < files.length) {
           addNewTrack();
-          audioTracks = DAW.tracks.filter(t => t.type === 'audio');
+          audioTracks = getEditorDAW().tracks.filter(t => t.type === 'audio');
         }
 
         const doCopy = await askAudioCopyMode(`${files.length} فایل صوتی`);
@@ -2950,19 +2950,19 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
             toast(`لود ${i + 1}/${files.length}: ${file.name}`);
             const { buffer } = await decodeFileToBuffer(file);
             const bufferKey = 'buf_' + uid('b') + '_' + file.name;
-            DAW.bufferCache.set(bufferKey, buffer);
+            getEditorDAW().bufferCache.set(bufferKey, buffer);
 
             // Start each file after the previous one ends
-            const lastClipEnd = DAW.clips.filter(c => c.trackId === trackId).reduce((max, c) => Math.max(max, c.start + c.duration), 0);
+            const lastClipEnd = getEditorDAW().clips.filter(c => c.trackId === trackId).reduce((max, c) => Math.max(max, c.start + c.duration), 0);
 
             const clip = {
               id: uid('c'), type: 'audio', trackId,
               name: file.name.replace(/\.[^.]+$/, ''),
               fileName: file.name,
-              start: roundMs(Math.max(lastClipEnd, DAW.playhead)),
+              start: roundMs(Math.max(lastClipEnd, getEditorDAW().playhead)),
               duration: buffer.duration, offset: 0,
               sourceDuration: buffer.duration,
-              color: COLORS[DAW.clips.length % COLORS.length],
+              color: COLORS[getEditorDAW().clips.length % COLORS.length],
               bufferKey,
               _peaks: peaksFromBuffer(buffer, 2000),
               waveUrl: null,
@@ -3003,7 +3003,7 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
               }
             }
             refreshClipWaveImage(clip);
-            DAW.clips.push(clip);
+            getEditorDAW().clips.push(clip);
             ensureTimelineFits(clip.start + clip.duration + 5);
           } catch (err) {
             console.error(err);
@@ -3015,7 +3015,7 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
         // ذخیره مسیر فایل‌های لینک‌شده در edCur._audioPaths
         if (!doCopy) {
           if (!edCur._audioPaths) edCur._audioPaths = [];
-          for (const clip of DAW.clips.slice(-files.length)) {
+          for (const clip of getEditorDAW().clips.slice(-files.length)) {
             if (!clip._embedded && clip.bufferKey) {
               const existing = edCur._audioPaths.find(p => p.bufferKey === clip.bufferKey);
               if (!existing) {
@@ -3029,7 +3029,7 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
             }
           }
         }
-        DAW.selectedIds = new Set(DAW.clips.slice(-files.length).map(c => c.id));
+        getEditorDAW().selectedIds = new Set(getEditorDAW().clips.slice(-files.length).map(c => c.id));
         saveState(); renderAll();
         toast(`${files.length} فایل صوتی لود شد`);
         edSaveSong();
@@ -3137,35 +3137,35 @@ function edBlankSong() {
       const defaults = { tSize:38,tColor:'#0fa966',tFont:'Vazirmatn',tBold:true,align:'center', cSize:38,cColor:'#e6aa28',cFont:'JetBrains Mono' };
       Object.keys(defaults).forEach(k => { if (edCur.styles[k] === undefined) edCur.styles[k] = defaults[k]; });
       if (edCur._dawTracks) {
-        DAW.tracks = edCur._dawTracks;
+        getEditorDAW().tracks = edCur._dawTracks;
         ensureAudioCtx();
-        DAW.tracks.forEach(t => {
+        getEditorDAW().tracks.forEach(t => {
           if (t.type === 'audio') {
-            t._pannerNode = DAW.audioCtx.createStereoPanner();
-            t._gainNode = DAW.audioCtx.createGain();
+            t._pannerNode = getEditorDAW().audioCtx.createStereoPanner();
+            t._gainNode = getEditorDAW().audioCtx.createGain();
             t._pannerNode.connect(t._gainNode);
-            t._gainNode.connect(DAW.masterGain);
+            t._gainNode.connect(getEditorDAW().masterGain);
             updateTrackMix(t.id);
           }
         });
       }
-      if (edCur._dawClips) DAW.clips = edCur._dawClips;
-      if (edCur._dawSections) DAW.sections = JSON.parse(JSON.stringify(edCur._dawSections));
+      if (edCur._dawClips) getEditorDAW().clips = edCur._dawClips;
+      if (edCur._dawSections) getEditorDAW().sections = JSON.parse(JSON.stringify(edCur._dawSections));
       updateNextIdFromClips();
-      // Migrate any old section clips from DAW.clips to DAW.sections
-      const oldSections = DAW.clips.filter(c => c.type === 'section');
+      // Migrate any old section clips from getEditorDAW().clips to getEditorDAW().sections
+      const oldSections = getEditorDAW().clips.filter(c => c.type === 'section');
       if (oldSections.length > 0) {
-        oldSections.forEach(c => { DAW.sections.push({ id: c.id, trackId: c.trackId, label: c.name, start: c.start, duration: c.duration, color: c.color }); });
-        DAW.clips = DAW.clips.filter(c => c.type !== 'section');
+        oldSections.forEach(c => { getEditorDAW().sections.push({ id: c.id, trackId: c.trackId, label: c.name, start: c.start, duration: c.duration, color: c.color }); });
+        getEditorDAW().clips = getEditorDAW().clips.filter(c => c.type !== 'section');
       }
       // Restore loop state
-      if (edCur._dawLoop) { DAW.loopEnabled = !!edCur._dawLoop.loopEnabled; DAW.loopA = edCur._dawLoop.loopA || 0; DAW.loopB = edCur._dawLoop.loopB || 10; }
+      if (edCur._dawLoop) { getEditorDAW().loopEnabled = !!edCur._dawLoop.loopEnabled; getEditorDAW().loopA = edCur._dawLoop.loopA || 0; getEditorDAW().loopB = edCur._dawLoop.loopB || 10; }
       // Restore audio blobs from IndexedDB
       try {
         await loadAudioBlobsForProject(edCur.id);
-        DAW.clips.forEach(c => {
-          if (c.type !== 'chord' && c.bufferKey && DAW.bufferCache.has(c.bufferKey)) {
-            const buffer = DAW.bufferCache.get(c.bufferKey);
+        getEditorDAW().clips.forEach(c => {
+          if (c.type !== 'chord' && c.bufferKey && getEditorDAW().bufferCache.has(c.bufferKey)) {
+            const buffer = getEditorDAW().bufferCache.get(c.bufferKey);
             c.sourceDuration = buffer.duration;
             c._peaks = peaksFromBuffer(buffer, 2000);
             refreshClipWaveImage(c);
@@ -3174,19 +3174,19 @@ function edBlankSong() {
       } catch(e) { console.warn('Audio init load error:', e); }
 
       // لود اتوماتیک از مسیر فایل ذخیره‌شده (لینک‌شده‌ها — مثل کیوبیس)
-      const missingClips = DAW.clips.filter(c => c.type !== 'chord' && c.bufferKey && !DAW.bufferCache.has(c.bufferKey));
+      const missingClips = getEditorDAW().clips.filter(c => c.type !== 'chord' && c.bufferKey && !getEditorDAW().bufferCache.has(c.bufferKey));
       console.log(`[Audio Init] ${missingClips.length} clip(s) need audio loading. isElectron=${isElectron}, _audioPaths=${edCur._audioPaths?.length || 0}`);
       if (missingClips.length > 0 && edCur._audioPaths && edCur._audioPaths.length > 0) {
         // اول از filePath (Electron) لود کن
         if (isElectron && window.electronAPI) {
           for (const ap of edCur._audioPaths) {
             if (!ap.filePath) { console.warn('[LINK] No filePath for:', ap.fileName); continue; }
-            const clip = DAW.clips.find(c => c.type !== 'chord' && c.bufferKey === ap.bufferKey);
-            if (!clip || DAW.bufferCache.has(clip.bufferKey)) continue;
+            const clip = getEditorDAW().clips.find(c => c.type !== 'chord' && c.bufferKey === ap.bufferKey);
+            if (!clip || getEditorDAW().bufferCache.has(clip.bufferKey)) continue;
             try {
               console.log('[LINK] Loading from path:', ap.filePath);
               const audioBuffer = await loadAudioFromHardDrive(ap.filePath);
-              DAW.bufferCache.set(clip.bufferKey, audioBuffer);
+              getEditorDAW().bufferCache.set(clip.bufferKey, audioBuffer);
               clip.sourceDuration = audioBuffer.duration;
               clip._peaks = peaksFromBuffer(audioBuffer, 2000);
               clip._filePath = ap.filePath;
@@ -3200,14 +3200,14 @@ function edBlankSong() {
 
         // ─── لود از Blob ذخیره‌شده در IndexedDB (بدون سوال از کاربر) ───
         // این مرحله جدید هست — قبلاً فایل‌های «نه» ذخیره نمی‌شدن و دوباره از کاربر پرسیده می‌شد
-        const stillAfterPathBlob = DAW.clips.filter(c => c.type !== 'chord' && c.bufferKey && !DAW.bufferCache.has(c.bufferKey));
+        const stillAfterPathBlob = getEditorDAW().clips.filter(c => c.type !== 'chord' && c.bufferKey && !getEditorDAW().bufferCache.has(c.bufferKey));
         if (stillAfterPathBlob.length > 0) {
           for (const clip of stillAfterPathBlob) {
             try {
               const blobRecord = await getAudioBlobFromDB(clip.bufferKey);
               if (!blobRecord) continue;
               const { buffer } = await decodeFileToBuffer(blobRecord.blob);
-              DAW.bufferCache.set(clip.bufferKey, buffer);
+              getEditorDAW().bufferCache.set(clip.bufferKey, buffer);
               clip.sourceDuration = buffer.duration;
               clip._peaks = peaksFromBuffer(buffer, 2000);
               refreshClipWaveImage(clip);
@@ -3217,7 +3217,7 @@ function edBlankSong() {
         }
 
         // لود از FileHandle ذخیره‌شده در IndexedDB (بدون سوال از کاربر)
-        const stillAfterPath = DAW.clips.filter(c => c.type !== 'chord' && c.bufferKey && !DAW.bufferCache.has(c.bufferKey));
+        const stillAfterPath = getEditorDAW().clips.filter(c => c.type !== 'chord' && c.bufferKey && !getEditorDAW().bufferCache.has(c.bufferKey));
         if (stillAfterPath.length > 0) {
           for (const clip of stillAfterPath) {
             try {
@@ -3228,7 +3228,7 @@ function edBlankSong() {
                 if (perm !== 'granted') continue;
                 const file = await handle.getFile();
                 const { buffer } = await decodeFileToBuffer(file);
-                DAW.bufferCache.set(clip.bufferKey, buffer);
+                getEditorDAW().bufferCache.set(clip.bufferKey, buffer);
                 clip.sourceDuration = buffer.duration;
                 clip._peaks = peaksFromBuffer(buffer, 2000);
                 refreshClipWaveImage(clip);
@@ -3239,7 +3239,7 @@ function edBlankSong() {
         }
 
         // بعد از پوشه ذخیره‌شده (_audioDirHandle) لود کن
-        const stillMissing = DAW.clips.filter(c => c.type !== 'chord' && c.bufferKey && !DAW.bufferCache.has(c.bufferKey));
+        const stillMissing = getEditorDAW().clips.filter(c => c.type !== 'chord' && c.bufferKey && !getEditorDAW().bufferCache.has(c.bufferKey));
         if (stillMissing.length > 0) {
           let dirHandle = _audioDirHandle;
           if (!dirHandle) { try { await loadDirHandle(); dirHandle = _audioDirHandle; } catch(_){} }
@@ -3249,8 +3249,8 @@ function edBlankSong() {
               if (perm === 'granted') {
                 const notFound = [];
                 for (const ap of edCur._audioPaths) {
-                  const clip = DAW.clips.find(c => c.type !== 'chord' && c.bufferKey === ap.bufferKey);
-                  if (!clip || DAW.bufferCache.has(clip.bufferKey)) continue;
+                  const clip = getEditorDAW().clips.find(c => c.type !== 'chord' && c.bufferKey === ap.bufferKey);
+                  if (!clip || getEditorDAW().bufferCache.has(clip.bufferKey)) continue;
                   const candidates = [ap.fileName, ap.fileName ? ap.fileName.replace(/\.[^.]+$/, '') : ''];
                   let loaded = false;
                   for (const name of candidates) {
@@ -3259,7 +3259,7 @@ function edBlankSong() {
                       const fileHandle = await dirHandle.getFileHandle(name);
                       const file = await fileHandle.getFile();
                       const { buffer } = await decodeFileToBuffer(file);
-                      DAW.bufferCache.set(clip.bufferKey, buffer);
+                      getEditorDAW().bufferCache.set(clip.bufferKey, buffer);
                       clip.sourceDuration = buffer.duration;
                       clip._peaks = peaksFromBuffer(buffer, 2000);
                       refreshClipWaveImage(clip);
@@ -3275,7 +3275,7 @@ function edBlankSong() {
           }
 
           // برای فایل‌هایی که هنوز گم شدند، انتخاب دستی از کاربر
-          const stillMissing2 = DAW.clips.filter(c => c.type !== 'chord' && c.bufferKey && !DAW.bufferCache.has(c.bufferKey));
+          const stillMissing2 = getEditorDAW().clips.filter(c => c.type !== 'chord' && c.bufferKey && !getEditorDAW().bufferCache.has(c.bufferKey));
           if (stillMissing2.length > 0 && !isElectron) {
             try {
               const newDirHandle = await window.showDirectoryPicker({ mode: 'read' });
@@ -3283,15 +3283,15 @@ function edBlankSong() {
               const perm = await newDirHandle.requestPermission({ mode: 'read' });
               if (perm === 'granted') {
                 for (const ap of edCur._audioPaths) {
-                  const clip = DAW.clips.find(c => c.type !== 'chord' && c.bufferKey === ap.bufferKey);
-                  if (!clip || DAW.bufferCache.has(clip.bufferKey)) continue;
+                  const clip = getEditorDAW().clips.find(c => c.type !== 'chord' && c.bufferKey === ap.bufferKey);
+                  if (!clip || getEditorDAW().bufferCache.has(clip.bufferKey)) continue;
                   for (const n of [ap.fileName, ap.fileName ? ap.fileName.replace(/\.[^.]+$/, '') : '']) {
                     if (!n) continue;
                     try {
                       const fh = await newDirHandle.getFileHandle(n);
                       const f = await fh.getFile();
                       const { buffer } = await decodeFileToBuffer(f);
-                      DAW.bufferCache.set(clip.bufferKey, buffer);
+                      getEditorDAW().bufferCache.set(clip.bufferKey, buffer);
                       clip.sourceDuration = buffer.duration;
                       clip._peaks = peaksFromBuffer(buffer, 2000);
                       refreshClipWaveImage(clip);
@@ -3309,7 +3309,7 @@ function edBlankSong() {
 
       undoStack = [];
       undoIndex = -1;
-      PERF.lastSerializedState = '';
+      getEditorPERF().lastSerializedState = '';
 
       edSyncToolbar();
       edRenderEditor(true);
@@ -3469,7 +3469,7 @@ function edBlankSong() {
         const store = tx.objectStore('audioBlobs');
 
         // فقط کلیپ‌هایی که _embedded:true دارند ذخیره میشوند
-        const embeddedClips = DAW.clips.filter(c =>
+        const embeddedClips = getEditorDAW().clips.filter(c =>
           c.type !== 'chord' && c.bufferKey && c._embedded
         );
 
@@ -3483,7 +3483,7 @@ function edBlankSong() {
         const allBlobs = [];
         for (const clip of embeddedClips) {
           const key = clip.bufferKey;
-          const buffer = DAW.bufferCache.get(key);
+          const buffer = getEditorDAW().bufferCache.get(key);
           if (!buffer) continue;
 
           // اگه Blob اصلی ذخیره شده، از اون استفاده کن
@@ -3574,7 +3574,7 @@ function edBlankSong() {
               if (entry.format === 'blob' && entry.blob) {
                 // ─── فرمت جدید: Blob اصلی (MP3, WAV, etc.) ───
                 const arrayBuffer = await entry.blob.arrayBuffer();
-                buffer = await DAW.audioCtx.decodeAudioData(arrayBuffer);
+                buffer = await getEditorDAW().audioCtx.decodeAudioData(arrayBuffer);
                 console.log(`[Audio Load] Loaded blob: ${entry.fileName}`);
               } else if (entry.format === 'wav-deflate' && entry.blob) {
                 // ─── فرمت جدید: WAV فشرده‌شده با deflate ───
@@ -3582,18 +3582,18 @@ function edBlankSong() {
                 const wavBytes = await decompressBytes(compressedBytes);
                 const wavBlob = new Blob([wavBytes], { type: 'audio/wav' });
                 const arrayBuffer = await wavBlob.arrayBuffer();
-                buffer = await DAW.audioCtx.decodeAudioData(arrayBuffer);
+                buffer = await getEditorDAW().audioCtx.decodeAudioData(arrayBuffer);
                 console.log(`[Audio Load] Loaded WAV+deflate: ${entry.fileName}`);
               } else if (entry.data) {
                 // ─── فرمت قدیمی: Float32Array ───
                 const chData = Array.isArray(entry.data) ? entry.data : [entry.data];
-                buffer = DAW.audioCtx.createBuffer(chData.length, entry.length, entry.sampleRate);
+                buffer = getEditorDAW().audioCtx.createBuffer(chData.length, entry.length, entry.sampleRate);
                 chData.forEach((ch, i) => { if (i < buffer.numberOfChannels) buffer.getChannelData(i).set(ch); });
                 console.log(`[Audio Load] Loaded legacy Float32: ${entry.key}`);
               }
 
               if (buffer) {
-                DAW.bufferCache.set(entry.key, buffer);
+                getEditorDAW().bufferCache.set(entry.key, buffer);
               }
             } catch (e) {
               console.warn(`[Audio Load] Failed to load ${entry.key}:`, e);
@@ -3638,9 +3638,9 @@ function edBlankSong() {
       }
 
       // آپدیت sourceDuration و peaks برای کلیپ‌های که لود شدن
-      DAW.clips.forEach(c => {
-        if (c.type !== 'chord' && c.bufferKey && DAW.bufferCache.has(c.bufferKey)) {
-          const buffer = DAW.bufferCache.get(c.bufferKey);
+      getEditorDAW().clips.forEach(c => {
+        if (c.type !== 'chord' && c.bufferKey && getEditorDAW().bufferCache.has(c.bufferKey)) {
+          const buffer = getEditorDAW().bufferCache.get(c.bufferKey);
           if (buffer) {
             c.sourceDuration = buffer.duration;
             c._peaks = peaksFromBuffer(buffer, 2000);
@@ -3651,8 +3651,8 @@ function edBlankSong() {
       });
 
       // اگر همه کلیپ‌ها لود شدن، نیاز به بقیه مراحل نیست
-      let missing = DAW.clips.filter(c =>
-        c.type !== 'chord' && c.bufferKey && !DAW.bufferCache.has(c.bufferKey)
+      let missing = getEditorDAW().clips.filter(c =>
+        c.type !== 'chord' && c.bufferKey && !getEditorDAW().bufferCache.has(c.bufferKey)
       );
       if (missing.length === 0) {
         console.log('[Audio Restore] All audio restored from IndexedDB');
@@ -3663,14 +3663,14 @@ function edBlankSong() {
       if (isElectron && window.electronAPI && edCur._audioPaths) {
         for (const ap of edCur._audioPaths) {
           if (!ap.filePath) continue;
-          const clip = DAW.clips.find(c =>
+          const clip = getEditorDAW().clips.find(c =>
             c.type !== 'chord' && c.bufferKey === ap.bufferKey
           );
-          if (!clip || DAW.bufferCache.has(clip.bufferKey)) continue;
+          if (!clip || getEditorDAW().bufferCache.has(clip.bufferKey)) continue;
           try {
             console.log('[Audio Restore] Loading from path:', ap.filePath);
             const audioBuffer = await loadAudioFromHardDrive(ap.filePath);
-            DAW.bufferCache.set(clip.bufferKey, audioBuffer);
+            getEditorDAW().bufferCache.set(clip.bufferKey, audioBuffer);
             clip.sourceDuration = audioBuffer.duration;
             clip._peaks = peaksFromBuffer(audioBuffer, 2000);
             clip._filePath = ap.filePath;
@@ -3686,8 +3686,8 @@ function edBlankSong() {
       }
 
       // ─── مرحله 3a: Blob ذخیره‌شده در IndexedDB (حالت «نه» در مرورگر) ───
-      missing = DAW.clips.filter(c =>
-        c.type !== 'chord' && c.bufferKey && !DAW.bufferCache.has(c.bufferKey)
+      missing = getEditorDAW().clips.filter(c =>
+        c.type !== 'chord' && c.bufferKey && !getEditorDAW().bufferCache.has(c.bufferKey)
       );
       if (missing.length > 0) {
         for (const clip of missing) {
@@ -3695,7 +3695,7 @@ function edBlankSong() {
             const blobRecord = await getAudioBlobFromDB(clip.bufferKey);
             if (!blobRecord) continue;
             const { buffer } = await decodeFileToBuffer(blobRecord.blob);
-            DAW.bufferCache.set(clip.bufferKey, buffer);
+            getEditorDAW().bufferCache.set(clip.bufferKey, buffer);
             clip.sourceDuration = buffer.duration;
             clip._peaks = peaksFromBuffer(buffer, 2000);
             refreshClipWaveImage(clip);
@@ -3708,8 +3708,8 @@ function edBlankSong() {
       }
 
       // ─── مرحله 3b: FileHandle ذخیره‌شده در IndexedDB (مرورگر قدیمی) ───
-      missing = DAW.clips.filter(c =>
-        c.type !== 'chord' && c.bufferKey && !DAW.bufferCache.has(c.bufferKey)
+      missing = getEditorDAW().clips.filter(c =>
+        c.type !== 'chord' && c.bufferKey && !getEditorDAW().bufferCache.has(c.bufferKey)
       );
       if (missing.length > 0) {
         for (const clip of missing) {
@@ -3721,7 +3721,7 @@ function edBlankSong() {
               if (perm !== 'granted') continue;
               const file = await handle.getFile();
               const { buffer } = await decodeFileToBuffer(file);
-              DAW.bufferCache.set(clip.bufferKey, buffer);
+              getEditorDAW().bufferCache.set(clip.bufferKey, buffer);
               clip.sourceDuration = buffer.duration;
               clip._peaks = peaksFromBuffer(buffer, 2000);
               refreshClipWaveImage(clip);
@@ -3735,8 +3735,8 @@ function edBlankSong() {
       }
 
       // ─── مرحله 4: _audioDirHandle ذخیره‌شده ───
-      missing = DAW.clips.filter(c =>
-        c.type !== 'chord' && c.bufferKey && !DAW.bufferCache.has(c.bufferKey)
+      missing = getEditorDAW().clips.filter(c =>
+        c.type !== 'chord' && c.bufferKey && !getEditorDAW().bufferCache.has(c.bufferKey)
       );
       if (missing.length > 0 && edCur._audioPaths) {
         let dirHandle = _audioDirHandle;
@@ -3748,10 +3748,10 @@ function edBlankSong() {
             const perm = await dirHandle.requestPermission({ mode: 'read' });
             if (perm === 'granted') {
               for (const ap of edCur._audioPaths) {
-                const clip = DAW.clips.find(c =>
+                const clip = getEditorDAW().clips.find(c =>
                   c.type !== 'chord' && c.bufferKey === ap.bufferKey
                 );
-                if (!clip || DAW.bufferCache.has(clip.bufferKey)) continue;
+                if (!clip || getEditorDAW().bufferCache.has(clip.bufferKey)) continue;
                 const candidates = [
                   ap.fileName,
                   ap.fileName ? ap.fileName.replace(/\.[^.]+$/, '') : ''
@@ -3762,7 +3762,7 @@ function edBlankSong() {
                     const fileHandle = await dirHandle.getFileHandle(name);
                     const file = await fileHandle.getFile();
                     const { buffer } = await decodeFileToBuffer(file);
-                    DAW.bufferCache.set(clip.bufferKey, buffer);
+                    getEditorDAW().bufferCache.set(clip.bufferKey, buffer);
                     clip.sourceDuration = buffer.duration;
                     clip._peaks = peaksFromBuffer(buffer, 2000);
                     refreshClipWaveImage(clip);
@@ -3778,8 +3778,8 @@ function edBlankSong() {
 
       // ─── مرحله 5: (فقط غیر-silent) showDirectoryPicker ───
       if (!silent) {
-        missing = DAW.clips.filter(c =>
-          c.type !== 'chord' && c.bufferKey && !DAW.bufferCache.has(c.bufferKey)
+        missing = getEditorDAW().clips.filter(c =>
+          c.type !== 'chord' && c.bufferKey && !getEditorDAW().bufferCache.has(c.bufferKey)
         );
         if (missing.length > 0 && !isElectron && window.showDirectoryPicker) {
           try {
@@ -3788,10 +3788,10 @@ function edBlankSong() {
             const perm = await newDirHandle.requestPermission({ mode: 'read' });
             if (perm === 'granted') {
               for (const ap of edCur._audioPaths) {
-                const clip = DAW.clips.find(c =>
+                const clip = getEditorDAW().clips.find(c =>
                   c.type !== 'chord' && c.bufferKey === ap.bufferKey
                 );
-                if (!clip || DAW.bufferCache.has(clip.bufferKey)) continue;
+                if (!clip || getEditorDAW().bufferCache.has(clip.bufferKey)) continue;
                 for (const n of [
                   ap.fileName,
                   ap.fileName ? ap.fileName.replace(/\.[^.]+$/, '') : ''
@@ -3801,7 +3801,7 @@ function edBlankSong() {
                     const fh = await newDirHandle.getFileHandle(n);
                     const f = await fh.getFile();
                     const { buffer } = await decodeFileToBuffer(f);
-                    DAW.bufferCache.set(clip.bufferKey, buffer);
+                    getEditorDAW().bufferCache.set(clip.bufferKey, buffer);
                     clip.sourceDuration = buffer.duration;
                     clip._peaks = peaksFromBuffer(buffer, 2000);
                     refreshClipWaveImage(clip);
@@ -3816,8 +3816,8 @@ function edBlankSong() {
       }
 
       // ─── گزارش نهایی ───
-      const finalMissing = DAW.clips.filter(c =>
-        c.type !== 'chord' && c.bufferKey && !DAW.bufferCache.has(c.bufferKey)
+      const finalMissing = getEditorDAW().clips.filter(c =>
+        c.type !== 'chord' && c.bufferKey && !getEditorDAW().bufferCache.has(c.bufferKey)
       );
       result.missing = finalMissing.length;
       result.missingNames = finalMissing.map(c => c.fileName || c.bufferKey);
@@ -3830,10 +3830,10 @@ function edBlankSong() {
     }
 
     /**
-     * preloadAudioForSong — لود کامل صدا برای یک آهنگ مشخص، بدون دست زدن به DAW.clips یا edCur
+     * preloadAudioForSong — لود کامل صدا برای یک آهنگ مشخص، بدون دست زدن به getEditorDAW().clips یا edCur
      *
      * این تابع برای preload آهنگ بعدی در ارنجر استفاده می‌شه.
-     * برخلاف restoreAudioForProjectSilently، این تابع مستقل از DAW.clips عمل می‌کنه
+     * برخلاف restoreAudioForProjectSilently، این تابع مستقل از getEditorDAW().clips عمل می‌کنه
      * و مستقیماً از clips داخل songData استفاده می‌کنه.
      *
      * @param {Object} songData - داده‌های آهنگ (شامل _dawClips, _audioPaths, id)
@@ -3862,7 +3862,7 @@ function edBlankSong() {
       // شمارش کلیپ‌هایی که قبلاً لود شدن
       let missingCount = 0;
       for (const [bufferKey, clip] of clipsByBufferKey) {
-        if (DAW.bufferCache.has(bufferKey)) {
+        if (getEditorDAW().bufferCache.has(bufferKey)) {
           result.loaded++;
         } else {
           missingCount++;
@@ -3884,18 +3884,18 @@ function edBlankSong() {
       }
 
       // بررسی مجدد: چه کلیپ‌هایی هنوز گم شدن
-      let stillMissing = [...clipsByBufferKey.entries()].filter(([k]) => !DAW.bufferCache.has(k));
+      let stillMissing = [...clipsByBufferKey.entries()].filter(([k]) => !getEditorDAW().bufferCache.has(k));
 
       // ─── مرحله 2: filePath در Electron ───
       if (stillMissing.length > 0 && isElectron && window.electronAPI && audioPaths.length > 0) {
         for (const ap of audioPaths) {
           if (!ap.filePath) continue;
           const clip = clipsByBufferKey.get(ap.bufferKey);
-          if (!clip || DAW.bufferCache.has(ap.bufferKey)) continue;
+          if (!clip || getEditorDAW().bufferCache.has(ap.bufferKey)) continue;
           try {
             console.log('[Preload] Loading from path:', ap.filePath);
             const audioBuffer = await loadAudioFromHardDrive(ap.filePath);
-            DAW.bufferCache.set(ap.bufferKey, audioBuffer);
+            getEditorDAW().bufferCache.set(ap.bufferKey, audioBuffer);
             result.loaded++;
           } catch (e) {
             console.warn('[Preload] File not found at path:', ap.filePath, e.message);
@@ -3903,7 +3903,7 @@ function edBlankSong() {
             result.missingNames.push(ap.fileName || ap.bufferKey);
           }
         }
-        stillMissing = [...clipsByBufferKey.entries()].filter(([k]) => !DAW.bufferCache.has(k));
+        stillMissing = [...clipsByBufferKey.entries()].filter(([k]) => !getEditorDAW().bufferCache.has(k));
       }
 
       // ─── مرحله 3a: Blob ذخیره‌شده در IndexedDB (حالت «نه» در مرورگر) ───
@@ -3913,14 +3913,14 @@ function edBlankSong() {
             const blobRecord = await getAudioBlobFromDB(bufferKey);
             if (!blobRecord) continue;
             const { buffer } = await decodeFileToBuffer(blobRecord.blob);
-            DAW.bufferCache.set(bufferKey, buffer);
+            getEditorDAW().bufferCache.set(bufferKey, buffer);
             result.loaded++;
             console.log('[Preload] Auto-reloaded from Blob:', blobRecord.fileName);
           } catch (e) {
             console.warn('[Preload] Blob reload failed for', bufferKey, e.message);
           }
         }
-        stillMissing = [...clipsByBufferKey.entries()].filter(([k]) => !DAW.bufferCache.has(k));
+        stillMissing = [...clipsByBufferKey.entries()].filter(([k]) => !getEditorDAW().bufferCache.has(k));
       }
 
       // ─── مرحله 3b: FileHandle ذخیره‌شده در IndexedDB (مرورگر قدیمی) ───
@@ -3935,7 +3935,7 @@ function edBlankSong() {
               if (perm !== 'granted') continue;
               const file = await handle.getFile();
               const { buffer } = await decodeFileToBuffer(file);
-              DAW.bufferCache.set(bufferKey, buffer);
+              getEditorDAW().bufferCache.set(bufferKey, buffer);
               result.loaded++;
               console.log('[Preload] Auto-reloaded from FileHandle:', clip.fileName);
             }
@@ -3943,7 +3943,7 @@ function edBlankSong() {
             console.warn('[Preload] FileHandle reload failed for', bufferKey, e.message);
           }
         }
-        stillMissing = [...clipsByBufferKey.entries()].filter(([k]) => !DAW.bufferCache.has(k));
+        stillMissing = [...clipsByBufferKey.entries()].filter(([k]) => !getEditorDAW().bufferCache.has(k));
       }
 
       // ─── مرحله 4: _audioDirHandle ذخیره‌شده ───
@@ -3958,7 +3958,7 @@ function edBlankSong() {
             if (perm === 'granted') {
               for (const ap of audioPaths) {
                 const clip = clipsByBufferKey.get(ap.bufferKey);
-                if (!clip || DAW.bufferCache.has(ap.bufferKey)) continue;
+                if (!clip || getEditorDAW().bufferCache.has(ap.bufferKey)) continue;
                 const candidates = [
                   ap.fileName,
                   ap.fileName ? ap.fileName.replace(/\.[^.]+$/, '') : ''
@@ -3969,7 +3969,7 @@ function edBlankSong() {
                     const fileHandle = await dirHandle.getFileHandle(name);
                     const file = await fileHandle.getFile();
                     const { buffer } = await decodeFileToBuffer(file);
-                    DAW.bufferCache.set(ap.bufferKey, buffer);
+                    getEditorDAW().bufferCache.set(ap.bufferKey, buffer);
                     result.loaded++;
                     break;
                   } catch (_) {}
@@ -3981,7 +3981,7 @@ function edBlankSong() {
       }
 
       // ─── گزارش نهایی ───
-      const finalMissing = [...clipsByBufferKey.entries()].filter(([k]) => !DAW.bufferCache.has(k));
+      const finalMissing = [...clipsByBufferKey.entries()].filter(([k]) => !getEditorDAW().bufferCache.has(k));
       result.missing = finalMissing.length;
       result.missingNames = finalMissing.map(([k, c]) => c.fileName || k);
 
@@ -4077,7 +4077,7 @@ function edBlankSong() {
         ensureAudioCtx();
         const response = await fetch(url);
         const arrayBuffer = await response.arrayBuffer();
-        const audioBuffer = await DAW.audioCtx.decodeAudioData(arrayBuffer);
+        const audioBuffer = await getEditorDAW().audioCtx.decodeAudioData(arrayBuffer);
         URL.revokeObjectURL(url);
         return audioBuffer;
       } catch(e) {
@@ -4171,26 +4171,26 @@ function edBlankSong() {
       try {
       SongMetadata.syncFromDom(edCur, {includeKey: false});
 
-      edCur._dawTracks = DAW.tracks.map(tr => ({
+      edCur._dawTracks = getEditorDAW().tracks.map(tr => ({
         id: tr.id, name: tr.name, icon: tr.icon, muted: tr.muted,
         solo: tr.solo, vol: tr.vol, pan: tr.pan, type: tr.type, transpose: tr.transpose || 0, laneHeight: tr.laneHeight || null
       }));
-      edCur._dawClips = DAW.clips.map(c => {
+      edCur._dawClips = getEditorDAW().clips.map(c => {
         const cp = { ...c }; delete cp._peaks; delete cp.waveUrl; delete cp._fileHandle; delete cp._originalBlob;
         return cp;
       });
-      edCur._dawSections = (DAW.sections || []).map(s => ({ ...s }));
-      edCur._dawLoop = { loopEnabled: DAW.loopEnabled, loopA: DAW.loopA, loopB: DAW.loopB };
+      edCur._dawSections = (getEditorDAW().sections || []).map(s => ({ ...s }));
+      edCur._dawLoop = { loopEnabled: getEditorDAW().loopEnabled, loopA: getEditorDAW().loopA, loopB: getEditorDAW().loopB };
       // در نسخه نصبی، صدا داخل فایل پروژه ذخیره نمی‌شود
       if (isElectron) edCur._embeddedAudio = {};
 
       // فقط کلیپ‌های کپی‌شده (_embedded:true) رمزگذاری بشن
       const audioData = {};
-      const audioClips = DAW.clips.filter(c => c.type !== 'chord' && c.bufferKey && c._embedded);
+      const audioClips = getEditorDAW().clips.filter(c => c.type !== 'chord' && c.bufferKey && c._embedded);
       if (audioClips.length > 0) {
         let idx = 0;
         for (const clip of audioClips) {
-          const buffer = DAW.bufferCache.get(clip.bufferKey);
+          const buffer = getEditorDAW().bufferCache.get(clip.bufferKey);
           if (!buffer) continue;
           idx++;
           toast(`رمزگذاری صدا ${idx}/${audioClips.length}...`);
@@ -4211,7 +4211,7 @@ function edBlankSong() {
       }
       edCur._embeddedAudio = audioData;
 
-      const linkedCount = DAW.clips.filter(c => c.type !== 'chord' && c.bufferKey && !c._embedded).length;
+      const linkedCount = getEditorDAW().clips.filter(c => c.type !== 'chord' && c.bufferKey && !c._embedded).length;
       const defaultName = (edCur.title || 'ترانه جدید') + ' (کامل).json';
       const data = JSON.stringify(edCur);
       const blob = new Blob([data], { type: 'application/json' });
@@ -4245,7 +4245,7 @@ function edBlankSong() {
   SongMetadata.syncFromDom(edCur);
   edCur.artistKey = archArtistKey(edCur.artist);
 
-  edCur._dawTracks = DAW.tracks.map(t => ({
+  edCur._dawTracks = getEditorDAW().tracks.map(t => ({
     id: t.id,
     name: t.name,
     icon: t.icon,
@@ -4258,7 +4258,7 @@ function edBlankSong() {
     laneHeight: t.laneHeight || null
   }));
 
-  edCur._dawClips = DAW.clips.map(c => {
+  edCur._dawClips = getEditorDAW().clips.map(c => {
     const cp = { ...c };
     delete cp._peaks;
     delete cp.waveUrl;
@@ -4267,13 +4267,13 @@ function edBlankSong() {
     return cp;
   });
 
-  edCur._dawSections = (DAW.sections || []).map(s => ({ ...s }));
+  edCur._dawSections = (getEditorDAW().sections || []).map(s => ({ ...s }));
 
-  edCur._dawLoop = { loopEnabled: DAW.loopEnabled, loopA: DAW.loopA, loopB: DAW.loopB };
+  edCur._dawLoop = { loopEnabled: getEditorDAW().loopEnabled, loopA: getEditorDAW().loopA, loopB: getEditorDAW().loopB };
 
   // ─── ذخیره مسیر فایل‌های صوتی (مهم برای لود مجدد در الکترون) ───
   edCur._audioPaths = [];
-  for (const clip of DAW.clips) {
+  for (const clip of getEditorDAW().clips) {
     if (clip.type === 'chord' || !clip.bufferKey) continue;
     edCur._audioPaths.push({
       bufferKey: clip.bufferKey,
@@ -5087,8 +5087,8 @@ if ($('edDoBoth')) {
       if (edCur.activeChordVersion === undefined) edCur.activeChordVersion = 0;
       // Auto-save current chords+clips to V1 if no versions exist yet
       if (edCur.chordVersions.length === 0) {
-        const chordTrack = DAW.tracks.find(t => t.type === 'chord');
-        const clips = chordTrack ? DAW.clips.filter(c => c.type === 'chord' && c.trackId === chordTrack.id) : [];
+        const chordTrack = getEditorDAW().tracks.find(t => t.type === 'chord');
+        const clips = chordTrack ? getEditorDAW().clips.filter(c => c.type === 'chord' && c.trackId === chordTrack.id) : [];
         edCur.chordVersions.push({
           name: 'V1',
           chords: JSON.parse(JSON.stringify(edCur.chords)),
@@ -5111,9 +5111,9 @@ if ($('edDoBoth')) {
       edCur.chordVersions[curVer].key = edCur.key || 'C';
       edCur.chordVersions[curVer].keyMode = edCur.keyMode || 'maj';
       // Also save timeline clip positions
-      const chordTrack = DAW.tracks.find(t => t.type === 'chord');
+      const chordTrack = getEditorDAW().tracks.find(t => t.type === 'chord');
       if (chordTrack) {
-        const clips = DAW.clips.filter(c => c.type === 'chord' && c.trackId === chordTrack.id);
+        const clips = getEditorDAW().clips.filter(c => c.type === 'chord' && c.trackId === chordTrack.id);
         edCur.chordVersions[curVer].clips = JSON.parse(JSON.stringify(clips.map(c => ({ start: c.start, duration: c.duration, color: c.color, name: c.name }))));
       }
     }
@@ -5121,10 +5121,10 @@ if ($('edDoBoth')) {
     function loadVersionToTimeline(verIdx) {
       if (!edCur || !edCur.chordVersions[verIdx]) return;
       const ver = edCur.chordVersions[verIdx];
-      const chordTrack = DAW.tracks.find(t => t.type === 'chord');
+      const chordTrack = getEditorDAW().tracks.find(t => t.type === 'chord');
       if (!chordTrack) return;
       // Remove existing chord clips
-      DAW.clips = DAW.clips.filter(c => !(c.type === 'chord' && c.trackId === chordTrack.id));
+      getEditorDAW().clips = getEditorDAW().clips.filter(c => !(c.type === 'chord' && c.trackId === chordTrack.id));
       // Add clips from version snapshot (هر کلیپ نام خودش را دارد)
       const savedClips = Array.isArray(ver.clips) ? ver.clips : [];
       savedClips.forEach((saved, i) => {
@@ -5133,7 +5133,7 @@ if ($('edDoBoth')) {
         const start = saved && saved.start != null ? saved.start : roundMs(i * 2);
         const duration = saved && saved.duration ? saved.duration : 2;
         const color = saved && saved.color ? saved.color : '#9F7AEA';
-        DAW.clips.push({ id: uid('c'), type: 'chord', trackId: chordTrack.id, name, start, duration, color });
+        getEditorDAW().clips.push({ id: uid('c'), type: 'chord', trackId: chordTrack.id, name, start, duration, color });
       });
     }
 
@@ -5178,8 +5178,8 @@ if ($('edDoBoth')) {
       edCur.activeChordVersion = newVer;
       edCur.chords = [];
       // Clear timeline chord clips
-      const chordTrack = DAW.tracks.find(t => t.type === 'chord');
-      if (chordTrack) DAW.clips = DAW.clips.filter(c => !(c.type === 'chord' && c.trackId === chordTrack.id));
+      const chordTrack = getEditorDAW().tracks.find(t => t.type === 'chord');
+      if (chordTrack) getEditorDAW().clips = getEditorDAW().clips.filter(c => !(c.type === 'chord' && c.trackId === chordTrack.id));
       edRenderEditor(true);
       saveState();
       renderTracks();
@@ -5204,10 +5204,10 @@ if ($('edDoBoth')) {
     // -- Sync transpose/key changes to timeline chord clips --
     function syncTransposeToTimelineChords() {
       if (!edCur) return;
-      const chordTrack = DAW.tracks.find(t => t.type === 'chord');
+      const chordTrack = getEditorDAW().tracks.find(t => t.type === 'chord');
       if (!chordTrack) return;
       // Only update existing timeline chord clips in place (never add/remove)
-      const existingClips = DAW.clips.filter(c => c.type === 'chord' && c.trackId === chordTrack.id);
+      const existingClips = getEditorDAW().clips.filter(c => c.type === 'chord' && c.trackId === chordTrack.id);
       // آکوردها در edCur.chords به ترتیب موسیقایی ذخیره شده‌اند (از بیت اول تا آخر)
       // Chord Line فقط جهت نمایش LTR دارد — ترتیب موسیقایی باید حفظ شود
       existingClips.forEach((clip, i) => {
@@ -5893,10 +5893,10 @@ if (
         // 0. Section tag (decoupled from clips)
         const secTagEl = e.target.closest('.section-tag');
         if (secTagEl) {
-          const sec = (DAW.sections || []).find(s => s.id === secTagEl.dataset.sectionId);
+          const sec = (getEditorDAW().sections || []).find(s => s.id === secTagEl.dataset.sectionId);
           if (!sec) return false;
           if (isGlobal) {
-            (DAW.sections || []).forEach(s => applyColorToSection(s, currentColor));
+            (getEditorDAW().sections || []).forEach(s => applyColorToSection(s, currentColor));
             saveState(); renderClips();
             toast('همه بخش‌ها رنگ شد');
           } else {
@@ -5911,7 +5911,7 @@ if (
           const clip = getClip(clipEl.dataset.clipId);
           if (!clip) return false;
           if (isGlobal) {
-            DAW.clips.forEach(c => { if (c.type === clip.type) applyColorToClip(c, currentColor); });
+            getEditorDAW().clips.forEach(c => { if (c.type === clip.type) applyColorToClip(c, currentColor); });
             saveState(); renderClips();
             toast('همه ' + (clip.type === 'chord' ? 'آکوردهای تایم‌لاین' : 'کلیپ‌ها') + ' رنگ شد');
           } else {
@@ -5971,7 +5971,7 @@ if (
         // 5. Track lane empty area → color all clips on track
         const lane = e.target.closest('.track-lane');
         if (lane) {
-          const trackClips = DAW.clips.filter(c => c.trackId === lane.dataset.trackId);
+          const trackClips = getEditorDAW().clips.filter(c => c.trackId === lane.dataset.trackId);
           trackClips.forEach(c => applyColorToClip(c, currentColor));
           saveState(); renderClips();
           toast(trackClips.length + ' کلیپ رنگ شد'); return true;
@@ -5981,7 +5981,7 @@ if (
         // 0. Section tag → sample color (decoupled)
         const secTagEl = e.target.closest('.section-tag');
         if (secTagEl) {
-          const sec = (DAW.sections || []).find(s => s.id === secTagEl.dataset.sectionId);
+          const sec = (getEditorDAW().sections || []).find(s => s.id === secTagEl.dataset.sectionId);
           if (sec) { selectColor(sec.color || '#3FB8AF'); toast('رنگ نمونه بخش: ' + currentColor); deactivateColorTool(); return true; }
         }
         // 1. Timeline clip → sample
@@ -6013,7 +6013,7 @@ if (
         // 4. Track lane → sample first clip color
         const lane = e.target.closest('.track-lane');
         if (lane) {
-          const first = DAW.clips.find(c => c.trackId === lane.dataset.trackId && c.color);
+          const first = getEditorDAW().clips.find(c => c.trackId === lane.dataset.trackId && c.color);
           if (first) { selectColor(first.color); toast('رنگ نمونه: ' + currentColor); deactivateColorTool(); return true; }
         }
         return false;
@@ -6051,11 +6051,11 @@ if (
         if (!isColorToolActive() || e.button !== 0) return;
         const secTagEl = e.target.closest('.section-tag');
         if (!secTagEl) return;
-        const sec = (DAW.sections || []).find(s => s.id === secTagEl.dataset.sectionId);
+        const sec = (getEditorDAW().sections || []).find(s => s.id === secTagEl.dataset.sectionId);
         if (!sec) return;
         if (colorToolMode === 'brush') {
           if (e.shiftKey) {
-            (DAW.sections || []).forEach(s => applyColorToSection(s, currentColor));
+            (getEditorDAW().sections || []).forEach(s => applyColorToSection(s, currentColor));
             toast('همه بخش‌ها رنگ شد');
           } else {
             applyColorToSection(sec, currentColor);
@@ -6131,7 +6131,7 @@ if (
       'loop': toggleLoop, 'loopA': setLoopA, 'loopB': setLoopB,
       'setLoopFromSel': setLoopFromSelection,
       'undo': undo, 'redo': redo,
-      'fullscreen': () => { if (!DAW.isPlaying) { ensureAudioCtx(); if (DAW.playhead <= 0) seekTransport(0, false); startTransport(); } openLyricOnlyPopup(); setTimeout(openLyricPopup, 300); },
+      'fullscreen': () => { if (!getEditorDAW().isPlaying) { ensureAudioCtx(); if (getEditorDAW().playhead <= 0) seekTransport(0, false); startTransport(); } openLyricOnlyPopup(); setTimeout(openLyricPopup, 300); },
       'singerView': openLyricOnlyPopup,
       'playerView': (typeof openPlayerView === 'function') ? openPlayerView : openLyricPopup,
       'split': splitSelectedAtPlayhead, 'copy': copySelected, 'cut': cutSelected, 'paste': pasteClipboard,
@@ -6311,7 +6311,7 @@ if (
         const _gbeatsPerBar = _gcfg.beatsPerMeasure;
         const _gbeatDur = _gcfg.beatDuration;
         const _gbarDur = _gcfg.measureDuration;
-        const _gpxPerSec = DAW.pxPerSecond;
+        const _gpxPerSec = getEditorDAW().pxPerSecond;
         const _gpxPerBar = _gbarDur * _gpxPerSec;
         let _gbarStep = 1;
         if (_gpxPerBar > 120) _gbarStep = 1;
@@ -6690,7 +6690,7 @@ function getClipFilePath(clip, projectFilePath = null) {
   
   // بررسی حالت‌های مختلف ذخیره‌سازی
   if (clip.storage && clip.storage.mode === 'copy') {
-    const projRoot = projectFilePath ? pathDirname(projectFilePath) : DAW.projectRoot;
+    const projRoot = projectFilePath ? pathDirname(projectFilePath) : getEditorDAW().projectRoot;
     if (!projRoot || !clip.storage.projectPath) {
       return null;
     }
@@ -6700,7 +6700,7 @@ function getClipFilePath(clip, projectFilePath = null) {
   } else if (clip.storage && clip.storage.mode === 'reference') {
     filePath = clip.storage.externalPath;
   } else if (clip.relativePath) {
-    const projRoot = projectFilePath ? pathDirname(projectFilePath) : DAW.projectRoot;
+    const projRoot = projectFilePath ? pathDirname(projectFilePath) : getEditorDAW().projectRoot;
     if (projRoot) {
       filePath = (window.electronAPI?.resolvePath)
                  ? window.electronAPI.resolvePath(projRoot, clip.relativePath)

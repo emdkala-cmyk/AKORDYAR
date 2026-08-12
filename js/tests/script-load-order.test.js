@@ -33,5 +33,9 @@ assert.ok(
   scriptIndex('js/editor/SyncModeController.js') <
     scriptIndex('js/app/core.js')
 );
+assert.ok(
+  scriptIndex('js/core/EditorRuntimeAdapter.js') <
+    scriptIndex('js/app/core.js')
+);
 
 console.log('Script load-order contract tests passed');

@@ -56,4 +56,21 @@ const serviceWithoutStop = new ClipboardService({
 
 assert.doesNotThrow(() => serviceWithoutStop.deleteSelected());
 
+const serviceWithInvalidStop = new ClipboardService({
+  DAW: {
+    clips: [{ id: 'clip-3' }],
+    sections: [],
+    selectedIds: new Set(['clip-3']),
+    selectedSectionIds: new Set(),
+    isPlaying: false
+  },
+  stopAllVoices: null,
+  saveState() {},
+  renderAll() {},
+  toast() {},
+  t: (key) => key
+});
+
+assert.doesNotThrow(() => serviceWithInvalidStop.deleteSelected());
+
 console.log('ClipboardService tests passed');

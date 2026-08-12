@@ -173,7 +173,7 @@ globalScope.DAW = {
       // Update dynamic elements
       if ($('edPrintTitle')) $('edPrintTitle').textContent = edCur?.title || t('untitled');
       const syncPlayBtn = $('syncPlayBtn');
-      if (syncPlayBtn) syncPlayBtn.textContent = DAW.isPlaying ? t('syncPause') : t('syncPlay');
+      if (syncPlayBtn) syncPlayBtn.textContent = getEditorDAW().isPlaying ? t('syncPause') : t('syncPlay');
     }
     // ===== MIDI MONITOR =====
     let midiMonitorAutoScroll = true;
@@ -289,7 +289,7 @@ globalScope.DAW = {
           })
         : null;
 
-    // Safe bridge for AudioContextService: app.js keeps DAW.audioCtx ownership
+    // Safe bridge for AudioContextService: app.js keeps runtime audio ownership
     // while the extracted service synthesises the metronome click. The legacy
     // path remains as a fallback for backward compatibility.
     const audioContextServiceBridge =
@@ -374,7 +374,7 @@ globalScope.DAW = {
     /**
      * quantizeSelectedChords — کوانتایز آکوردهای انتخاب‌شده در کورد لاین
      *
-     * آکوردهای انتخاب‌شده (DAW.selectedIds) را بر اساس پریست کوانتایز فعلی
+     * آکوردهای انتخاب‌شده را بر اساس پریست کوانتایز فعلی
      * (snapValue) به نزدیک‌ترین نقطه گرید می‌چسباند.
      *
      * مثال:
@@ -385,7 +385,8 @@ globalScope.DAW = {
      */
     function quantizeSelectedChords() {
       // فقط کلیپ‌های آکورد (chord) را انتخاب کن
-      const selectedChordClips = DAW.clips.filter(c => c.type === 'chord' && DAW.selectedIds.has(c.id));
+      const daw = getEditorDAW();
+      const selectedChordClips = daw.clips.filter(c => c.type === 'chord' && daw.selectedIds.has(c.id));
       if (selectedChordClips.length === 0) {
         toast('آکوردی در کورد لاین انتخاب نشده است');
         return;
@@ -427,7 +428,7 @@ globalScope.DAW = {
     function toggleMetronome() {
       metroActive = !metroActive;
       $('metroToggleBtn').textContent = metroActive ? '🔊' : '🔇';
-      if (metroActive && DAW.isPlaying) startMetronome();
+      if (metroActive && getEditorDAW().isPlaying) startMetronome();
       else stopMetronome();
     }
     function startMetronome() {
@@ -440,9 +441,9 @@ globalScope.DAW = {
       if (scheduler) {
         // Start the metronome from the current playhead position so it stays
         // in sync with the transport. `startTime` is the AudioContext time at
-        // which beat 0 should sound: ctx.currentTime - DAW.playhead.
+        // which beat 0 should sound: ctx.currentTime - current playhead.
         const _ctxNow = audioContextServiceBridge.getContext()?.currentTime || 0;
-        const _playhead = Number.isFinite(DAW.playhead) ? DAW.playhead : 0;
+        const _playhead = Number.isFinite(getEditorDAW().playhead) ? getEditorDAW().playhead : 0;
         scheduler.start({
           bpm: _mbpm,
           timeSignature: _msig,
@@ -475,7 +476,7 @@ globalScope.DAW = {
 
     // تابع کمکی برای چک کردن ضرب در حلقه پخش
     function checkMetronomeTick(playheadTime) {
-      if (!metroActive || !DAW.isPlaying) return;
+      if (!metroActive || !getEditorDAW().isPlaying) return;
       const bpm = parseInt($('edTempo')?.value) || 120;
       const sig = $('edTimeSig')?.value || '4/4';
       const config = getTimeSignatureGridConfig(sig, bpm);
@@ -767,21 +768,21 @@ const requestRenderSyncLyrics = debounce(() => { renderSyncLyrics(); }, 120);
     let currentChord = { root: 'None', type: 'None', tension: '', bass: 'None' };
     let midiAccess = null;
     // Playhead scroll mode: 'page' (scrolls page by page) or 'center' (stationary center)
-    DAW.playheadMode = 'page';
+    getEditorDAW().playheadMode = 'page';
     // Selection end point for arranger (independent of loop)
     let selectionEnd = 0;
 
     const $ = (id) => document.getElementById(id);
-    const uid = (p = 'c') => p + (DAW.nextId++);
+    const uid = (p = 'c') => p + (getEditorDAW().nextId++);
     const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
     const roundMs = (t) => Math.round(t * 1000) / 1000;
 
     // آپدیت nextId بر اساس بزرگ‌ترین ID موجود (جلوگیری از تداخل آیدی)
     function updateNextIdFromClips() {
-      const allIds = [...DAW.clips.map(c => c.id), ...(DAW.sections || []).map(s => s.id)];
+      const allIds = [...getEditorDAW().clips.map(c => c.id), ...(getEditorDAW().sections || []).map(s => s.id)];
       allIds.forEach(id => {
         const num = parseInt(id.replace(/^[a-z]+/, ''), 10);
-        if (!isNaN(num) && num >= DAW.nextId) DAW.nextId = num + 1;
+        if (!isNaN(num) && num >= getEditorDAW().nextId) getEditorDAW().nextId = num + 1;
       });
     }
 
@@ -797,13 +798,13 @@ const requestRenderSyncLyrics = debounce(() => { renderSyncLyrics(); }, 120);
     }
 
     function ensureAudioCtx() {
-      if (!DAW.audioCtx) {
+      if (!getEditorDAW().audioCtx) {
         const Ctx = window.AudioContext || window.webkitAudioContext;
-        DAW.audioCtx = new Ctx(); DAW.masterGain = DAW.audioCtx.createGain();
-        DAW.masterGain.gain.value = 1; DAW.masterGain.connect(DAW.audioCtx.destination);
+        getEditorDAW().audioCtx = new Ctx(); getEditorDAW().masterGain = getEditorDAW().audioCtx.createGain();
+        getEditorDAW().masterGain.gain.value = 1; getEditorDAW().masterGain.connect(getEditorDAW().audioCtx.destination);
       }
-      if (DAW.audioCtx.state === 'suspended') DAW.audioCtx.resume().catch(() => {});
-      return DAW.audioCtx;
+      if (getEditorDAW().audioCtx.state === 'suspended') getEditorDAW().audioCtx.resume().catch(() => {});
+      return getEditorDAW().audioCtx;
     }
 
 // ==========================================
@@ -953,34 +954,34 @@ function attachHistoryService() {
     t
   });
 }
-    const timeToX = (t) => t * DAW.pxPerSecond;
+    const timeToX = (t) => t * getEditorDAW().pxPerSecond;
     // WaveformService initialization
     window.waveformService = new window.WaveformService({
       ensureAudioCtx: () => ensureAudioCtx(),
       setAudioContext: (ctx) => {
-        if (!DAW.audioCtx) DAW.audioCtx = ctx;
+        if (!getEditorDAW().audioCtx) getEditorDAW().audioCtx = ctx;
       },
-      getWaveCache: () => DAW.waveCache,
+      getWaveCache: () => getEditorDAW().waveCache,
       documentRef: document,
       clamp: (value, min, max) => clamp(value, min, max),
       timeToX: (value) => timeToX(value)
     });
-    const xToTime = (x) => x / DAW.pxPerSecond;
+    const xToTime = (x) => x / getEditorDAW().pxPerSecond;
 
-    function getProjectEnd() { let end = 30; for (const c of DAW.clips) end = Math.max(end, c.start + c.duration); for (const s of (DAW.sections || [])) end = Math.max(end, s.start + s.duration); return Math.max(DAW.timelineDuration, end + 8); }
-    function getClip(id) { return DAW.clips.find(c => c.id === id); }
-    function selectedClips() { return DAW.clips.filter(c => DAW.selectedIds.has(c.id)); }
-    function ensureTimelineFits(needed) { if (needed > DAW.timelineDuration) DAW.timelineDuration = needed; }
+    function getProjectEnd() { let end = 30; for (const c of getEditorDAW().clips) end = Math.max(end, c.start + c.duration); for (const s of (getEditorDAW().sections || [])) end = Math.max(end, s.start + s.duration); return Math.max(getEditorDAW().timelineDuration, end + 8); }
+    function getClip(id) { return getEditorDAW().clips.find(c => c.id === id); }
+    function selectedClips() { return getEditorDAW().clips.filter(c => getEditorDAW().selectedIds.has(c.id)); }
+    function ensureTimelineFits(needed) { if (needed > getEditorDAW().timelineDuration) getEditorDAW().timelineDuration = needed; }
 
    function serializeState() {
-  const tracks = DAW.tracks.map(t => {
+  const tracks = getEditorDAW().tracks.map(t => {
     const copy = { ...t };
     delete copy._pannerNode;
     delete copy._gainNode;
     return copy;
   });
 
-  const clips = DAW.clips.map(c => {
+  const clips = getEditorDAW().clips.map(c => {
     const copy = { ...c };
     delete copy._peaks;
     delete copy.waveUrl;
@@ -991,11 +992,11 @@ function attachHistoryService() {
     return copy;
   });
 
-  const sections = (DAW.sections || []).map(s => ({ ...s }));
+  const sections = (getEditorDAW().sections || []).map(s => ({ ...s }));
   
   // پاک‌سازی pool از داده‌های runtime قبل از ذخیره
   const cleanPool = {};
-  for (const [clipId, clip] of Object.entries(DAW.pool)) {
+  for (const [clipId, clip] of Object.entries(getEditorDAW().pool)) {
     const cleanClip = { ...clip };
     delete cleanClip.runtime;
     delete cleanClip._peaks;
@@ -1009,8 +1010,8 @@ function attachHistoryService() {
     schema: 'akordyar-project',
     version: 2,
     project: {
-      id: DAW.project?.id || '',
-      name: DAW.project?.name || '',
+      id: getEditorDAW().project?.id || '',
+      name: getEditorDAW().project?.name || '',
       projectRoot: undefined // مسیر پروژه ذخیره نمی‌شود (نسبی کار می‌کند)
     },
     pool: cleanPool,
@@ -1032,7 +1033,7 @@ function saveState() {
 
   const state = serializeState();
 
-  if (state === PERF.lastSerializedState) {
+  if (state === getEditorPERF().lastSerializedState) {
     clearTimeout(_autoSaveTimer);
     _autoSaveTimer = setTimeout(() => edSaveSong(), 700);
     return;
@@ -1046,7 +1047,7 @@ function saveState() {
   }
 
   undoIndex = undoStack.length - 1;
-  PERF.lastSerializedState = state;
+  getEditorPERF().lastSerializedState = state;
 
   clearTimeout(_autoSaveTimer);
   _autoSaveTimer = setTimeout(() => edSaveSong(), 700);
@@ -1066,10 +1067,10 @@ function applyState(stateStr) {
   try {
     const state = JSON.parse(stateStr);
 
-    DAW.tracks = state.tracks || [];
-    DAW.clips = state.clips || [];
-    DAW.sections = state.sections || [];
-    DAW.selectedSectionIds = new Set();
+    getEditorDAW().tracks = state.tracks || [];
+    getEditorDAW().clips = state.clips || [];
+    getEditorDAW().sections = state.sections || [];
+    getEditorDAW().selectedSectionIds = new Set();
     updateNextIdFromClips();
 
     if (state.edCur) {
@@ -1109,37 +1110,37 @@ function applyState(stateStr) {
 
     ensureAudioCtx();
 
-    DAW.tracks.forEach(t => {
+    getEditorDAW().tracks.forEach(t => {
       if (t.type === 'audio') {
-        t._pannerNode = DAW.audioCtx.createStereoPanner();
-        t._gainNode = DAW.audioCtx.createGain();
+        t._pannerNode = getEditorDAW().audioCtx.createStereoPanner();
+        t._gainNode = getEditorDAW().audioCtx.createGain();
         t._pannerNode.connect(t._gainNode);
-        t._gainNode.connect(DAW.masterGain);
+        t._gainNode.connect(getEditorDAW().masterGain);
         updateTrackMix(t.id);
       }
     });
 
-    DAW.selectedIds.clear();
+    getEditorDAW().selectedIds.clear();
     
     // Rebuild waveforms for audio clips after undo/redo
-    DAW.clips.forEach(clip => {
-      if (clip.type === 'audio' && clip.bufferKey && DAW.bufferCache.has(clip.bufferKey)) {
-        const buffer = DAW.bufferCache.get(clip.bufferKey);
+    getEditorDAW().clips.forEach(clip => {
+      if (clip.type === 'audio' && clip.bufferKey && getEditorDAW().bufferCache.has(clip.bufferKey)) {
+        const buffer = getEditorDAW().bufferCache.get(clip.bufferKey);
         clip.sourceDuration = buffer.duration;
         clip._peaks = peaksFromBuffer(buffer, 2000);
         refreshClipWaveImage(clip);
       }
     });
     
-    PERF.tracksVersion++;
-    PERF.clipsVersion++;
+    getEditorPERF().tracksVersion++;
+    getEditorPERF().clipsVersion++;
     renderAll();
 
-    if (DAW.isPlaying) {
+    if (getEditorDAW().isPlaying) {
       scheduleAllFromPlayhead();
     }
 
-    PERF.lastSerializedState = stateStr;
+    getEditorPERF().lastSerializedState = stateStr;
   } finally {
     isApplyingHistory = false;
   }
@@ -1197,26 +1198,26 @@ function undo() {
     }
 
     function updateTrackMix(trackId) {
-      const tr = DAW.tracks.find(t => t.id === trackId); if (!tr || !tr._gainNode) return;
-      const anySolo = DAW.tracks.some(t => t.solo); let gain = 0;
+      const tr = getEditorDAW().tracks.find(t => t.id === trackId); if (!tr || !tr._gainNode) return;
+      const anySolo = getEditorDAW().tracks.some(t => t.solo); let gain = 0;
       if (anySolo) gain = tr.solo && !tr.muted ? tr.vol : 0; else gain = tr.muted ? 0 : tr.vol;
       tr._gainNode.gain.value = gain; tr._pannerNode.pan.value = tr.pan;
     }
 
     function stopAllVoices() {
-      for (const [id, v] of DAW.voices) { try { v.source.onended = null; v.source.stop(0); } catch (_) {} try { v.source.disconnect(); } catch (_) {} try { v.gain.disconnect(); } catch (_) {} }
-      DAW.voices.clear();
+      for (const [id, v] of getEditorDAW().voices) { try { v.source.onended = null; v.source.stop(0); } catch (_) {} try { v.source.disconnect(); } catch (_) {} try { v.gain.disconnect(); } catch (_) {} }
+      getEditorDAW().voices.clear();
     }
 
     function scheduleAllFromPlayhead() {
       const ctx = ensureAudioCtx(); stopAllVoices();
-      if (!DAW.isPlaying || DAW.isScrubbing) return;
-      const nowT = DAW.playhead; const ctxNow = ctx.currentTime;
-      DAW.clips.forEach(clip => {
+      if (!getEditorDAW().isPlaying || getEditorDAW().isScrubbing) return;
+      const nowT = getEditorDAW().playhead; const ctxNow = ctx.currentTime;
+      getEditorDAW().clips.forEach(clip => {
         if (clip.type === 'chord') return;
-        const tr = DAW.tracks.find(t => t.id === clip.trackId);
-        if (tr && (tr.muted || (DAW.tracks.some(t => t.solo) && !tr.solo))) return;
-        const buffer = DAW.bufferCache.get(clip.bufferKey); if (!buffer) return;
+        const tr = getEditorDAW().tracks.find(t => t.id === clip.trackId);
+        if (tr && (tr.muted || (getEditorDAW().tracks.some(t => t.solo) && !tr.solo))) return;
+        const buffer = getEditorDAW().bufferCache.get(clip.bufferKey); if (!buffer) return;
         const local = nowT - clip.start; if (local >= clip.duration) return;
         let when = ctxNow, mediaOffset = clip.offset, playDur = clip.duration;
         if (local < 0) when = ctxNow + (-local); else { mediaOffset = clip.offset + local; playDur = clip.duration - local; }
@@ -1227,8 +1228,8 @@ function undo() {
         const semitones = tr.transpose || 0;
         if (semitones !== 0) source.playbackRate.value = Math.pow(2, semitones / 12);
         try { source.start(when, mediaOffset, playDur); } catch (err) { return; }
-        source.onended = () => { if (DAW.voices.get(clip.id)?.source === source) DAW.voices.delete(clip.id); };
-        DAW.voices.set(clip.id, { source, gain });
+        source.onended = () => { if (getEditorDAW().voices.get(clip.id)?.source === source) getEditorDAW().voices.delete(clip.id); };
+        getEditorDAW().voices.set(clip.id, { source, gain });
       });
     }
 
@@ -1240,10 +1241,10 @@ function undo() {
 
     function renderTracks() {
       const names = $('track-names-container'); const lanes = $('lanes-container'); names.innerHTML = ''; lanes.innerHTML = '';
-      DAW.tracks.forEach((tr) => {
-        const h = document.createElement('div'); h.className = 'track-name' + (DAW.loadTrackId === tr.id ? ' active-load' : ''); h.dataset.trackId = tr.id;
+      getEditorDAW().tracks.forEach((tr) => {
+        const h = document.createElement('div'); h.className = 'track-name' + (getEditorDAW().loadTrackId === tr.id ? ' active-load' : ''); h.dataset.trackId = tr.id;
         if (tr.muted) h.classList.add('muted-track');
-        if (DAW.tracks.some(t => t.solo) && !tr.solo && tr.type !== 'chord') h.classList.add('solo-dim-track');
+        if (getEditorDAW().tracks.some(t => t.solo) && !tr.solo && tr.type !== 'chord') h.classList.add('solo-dim-track');
         if (tr.type === 'chord') {
   const chordTarget =
     edCur && typeof edCur === 'object'
@@ -1387,8 +1388,8 @@ function undo() {
           h.querySelector('[data-load]')?.addEventListener('click', (e) => { e.stopPropagation(); openFileForTrack(tr.id); });
           // Icon picker
           h.querySelector('[data-icon-pick]')?.addEventListener('click', (e) => { e.stopPropagation(); openIconPicker(tr); });
-          h.querySelector('[data-mute]').addEventListener('click', (e) => { e.stopPropagation(); tr.muted = !tr.muted; updateTrackMix(tr.id); renderAll(); if(DAW.isPlaying) scheduleAllFromPlayhead(); });
-          h.querySelector('[data-solo]').addEventListener('click', (e) => { e.stopPropagation(); tr.solo = !tr.solo; DAW.tracks.forEach(t => updateTrackMix(t.id)); renderAll(); if(DAW.isPlaying) scheduleAllFromPlayhead(); });
+          h.querySelector('[data-mute]').addEventListener('click', (e) => { e.stopPropagation(); tr.muted = !tr.muted; updateTrackMix(tr.id); renderAll(); if(getEditorDAW().isPlaying) scheduleAllFromPlayhead(); });
+          h.querySelector('[data-solo]').addEventListener('click', (e) => { e.stopPropagation(); tr.solo = !tr.solo; getEditorDAW().tracks.forEach(t => updateTrackMix(t.id)); renderAll(); if(getEditorDAW().isPlaying) scheduleAllFromPlayhead(); });
           h.querySelector('[data-lock]')?.addEventListener('click', (e) => { e.stopPropagation(); tr.locked = !tr.locked; saveState(); renderTracks(); renderClips(); toast(tr.locked ? 'ترک قفل شد' : 'ترک باز شد'); });
           // جلوگیری از درگ شدن هدر روی دکمه‌ها و کنترل‌ها
           h.querySelectorAll('button, input, .pan-wrap, .t-transpose').forEach(el => { el.draggable = false; el.addEventListener('mousedown', (e) => e.stopPropagation()); });
@@ -1414,11 +1415,10 @@ function undo() {
               h.querySelector('[data-pan]').value = tr.pan;
               ensureAudioCtx(); updateTrackMix(tr.id); updatePanVisual();
             };
-            panWrap.addEventListener('mousedown', (e) => {
-              e.stopPropagation(); onPanDrag(e);
-              const onMove = (ev) => onPanDrag(ev);
-              const onUp = () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); saveState(); };
-              document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp);
+            panWrap.addEventListener('pointerdown', (e) => {
+              if (e.button !== 0) return;
+              e.stopPropagation(); e.preventDefault(); onPanDrag(e);
+              startEditorPointerDrag(panWrap, e, onPanDrag, saveState);
             });
             panWrap.addEventListener('click', (e) => e.stopPropagation());
             panWrap.addEventListener('dblclick', (e) => {
@@ -1439,14 +1439,14 @@ function undo() {
             e.stopPropagation();
             tr.transpose = Math.max(-12, (tr.transpose || 0) - 1);
             updateTransVal();
-            if (DAW.isPlaying) scheduleAllFromPlayhead();
+            if (getEditorDAW().isPlaying) scheduleAllFromPlayhead();
             saveState();
           });
           h.querySelector(`[data-trans-up="${tr.id}"]`)?.addEventListener('click', (e) => {
             e.stopPropagation();
             tr.transpose = Math.min(12, (tr.transpose || 0) + 1);
             updateTransVal();
-            if (DAW.isPlaying) scheduleAllFromPlayhead();
+            if (getEditorDAW().isPlaying) scheduleAllFromPlayhead();
             saveState();
           });
         }
@@ -1474,20 +1474,20 @@ function undo() {
           e.preventDefault(); h.style.borderTop = '';
           const draggedId = e.dataTransfer.getData('text/plain');
           if (!draggedId || draggedId === tr.id) return;
-          const fromIdx = DAW.tracks.findIndex(t => t.id === draggedId);
-          const toIdx = DAW.tracks.findIndex(t => t.id === tr.id);
+          const fromIdx = getEditorDAW().tracks.findIndex(t => t.id === draggedId);
+          const toIdx = getEditorDAW().tracks.findIndex(t => t.id === tr.id);
           if (fromIdx < 0 || toIdx < 0 || fromIdx === toIdx) return;
           if (e.altKey) {
             // ALT+drag = copy
-            const src = DAW.tracks[fromIdx];
+            const src = getEditorDAW().tracks[fromIdx];
             const copy = JSON.parse(JSON.stringify(src));
             copy.id = uid('t');
             copy.name = src.name + ' (copy)';
-            DAW.tracks.splice(toIdx + 1, 0, copy);
+            getEditorDAW().tracks.splice(toIdx + 1, 0, copy);
           } else {
             // Normal drag = move
-            const [moved] = DAW.tracks.splice(fromIdx, 1);
-            DAW.tracks.splice(toIdx, 0, moved);
+            const [moved] = getEditorDAW().tracks.splice(fromIdx, 1);
+            getEditorDAW().tracks.splice(toIdx, 0, moved);
           }
           saveState(); renderAll();
         });
@@ -1498,25 +1498,26 @@ function undo() {
         // Apply muted/solo/locked visual states to lane
         if (tr.muted) lane.classList.add('muted-lane');
         if (tr.locked) lane.classList.add('locked-lane');
-        if (DAW.tracks.some(t => t.solo) && !tr.solo && tr.type !== 'chord') lane.classList.add('solo-dim-lane');
+        if (getEditorDAW().tracks.some(t => t.solo) && !tr.solo && tr.type !== 'chord') lane.classList.add('solo-dim-lane');
         // Per-lane resize handle (Cubase-style: drag bottom border)
         const resizeHandle = document.createElement('div');
         resizeHandle.className = 'lane-resize-handle bottom';
-        resizeHandle.addEventListener('mousedown', (e) => {
+        resizeHandle.addEventListener('pointerdown', (e) => {
+          if (e.button !== 0) return;
           e.stopPropagation(); e.preventDefault();
           resizeHandle.classList.add('active');
-          const startY = e.clientY; const origH = tr.laneHeight || DAW.laneHeight;
+          const startY = e.clientY; const origH = tr.laneHeight || getEditorDAW().laneHeight;
           const onMove = (ev) => { const newH = Math.max(24, Math.min(200, origH + (ev.clientY - startY))); setLaneHeight(tr.id, newH); };
-          const onUp = () => { resizeHandle.classList.remove('active'); document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); saveState(); };
-          document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp);
+          startEditorPointerDrag(resizeHandle, e, onMove, () => { resizeHandle.classList.remove('active'); saveState(); });
         });
         lane.appendChild(resizeHandle);
-        lane.addEventListener('mousedown', (e) => {
+        lane.addEventListener('pointerdown', (e) => {
+        if (e.button !== 0) return;
         clearEditorTextSelection();
         edClearChordSelection();
         if (e.target.closest('.clip') || e.target.closest('.section-tag')) return;
         // Clear section selection on any empty-area click (all lanes)
-        if (DAW.selectedSectionIds.size > 0) { DAW.selectedSectionIds.clear(); renderClips(); }
+        if (getEditorDAW().selectedSectionIds.size > 0) { getEditorDAW().selectedSectionIds.clear(); renderClips(); }
         if (tr.locked) { toast('🔒 ترک قفل است'); return; }
 
         // Alt+Click on section track: create tag with styled modal
@@ -1527,7 +1528,7 @@ function undo() {
           customPrompt('نام بخش:', 'ورس').then(name => {
             if (name && name.trim()) {
               const sec = { id: uid('c'), trackId: tr.id, label: name.trim(), start: roundMs(t), duration: 4, color: '#3FB8AF' };
-              DAW.sections.push(sec);
+              getEditorDAW().sections.push(sec);
               ensureTimelineFits(sec.start + sec.duration + 5);
               saveState(); renderClips();
             }
@@ -1541,7 +1542,7 @@ function undo() {
           const t = clientToTime(e.clientX);
           // Create a temporary anchor at clicked time and open chord modal
           // IMPORTANT: Don't change edCur (which holds the song), use a local variable
-          const chordTrack = DAW.tracks.find(track => track.id === tr.id);
+          const chordTrack = getEditorDAW().tracks.find(track => track.id === tr.id);
           if (chordTrack) {
             const anchor = { time: t, x: e.clientX, y: e.clientY };
             // Store in a temp variable, don't overwrite edCur
@@ -1562,7 +1563,7 @@ function undo() {
           customPrompt('نام بخش:', 'ورس').then(name => {
             if (name && name.trim()) {
               const sec = { id: uid('c'), trackId: tr.id, label: name.trim(), start: roundMs(t), duration: 4, color: '#3FB8AF' };
-              DAW.sections.push(sec);
+              getEditorDAW().sections.push(sec);
               ensureTimelineFits(sec.start + sec.duration + 5);
               saveState(); renderClips();
             }
@@ -1582,11 +1583,11 @@ function undo() {
 
             seekTransport(t, true);
             if (!e.ctrlKey && !e.metaKey) clearSelection();
-            const p = clientToInnerPoint(e.clientX, e.clientY); DAW.marquee = { x0: p.x, y0: p.y };
-            document.addEventListener('mousemove', onDocMouseMove); document.addEventListener('mouseup', onDocMouseUp);
+            const p = clientToInnerPoint(e.clientX, e.clientY); getEditorDAW().marquee = { x0: p.x, y0: p.y };
+            startEditorPointerDrag(lane, e, onDocMouseMove, onDocMouseUp);
         });
         const grid = document.createElement('canvas'); grid.className = 'lane-grid'; lane.appendChild(grid);
-        if (!DAW.clips.some(c => c.trackId === tr.id) && !(tr.type === 'section' && (DAW.sections || []).some(s => s.trackId === tr.id))) { 
+        if (!getEditorDAW().clips.some(c => c.trackId === tr.id) && !(tr.type === 'section' && (getEditorDAW().sections || []).some(s => s.trackId === tr.id))) {
           const hint = document.createElement('div'); 
           hint.className = 'empty-lane-hint' + (tr.type === 'section' ? ' section-hint' : ''); 
           hint.textContent = tr.type === 'chord' ? t('clickHint') : (tr.type === 'section' ? 'دوبار کلیک برای ساخت بخش' : t('loadHint'));
@@ -1597,7 +1598,7 @@ function undo() {
               customPrompt('نام بخش:', 'ورس').then(name => {
                 if (name && name.trim()) {
                   const sec = { id: uid('c'), trackId: tr.id, label: name.trim(), start: roundMs(t), duration: 4, color: '#3FB8AF' };
-                  DAW.sections.push(sec);
+                  getEditorDAW().sections.push(sec);
                   ensureTimelineFits(sec.start + sec.duration + 5);
                   saveState(); renderClips();
                 }
@@ -1629,7 +1630,7 @@ function undo() {
         timeToX: timeToX,
         tempo: edCur?.tempo,
         timeSignature: edCur?.timeSignature,
-        pxPerSec: DAW.pxPerSecond
+        pxPerSec: getEditorDAW().pxPerSecond
       });
     }
 
@@ -1640,12 +1641,12 @@ function undo() {
         timeToX: timeToX,
         tempo: edCur?.tempo,
         timeSignature: edCur?.timeSignature,
-        pxPerSec: DAW.pxPerSecond,
+        pxPerSec: getEditorDAW().pxPerSecond,
         rulerEl: $('timeline-ruler'),
         labelsEl: $('ruler-labels'),
         tlInnerEl: $('tl-inner'),
         lanesEl: $('lanes-container'),
-        onDurationChange: function(t) { DAW.timelineDuration = t; }
+        onDurationChange: function(t) { getEditorDAW().timelineDuration = t; }
       });
     }
 
@@ -1653,12 +1654,12 @@ function undo() {
       document.querySelectorAll('.clip').forEach(el => el.remove());
       document.querySelectorAll('.section-tag').forEach(el => el.remove());
       // Render audio & chord clips
-      DAW.clips.forEach(clip => {
+      getEditorDAW().clips.forEach(clip => {
         const lane = document.querySelector(`.track-lane[data-track-id="${clip.trackId}"]`); if (!lane) return;
         const hint = lane.querySelector('.empty-lane-hint'); if (hint) hint.remove();
         if (clip.type !== 'chord') refreshClipWaveImage(clip);
         const el = document.createElement('div');
-        el.className = 'clip' + (clip.type === 'chord' ? ' chord-clip' : '') + (DAW.selectedIds.has(clip.id) ? ' selected' : '');
+        el.className = 'clip' + (clip.type === 'chord' ? ' chord-clip' : '') + (getEditorDAW().selectedIds.has(clip.id) ? ' selected' : '');
         el.dataset.clipId = clip.id; el.style.left = timeToX(clip.start) + 'px'; el.style.width = Math.max(30, timeToX(clip.duration)) + 'px';
         if (clip.type !== 'chord') {
           el.style.background = `linear-gradient(180deg, ${clip.color}bb, ${clip.color}88)`;
@@ -1690,14 +1691,14 @@ function undo() {
           el.style.borderColor = chordColor;
           el.innerHTML = `<span>${clip.name}</span><div class="resize-handle left" data-edge="left"></div><div class="resize-handle right" data-edge="right"></div>`;
         }
-        el.addEventListener('mousedown', onClipMouseDown); lane.appendChild(el);
+        el.addEventListener('pointerdown', onClipMouseDown); lane.appendChild(el);
       });
       // Render section tags (fully decoupled from clips)
-      DAW.sections.forEach(sec => {
+      getEditorDAW().sections.forEach(sec => {
         const lane = document.querySelector(`.track-lane[data-track-id="${sec.trackId}"]`); if (!lane) return;
         const hint = lane.querySelector('.empty-lane-hint'); if (hint) hint.remove();
         const el = document.createElement('div');
-        el.className = 'section-tag' + (DAW.selectedSectionIds.has(sec.id) ? ' selected' : '');
+        el.className = 'section-tag' + (getEditorDAW().selectedSectionIds.has(sec.id) ? ' selected' : '');
         el.dataset.sectionId = sec.id;
         el.style.left = timeToX(sec.start) + 'px';
         el.style.width = Math.max(50, timeToX(sec.duration)) + 'px';
@@ -1753,32 +1754,32 @@ function undo() {
 
           // Selection logic (same as clips)
           if (e.ctrlKey || e.metaKey) {
-            if (DAW.selectedSectionIds.has(sec.id)) DAW.selectedSectionIds.delete(sec.id);
-            else DAW.selectedSectionIds.add(sec.id);
+            if (getEditorDAW().selectedSectionIds.has(sec.id)) getEditorDAW().selectedSectionIds.delete(sec.id);
+            else getEditorDAW().selectedSectionIds.add(sec.id);
             renderClips();
             return;
           }
           // If clicking an already-selected section, preserve full multi-selection for cross-lane drag
-          if (!DAW.selectedSectionIds.has(sec.id)) {
-            DAW.selectedSectionIds = new Set([sec.id]);
-            DAW.selectedIds.clear();
+          if (!getEditorDAW().selectedSectionIds.has(sec.id)) {
+            getEditorDAW().selectedSectionIds = new Set([sec.id]);
+            getEditorDAW().selectedIds.clear();
             renderClips();
           }
 
           // Build cross-lane drag items from ALL selected items (clips + sections)
           const dragItems = [];
           selectedClips().forEach(c => dragItems.push({ id: c.id, origStart: c.start, origDur: c.duration, origOffset: c.offset }));
-          (DAW.sections || []).filter(s => DAW.selectedSectionIds.has(s.id)).forEach(s => dragItems.push({ id: s.id, origStart: s.start, origDur: s.duration, origOffset: 0, _isSection: true }));
+          (getEditorDAW().sections || []).filter(s => getEditorDAW().selectedSectionIds.has(s.id)).forEach(s => dragItems.push({ id: s.id, origStart: s.start, origDur: s.duration, origOffset: 0, _isSection: true }));
           if (dragItems.length === 0) return;
 
-          DAW.drag = { type: 'move', edge: null, primaryId: sec.id, startX: e.clientX, items: dragItems };
-          document.addEventListener('mousemove', onDocMouseMove);
-          document.addEventListener('mouseup', onDocMouseUp);
+          getEditorDAW().drag = { type: 'move', edge: null, primaryId: sec.id, startX: e.clientX, items: dragItems };
+          startEditorPointerDrag($('tl-inner') || e.currentTarget, e, onDocMouseMove, onDocMouseUp);
         });
         // Resize handles (left + right) with snap
         const resL = document.createElement('div');
         resL.className = 'resize-handle left';
-        resL.addEventListener('mousedown', (e) => {
+        resL.addEventListener('pointerdown', (e) => {
+          if (e.button !== 0) return;
           e.stopPropagation(); e.preventDefault();
           const startX = e.clientX; const origStart = sec.start; const origDur = sec.duration;
           const onMove = (ev) => {
@@ -1787,17 +1788,16 @@ function undo() {
             if (newStart < 0) { newDur += newStart; newStart = 0; }
             if (newDur >= 0.5) { sec.start = roundMs(newStart); sec.duration = roundMs(newDur); el.style.left = timeToX(sec.start) + 'px'; el.style.width = Math.max(50, timeToX(sec.duration)) + 'px'; }
           };
-          const onUp = () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); saveState(); };
-          document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp);
+          startEditorPointerDrag(resL, e, onMove, saveState);
         });
         const resR = document.createElement('div');
         resR.className = 'resize-handle right';
-        resR.addEventListener('mousedown', (e) => {
+        resR.addEventListener('pointerdown', (e) => {
+          if (e.button !== 0) return;
           e.stopPropagation(); e.preventDefault();
           const startX = e.clientX; const origDur = sec.duration;
           const onMove = (ev) => { sec.duration = Math.max(0.5, roundMs(snapTime(origDur + xToTime(ev.clientX - startX)))); el.style.width = Math.max(50, timeToX(sec.duration)) + 'px'; };
-          const onUp = () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); saveState(); };
-          document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp);
+          startEditorPointerDrag(resR, e, onMove, saveState);
         });
         el.appendChild(resL);
         el.appendChild(resR);
@@ -1806,9 +1806,9 @@ function undo() {
     }
 
     function updatePlayheadUI() {
-      const x = timeToX(DAW.playhead); $('main-playhead').style.left = x + 'px'; $('playhead-hit').style.left = x + 'px';
-      $('time-display').value = formatTime(DAW.playhead); $('ph-label').textContent = formatTime(DAW.playhead);
-      const activeChord = DAW.clips.filter(c => c.type === 'chord' && DAW.playhead >= c.start && DAW.playhead < c.start + c.duration).pop();
+      const x = timeToX(getEditorDAW().playhead); $('main-playhead').style.left = x + 'px'; $('playhead-hit').style.left = x + 'px';
+      $('time-display').value = formatTime(getEditorDAW().playhead); $('ph-label').textContent = formatTime(getEditorDAW().playhead);
+      const activeChord = getEditorDAW().clips.filter(c => c.type === 'chord' && getEditorDAW().playhead >= c.start && getEditorDAW().playhead < c.start + c.duration).pop();
       if (activeChord && $('live-chord')) $('live-chord').textContent = activeChord.name;
       else if ($('live-chord')) $('live-chord').textContent = 'None';
     }
@@ -1816,7 +1816,7 @@ function undo() {
     function autoScrollToPlayhead() {
       const scroll = $('tl-scroll');
       if (!scroll) return;
-      const x = timeToX(DAW.playhead);
+      const x = timeToX(getEditorDAW().playhead);
       const margin = 80;
       if (x < scroll.scrollLeft + margin) {
         scroll.scrollLeft = Math.max(0, x - margin);
@@ -1825,7 +1825,7 @@ function undo() {
       }
     }
 
-    function updateHud() { $('clip-count').textContent = String(DAW.clips.length + (DAW.sections || []).length); }
+    function updateHud() { $('clip-count').textContent = String(getEditorDAW().clips.length + (getEditorDAW().sections || []).length); }
 
     // ===== ICON PICKER =====
     const ICON_SVG_MAP = {
@@ -1902,22 +1902,22 @@ function undo() {
         document.body.style.cursor = '';
         document.body.style.userSelect = '';
       };
-      resizeEl.addEventListener('mousedown', (e) => {
+      resizeEl.addEventListener('pointerdown', (e) => {
+        if (e.button !== 0) return;
         e.preventDefault();
         startX = e.clientX;
         startW = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--header-w')) || 240;
         document.body.style.cursor = 'col-resize';
         document.body.style.userSelect = 'none';
-        document.addEventListener('mousemove', onMouseMove);
-        document.addEventListener('mouseup', onMouseUp);
+        startEditorPointerDrag(resizeEl, e, onMouseMove, onMouseUp);
       });
     })();
 
     function addNewTrack(name, icon) {
-      const n = DAW.tracks.length + 1; ensureAudioCtx();
+      const n = getEditorDAW().tracks.length + 1; ensureAudioCtx();
       const newT = { id: uid('t'), name: name || `Line ${n}`, icon: icon || '🎛️', type: 'audio', muted: false, solo: false, vol: 0.8, pan: 0, transpose: 0, locked: false };
-      newT._pannerNode = DAW.audioCtx.createStereoPanner(); newT._gainNode = DAW.audioCtx.createGain();
-      newT._pannerNode.connect(newT._gainNode); newT._gainNode.connect(DAW.masterGain); DAW.tracks.push(newT);
+      newT._pannerNode = getEditorDAW().audioCtx.createStereoPanner(); newT._gainNode = getEditorDAW().audioCtx.createGain();
+      newT._pannerNode.connect(newT._gainNode); newT._gainNode.connect(getEditorDAW().masterGain); getEditorDAW().tracks.push(newT);
       saveState(); renderAll(); toast(t('newTrackAdded'));
     }
 
@@ -1953,9 +1953,9 @@ function undo() {
   }, 1200);
 }
 
-    function openFileForTrack(trackId) { DAW.loadTrackId = trackId; renderTracks(); $('audio-file-input').value = ''; $('audio-file-input').click(); }
+    function openFileForTrack(trackId) { getEditorDAW().loadTrackId = trackId; renderTracks(); $('audio-file-input').value = ''; $('audio-file-input').click(); }
     $('audio-file-input').addEventListener('change', async (e) => {
-      const file = e.target.files && e.target.files[0]; const trackId = DAW.loadTrackId; DAW.loadTrackId = null; renderTracks();
+      const file = e.target.files && e.target.files[0]; const trackId = getEditorDAW().loadTrackId; getEditorDAW().loadTrackId = null; renderTracks();
       if (!file || !trackId) return;
       // Clear all selections before import
       clearSelection();
@@ -1973,7 +1973,7 @@ function undo() {
           externalPath: storageMode ? null : (isElectron && file.path ? file.path : null)
         };
         
-        DAW.pool[clipId] = {
+        getEditorDAW().pool[clipId] = {
           id: clipId,
           name: file.name.replace(/\.[^.]+$/, ''),
           originalName: file.name,
@@ -1986,7 +1986,7 @@ function undo() {
         };
         
         // ذخیره در کش با کلید clipId
-        DAW.bufferCache.set(clipId, buffer);
+        getEditorDAW().bufferCache.set(clipId, buffer);
 
         const clip = {
           id: clipId,
@@ -1994,11 +1994,11 @@ function undo() {
           trackId,
           name: file.name.replace(/\.[^.]+$/, ''),
           fileName: file.name,
-          start: roundMs(DAW.playhead),
+          start: roundMs(getEditorDAW().playhead),
           duration: buffer.duration,
           offset: 0,
           sourceDuration: buffer.duration,
-          color: COLORS[DAW.clips.length % COLORS.length],
+          color: COLORS[getEditorDAW().clips.length % COLORS.length],
           _peaks: peaksFromBuffer(buffer, 2000),
           waveUrl: null,
           _embedded: storageMode,
@@ -2040,8 +2040,8 @@ function undo() {
             }
           }
         }
-        refreshClipWaveImage(clip); DAW.clips.push(clip); DAW.selectedIds = new Set([clip.id]); ensureTimelineFits(clip.start + clip.duration + 5);
-        saveState(); renderAll(); if (DAW.isPlaying) scheduleAllFromPlayhead();
+        refreshClipWaveImage(clip); getEditorDAW().clips.push(clip); getEditorDAW().selectedIds = new Set([clip.id]); ensureTimelineFits(clip.start + clip.duration + 5);
+        saveState(); renderAll(); if (getEditorDAW().isPlaying) scheduleAllFromPlayhead();
         if (storageMode) {
           toast(`${t('loadedOk')} ${clip.name} (کپی در پروژه)`);
           saveAudioBlobsForProject(edCur.id).catch(() => {});
@@ -2053,12 +2053,12 @@ function undo() {
     });
 
     function setSelection(ids) {
-  DAW.selectedIds = new Set(ids);
+  getEditorDAW().selectedIds = new Set(ids);
   renderClips();
   updateHud();
 }
 
-    function clearSelection() { DAW.selectedIds.clear(); DAW.selectedSectionIds.clear(); renderClips(); updateHud(); }
+    function clearSelection() { getEditorDAW().selectedIds.clear(); getEditorDAW().selectedSectionIds.clear(); renderClips(); updateHud(); }
    function clearEditorTextSelection() {
      window.getSelection()?.removeAllRanges();
      $('editor')?.blur();
@@ -2072,7 +2072,7 @@ function undo() {
       if (clipboardService) return clipboardService;
       if (typeof ClipboardService !== 'function' || typeof edSaveSong !== 'function') return null;
       clipboardService = new ClipboardService({
-        DAW,
+        getDAW: () => getEditorDAW(),
         selectedClips,
         uid,
         roundMs,
@@ -2081,8 +2081,12 @@ function undo() {
         ensureTimelineFits,
         saveState,
         renderAll,
-        scheduleAllFromPlayhead,
-        stopAllVoices,
+        scheduleAllFromPlayhead: (...args) => {
+          if (typeof scheduleAllFromPlayhead === 'function') scheduleAllFromPlayhead(...args);
+        },
+        stopAllVoices: (...args) => {
+          if (typeof stopAllVoices === 'function') stopAllVoices(...args);
+        },
         toast,
         t,
         edSaveSong
@@ -2101,20 +2105,20 @@ function undo() {
       clip.duration = leftDur; if (clip.type === 'audio') refreshClipWaveImage(clip);
       const right = { ...clip, id: uid('c'), start: t, duration: rightDur };
       if (clip.type === 'audio') { right.offset = roundMs(clip.offset + leftDur); refreshClipWaveImage(right); }
-      DAW.clips.push(right); return right;
+      getEditorDAW().clips.push(right); return right;
     }
 
     function splitSelectedAtPlayhead() {
       const sels = selectedClips(); if (!sels.length) { toast(t('nothingSelected')); return; } const created = [];
-      sels.forEach(c => { const r = splitClipAt(c, DAW.playhead); if (r) created.push(r.id); });
-      if (created.length) { DAW.selectedIds = new Set(created); saveState(); renderAll(); if (DAW.isPlaying) scheduleAllFromPlayhead(); toast(t('splitDone')); }
+      sels.forEach(c => { const r = splitClipAt(c, getEditorDAW().playhead); if (r) created.push(r.id); });
+      if (created.length) { getEditorDAW().selectedIds = new Set(created); saveState(); renderAll(); if (getEditorDAW().isPlaying) scheduleAllFromPlayhead(); toast(t('splitDone')); }
     }
 
     function cutAtTime(time, trackId = null) {
   const t = roundMs(time);
   if (!trackId) return false;
 
-  const hits = DAW.clips.filter(c => {
+  const hits = getEditorDAW().clips.filter(c => {
     if (c.trackId !== trackId) return false;
     return t > c.start + 0.01 &&
            t < c.start + c.duration - 0.01;
@@ -2129,16 +2133,16 @@ function undo() {
       const created = [];
 sels.forEach(c => {
   if (c.type !== 'chord') return;
-  const r = splitClipAt(c, DAW.playhead);
+  const r = splitClipAt(c, getEditorDAW().playhead);
   if (r) created.push(r.id);
 });
 
 
       seekTransport(t, true);
       if (created.length) {
-        DAW.selectedIds = new Set(created);
+        getEditorDAW().selectedIds = new Set(created);
         saveState(); renderAll();
-        if (DAW.isPlaying) scheduleAllFromPlayhead();
+        if (getEditorDAW().isPlaying) scheduleAllFromPlayhead();
         toast(`${t('clipsCut')}: ${hits.length}`);
         return true;
       }
@@ -2157,7 +2161,7 @@ sels.forEach(c => {
   if ($('editor')) $('editor').blur();
 
   // Deselect sections when clicking on any clip
-  if (DAW.selectedSectionIds.size > 0) { DAW.selectedSectionIds.clear(); renderClips(); }
+  if (getEditorDAW().selectedSectionIds.size > 0) { getEditorDAW().selectedSectionIds.clear(); renderClips(); }
 
   e.stopPropagation();
   e.preventDefault();
@@ -2167,7 +2171,7 @@ sels.forEach(c => {
   if (!clip) return;
 
   // Check if track is locked
-  const track = DAW.tracks.find(t => t.id === clip.trackId);
+  const track = getEditorDAW().tracks.find(t => t.id === clip.trackId);
   if (track && track.locked) { toast('ترک قفل است'); return; }
 
   edClearChordSelection();
@@ -2194,7 +2198,7 @@ sels.forEach(c => {
       // Alt+Click to Duplicate (Copy and immediately drag the copy)
       if (e.altKey) {
         const sels = selectedClips();
-        if (!sels.find(c => c.id === clipId)) DAW.selectedIds = new Set([clipId]);
+        if (!sels.find(c => c.id === clipId)) getEditorDAW().selectedIds = new Set([clipId]);
         
         const toDuplicate = selectedClips();
         const newIds = [];
@@ -2204,26 +2208,25 @@ sels.forEach(c => {
             const newClip = { ...c, id: uid('c') };
             delete newClip._peaks;
             if (c.type === 'audio') {
-                const buf = DAW.bufferCache.get(c.bufferKey);
+                const buf = getEditorDAW().bufferCache.get(c.bufferKey);
                 if (buf) newClip._peaks = peaksFromBuffer(buf, 2000);
                 refreshClipWaveImage(newClip);
             }
-            DAW.clips.push(newClip);
+            getEditorDAW().clips.push(newClip);
             newIds.push(newClip.id);
             dragItems.push({ id: newClip.id, origStart: newClip.start, origDur: newClip.duration, origOffset: newClip.offset });
         });
         
-        DAW.selectedIds = new Set(newIds);
-        DAW.drag = { type: 'move', edge: null, primaryId: dragItems[0]?.id, startX: e.clientX, items: dragItems };
+        getEditorDAW().selectedIds = new Set(newIds);
+        getEditorDAW().drag = { type: 'move', edge: null, primaryId: dragItems[0]?.id, startX: e.clientX, items: dragItems };
         renderAll();
-        document.addEventListener('mousemove', onDocMouseMove);
-        document.addEventListener('mouseup', onDocMouseUp);
+        startEditorPointerDrag($('tl-inner') || e.currentTarget, e, onDocMouseMove, onDocMouseUp);
         return;
       }
 
-      if (e.ctrlKey || e.metaKey) { if (DAW.selectedIds.has(clipId)) DAW.selectedIds.delete(clipId); else DAW.selectedIds.add(clipId); renderClips(); return; }
+      if (e.ctrlKey || e.metaKey) { if (getEditorDAW().selectedIds.has(clipId)) getEditorDAW().selectedIds.delete(clipId); else getEditorDAW().selectedIds.add(clipId); renderClips(); return; }
       // If clicking an already-selected clip, preserve the full multi-selection for cross-lane drag
-      if (!DAW.selectedIds.has(clipId)) { DAW.selectedIds = new Set([clipId]); DAW.selectedSectionIds.clear(); renderClips(); }
+      if (!getEditorDAW().selectedIds.has(clipId)) { getEditorDAW().selectedIds = new Set([clipId]); getEditorDAW().selectedSectionIds.clear(); renderClips(); }
 
       const edge = e.target.dataset.edge || null;
       let dragItems;
@@ -2233,24 +2236,25 @@ sels.forEach(c => {
       } else {
         // Move: all selected clips + all selected sections
         dragItems = selectedClips().map(c => ({ id: c.id, origStart: c.start, origDur: c.duration, origOffset: c.offset }));
-        (DAW.sections || []).filter(s => DAW.selectedSectionIds.has(s.id)).forEach(s => dragItems.push({ id: s.id, origStart: s.start, origDur: s.duration, origOffset: 0, _isSection: true }));
+        (getEditorDAW().sections || []).filter(s => getEditorDAW().selectedSectionIds.has(s.id)).forEach(s => dragItems.push({ id: s.id, origStart: s.start, origDur: s.duration, origOffset: 0, _isSection: true }));
       }
-      DAW.drag = { type: edge ? 'resize' : 'move', edge, primaryId: clipId, startX: e.clientX, items: dragItems };
-      document.addEventListener('mousemove', onDocMouseMove); document.addEventListener('mouseup', onDocMouseUp);
+      getEditorDAW().drag = { type: edge ? 'resize' : 'move', edge, primaryId: clipId, startX: e.clientX, items: dragItems };
+      startEditorPointerDrag($('tl-inner') || e.currentTarget, e, onDocMouseMove, onDocMouseUp);
     }
 
     let dragOverLaneTrackId = null;
 
     function onDocMouseMove(e) {
-      if (DAW.drag) {
-        const dt = xToTime(e.clientX - DAW.drag.startX);
+      if (getEditorDAW().drag) {
+        const dt = xToTime(e.clientX - getEditorDAW().drag.startX);
         
         // Check if we're over a different track lane during move
-        if (DAW.drag.type === 'move') {
-          const targetLane = e.target.closest('.track-lane');
+        if (getEditorDAW().drag.type === 'move') {
+          const pointerTarget = document.elementFromPoint(e.clientX, e.clientY) || e.target;
+          const targetLane = pointerTarget.closest('.track-lane');
           if (targetLane) {
             const laneTrackId = targetLane.dataset.trackId;
-            const targetTrack = DAW.tracks.find(t => t.id === laneTrackId);
+            const targetTrack = getEditorDAW().tracks.find(t => t.id === laneTrackId);
             // Only allow drop on audio tracks (not section or chord)
             if (targetTrack && targetTrack.type === 'audio') {
               dragOverLaneTrackId = laneTrackId;
@@ -2262,18 +2266,18 @@ sels.forEach(c => {
           }
         }
         
-        if (DAW.drag.type === 'move') {
-          DAW.drag.items.forEach(it => {
+        if (getEditorDAW().drag.type === 'move') {
+          getEditorDAW().drag.items.forEach(it => {
             let item;
-            if (it._isSection) { item = (DAW.sections || []).find(s => s.id === it.id); }
+            if (it._isSection) { item = (getEditorDAW().sections || []).find(s => s.id === it.id); }
             else { item = getClip(it.id); }
             if (!item) return;
             item.start = Math.max(0, roundMs(snapTime(it.origStart + dt)));
             ensureTimelineFits(item.start + (item.duration || it.origDur) + 5);
           });
-        } else if (DAW.drag.type === 'resize') {
-          const it = DAW.drag.items.find(x => x.id === DAW.drag.primaryId); const clip = getClip(DAW.drag.primaryId); if (!it || !clip) return;
-          if (DAW.drag.edge === 'right') {
+        } else if (getEditorDAW().drag.type === 'resize') {
+          const it = getEditorDAW().drag.items.find(x => x.id === getEditorDAW().drag.primaryId); const clip = getClip(getEditorDAW().drag.primaryId); if (!it || !clip) return;
+          if (getEditorDAW().drag.edge === 'right') {
             const maxDur = clip.type === 'chord' ? 1000 : clip.sourceDuration - clip.offset;
             clip.duration = clamp(roundMs(snapTime(it.origDur + dt)), 0.03, maxDur); if (clip.type === 'audio') refreshClipWaveImage(clip);
           } else {
@@ -2290,28 +2294,28 @@ sels.forEach(c => {
         }
         renderRuler(); renderClips(); updateHud();
       }
-      if (DAW.marquee) {
-        const p = clientToInnerPoint(e.clientX, e.clientY); const x1 = Math.min(DAW.marquee.x0, p.x), y1 = Math.min(DAW.marquee.y0, p.y);
-        const x2 = Math.max(DAW.marquee.x0, p.x), y2 = Math.max(DAW.marquee.y0, p.y); const box = $('marquee');
+      if (getEditorDAW().marquee) {
+        const p = clientToInnerPoint(e.clientX, e.clientY); const x1 = Math.min(getEditorDAW().marquee.x0, p.x), y1 = Math.min(getEditorDAW().marquee.y0, p.y);
+        const x2 = Math.max(getEditorDAW().marquee.x0, p.x), y2 = Math.max(getEditorDAW().marquee.y0, p.y); const box = $('marquee');
         box.style.display = 'block'; box.style.left = x1 + 'px'; box.style.top = y1 + 'px'; box.style.width = (x2 - x1) + 'px'; box.style.height = (y2 - y1) + 'px';
         // Select clips inside marquee
         const clipIds = [];
         document.querySelectorAll('.clip').forEach(el => { const r = el.getBoundingClientRect(), ir = $('tl-inner').getBoundingClientRect(); const cx1 = r.left - ir.left, cy1 = r.top - ir.top, cx2 = cx1 + r.width, cy2 = cy1 + r.height; if (!(cx2 < x1 || cx1 > x2 || cy2 < y1 || cy1 > y2)) clipIds.push(el.dataset.clipId); });
-        DAW.selectedIds = new Set(clipIds);
-        document.querySelectorAll('.clip').forEach(el => el.classList.toggle('selected', DAW.selectedIds.has(el.dataset.clipId)));
+        getEditorDAW().selectedIds = new Set(clipIds);
+        document.querySelectorAll('.clip').forEach(el => el.classList.toggle('selected', getEditorDAW().selectedIds.has(el.dataset.clipId)));
         // Select sections inside marquee
         const secIds = [];
         document.querySelectorAll('.section-tag').forEach(el => { const r = el.getBoundingClientRect(), ir = $('tl-inner').getBoundingClientRect(); const cx1 = r.left - ir.left, cy1 = r.top - ir.top, cx2 = cx1 + r.width, cy2 = cy1 + r.height; if (!(cx2 < x1 || cx1 > x2 || cy2 < y1 || cy1 > y2)) secIds.push(el.dataset.sectionId); });
-        DAW.selectedSectionIds = new Set(secIds);
-        document.querySelectorAll('.section-tag').forEach(el => el.classList.toggle('selected', DAW.selectedSectionIds.has(el.dataset.sectionId)));
+        getEditorDAW().selectedSectionIds = new Set(secIds);
+        document.querySelectorAll('.section-tag').forEach(el => el.classList.toggle('selected', getEditorDAW().selectedSectionIds.has(el.dataset.sectionId)));
       }
     }
 
     function onDocMouseUp() {
-      if (DAW.drag) {
+      if (getEditorDAW().drag) {
         // If we were dragging over a different track lane, move clips to that track
-        if (DAW.drag.type === 'move' && dragOverLaneTrackId) {
-          DAW.drag.items.forEach(it => {
+        if (getEditorDAW().drag.type === 'move' && dragOverLaneTrackId) {
+          getEditorDAW().drag.items.forEach(it => {
             const clip = getClip(it.id);
             if (clip && !it._isSection) {
               clip.trackId = dragOverLaneTrackId;
@@ -2319,19 +2323,19 @@ sels.forEach(c => {
           });
         }
         dragOverLaneTrackId = null;
-        DAW.drag = null;
+        getEditorDAW().drag = null;
         saveState();
-        if (DAW.isPlaying) scheduleAllFromPlayhead();
+        if (getEditorDAW().isPlaying) scheduleAllFromPlayhead();
         renderAll();
       }
-      if (DAW.marquee) { DAW.marquee = null; $('marquee').style.display = 'none'; renderClips(); }
+      if (getEditorDAW().marquee) { getEditorDAW().marquee = null; $('marquee').style.display = 'none'; renderClips(); }
       document.removeEventListener('mousemove', onDocMouseMove); document.removeEventListener('mouseup', onDocMouseUp);
     }
 
     function seekTransport(t, keepPlaying = true, noSnap = false) {
-      DAW.playhead = PlayheadMath.clamp(roundMs(noSnap ? t : snapTime(t)), getProjectEnd());
-      if (DAW.isPlaying) { var _ori = PlayheadMath.createOrigin(performance.now(), DAW.playhead); DAW.playOriginPerf = _ori.playOriginPerf; DAW.playOriginTime = _ori.playOriginTime; }
-      updatePlayheadUI(); if (DAW.isPlaying && !DAW.isScrubbing) scheduleAllFromPlayhead(); else stopAllVoices();
+      getEditorDAW().playhead = PlayheadMath.clamp(roundMs(noSnap ? t : snapTime(t)), getProjectEnd());
+      if (getEditorDAW().isPlaying) { var _ori = PlayheadMath.createOrigin(performance.now(), getEditorDAW().playhead); getEditorDAW().playOriginPerf = _ori.playOriginPerf; getEditorDAW().playOriginTime = _ori.playOriginTime; }
+      updatePlayheadUI(); if (getEditorDAW().isPlaying && !getEditorDAW().isScrubbing) scheduleAllFromPlayhead(); else stopAllVoices();
     }
 
     // Return-to-start on pause (Cubase style)
@@ -2350,7 +2354,7 @@ sels.forEach(c => {
     }
 
     function togglePlay() {
-      if (DAW.isPlaying) {
+      if (getEditorDAW().isPlaying) {
         if (returnToStartOnPause) {
           const savedPos = playStartPos;
           pauseTransport();
@@ -2359,14 +2363,14 @@ sels.forEach(c => {
           pauseTransport();
         }
       } else {
-        playStartPos = DAW.playhead;
+        playStartPos = getEditorDAW().playhead;
         startTransport();
       }
     }
 
     function startTransport() {
       ensureAudioCtx();
-      DAW.isPlaying = true; DAW.isScrubbing = false; var _ori = PlayheadMath.createOrigin(performance.now(), DAW.playhead); DAW.playOriginPerf = _ori.playOriginPerf; DAW.playOriginTime = _ori.playOriginTime;
+      getEditorDAW().isPlaying = true; getEditorDAW().isScrubbing = false; var _ori = PlayheadMath.createOrigin(performance.now(), getEditorDAW().playhead); getEditorDAW().playOriginPerf = _ori.playOriginPerf; getEditorDAW().playOriginTime = _ori.playOriginTime;
       $('play-btn').style.color = 'var(--accent-neon-pink)'; scheduleAllFromPlayhead();
 
       // Update perf play button
@@ -2376,25 +2380,25 @@ sels.forEach(c => {
       if (metroActive && !metroTimer) startMetronome();
 
       const tick = () => {
-        if (!DAW.isPlaying) return;
-        if (!DAW.isScrubbing) DAW.playhead = PlayheadMath.getElapsed(performance.now(), DAW.playOriginPerf, DAW.playOriginTime);
+        if (!getEditorDAW().isPlaying) return;
+        if (!getEditorDAW().isScrubbing) getEditorDAW().playhead = PlayheadMath.getElapsed(performance.now(), getEditorDAW().playOriginPerf, getEditorDAW().playOriginTime);
 
         // Loop A-B: if playhead reaches B, jump back to A (math delegated to PlayheadMath)
-        if (DAW.loopEnabled && !DAW.isRecording && DAW.playhead >= DAW.loopB) {
-          var looped = PlayheadMath.applyLoop(DAW.playhead, DAW.loopEnabled, DAW.loopA, DAW.loopB);
-          DAW.playhead = looped.playhead;
-          var ori = PlayheadMath.createOrigin(performance.now(), DAW.playhead);
-          DAW.playOriginPerf = ori.playOriginPerf;
-          DAW.playOriginTime = ori.playOriginTime;
+        if (getEditorDAW().loopEnabled && !getEditorDAW().isRecording && getEditorDAW().playhead >= getEditorDAW().loopB) {
+          var looped = PlayheadMath.applyLoop(getEditorDAW().playhead, getEditorDAW().loopEnabled, getEditorDAW().loopA, getEditorDAW().loopB);
+          getEditorDAW().playhead = looped.playhead;
+          var ori = PlayheadMath.createOrigin(performance.now(), getEditorDAW().playhead);
+          getEditorDAW().playOriginPerf = ori.playOriginPerf;
+          getEditorDAW().playOriginTime = ori.playOriginTime;
           scheduleAllFromPlayhead();
         }
 
         updatePlayheadUI();
         // Look-ahead scheduler runs independently of RAF. Only fall back to
         // RAF-based beat checking when the scheduler is unavailable.
-        if (!getMetronomeSchedulerBridge()) checkMetronomeTick(DAW.playhead);
-        const scroll = $('tl-scroll'); const x = timeToX(DAW.playhead);
-        if (DAW.playheadMode === 'center') {
+        if (!getMetronomeSchedulerBridge()) checkMetronomeTick(getEditorDAW().playhead);
+        const scroll = $('tl-scroll'); const x = timeToX(getEditorDAW().playhead);
+        if (getEditorDAW().playheadMode === 'center') {
           // Stationary: keep playhead visually at center by scrolling
           scroll.scrollLeft = Math.max(0, x - scroll.clientWidth / 2);
         } else {
@@ -2410,11 +2414,11 @@ sels.forEach(c => {
         // این زمان زیاد هست تا مطمئن بشیم حتی برای فایل‌های بزرگ هم کافیه.
         if (arrPerformActive && !_arrNextState && !arrPreparePending) {
           const end = getArrangerEnd();
-          if (end > 0 && DAW.playhead >= end - 15) {
+          if (end > 0 && getEditorDAW().playhead >= end - 15) {
             // فقط اگر قبلاً برای این ایندکس prep شروع نشده، لاگ بزن
             if (_arrPrepStartedForIndex !== arrPerformIdx + 1) {
               _arrPrepStartedForIndex = arrPerformIdx + 1;
-              console.log(`[Arranger] Starting prep at ${DAW.playhead.toFixed(1)}s (end: ${end.toFixed(1)}s)`);
+              console.log(`[Arranger] Starting prep at ${getEditorDAW().playhead.toFixed(1)}s (end: ${end.toFixed(1)}s)`);
             }
             arrPreparePending = true;
             prepareNextArrSong()
@@ -2426,18 +2430,18 @@ sels.forEach(c => {
               });
           }
         }
-        if (DAW.playhead >= (arrPerformActive ? getArrangerEnd() : getProjectEnd())) {
+        if (getEditorDAW().playhead >= (arrPerformActive ? getArrangerEnd() : getProjectEnd())) {
           // Gapless arranger: hot-swap if next song is ready
           // Guard: اگر در حال کراس‌فید هستیم، صبر کن تا تموم شه
           if (arrPerformActive && _arrNextState && !_arrIsCrossfading) {
             const crossfadeDur = arrPerformData?.crossfade || 0;
             if (crossfadeDur > 0) arrCrossfadeSwap();
             else hotSwapToNextSong();
-            DAW.rafId = requestAnimationFrame(tick); return;
+            getEditorDAW().rafId = requestAnimationFrame(tick); return;
           }
           // اگر کراس‌فید در حال اجراست، به تیک بعدی منتقل شو
           if (_arrIsCrossfading) {
-            DAW.rafId = requestAnimationFrame(tick); return;
+            getEditorDAW().rafId = requestAnimationFrame(tick); return;
           }
           // ─── اگر _arrNextState آماده نیست ولی prep در حال اجراست: صبر کن (وارد حالت pause شو) ───
           // به‌جای stop، playback رو pause می‌کنیم تا وقتی prep تموم شد، ادامه بدیم
@@ -2445,9 +2449,9 @@ sels.forEach(c => {
             console.log('[Arranger] Reached end but prep still running. Entering wait mode...');
             // playback رو متوقف کن ولی transport رو stop نکن
             stopAllVoices();
-            DAW.isPlaying = false;
+            getEditorDAW().isPlaying = false;
             // ─── مکانیزم poll مستقل از tick ───
-            // چون tick با DAW.isPlaying=false متوقف می‌شه، یک poll جداگانه می‌سازیم
+            // چون tick با getEditorDAW().isPlaying=false متوقف می‌شه، یک poll جداگانه می‌سازیم
             // که وقتی prep تموم شد، hot-swap رو انجام بده
             if (!_arrWaitPollActive) {
               _arrWaitPollActive = true;
@@ -2492,7 +2496,7 @@ sels.forEach(c => {
         // Update sync highlight during playback (works for both sync mode and popup)
         if (syncActive) updateSyncHighlight();
         else if (_lyricPopup && !_lyricPopup.closed) updateSyncHighlight();
-        DAW.rafId = requestAnimationFrame(tick);
+        getEditorDAW().rafId = requestAnimationFrame(tick);
       };
 
       // Count-in: play metronome for N bars before starting
@@ -2508,9 +2512,9 @@ sels.forEach(c => {
         toast('🔢 شمارش: ' + countInBars + ' میزان');
         const countInTick = () => {
           if (countBeat >= totalBeats) {
-            DAW.isPlaying = true; DAW.isScrubbing = false; var _ori = PlayheadMath.createOrigin(performance.now(), DAW.playhead); DAW.playOriginPerf = _ori.playOriginPerf; DAW.playOriginTime = _ori.playOriginTime;
+            getEditorDAW().isPlaying = true; getEditorDAW().isScrubbing = false; var _ori = PlayheadMath.createOrigin(performance.now(), getEditorDAW().playhead); getEditorDAW().playOriginPerf = _ori.playOriginPerf; getEditorDAW().playOriginTime = _ori.playOriginTime;
             $('play-btn').style.color = 'var(--accent-neon-pink)'; scheduleAllFromPlayhead();
-            if (DAW.rafId) cancelAnimationFrame(DAW.rafId); DAW.rafId = requestAnimationFrame(tick);
+            if (getEditorDAW().rafId) cancelAnimationFrame(getEditorDAW().rafId); getEditorDAW().rafId = requestAnimationFrame(tick);
             return;
           }
           playClick(countBeat % beatsPerBar === 0);
@@ -2524,14 +2528,14 @@ sels.forEach(c => {
         return;
       }
 
-      DAW.isPlaying = true; DAW.isScrubbing = false; var _ori = PlayheadMath.createOrigin(performance.now(), DAW.playhead); DAW.playOriginPerf = _ori.playOriginPerf; DAW.playOriginTime = _ori.playOriginTime;
+      getEditorDAW().isPlaying = true; getEditorDAW().isScrubbing = false; var _ori = PlayheadMath.createOrigin(performance.now(), getEditorDAW().playhead); getEditorDAW().playOriginPerf = _ori.playOriginPerf; getEditorDAW().playOriginTime = _ori.playOriginTime;
       $('play-btn').style.color = 'var(--accent-neon-pink)'; scheduleAllFromPlayhead();
-      if (DAW.rafId) cancelAnimationFrame(DAW.rafId); DAW.rafId = requestAnimationFrame(tick);
+      if (getEditorDAW().rafId) cancelAnimationFrame(getEditorDAW().rafId); getEditorDAW().rafId = requestAnimationFrame(tick);
     }
 
     function pauseTransport() {
-      if (DAW.isRecording) endRec();
-      DAW.isPlaying = false; DAW.isScrubbing = false; if (DAW.rafId) cancelAnimationFrame(DAW.rafId); DAW.rafId = null; stopAllVoices(); $('play-btn').style.color = 'var(--accent-cyan-glow)'; updatePlayheadUI();
+      if (getEditorDAW().isRecording) endRec();
+      getEditorDAW().isPlaying = false; getEditorDAW().isScrubbing = false; if (getEditorDAW().rafId) cancelAnimationFrame(getEditorDAW().rafId); getEditorDAW().rafId = null; stopAllVoices(); $('play-btn').style.color = 'var(--accent-cyan-glow)'; updatePlayheadUI();
 
       // Auto-stop metronome
       if (metroTimer) stopMetronome();
@@ -2543,7 +2547,7 @@ sels.forEach(c => {
       // Update perf play button
       if (perfModeActive) $('perfPlayBtn').textContent = '▶';
     }
-    function stopTransport() { pauseTransport(); DAW.playhead = 0; updatePlayheadUI();
+    function stopTransport() { pauseTransport(); getEditorDAW().playhead = 0; updatePlayheadUI();
       // Auto-advance arranger when song finishes
       if (arrPerformActive && arrPerformData) {
         // If pause mode, don't auto-advance
@@ -2562,30 +2566,30 @@ sels.forEach(c => {
       if (selectionEnd > 0) return selectionEnd;
       // Fallback: end of last clip/section in current project
       let end = 0;
-      DAW.clips.forEach(c => end = Math.max(end, c.start + c.duration));
-      DAW.sections.forEach(s => end = Math.max(end, s.start + s.duration));
+      getEditorDAW().clips.forEach(c => end = Math.max(end, c.start + c.duration));
+      getEditorDAW().sections.forEach(s => end = Math.max(end, s.start + s.duration));
       return end > 0 ? end : getProjectEnd();
     }
     function transportToStart() { seekTransport(0); }
-    function transportToEnd() { let end = 0; DAW.clips.forEach(c => end = Math.max(end, c.start + c.duration)); seekTransport(end); }
+    function transportToEnd() { let end = 0; getEditorDAW().clips.forEach(c => end = Math.max(end, c.start + c.duration)); seekTransport(end); }
 
     /* ============================================================
        RECORDING (mic/input) + MIXER
        ============================================================ */
     function ensureRecLane() {
-      let tr = DAW.tracks.find(t => t.id === 'tRec');
+      let tr = getEditorDAW().tracks.find(t => t.id === 'tRec');
       if (!tr) {
         ensureAudioCtx();
         tr = { id: 'tRec', name: 'Rec', icon: '●', type: 'audio', isRec: true, muted: false, solo: false, vol: 0.8, pan: 0, transpose: 0, locked: false };
-        const idx = DAW.tracks.findIndex(t => t.type === 'section');
-        if (idx >= 0) DAW.tracks.splice(idx + 1, 0, tr); else DAW.tracks.push(tr);
+        const idx = getEditorDAW().tracks.findIndex(t => t.type === 'section');
+        if (idx >= 0) getEditorDAW().tracks.splice(idx + 1, 0, tr); else getEditorDAW().tracks.push(tr);
       }
       if (tr.type === 'audio' && !tr._gainNode) {
         ensureAudioCtx();
-        tr._pannerNode = DAW.audioCtx.createStereoPanner();
-        tr._gainNode = DAW.audioCtx.createGain();
+        tr._pannerNode = getEditorDAW().audioCtx.createStereoPanner();
+        tr._gainNode = getEditorDAW().audioCtx.createGain();
         tr._pannerNode.connect(tr._gainNode);
-        tr._gainNode.connect(DAW.masterGain);
+        tr._gainNode.connect(getEditorDAW().masterGain);
       }
       if (typeof updateTrackMix === 'function') updateTrackMix(tr.id);
       return tr;
@@ -2593,11 +2597,11 @@ sels.forEach(c => {
 
     function updateRecUI() {
       const btn = $('recBtn');
-      if (btn) btn.classList.toggle('rec-on', !!DAW.isRecording);
+      if (btn) btn.classList.toggle('rec-on', !!getEditorDAW().isRecording);
       const laneName = document.querySelector('.track-name[data-track-id="tRec"]');
-      if (laneName) laneName.classList.toggle('rec-lane-name', !!DAW.isRecording);
+      if (laneName) laneName.classList.toggle('rec-lane-name', !!getEditorDAW().isRecording);
       const lane = document.querySelector('.track-lane[data-track-id="tRec"]');
-      if (lane) lane.classList.toggle('rec-lane', !!DAW.isRecording);
+      if (lane) lane.classList.toggle('rec-lane', !!getEditorDAW().isRecording);
     }
 
     function recMimeType() {
@@ -2610,7 +2614,7 @@ sels.forEach(c => {
     }
 
     async function startRec() {
-      if (DAW.isRecording) return;
+      if (getEditorDAW().isRecording) return;
       if (typeof navigator === 'undefined' || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         toast('ضبط صدا در این محیط پشتیبانی نمی‌شود'); return;
       }
@@ -2639,73 +2643,73 @@ sels.forEach(c => {
           finishRec(blob);
         };
 
-        DAW.isRecording = true;
-        DAW.recLaneId = recLane ? recLane.id : 'tRec';
-        DAW.recStartTime = DAW.playhead;
-        DAW.recEndTime = DAW.playhead;
-        DAW.recPeaks = [];
-        DAW.recAnalyser = analyser;
-        DAW.recStream = stream;
-        DAW.recMediaRecorder = recorder;
+        getEditorDAW().isRecording = true;
+        getEditorDAW().recLaneId = recLane ? recLane.id : 'tRec';
+        getEditorDAW().recStartTime = getEditorDAW().playhead;
+        getEditorDAW().recEndTime = getEditorDAW().playhead;
+        getEditorDAW().recPeaks = [];
+        getEditorDAW().recAnalyser = analyser;
+        getEditorDAW().recStream = stream;
+        getEditorDAW().recMediaRecorder = recorder;
 
         try { recorder.start(250); } catch (e) {
           console.error(e); toast('خطا در شروع ضبط');
-          DAW.isRecording = false; cleanupRecResources(); return;
+          getEditorDAW().isRecording = false; cleanupRecResources(); return;
         }
         renderAll();
         updateRecUI();
-        if (!DAW.isPlaying) startTransport();
+        if (!getEditorDAW().isPlaying) startTransport();
         toast('● ضبط شروع شد — برای توقف R را بزنید');
 
         const tickRecWave = () => {
-          if (!DAW.isRecording) { DAW.recRafId = null; return; }
+          if (!getEditorDAW().isRecording) { getEditorDAW().recRafId = null; return; }
           try {
-            const data = new Float32Array(DAW.recAnalyser.fftSize);
-            DAW.recAnalyser.getFloatTimeDomainData(data);
+            const data = new Float32Array(getEditorDAW().recAnalyser.fftSize);
+            getEditorDAW().recAnalyser.getFloatTimeDomainData(data);
             let max = 0;
             for (let i = 0; i < data.length; i++) { const a = Math.abs(data[i]); if (a > max) max = a; }
-            DAW.recPeaks.push(max);
+            getEditorDAW().recPeaks.push(max);
           } catch (_) {}
           renderLiveRecWave();
-          DAW.recRafId = requestAnimationFrame(tickRecWave);
+          getEditorDAW().recRafId = requestAnimationFrame(tickRecWave);
         };
-        DAW.recRafId = requestAnimationFrame(tickRecWave);
+        getEditorDAW().recRafId = requestAnimationFrame(tickRecWave);
       } catch (err) {
         console.error(err);
         toast('خطا در راه‌اندازی ضبط');
-        DAW.isRecording = false; cleanupRecResources();
+        getEditorDAW().isRecording = false; cleanupRecResources();
       }
     }
 
     function cleanupRecResources() {
-      if (DAW.recRafId) { cancelAnimationFrame(DAW.recRafId); DAW.recRafId = null; }
-      try { if (DAW.recMediaRecorder && DAW.recMediaRecorder.state !== 'inactive') DAW.recMediaRecorder.stop(); } catch (_) {}
-      try { if (DAW.recStream) DAW.recStream.getTracks().forEach(t => t.stop()); } catch (_) {}
-      DAW.recStream = null; DAW.recMediaRecorder = null; DAW.recAnalyser = null; DAW.recPeaks = [];
+      if (getEditorDAW().recRafId) { cancelAnimationFrame(getEditorDAW().recRafId); getEditorDAW().recRafId = null; }
+      try { if (getEditorDAW().recMediaRecorder && getEditorDAW().recMediaRecorder.state !== 'inactive') getEditorDAW().recMediaRecorder.stop(); } catch (_) {}
+      try { if (getEditorDAW().recStream) getEditorDAW().recStream.getTracks().forEach(t => t.stop()); } catch (_) {}
+      getEditorDAW().recStream = null; getEditorDAW().recMediaRecorder = null; getEditorDAW().recAnalyser = null; getEditorDAW().recPeaks = [];
       document.querySelectorAll('.rec-live-clip').forEach(el => el.remove());
     }
 
     function endRec() {
-      if (!DAW.isRecording) return;
-      DAW.recEndTime = DAW.playhead;
+      if (!getEditorDAW().isRecording) return;
+      getEditorDAW().recEndTime = getEditorDAW().playhead;
       cleanupRecResources(); // رویداد onstop، finishRec را صدا می‌زند
-      DAW.isRecording = false;
+      getEditorDAW().isRecording = false;
       updateRecUI();
     }
 
     function toggleRec() {
-      if (DAW.isRecording) {
+      if (getEditorDAW().isRecording) {
         endRec();
-        if (DAW.isPlaying) pauseTransport();
+        if (getEditorDAW().isPlaying) pauseTransport();
       } else {
         startRec();
       }
     }
 
     function renderLiveRecWave() {
-      const lane = document.querySelector('.track-lane[data-track-id="' + DAW.recLaneId + '"]');
+      const lane = document.querySelector('.track-lane[data-track-id="' + getEditorDAW().recLaneId + '"]');
       if (!lane) return;
-      const dur = Math.max(0.02, DAW.playhead - DAW.recStartTime);
+      const dur = Math.max(0.02, getEditorDAW().playhead - getEditorDAW().recStartTime);
       const w = Math.min(20000, Math.max(6, Math.floor(timeToX(dur))));
       let el = document.querySelector('.clip.rec-live-clip');
       if (!el) {
@@ -2717,9 +2721,9 @@ sels.forEach(c => {
         el.style.pointerEvents = 'none';
         lane.appendChild(el);
       }
-      el.style.left = timeToX(DAW.recStartTime) + 'px';
+      el.style.left = timeToX(getEditorDAW().recStartTime) + 'px';
       el.style.width = w + 'px';
-      el.innerHTML = '<img class="clip-wave" src="' + recWaveDataUrl(DAW.recPeaks, w, 52) + '"><div class="clip-title">● ضبط زنده</div>';
+      el.innerHTML = '<img class="clip-wave" src="' + recWaveDataUrl(getEditorDAW().recPeaks, w, 52) + '"><div class="clip-title">● ضبط زنده</div>';
     }
 
     function recWaveDataUrl(peaks, w, h) {
@@ -2738,8 +2742,8 @@ sels.forEach(c => {
     }
 
     function finishRec(blob) {
-      const start = DAW.recStartTime || 0;
-      const end = (DAW.recEndTime != null && DAW.recEndTime >= start) ? DAW.recEndTime : DAW.playhead;
+      const start = getEditorDAW().recStartTime || 0;
+      const end = (getEditorDAW().recEndTime != null && getEditorDAW().recEndTime >= start) ? getEditorDAW().recEndTime : getEditorDAW().playhead;
       const dur = Math.max(0.05, end - start);
       if (!blob || blob.size < 500) { toast('ضبط خالی بود'); return; }
       (async () => {
@@ -2747,9 +2751,9 @@ sels.forEach(c => {
           ensureAudioCtx();
           const { buffer } = await decodeFileToBuffer(blob);
           const bufferKey = 'rec_' + uid('b') + '_' + Date.now();
-          DAW.bufferCache.set(bufferKey, buffer);
+          getEditorDAW().bufferCache.set(bufferKey, buffer);
           const clip = {
-            id: uid('c'), type: 'audio', trackId: DAW.recLaneId || 'tRec',
+            id: uid('c'), type: 'audio', trackId: getEditorDAW().recLaneId || 'tRec',
             name: 'Recording ' + formatTime(start),
             start: roundMs(start), duration: roundMs(dur), offset: 0,
             sourceDuration: buffer.duration,
@@ -2758,8 +2762,8 @@ sels.forEach(c => {
             _embedded: true, _originalBlob: blob
           };
           refreshClipWaveImage(clip);
-          DAW.clips.push(clip);
-          DAW.selectedIds = new Set([clip.id]);
+          getEditorDAW().clips.push(clip);
+          getEditorDAW().selectedIds = new Set([clip.id]);
           ensureTimelineFits(clip.start + clip.duration + 5);
           saveState(); renderAll();
           try { await saveAudioBlobToDB(bufferKey, blob, 'recording.webm'); } catch (_) {}
@@ -2783,7 +2787,7 @@ sels.forEach(c => {
     function renderMixer() {
       const wrap = $('mixerChannels'); if (!wrap) return;
       wrap.innerHTML = '';
-      const tracks = DAW.tracks.filter(t => t.type === 'audio');
+      const tracks = getEditorDAW().tracks.filter(t => t.type === 'audio');
       if (!tracks.length) { wrap.innerHTML = '<div style="color:var(--text-secondary);padding:12px;">ترک صوتی وجود ندارد</div>'; return; }
       tracks.forEach(tr => {
         const ch = document.createElement('div');
@@ -2804,32 +2808,32 @@ sels.forEach(c => {
         wrap.appendChild(ch);
       });
       wrap.querySelectorAll('[data-mn]').forEach(inp => inp.addEventListener('change', () => {
-        const tr = DAW.tracks.find(t => t.id === inp.dataset.mn); if (!tr) return;
-        tr.name = inp.value.trim() || tr.name; saveState(); renderTracks(); renderClips(); if (DAW.isPlaying) scheduleAllFromPlayhead();
+        const tr = getEditorDAW().tracks.find(t => t.id === inp.dataset.mn); if (!tr) return;
+        tr.name = inp.value.trim() || tr.name; saveState(); renderTracks(); renderClips(); if (getEditorDAW().isPlaying) scheduleAllFromPlayhead();
       }));
       wrap.querySelectorAll('[data-mm]').forEach(b => b.addEventListener('click', () => {
-        const tr = DAW.tracks.find(t => t.id === b.dataset.mm); if (!tr) return;
-        tr.muted = !tr.muted; updateTrackMix(tr.id); renderMixer(); renderTracks(); renderClips(); if (DAW.isPlaying) scheduleAllFromPlayhead();
+        const tr = getEditorDAW().tracks.find(t => t.id === b.dataset.mm); if (!tr) return;
+        tr.muted = !tr.muted; updateTrackMix(tr.id); renderMixer(); renderTracks(); renderClips(); if (getEditorDAW().isPlaying) scheduleAllFromPlayhead();
       }));
       wrap.querySelectorAll('[data-ms]').forEach(b => b.addEventListener('click', () => {
-        const tr = DAW.tracks.find(t => t.id === b.dataset.ms); if (!tr) return;
-        tr.solo = !tr.solo; DAW.tracks.forEach(t => updateTrackMix(t.id)); renderMixer(); renderTracks(); renderClips(); if (DAW.isPlaying) scheduleAllFromPlayhead();
+        const tr = getEditorDAW().tracks.find(t => t.id === b.dataset.ms); if (!tr) return;
+        tr.solo = !tr.solo; getEditorDAW().tracks.forEach(t => updateTrackMix(t.id)); renderMixer(); renderTracks(); renderClips(); if (getEditorDAW().isPlaying) scheduleAllFromPlayhead();
       }));
       wrap.querySelectorAll('[data-mv]').forEach(r => r.addEventListener('input', () => {
-        const tr = DAW.tracks.find(t => t.id === r.dataset.mv); if (!tr) return;
+        const tr = getEditorDAW().tracks.find(t => t.id === r.dataset.mv); if (!tr) return;
         tr.vol = +r.value; updateTrackMix(tr.id);
         r.parentElement.querySelector('label').textContent = 'Volume (' + Math.round(tr.vol * 100) + '%)';
       }));
       wrap.querySelectorAll('[data-mp]').forEach(r => {
         r.addEventListener('input', () => {
-          const tr = DAW.tracks.find(t => t.id === r.dataset.mp); if (!tr) return;
+          const tr = getEditorDAW().tracks.find(t => t.id === r.dataset.mp); if (!tr) return;
           tr.pan = +r.value; updateTrackMix(tr.id);
           const lab = r.parentElement.querySelector('label');
           lab.textContent = 'Balance ' + (tr.pan < 0 ? 'L ' + Math.round(Math.abs(tr.pan) * 100) : (tr.pan > 0 ? 'R ' + Math.round(tr.pan * 100) : '(C)'));
         });
         r.addEventListener('dblclick', (e) => {
           e.preventDefault();
-          const tr = DAW.tracks.find(t => t.id === r.dataset.mp); if (!tr) return;
+          const tr = getEditorDAW().tracks.find(t => t.id === r.dataset.mp); if (!tr) return;
           tr.pan = 0; r.value = 0; updateTrackMix(tr.id);
           r.parentElement.querySelector('label').textContent = 'Balance (C)';
         });
@@ -2839,7 +2843,8 @@ sels.forEach(c => {
       const panel = $('mixerPanel'); if (!panel || panel._dragReady) return;
       panel._dragReady = true;
       const head = panel.querySelector('.mixer-head'); if (!head) return;
-      head.addEventListener('mousedown', (e) => {
+      head.addEventListener('pointerdown', (e) => {
+        if (e.button !== 0) return;
         if (e.target.closest('button')) return;
         e.preventDefault();
         const rect = panel.getBoundingClientRect();
@@ -2851,8 +2856,7 @@ sels.forEach(c => {
           y = Math.max(0, Math.min(y, window.innerHeight - 30));
           panel.style.left = x + 'px'; panel.style.top = y + 'px';
         };
-        const up = () => { document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up); const r = panel.getBoundingClientRect(); _mixerPos = { left: r.left, top: r.top }; };
-        document.addEventListener('mousemove', move); document.addEventListener('mouseup', up);
+        startEditorPointerDrag(head, e, move, () => { const r = panel.getBoundingClientRect(); _mixerPos = { left: r.left, top: r.top }; });
       });
     }
 
@@ -2946,13 +2950,13 @@ sels.forEach(c => {
       // منطق مرتب‌سازی به js/editor/ChordLineSyncService.js منتقل شده است.
       const lyricsChordsInSyncOrder = requireChordLineSyncService().sortLyricsChordsForSync(lyricsChords);
       
-      // 3. Get current Chord Line clips from DAW.clips (the actual source of truth)
-      const chordTrack = DAW.tracks.find(t => t.type === 'chord');
+      // 3. Get current Chord Line clips from getEditorDAW().clips (the actual source of truth)
+      const chordTrack = getEditorDAW().tracks.find(t => t.type === 'chord');
       let currentChordLineClips = [];
       
       if (chordTrack) {
         // Get all chord clips sorted by start time (left to right on timeline)
-        currentChordLineClips = DAW.clips
+        currentChordLineClips = getEditorDAW().clips
           .filter(c => c.type === 'chord' && c.trackId === chordTrack.id)
           .sort((a, b) => a.start - b.start);
       }
@@ -3008,7 +3012,8 @@ sels.forEach(c => {
 
     // Generic: drag windows from their title/header
     function initMovableWindows() {
-      document.addEventListener('mousedown', (e) => {
+      document.addEventListener('pointerdown', (e) => {
+        if (e.button !== 0) return;
         const head = e.target.closest('h3, h4, .mv-head, .shortcut-panel-header');
         if (!head) return;
         if (head.closest('#arrangerModal')) return;
@@ -3029,18 +3034,17 @@ sels.forEach(c => {
           y = Math.max(0, Math.min(y, window.innerHeight - 30));
           panel.style.left = x + 'px'; panel.style.top = y + 'px';
         };
-        const up = () => { document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up); };
-        document.addEventListener('mousemove', move); document.addEventListener('mouseup', up);
+        startEditorPointerDrag(head, e, move);
       });
     }
     initMovableWindows();
 
     // Playhead mode toggle
     function togglePlayheadMode() {
-      DAW.playheadMode = DAW.playheadMode === 'page' ? 'center' : 'page';
+      getEditorDAW().playheadMode = getEditorDAW().playheadMode === 'page' ? 'center' : 'page';
       const btn = $('playheadModeBtn');
-      if (btn) btn.classList.toggle('ph-center', DAW.playheadMode === 'center');
-      toast(DAW.playheadMode === 'center' ? 'پلی‌هدر ثابت در مرکز' : 'اسکرول صفحه‌ای');
+      if (btn) btn.classList.toggle('ph-center', getEditorDAW().playheadMode === 'center');
+      toast(getEditorDAW().playheadMode === 'center' ? 'پلی‌هدر ثابت در مرکز' : 'اسکرول صفحه‌ای');
     }
 
     /* ===== HIGHLIGHT EFFECT ===== */
@@ -3095,30 +3099,30 @@ sels.forEach(c => {
 
     /* ===== LOOP A-B ===== */
     function toggleLoop() {
-      DAW.loopEnabled = !DAW.loopEnabled;
+      getEditorDAW().loopEnabled = !getEditorDAW().loopEnabled;
       const btn = $('loopToggleBtn');
-      if (btn) btn.classList.toggle('loop-active', DAW.loopEnabled);
+      if (btn) btn.classList.toggle('loop-active', getEditorDAW().loopEnabled);
       renderLoopRegion();
-      toast(DAW.loopEnabled ? 'Loop ON' : 'Loop OFF');
+      toast(getEditorDAW().loopEnabled ? 'Loop ON' : 'Loop OFF');
     }
 
     function setLoopA() {
-      DAW.loopA = DAW.playhead;
-      if (DAW.loopB <= DAW.loopA) DAW.loopB = Math.max(DAW.loopA + 1, DAW.loopA + 5);
+      getEditorDAW().loopA = getEditorDAW().playhead;
+      if (getEditorDAW().loopB <= getEditorDAW().loopA) getEditorDAW().loopB = Math.max(getEditorDAW().loopA + 1, getEditorDAW().loopA + 5);
       renderLoopRegion();
-      toast('Loop A: ' + formatTime(DAW.loopA));
+      toast('Loop A: ' + formatTime(getEditorDAW().loopA));
     }
 
     function setLoopB() {
-      DAW.loopB = DAW.playhead;
-      if (DAW.loopA >= DAW.loopB) DAW.loopA = Math.max(0, DAW.loopB - 5);
+      getEditorDAW().loopB = getEditorDAW().playhead;
+      if (getEditorDAW().loopA >= getEditorDAW().loopB) getEditorDAW().loopA = Math.max(0, getEditorDAW().loopB - 5);
       renderLoopRegion();
-      toast('Loop B: ' + formatTime(DAW.loopB));
+      toast('Loop B: ' + formatTime(getEditorDAW().loopB));
     }
 
     function clearLoop() {
-      DAW.loopA = 0;
-      DAW.loopB = 10;
+      getEditorDAW().loopA = 0;
+      getEditorDAW().loopB = 10;
       selectionEnd = 0;
       renderLoopRegion();
       toast('محدوده پاک شد');
@@ -3130,12 +3134,12 @@ sels.forEach(c => {
       if (!sels.length) { toast('آیتمی انتخاب نشده'); return; }
       const starts = sels.map(c => c.start);
       const ends = sels.map(c => c.start + c.duration);
-      DAW.loopA = Math.min(...starts);
-      DAW.loopB = Math.max(...ends);
-      selectionEnd = DAW.loopB;
-      DAW.loopEnabled = false;
+      getEditorDAW().loopA = Math.min(...starts);
+      getEditorDAW().loopB = Math.max(...ends);
+      selectionEnd = getEditorDAW().loopB;
+      getEditorDAW().loopEnabled = false;
       renderLoopRegion();
-      toast('محدوده: ' + formatTime(DAW.loopA) + ' → ' + formatTime(DAW.loopB));
+      toast('محدوده: ' + formatTime(getEditorDAW().loopA) + ' → ' + formatTime(getEditorDAW().loopB));
     }
 
     // Alt+P: set loop range from selection + activate + play from start
@@ -3144,18 +3148,18 @@ sels.forEach(c => {
       if (!sels.length) { toast('آیتمی انتخاب نشده'); return; }
       const starts = sels.map(c => c.start);
       const ends = sels.map(c => c.start + c.duration);
-      DAW.loopA = Math.min(...starts);
-      DAW.loopB = Math.max(...ends);
-      DAW.loopEnabled = true;
-      DAW.playhead = DAW.loopA;
+      getEditorDAW().loopA = Math.min(...starts);
+      getEditorDAW().loopB = Math.max(...ends);
+      getEditorDAW().loopEnabled = true;
+      getEditorDAW().playhead = getEditorDAW().loopA;
       const btn = $('loopToggleBtn');
       if (btn) btn.classList.add('loop-active');
       renderLoopRegion();
       updatePlayheadUI();
       // Stop any current playback, then start fresh from loopA
-      if (DAW.isPlaying) { DAW.isPlaying = false; if (DAW.rafId) cancelAnimationFrame(DAW.rafId); stopAllVoices(); }
+      if (getEditorDAW().isPlaying) { getEditorDAW().isPlaying = false; if (getEditorDAW().rafId) cancelAnimationFrame(getEditorDAW().rafId); stopAllVoices(); }
       startTransport();
-      toast('Loop ON: ' + formatTime(DAW.loopA) + ' → ' + formatTime(DAW.loopB));
+      toast('Loop ON: ' + formatTime(getEditorDAW().loopA) + ' → ' + formatTime(getEditorDAW().loopB));
     }
 
     function renderLoopRegion() {
@@ -3163,7 +3167,7 @@ sels.forEach(c => {
       const locators = $('loop-locators');
       const locLeft = $('loop-loc-left');
       const locRight = $('loop-loc-right');
-      const hasRange = DAW.loopA < DAW.loopB;
+      const hasRange = getEditorDAW().loopA < getEditorDAW().loopB;
 
       if (!hasRange) {
         if (strip) strip.style.display = 'none';
@@ -3171,15 +3175,15 @@ sels.forEach(c => {
         return;
       }
 
-      const xA = timeToX(DAW.loopA);
-      const xB = timeToX(DAW.loopB);
+      const xA = timeToX(getEditorDAW().loopA);
+      const xB = timeToX(getEditorDAW().loopB);
       const w = xB - xA;
 
       if (strip) {
         strip.style.display = 'block';
         strip.style.left = xA + 'px';
         strip.style.width = w + 'px';
-        if (DAW.loopEnabled) {
+        if (getEditorDAW().loopEnabled) {
           strip.classList.add('loop-active');
           strip.classList.remove('loop-inactive');
         } else {
@@ -3196,12 +3200,11 @@ sels.forEach(c => {
     (function initLoopDrag() {
       let dragTarget = null;
 
-      $('loop-loc-left')?.addEventListener('mousedown', (e) => { e.stopPropagation(); e.preventDefault(); dragTarget = 'A'; addDragListeners(); });
-      $('loop-loc-right')?.addEventListener('mousedown', (e) => { e.stopPropagation(); e.preventDefault(); dragTarget = 'B'; addDragListeners(); });
+      $('loop-loc-left')?.addEventListener('pointerdown', (e) => { if (e.button !== 0) return; e.stopPropagation(); e.preventDefault(); dragTarget = 'A'; addDragListeners(e.currentTarget, e); });
+      $('loop-loc-right')?.addEventListener('pointerdown', (e) => { if (e.button !== 0) return; e.stopPropagation(); e.preventDefault(); dragTarget = 'B'; addDragListeners(e.currentTarget, e); });
 
-      function addDragListeners() {
-        document.addEventListener('mousemove', onDragMove);
-        document.addEventListener('mouseup', onDragUp);
+      function addDragListeners(target, event) {
+        startEditorPointerDrag(target, event, onDragMove, onDragUp);
       }
       function onDragMove(e) {
         if (!dragTarget) return;
@@ -3210,9 +3213,9 @@ sels.forEach(c => {
         const rect = inner.getBoundingClientRect();
         const t = clamp(xToTime(e.clientX - rect.left), 0, getProjectEnd());
         if (dragTarget === 'A') {
-          DAW.loopA = Math.min(t, DAW.loopB - 0.5);
+          getEditorDAW().loopA = Math.min(t, getEditorDAW().loopB - 0.5);
         } else {
-          DAW.loopB = Math.max(t, DAW.loopA + 0.5);
+          getEditorDAW().loopB = Math.max(t, getEditorDAW().loopA + 0.5);
         }
         renderLoopRegion();
       }
@@ -4240,7 +4243,7 @@ function renderTimeline() {
   if (!container) return;
   container.innerHTML = '';
 
-  DAW.tracks.forEach(track => {
+  getEditorDAW().tracks.forEach(track => {
     const trackEl = document.createElement('div');
     trackEl.className = 'track-row';
     trackEl.innerHTML = `
@@ -4538,7 +4541,7 @@ let syncTapKeyHandler = null;
       syncModeControllerBridge = new window.SyncModeController({
             state: syncModeState,
             seqState: seqClState,
-            getDAW: () => DAW,
+            getDAW: () => getEditorDAW(),
             getEdCur: () => (typeof edCur !== 'undefined' ? edCur : null),
             $: (id) => $(id),
             t: (key) => t(key),
@@ -4734,7 +4737,8 @@ let syncTapKeyHandler = null;
       if (!handle || !editor || handle._dragSetup) return;
       handle._dragSetup = true;
       let dragging = false, startX, startY, origX, origY;
-      handle.addEventListener('mousedown', (e) => {
+      handle.addEventListener('pointerdown', (e) => {
+        if (e.button !== 0) return;
         if (e.target.tagName === 'BUTTON' || e.target.tagName === 'H3') {
           if (e.target.tagName === 'H3') {} else return;
         }
@@ -4743,13 +4747,13 @@ let syncTapKeyHandler = null;
         startX = e.clientX; startY = e.clientY;
         origX = rect.left; origY = rect.top;
         e.preventDefault();
+        startEditorPointerDrag(handle, e, move, () => { dragging = false; });
       });
-      document.addEventListener('mousemove', (e) => {
+      const move = (e) => {
         if (!dragging) return;
         editor.style.left = (origX + e.clientX - startX) + 'px';
         editor.style.top = (origY + e.clientY - startY) + 'px';
-      });
-      document.addEventListener('mouseup', () => { dragging = false; });
+      };
     }
 
     function renderArrangerManager() {
@@ -5420,21 +5424,22 @@ let syncTapKeyHandler = null;
       if (!handle || handle._dragSetup) return;
       handle._dragSetup = true;
       let dragging = false, startX, startY, origX, origY;
-      handle.addEventListener('mousedown', (e) => {
+      handle.addEventListener('pointerdown', (e) => {
+        if (e.button !== 0) return;
         if (e.target.tagName === 'BUTTON') return;
         dragging = true;
         const rect = panel.getBoundingClientRect();
         startX = e.clientX; startY = e.clientY;
         origX = rect.left; origY = rect.top;
         e.preventDefault();
+        startEditorPointerDrag(handle, e, move, () => { dragging = false; });
       });
-      document.addEventListener('mousemove', (e) => {
+      const move = (e) => {
         if (!dragging) return;
         panel.style.left = (origX + e.clientX - startX) + 'px';
         panel.style.top = (origY + e.clientY - startY) + 'px';
         panel.style.right = 'auto';
-      });
-      document.addEventListener('mouseup', () => { dragging = false; });
+      };
     }
 
     function perfStop() {
@@ -5456,7 +5461,7 @@ let syncTapKeyHandler = null;
      *
      * این تابع بلافاصله بعد از openPerfMode صدا زده می‌شه و تمام آهنگ‌های
      * ست‌لیست رو به‌صورت یکی‌یکی preload می‌کنه. این کار تضمین می‌کنه که
-     * وقتی به آهنگ بعدی می‌رسیم، بافر صوتی از قبل در DAW.bufferCache هست.
+     * وقتی به آهنگ بعدی می‌رسیم، بافر صوتی از قبل در getEditorDAW().bufferCache هست.
      *
      * مهم: این تابع غیرمسدودکننده هست و نباید پخش فعلی رو مختل کنه.
      */
@@ -5495,7 +5500,7 @@ let syncTapKeyHandler = null;
 
             // چک کن: آیا همه بافرها از قبل لود شدن؟
             const allLoaded = song._dawClips.every(c =>
-              c.type === 'chord' || !c.bufferKey || DAW.bufferCache.has(c.bufferKey)
+              c.type === 'chord' || !c.bufferKey || getEditorDAW().bufferCache.has(c.bufferKey)
             );
             if (allLoaded) {
               _bgPreloadedSongIds.add(song.id);
@@ -5526,12 +5531,12 @@ let syncTapKeyHandler = null;
 
     function perfTogglePlay() {
       document.activeElement?.blur();
-      if (DAW.isPlaying) {
+      if (getEditorDAW().isPlaying) {
         pauseTransport();
         $('perfPlayBtn').textContent = '▶';
       } else {
         ensureAudioCtx();
-        if (DAW.playhead <= 0) seekTransport(0, false);
+        if (getEditorDAW().playhead <= 0) seekTransport(0, false);
         startTransport();
         $('perfPlayBtn').textContent = '⏸';
       }
@@ -5570,12 +5575,12 @@ let syncTapKeyHandler = null;
       const setting = ensureArrItem(arrPerformData, arrPerformIdx);
       setting.transpose = (setting.transpose || 0) + semi;
       // Apply transpose to all audio tracks
-      DAW.tracks.forEach(t => {
+      getEditorDAW().tracks.forEach(t => {
         if (t.type === 'audio') {
           t.transpose = (t.transpose || 0) + semi;
         }
       });
-      if (DAW.isPlaying) scheduleAllFromPlayhead();
+      if (getEditorDAW().isPlaying) scheduleAllFromPlayhead();
       saveArrangers();
       perfLiveTranspose += semi;
       renderPerfUI();
@@ -5732,8 +5737,8 @@ let syncTapKeyHandler = null;
       secNav.innerHTML = '';
       const sections = ['مقدمه', 'ورس', 'کورس', 'بریج', 'آوترو'];
       const sectionTimes = [0]; // at least start
-      if (DAW.sections && DAW.sections.length) {
-        DAW.sections.forEach(s => sectionTimes.push(s.start));
+      if (getEditorDAW().sections && getEditorDAW().sections.length) {
+        getEditorDAW().sections.forEach(s => sectionTimes.push(s.start));
       }
       // Add end
       sectionTimes.push(getArrangerEnd());
@@ -5744,7 +5749,7 @@ let syncTapKeyHandler = null;
           btn.onclick = () => {
             if (i < sectionTimes.length) {
               seekTransport(sectionTimes[i], false);
-              if (!DAW.isPlaying) { ensureAudioCtx(); startTransport(); $('perfPlayBtn').textContent = '⏸'; }
+              if (!getEditorDAW().isPlaying) { ensureAudioCtx(); startTransport(); $('perfPlayBtn').textContent = '⏸'; }
             }
           };
           secNav.appendChild(btn);
@@ -5836,7 +5841,7 @@ let syncTapKeyHandler = null;
         const selEnd = (loopState.loopA < loopState.loopB) ? loopState.loopB : 0;
 
         // آپدیت sourceDuration و peaks برای کلیپ‌های که لود شدن
-        clips.forEach(c => { if (c.type !== 'chord' && c.bufferKey && DAW.bufferCache.has(c.bufferKey)) { const buffer = DAW.bufferCache.get(c.bufferKey); c.sourceDuration = buffer.duration; c._peaks = peaksFromBuffer(buffer, 2000); } });
+        clips.forEach(c => { if (c.type !== 'chord' && c.bufferKey && getEditorDAW().bufferCache.has(c.bufferKey)) { const buffer = getEditorDAW().bufferCache.get(c.bufferKey); c.sourceDuration = buffer.duration; c._peaks = peaksFromBuffer(buffer, 2000); } });
 
         // Apply per-song transpose to tracks
         const nextSetting = getArrItemSetting(arr, arr.items[nextIdx]);
@@ -5849,7 +5854,7 @@ let syncTapKeyHandler = null;
         
         // ─── تأیید نهایی: مطمئن شو همه بافرهای مورد نیاز واقعاً لود شدن ───
         const audioClipsInNext = clips.filter(c => c.type !== 'chord' && c.bufferKey);
-        const missingBuffers = audioClipsInNext.filter(c => !DAW.bufferCache.has(c.bufferKey));
+        const missingBuffers = audioClipsInNext.filter(c => !getEditorDAW().bufferCache.has(c.bufferKey));
         if (missingBuffers.length > 0) {
           console.warn(`[Arranger Prep] ⚠ ${missingBuffers.length} buffer(s) still missing after prep:`, missingBuffers.map(c => c.fileName || c.bufferKey));
           // تلاش مجدد برای لود بافرهای گمشده
@@ -5887,8 +5892,8 @@ let syncTapKeyHandler = null;
 
       _arrIsCrossfading = true;
       ensureAudioCtx();
-      const ctx = DAW.audioCtx;
-      const curGain = DAW.masterGain;
+      const ctx = getEditorDAW().audioCtx;
+      const curGain = getEditorDAW().masterGain;
       const now = ctx.currentTime;
       const fadeTime = Math.min(Math.max(crossfadeDur, 0.5), 5); // بین 0.5 تا 5 ثانیه
 

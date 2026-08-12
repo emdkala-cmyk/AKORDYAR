@@ -12,14 +12,15 @@ class ClipboardService {
 
     deleteSelected() {
         const {
-            DAW,
             toast,
             t,
-            stopAllVoices = () => {},
+            stopAllVoices,
             saveState,
             renderAll,
             scheduleAllFromPlayhead
         } = this.d;
+        const DAW = typeof this.d.getDAW === 'function' ? this.d.getDAW() : this.d.DAW;
+        if (!DAW) return;
         const clipIds = [...DAW.selectedIds];
         const sectionIds = [...DAW.selectedSectionIds];
 
@@ -28,7 +29,7 @@ class ClipboardService {
             return;
         }
 
-        stopAllVoices();
+        if (typeof stopAllVoices === 'function') stopAllVoices();
 
         if (clipIds.length) {
             DAW.clips = DAW.clips.filter(c => !DAW.selectedIds.has(c.id));
@@ -54,7 +55,9 @@ class ClipboardService {
         }
 
         const minStart = Math.min(...sels.map(c => c.start));
-        this.d.DAW.clipboard = sels.map(c => {
+        const DAW = this.getDAW();
+        if (!DAW) return;
+        DAW.clipboard = sels.map(c => {
             const cp = { ...c };
             delete cp._peaks;
             delete cp.waveUrl;
@@ -62,22 +65,24 @@ class ClipboardService {
             return cp;
         });
 
-        this.d.toast(`${this.d.DAW.clipboard.length} ${this.d.t('clipsCopied')}`);
+        this.d.toast(`${DAW.clipboard.length} ${this.d.t('clipsCopied')}`);
     }
 
     cutSelected() {
         this.copySelected();
-        if (this.d.DAW.clipboard && this.d.DAW.clipboard.length) {
+        const DAW = this.getDAW();
+        if (DAW?.clipboard?.length) {
             this.deleteSelected();
             this.d.toast(this.d.t('cutDone'));
         }
     }
 
     pasteClipboard() {
-        if (!this.d.DAW.clipboard || !this.d.DAW.clipboard.length) return;
+        const DAW = this.getDAW();
+        if (!DAW?.clipboard?.length) return;
 
-        const newClips = this.d.DAW.clipboard.map(item => {
-            const start = this.d.roundMs(this.d.DAW.playhead + item.relStart);
+        const newClips = DAW.clipboard.map(item => {
+            const start = this.d.roundMs(DAW.playhead + item.relStart);
             const newClip = {
                 ...item,
                 id: this.d.uid(),
@@ -85,15 +90,15 @@ class ClipboardService {
             };
             delete newClip.relStart;
 
-            if (this.d.DAW.bufferCache[newClip.bufferId]) {
-                newClip._peaks = this.d.peaksFromBuffer(this.d.DAW.bufferCache[newClip.bufferId]);
+            if (DAW.bufferCache[newClip.bufferId]) {
+                newClip._peaks = this.d.peaksFromBuffer(DAW.bufferCache[newClip.bufferId]);
                 newClip.waveUrl = this.d.refreshClipWaveImage(newClip);
             }
             return newClip;
         });
 
-        this.d.DAW.clips.push(...newClips);
-        this.d.DAW.selectedIds = newClips.map(c => c.id);
+        DAW.clips.push(...newClips);
+        DAW.selectedIds = new Set(newClips.map(c => c.id));
 
         this.d.ensureTimelineFits();
         this.d.saveState();
@@ -105,6 +110,8 @@ class ClipboardService {
     duplicateSelected() {
         const sels = this.d.selectedClips();
         if (!sels.length) return;
+        const DAW = this.getDAW();
+        if (!DAW) return;
 
         const maxEnd = Math.max(...sels.map(c => c.start + c.duration));
         const minStart = Math.min(...sels.map(c => c.start));
@@ -116,21 +123,25 @@ class ClipboardService {
                 id: this.d.uid(),
                 start: this.d.roundMs(c.start + offset)
             };
-            if (this.d.DAW.bufferCache[newClip.bufferId]) {
-                newClip._peaks = this.d.peaksFromBuffer(this.d.DAW.bufferCache[newClip.bufferId]);
+            if (DAW.bufferCache[newClip.bufferId]) {
+                newClip._peaks = this.d.peaksFromBuffer(DAW.bufferCache[newClip.bufferId]);
                 newClip.waveUrl = this.d.refreshClipWaveImage(newClip);
             }
             return newClip;
         });
 
-        this.d.DAW.clips.push(...duplicated);
-        this.d.DAW.selectedIds = duplicated.map(c => c.id);
+        DAW.clips.push(...duplicated);
+        DAW.selectedIds = new Set(duplicated.map(c => c.id));
 
         this.d.ensureTimelineFits();
         this.d.saveState();
         this.d.renderAll();
         this.d.scheduleAllFromPlayhead();
         this.d.edSaveSong();
+    }
+
+    getDAW() {
+        return typeof this.d.getDAW === 'function' ? this.d.getDAW() : this.d.DAW;
     }
 }
 

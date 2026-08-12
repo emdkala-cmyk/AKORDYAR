@@ -1,77 +1,57 @@
 /**
- * DomainBridge — پل بین domain logic و app.js
+ * DomainBridge — مرز کنترل‌شده بین منطق domain و لایهٔ UI.
  *
- * تمام عملیات domain (build SongDocument, sync, transpose, key change)
- * از اینجا انجام می‌شوند. app.js فقط DOM و UI را مدیریت می‌کند.
- *
- * این فایل جایگزین rebuildSongDocumentFromEdCur و syncViewStylesFromEdCur
- * در performanceBridge.js نمی‌شود — بلکه آنها را از اینجا فراخوانی می‌کند.
+ * این bridge فقط callbackهای runtime را پیدا و اجرا می‌کند؛
+ * خودش مالک state، DOM یا PerformanceStore نیست.
  */
-
-const DomainBridge = (() => {
+(function attachDomainBridge(globalScope) {
+  function getSong() {
+    return globalScope.EditorRuntimeAdapter?.getSong?.()
+      || globalScope.EdCurAdapter?.getEdCur?.()
+      || null;
+  }
 
   function getPerformanceStore() {
-    return window.RuntimeStateAdapter?.getPerformanceStore?.() || null;
+    return globalScope.RuntimeStateAdapter?.getPerformanceStore?.() || null;
   }
 
-  /**
-   * بعد از هر تغییر در edCur، این تابع را صدا بزنید.
-   * - SongDocument جدید می‌سازد
-   * - به PerformanceStore push می‌کند
-   * - view styles را sync می‌کند
-   * - notification پخش می‌کند
-   */
+  function callRuntime(name, ...args) {
+    const callback = globalScope[name];
+    return typeof callback === 'function' ? callback(...args) : undefined;
+  }
+
   function onSongChanged() {
-    if (typeof rebuildSongDocumentFromEdCur === 'function') {
-      rebuildSongDocumentFromEdCur();
-    }
-    if (typeof syncViewStylesFromEdCur === 'function') {
-      syncViewStylesFromEdCur();
-    }
+    callRuntime('rebuildSongDocumentFromEdCur');
+    callRuntime('syncViewStylesFromEdCur');
   }
 
-  /**
-   * بعد از تغییر key یا transpose
-   */
   function onKeyOrTransposeChanged() {
-    if (typeof rebuildSongDocumentFromEdCur === 'function') {
-      rebuildSongDocumentFromEdCur();
-    }
-    var store = getPerformanceStore();
-    if (store) {
-      if (typeof publishPerformanceState === 'function') {
-        publishPerformanceState();
-      }
-    }
+    callRuntime('rebuildSongDocumentFromEdCur');
+    if (getPerformanceStore()) callRuntime('publishPerformanceState');
   }
 
-  /**
-   * بعد از تغییر lyrics یا chords
-   */
   function onContentChanged() {
     onSongChanged();
   }
 
-  /**
-   * بعد از load پروژه جدید — ریست کامل
-   */
   function onProjectLoaded() {
-    var store = getPerformanceStore();
-    if (store && typeof store.resetStore === 'function') {
-      store.resetStore();
-    }
+    const store = getPerformanceStore();
+    if (store && typeof store.resetStore === 'function') store.resetStore();
     onSongChanged();
   }
 
-  return {
+  const DomainBridge = Object.freeze({
+    getSong,
+    getPerformanceStore,
     onSongChanged,
     onKeyOrTransposeChanged,
     onContentChanged,
     onProjectLoaded
-  };
+  });
 
-})();
+  globalScope.DomainBridge = DomainBridge;
 
-if (typeof window !== 'undefined') {
-  window.DomainBridge = DomainBridge;
-}
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = DomainBridge;
+  }
+})(typeof window !== 'undefined' ? window : globalThis);
