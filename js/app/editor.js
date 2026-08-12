@@ -4342,17 +4342,20 @@ function edBlankSong() {
 
 
     // -- Chord Rendering --
+    let edAnchorService = null;
+    function getEditorAnchorService() {
+      if (
+        !edAnchorService &&
+        typeof window.EditorAnchorService?.create === 'function'
+      ) {
+        edAnchorService = window.EditorAnchorService.create({
+          getEditor: () => $('editor')
+        });
+      }
+      return edAnchorService;
+    }
     function anchorRectIn(editorEl, ch) {
-      const lineEl = editorEl.children[ch.lineIndex]; if (!lineEl) return null;
-      const segs = []; let total = 0, node;
-      const walker = document.createTreeWalker(lineEl, NodeFilter.SHOW_TEXT);
-      while (node = walker.nextNode()) { segs.push({ node, start: total, len: node.textContent.length }); total += node.textContent.length; }
-      if (!segs.length) return null;
-      const len = total; const r = document.createRange();
-      if (ch.anchorType === 'LineStart') { const s = segs[0]; r.setStart(s.node,0); r.setEnd(s.node,Math.min(1,s.len)); }
-      else if (ch.anchorType === 'LineEnd') { const s = segs[segs.length-1]; const p = Math.max(0,s.len-1); r.setStart(s.node,p); r.setEnd(s.node,Math.min(p+1,s.len)); }
-      else { const i = Math.min(ch.charIndex, Math.max(0, len-1)); const s = segs.find(sg => i >= sg.start && i < sg.start+sg.len) || segs[segs.length-1]; const local = Math.max(0, i-s.start); r.setStart(s.node, Math.min(local,s.len)); r.setEnd(s.node, Math.min(local+1,s.len)); }
-      return { rect: r.getBoundingClientRect(), lineRect: lineEl.getBoundingClientRect(), type: ch.anchorType };
+      return getEditorAnchorService()?.anchorRectIn(editorEl, ch) || null;
     }
     function anchorRect(ch) { return anchorRectIn($('editor'), ch); }
 
@@ -4493,40 +4496,12 @@ function edBlankSong() {
 
 
     // -- caret/anchor from mouse position (from file 2) --
-    function caretFromPoint(x, y) { if (document.caretRangeFromPoint) return document.caretRangeFromPoint(x, y); if (document.caretPositionFromPoint) { const p = document.caretPositionFromPoint(x, y); if (p) { const r = document.createRange(); r.setStart(p.offsetNode, p.offset); r.collapse(true); return r; } } return null; }
+    function caretFromPoint(x, y) {
+      return getEditorAnchorService()?.caretFromPoint(x, y) || null;
+    }
 
     function anchorFromPoint(x, y) {
-      let r = caretFromPoint(x, y);
-      if (!r) r = caretFromPoint(x, y + 15);
-      if (!r) r = caretFromPoint(x, y + 30);
-      let lineEl = null;
-      if (r) { let node = r.startContainer; lineEl = (node.nodeType === 3 ? node.parentElement : node)?.closest?.('.eline'); }
-      else { const el = document.elementFromPoint(x, y); lineEl = el?.closest?.('.eline'); }
-      if (!lineEl) return null;
-      const editor = lineEl.closest('#editor');
-      if (!editor || editor !== $('editor')) return null;
-      const lineIndex = [...editor.children].indexOf(lineEl);
-      const text = lineEl.textContent.replace(/\u200B/g,'');
-      const isRTL = window.getComputedStyle(lineEl).direction === 'rtl';
-      const lineRect = lineEl.getBoundingClientRect();
-      if (!text.length) return { lineIndex, charIndex: 0, anchorType: 'LineStart' };
-      const firstCharRect = anchorRectIn($('editor'), { lineIndex, charIndex: 0, anchorType: 'OnCharacter' })?.rect;
-      const lastCharRect = anchorRectIn($('editor'), { lineIndex, charIndex: text.length-1, anchorType: 'OnCharacter' })?.rect;
-      const textLeft = isRTL ? lastCharRect.left : firstCharRect.left;
-      const textRight = isRTL ? firstCharRect.right : lastCharRect.right;
-      if (x >= textRight && x <= lineRect.right) { return isRTL ? { lineIndex, charIndex: 0, anchorType: 'LineStart' } : { lineIndex, charIndex: text.length, anchorType: 'LineEnd' }; }
-      else if (x <= textLeft && x >= lineRect.left) { return isRTL ? { lineIndex, charIndex: text.length, anchorType: 'LineEnd' } : { lineIndex, charIndex: 0, anchorType: 'LineStart' }; }
-      else if (x > lineRect.right) { return isRTL ? { lineIndex, charIndex: 0, anchorType: 'LineStart' } : { lineIndex, charIndex: text.length, anchorType: 'LineEnd' }; }
-      else if (x < lineRect.left) { return isRTL ? { lineIndex, charIndex: text.length, anchorType: 'LineEnd' } : { lineIndex, charIndex: 0, anchorType: 'LineStart' }; }
-      if (!r) return null;
-      let node = r.startContainer;
-      let charIndex = 0, found = false;
-      const walker = document.createTreeWalker(lineEl, NodeFilter.SHOW_TEXT);
-      let tn;
-      while (tn = walker.nextNode()) { if (tn === node) { charIndex += Math.min(r.startOffset, tn.textContent.length); found = true; break; } charIndex += tn.textContent.length; }
-      if (!found) charIndex = text.length;
-      let anchorType = 'OnCharacter'; if (charIndex <= 0) anchorType = 'LineStart'; else if (charIndex >= text.length) { anchorType = 'LineEnd'; charIndex = text.length; }
-      return { lineIndex, charIndex: Math.max(0, Math.min(charIndex, text.length)), anchorType };
+      return getEditorAnchorService()?.anchorFromPoint(x, y) || null;
     }
 
     // -- Editor Input --
