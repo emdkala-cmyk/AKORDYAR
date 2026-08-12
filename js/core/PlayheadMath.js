@@ -45,6 +45,21 @@ var PlayheadMath = (function() {
   }
 
   /**
+   * Move a time position to the nearest measure start.
+   */
+  function snapToNearestMeasureStart(time, measureDuration, duration) {
+    if (!Number.isFinite(time) || !Number.isFinite(measureDuration) || measureDuration <= 0) {
+      return Number.isFinite(time) ? Math.max(0, time) : 0;
+    }
+
+    var snapped = Math.round(Math.max(0, time) / measureDuration) * measureDuration;
+    if (Number.isFinite(duration) && duration >= 0) {
+      snapped = clamp(snapped, duration);
+    }
+    return snapped;
+  }
+
+  /**
    * Apply A-B loop correction to a playhead value.
    * Returns the corrected playhead and whether a wrap occurred.
    *
@@ -66,10 +81,15 @@ var PlayheadMath = (function() {
     clamp: clamp,
     getElapsed: getElapsed,
     createOrigin: createOrigin,
+    snapToNearestMeasureStart: snapToNearestMeasureStart,
     applyLoop: applyLoop
   };
 })();
 
 if (typeof window !== 'undefined') {
   window.PlayheadMath = PlayheadMath;
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = PlayheadMath;
 }

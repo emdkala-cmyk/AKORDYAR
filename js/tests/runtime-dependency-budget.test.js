@@ -64,6 +64,8 @@ assert.doesNotMatch(
   /globalScope\.DAW\s*=\s*\{\s*audioContext:/,
   'core must not publish a placeholder DAW'
 );
+assert.match(appCore, /function setCountInBars\(value\)/);
+assert.match(appCore, /alignPlayheadToNearestMeasure/);
 assert.equal(
   (appCore.match(/function setEditorSong\s*\(/g) || []).length,
   1,

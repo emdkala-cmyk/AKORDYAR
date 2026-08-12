@@ -263,6 +263,37 @@ let _autoSaveTimer = null;
     let countInTimer = null;
     let countInGeneration = 0;
     let countInBars = 0; // 0=off, 1=1 bar, 2=2 bars before playback
+
+    function alignPlayheadToNearestMeasure(config) {
+      const daw = getEditorDAW();
+      const current = Number.isFinite(daw.playhead) ? daw.playhead : 0;
+      const aligned = PlayheadMath.snapToNearestMeasureStart(
+        current,
+        config?.measureDuration,
+        getProjectEnd()
+      );
+
+      if (Math.abs(aligned - current) < 0.0005) return aligned;
+
+      if (daw.isPlaying) {
+        seekTransport(aligned, true, true);
+      } else {
+        daw.playhead = aligned;
+        stopAllVoices();
+        updatePlayheadUI();
+      }
+      return aligned;
+    }
+
+    function setCountInBars(value) {
+      countInBars = Math.max(0, Number(value) || 0);
+      if (!countInBars) return;
+
+      const bpm = parseInt($('edTempo')?.value) || 120;
+      const sig = $('edTimeSig')?.value || '4/4';
+      alignPlayheadToNearestMeasure(getTimeSignatureGridConfig(sig, bpm));
+    }
+
     // ===== SNAP TO GRID =====
     let snapEnabled = true;
     let snapValue = 0.25; // seconds (default: 1/4 beat)
@@ -2371,6 +2402,9 @@ sels.forEach(c => {
         const bpm = parseInt($('edTempo')?.value) || 120;
         const sig = $('edTimeSig')?.value || '4/4';
         const config = getTimeSignatureGridConfig(sig, bpm);
+        // Count-in always starts from a downbeat, even if the playhead moved
+        // after count-in was enabled.
+        alignPlayheadToNearestMeasure(config);
         const beatsPerBar = config.beatsPerMeasure;
         const beatDur = config.beatDuration;
         let countBeat = 0;
