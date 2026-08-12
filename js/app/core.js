@@ -763,7 +763,6 @@ const requestRenderSyncLyrics = debounce(() => { renderSyncLyrics(); }, 120);
     };
     globalScope.DAW = DAW;
 
-    let undoStack = [], undoIndex = -1, isApplyingHistory = false;
     let activeMidiNotes = new Set(), midiTimeout = null, isRecordingChords = false, currentRecordingClipId = null;
     let currentChord = { root: 'None', type: 'None', tension: '', bass: 'None' };
     let midiAccess = null;
@@ -929,10 +928,11 @@ function attachHistoryService() {
   if (window.__historyAttached) return;
   window.__historyAttached = true;
   requireHistoryService().init({
-    getDAW: () => DAW,
-    getPERF: () => PERF,
+    getDAW: () => getEditorDAW(),
+    getPERF: () => getEditorPERF(),
     getEdCur: () => edCur,
-    setEdCur: (v) => { edCur = v; window.EdCurAdapter?.setEdCur?.(v); },
+    setEdCur: (v) => setEditorSong(v),
+    repairSong: (song) => window.TextEncodingService?.repairSong?.(song) || song,
     getEdSeqPoints: () => edSeqPoints,
     setEdSeqPoints: (v) => { edSeqPoints = v; },
     clearEdTimers: () => {
@@ -957,6 +957,22 @@ function attachHistoryService() {
     toast,
     t
   });
+}
+
+function getHistoryService() {
+  return requireHistoryService();
+}
+
+function resetHistory() {
+  getHistoryService().reset();
+}
+
+function historyLength() {
+  return getHistoryService().getHistoryLength();
+}
+
+function isHistoryApplying() {
+  return getHistoryService().isApplying();
 }
     const timeToX = (t) => t * getEditorDAW().pxPerSecond;
     // WaveformService initialization
@@ -989,179 +1005,22 @@ function attachHistoryService() {
       if (needed > daw.timelineDuration) daw.timelineDuration = needed;
     }
 
-   function serializeState() {
-  const tracks = getEditorDAW().tracks.map(t => {
-    const copy = { ...t };
-    delete copy._pannerNode;
-    delete copy._gainNode;
-    return copy;
-  });
-
-  const clips = getEditorDAW().clips.map(c => {
-    const copy = { ...c };
-    delete copy._peaks;
-    delete copy.waveUrl;
-    delete copy.buffer; // حذف buffer از ذخیره‌سازی
-    delete copy.audioBuffer; // حذف audioBuffer
-    delete copy._fileHandle; // حذف file handle
-    // فقط مسیر نسبی و نام فایل باقی بماند
-    return copy;
-  });
-
-  const sections = (getEditorDAW().sections || []).map(s => ({ ...s }));
-  
-  // پاک‌سازی pool از داده‌های runtime قبل از ذخیره
-  const cleanPool = {};
-  for (const [clipId, clip] of Object.entries(getEditorDAW().pool)) {
-    const cleanClip = { ...clip };
-    delete cleanClip.runtime;
-    delete cleanClip._peaks;
-    delete cleanClip.waveUrl;
-    delete cleanClip.audioBuffer;
-    delete cleanClip.buffer;
-    cleanPool[clipId] = cleanClip;
+function setEditorSong(song) {
+  if (window.EditorRuntimeAdapter?.setSong) {
+    window.EditorRuntimeAdapter.setSong(song);
+  } else {
+    window.EdCurAdapter?.setEdCur?.(song);
   }
-
-  return JSON.stringify({
-    schema: 'akordyar-project',
-    version: 2,
-    project: {
-      id: getEditorDAW().project?.id || '',
-      name: getEditorDAW().project?.name || '',
-      projectRoot: undefined // مسیر پروژه ذخیره نمی‌شود (نسبی کار می‌کند)
-    },
-    pool: cleanPool,
-    tracks,
-    clips,
-    sections,
-    edCur: edCur ? JSON.parse(JSON.stringify(edCur)) : null,
-    edSeqPoints: Array.isArray(edSeqPoints)
-      ? JSON.parse(JSON.stringify(edSeqPoints))
-      : []
-  });
+  return song;
 }
-
-
-let _autoSaveTimer = null;
 
 function saveState() {
-  if (isApplyingHistory) return;
-
-  const state = serializeState();
-
-  if (state === getEditorPERF().lastSerializedState) {
-    clearTimeout(_autoSaveTimer);
-    _autoSaveTimer = setTimeout(() => edSaveSong(), 700);
-    return;
-  }
-
-  undoStack = undoStack.slice(0, undoIndex + 1);
-  undoStack.push(state);
-
-  if (undoStack.length > 100) {
-    undoStack.shift();
-  }
-
-  undoIndex = undoStack.length - 1;
-  getEditorPERF().lastSerializedState = state;
-
-  clearTimeout(_autoSaveTimer);
-  _autoSaveTimer = setTimeout(() => edSaveSong(), 700);
+  return getHistoryService().saveState();
 }
-
 
 function applyState(stateStr) {
-  if (!stateStr) return;
-
-  isApplyingHistory = true;
-
-  clearTimeout(_autoSaveTimer);
-  clearTimeout(edCommitTimer);
-  clearTimeout(edInputRenderTimer);
-  clearTimeout(edSaveTimer);
-
-  try {
-    const state = JSON.parse(stateStr);
-
-    getEditorDAW().tracks = state.tracks || [];
-    getEditorDAW().clips = state.clips || [];
-    getEditorDAW().sections = state.sections || [];
-    getEditorDAW().selectedSectionIds = new Set();
-    updateNextIdFromClips();
-
-    if (state.edCur) {
-      const keepId = edCur?.id;
-      edCur = window.TextEncodingService?.repairSong?.(state.edCur) || state.edCur;
-      window.EdCurAdapter?.setEdCur?.(edCur); // sync legacy reference after loading state
-      if (keepId != null) edCur.id = keepId;
-    } else {
-      edCur = null;
-      window.EdCurAdapter?.setEdCur?.(null); // sync legacy reference when edCur is null
-    }
-
-    edSeqPoints = Array.isArray(state.edSeqPoints)
-      ? state.edSeqPoints
-      : (edCur?.seqPoints || []);
-
-    if (edCur) {
-      edCur.seqPoints = edSeqPoints;
-      edSyncToolbar();
-      function edGetSelectionState() {
-  const editor = $('editor');
-  const sel = document.getSelection();
-  if (!editor || !sel || sel.rangeCount === 0) return null;
-
-  const range = sel.getRangeAt(0);
-  if (!editor.contains(range.startContainer)) return null;
-
-  return {
-    start: getOffsetWithinEditor(editor, range.startContainer, range.startOffset),
-    end: getOffsetWithinEditor(editor, range.endContainer, range.endOffset),
-    isCollapsed: range.collapsed
-  };
+  return getHistoryService().applyState(stateStr);
 }
-
-      edRenderEditor(true);
-    }
-
-    ensureAudioCtx();
-
-    getEditorDAW().tracks.forEach(t => {
-      if (t.type === 'audio') {
-        t._pannerNode = getEditorDAW().audioCtx.createStereoPanner();
-        t._gainNode = getEditorDAW().audioCtx.createGain();
-        t._pannerNode.connect(t._gainNode);
-        t._gainNode.connect(getEditorDAW().masterGain);
-        updateTrackMix(t.id);
-      }
-    });
-
-    getEditorDAW().selectedIds.clear();
-    
-    // Rebuild waveforms for audio clips after undo/redo
-    getEditorDAW().clips.forEach(clip => {
-      if (clip.type === 'audio' && clip.bufferKey && getEditorDAW().bufferCache.has(clip.bufferKey)) {
-        const buffer = getEditorDAW().bufferCache.get(clip.bufferKey);
-        clip.sourceDuration = buffer.duration;
-        clip._peaks = peaksFromBuffer(buffer, 2000);
-        refreshClipWaveImage(clip);
-      }
-    });
-    
-    getEditorPERF().tracksVersion++;
-    getEditorPERF().clipsVersion++;
-    renderAll();
-
-    if (getEditorDAW().isPlaying) {
-      scheduleAllFromPlayhead();
-    }
-
-    getEditorPERF().lastSerializedState = stateStr;
-  } finally {
-    isApplyingHistory = false;
-  }
-}
-
 
     function edFlushPendingCommit() {
   if (!edCommitTimer) return;
@@ -1169,33 +1028,6 @@ function applyState(stateStr) {
   edCommitTimer = null;
   edCommit();
 }
-
-function undo() {
-  if (edCur && edCommitTimer) {
-    edFlushPendingCommit();
-  }
-
-  if (undoIndex <= 0) {
-    toast(t('nothingUndo'));
-    return;
-  }
-
-  undoIndex--;
-  applyState(undoStack[undoIndex]);
-  toast('Undo');
-}
-
-    function redo() {
-  if (undoIndex >= undoStack.length - 1) {
-    toast(t('nothingRedo'));
-    return;
-  }
-
-  undoIndex++;
-  applyState(undoStack[undoIndex]);
-  toast('Redo');
-}
-
 
     async function decodeFileToBuffer(file) {
       return window.waveformService.decodeFileToBuffer(file);

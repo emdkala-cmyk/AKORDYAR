@@ -333,7 +333,7 @@
           if (dh) { try { const perm = await dh.requestPermission({mode:'read'}); if (perm==='granted') { for (const ap of edCur._audioPaths) { const clip = daw.clips.find(c=>c.type!=='chord'&&c.bufferKey===ap.bufferKey); if (!clip||daw.bufferCache.has(clip.bufferKey)) continue; for (const n of [ap.fileName,ap.fileName?ap.fileName.replace(/\.[^.]+$/,''):'']) { if (!n) continue; try { const fh=await dh.getFileHandle(n); const f=await fh.getFile(); const {buffer}=await decodeFileToBuffer(f); daw.bufferCache.set(clip.bufferKey,buffer); clip.sourceDuration=buffer.duration; clip._peaks=peaksFromBuffer(buffer,2000); refreshClipWaveImage(clip); break; } catch(_){} } } } } catch(_){} }
         }
       }
-      undoStack=[]; undoIndex=-1; resetPerformanceSerialization();
+      resetHistory(); resetPerformanceSerialization();
       edSyncToolbar(); edRenderEditor(true); renderAll(); saveState();
       const loopBtn=$('loopToggleBtn'); if (loopBtn) loopBtn.classList.toggle('loop-active',daw.loopEnabled);
       initHighlightEffect();
@@ -781,8 +781,8 @@
         toast('در حال باز کردن ترانه...');
         // Parse rawText if lyrics/chords are missing (bulk import case)
         ensureSongParsed(s);
-        // Check unsaved changes: undoStack.length > 1 means user made changes after loading
-        if (edCur && undoStack.length > 1) {
+        // Check unsaved changes: history length > 1 means user made changes after loading
+        if (edCur && historyLength() > 1) {
           const ok = await archConfirm('پروژه ذخیره نشده', 'تغییرات ذخیره‌نشده‌ای وجود دارد. آیا می‌خواهید قبل از لود ذخیره کنید؟', 'ذخیره و لود', false);
           if (ok) await edSaveToArchive();
         }
@@ -1684,7 +1684,7 @@ function archUpdateActiveFilters() {
     }
     async function edNewSong() {
       const daw = getArchiveDAW();
-      if (edCur && undoStack.length > 1) {
+      if (edCur && historyLength() > 1) {
         if (confirm(t('saveSong') + '?')) await edSaveToArchive();
       }
       pauseTransport();
@@ -1693,8 +1693,7 @@ stopAllVoices();
 edCur = edBlankSong();
 getArchiveRuntimeAdapter().setSong?.(edCur);
 
-undoStack = [];
-undoIndex = -1;
+resetHistory();
 resetPerformanceSerialization();
 
 daw.clips = [];
@@ -1953,7 +1952,7 @@ saveState();
                 tr._pannerNode.connect(tr._gainNode); tr._gainNode.connect(daw.masterGain); updateTrackMix(tr.id);
               }
             });
-            undoStack = []; undoIndex = -1; resetPerformanceSerialization();
+            resetHistory(); resetPerformanceSerialization();
             edSyncToolbar(); edRenderEditor(true);
             initHighlightEffect();
             const loopBtn = $('loopToggleBtn');

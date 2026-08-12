@@ -134,7 +134,7 @@ document.addEventListener('DOMContentLoaded', () => {
       getEditorDAW().playOriginTime = _ori2.playOriginTime;
       scheduleAllFromPlayhead();
 
-      undoStack = []; undoIndex = -1; getEditorPERF().lastSerializedState = '';
+      resetHistory();
       edSyncToolbar(); edRenderEditor(true); renderAll(); saveState();
       initHighlightEffect();
 
@@ -253,7 +253,7 @@ document.addEventListener('DOMContentLoaded', () => {
         toast('⚠ خطا در لود فایل صوتی');
       }
 
-      undoStack = []; undoIndex = -1; getEditorPERF().lastSerializedState = '';
+      resetHistory();
       edSyncToolbar(); edRenderEditor(true); renderAll(); saveState();
       initHighlightEffect();
       // Sync popup windows, SongDocument, and embedded view
@@ -3315,9 +3315,7 @@ function edBlankSong() {
       edSyncToolbar();
       edRenderEditor();
 
-      undoStack = [];
-      undoIndex = -1;
-      getEditorPERF().lastSerializedState = '';
+      resetHistory();
 
       edSyncToolbar();
       edRenderEditor(true);
@@ -4925,8 +4923,8 @@ function edAttachChordDrag(el, idx) {
     // -- Scroll to reposition chords (handled above with rAF) --
 
     // -- Commit & Undo/Redo --
-    function edCommit() {
-  if (!edCur || isApplyingHistory) return;
+function edCommit() {
+  if (!edCur || isHistoryApplying()) return;
 
   SongMetadata.syncFromDom(edCur, {includeTimeSig: false, includeTempo: false, includeGenre: false});
   edCur.seqPoints = edSeqPoints;
@@ -4960,16 +4958,16 @@ function edRestoreSelectionState(state) {
 }
 
 
-    if ($('edUndoBtn')) {
+if ($('edUndoBtn')) {
   $('edUndoBtn').onclick = () => {
-    undo();
+    getHistoryService().undo();
   };
 }
 
 
 if ($('edRedoBtn')) {
   $('edRedoBtn').onclick = () => {
-    redo();
+    getHistoryService().redo();
   };
 }
 

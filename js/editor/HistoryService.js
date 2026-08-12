@@ -19,6 +19,25 @@
       this.ctx = ctx;
     }
 
+    reset() {
+      clearTimeout(this._autoSaveTimer);
+      this._autoSaveTimer = null;
+      this.undoStack = [];
+      this.undoIndex = -1;
+      this.isApplyingHistory = false;
+
+      const perf = this.getPERF();
+      if (perf) perf.lastSerializedState = '';
+    }
+
+    getHistoryLength() {
+      return this.undoStack.length;
+    }
+
+    isApplying() {
+      return this.isApplyingHistory;
+    }
+
     getDAW() {
       const ctx = this.ctx || {};
       return typeof ctx.getDAW === 'function' ? ctx.getDAW() : ctx.DAW;
@@ -133,7 +152,10 @@
 
         if (state.edCur) {
           const keepId = ctx.getEdCur()?.id;
-          ctx.setEdCur(state.edCur);
+          const repairedSong = typeof ctx.repairSong === 'function'
+            ? ctx.repairSong(state.edCur)
+            : state.edCur;
+          ctx.setEdCur(repairedSong);
           if (keepId != null) ctx.getEdCur().id = keepId;
         } else {
           ctx.setEdCur(null);
