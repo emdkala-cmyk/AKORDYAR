@@ -35,6 +35,20 @@ function getEditorSongTransitionService() {
   return edSongTransitionService;
 }
 
+let edProjectExportService = null;
+function getEditorProjectExportService() {
+  if (
+    !edProjectExportService &&
+    typeof window.EditorProjectExportService?.create === 'function'
+  ) {
+    edProjectExportService = window.EditorProjectExportService.create({
+      syncMetadata: (song, options) => SongMetadata.syncFromDom(song, options),
+      logger: console
+    });
+  }
+  return edProjectExportService;
+}
+
     /**
      * همگام‌سازی UI بعد از تغییر آهنگ — فراخوانی مشترک بین loadArrSong و hotSwapToNextSong
      */
@@ -3673,16 +3687,6 @@ function edBlankSong() {
       return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
     }
 
-    // Fast base64 encode for Uint8Array
-    function uint8ToBase64(uint8Arr) {
-      const chunkSize = 65536;
-      let binary = '';
-      for (let i = 0; i < uint8Arr.length; i += chunkSize) {
-        const chunk = uint8Arr.subarray(i, Math.min(i + chunkSize, uint8Arr.length));
-        binary += String.fromCharCode.apply(null, chunk);
-      }
-      return btoa(binary);
-    }
     function base64ToUint8(b64) {
       const binary = atob(b64);
       const bytes = new Uint8Array(binary.length);
@@ -3691,55 +3695,6 @@ function edBlankSong() {
         for (let j = i; j < end; j++) bytes[j] = binary.charCodeAt(j);
       }
       return bytes;
-    }
-
-    // ===== Audio encoding via OfflineAudioContext (instant, no real-time wait) =====
-    async function encodeAudioToWebM(buffer, bitrate) {
-      // Use OfflineAudioContext for instant offline rendering (no real-time delay)
-      const offlineCtx = new OfflineAudioContext(buffer.numberOfChannels, buffer.length, buffer.sampleRate);
-      const src = offlineCtx.createBufferSource();
-      src.buffer = buffer;
-      src.connect(offlineCtx.destination);
-      src.start(0);
-      const rendered = await offlineCtx.startRendering();
-      // Convert rendered buffer to WAV (fast, reliable, no MediaRecorder needed)
-      return audioBufferToWav(rendered);
-    }
-
-    function audioBufferToWav(buffer) {
-      const numCh = buffer.numberOfChannels;
-      const sr = buffer.sampleRate;
-      const length = buffer.length;
-      const bytesPerSample = 2;
-      const blockAlign = numCh * bytesPerSample;
-      const dataSize = length * blockAlign;
-      const headerSize = 44;
-      const arrayBuffer = new ArrayBuffer(headerSize + dataSize);
-      const view = new DataView(arrayBuffer);
-      const writeStr = (off, str) => { for (let i = 0; i < str.length; i++) view.setUint8(off + i, str.charCodeAt(i)); };
-      writeStr(0, 'RIFF');
-      view.setUint32(4, 36 + dataSize, true);
-      writeStr(8, 'WAVE');
-      writeStr(12, 'fmt ');
-      view.setUint32(16, 16, true);
-      view.setUint16(20, 1, true);
-      view.setUint16(22, numCh, true);
-      view.setUint32(24, sr, true);
-      view.setUint32(28, sr * blockAlign, true);
-      view.setUint16(32, blockAlign, true);
-      view.setUint16(34, 16, true);
-      writeStr(36, 'data');
-      view.setUint32(40, dataSize, true);
-      let offset = 44;
-      for (let ch = 0; ch < numCh; ch++) {
-        const channelData = buffer.getChannelData(ch);
-        for (let i = 0; i < length; i++) {
-          const sample = Math.max(-1, Math.min(1, channelData[i]));
-          view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
-          offset += 2;
-        }
-      }
-      return new Uint8Array(arrayBuffer);
     }
 
     async function decodeWebMToBuffer(webmUint8) {
@@ -3839,57 +3794,30 @@ function edBlankSong() {
     }
 
     async function edExportProjectFull() {
-      if (!edCur) { toast('ترانه‌ای باز نیست'); return; }
-      try {
-      SongMetadata.syncFromDom(edCur, {includeKey: false});
-
-      edCur._dawTracks = getEditorDAW().tracks.map(tr => ({
-        id: tr.id, name: tr.name, icon: tr.icon, muted: tr.muted,
-        solo: tr.solo, vol: tr.vol, pan: tr.pan, type: tr.type, transpose: tr.transpose || 0, laneHeight: tr.laneHeight || null
-      }));
-      edCur._dawClips = getEditorDAW().clips.map(c => {
-        const cp = { ...c }; delete cp._peaks; delete cp.waveUrl; delete cp._fileHandle; delete cp._originalBlob;
-        return cp;
-      });
-      edCur._dawSections = (getEditorDAW().sections || []).map(s => ({ ...s }));
-      edCur._dawLoop = { loopEnabled: getEditorDAW().loopEnabled, loopA: getEditorDAW().loopA, loopB: getEditorDAW().loopB };
-      // در نسخه نصبی، صدا داخل فایل پروژه ذخیره نمی‌شود
-      if (isElectron) edCur._embeddedAudio = {};
-
-      // فقط کلیپ‌های کپی‌شده (_embedded:true) رمزگذاری بشن
-      const audioData = {};
-      const audioClips = getEditorDAW().clips.filter(c => c.type !== 'chord' && c.bufferKey && c._embedded);
-      if (audioClips.length > 0) {
-        let idx = 0;
-        for (const clip of audioClips) {
-          const buffer = getEditorDAW().bufferCache.get(clip.bufferKey);
-          if (!buffer) continue;
-          idx++;
-          toast(`رمزگذاری صدا ${idx}/${audioClips.length}...`);
-          try {
-            const encoded = await encodeAudioToWebM(buffer, 128000);
-            audioData[clip.bufferKey] = { format: 'wav', data: uint8ToBase64(encoded) };
-          } catch(e) {
-            console.warn('WAV encode failed, using fallback:', e);
-            try {
-              const channels = [];
-              for (let i = 0; i < buffer.numberOfChannels; i++) {
-                channels.push(uint8ToBase64(new Uint8Array(buffer.getChannelData(i).buffer)));
-              }
-              audioData[clip.bufferKey] = { format: 'float32-b64', sampleRate: buffer.sampleRate, channels: buffer.numberOfChannels, length: buffer.length, data: channels };
-            } catch(e2) { console.warn('Fallback encode also failed:', e2); }
-          }
-        }
+      const song = getCurrentEditorSong();
+      const exportService = getEditorProjectExportService();
+      if (!song || !exportService) {
+        toast('ترانه‌ای باز نیست');
+        return;
       }
-      edCur._embeddedAudio = audioData;
 
-      const linkedCount = getEditorDAW().clips.filter(c => c.type !== 'chord' && c.bufferKey && !c._embedded).length;
-      const defaultName = (edCur.title || 'ترانه جدید') + ' (کامل).json';
-      const data = JSON.stringify(edCur);
+      try {
+        const bundle = await exportService.buildBundle({
+          song,
+          daw: getEditorDAW(),
+          onAudioProgress: ({ index, total }) => {
+            toast(`رمزگذاری صدا ${index}/${total}...`);
+          }
+        });
+        if (!bundle) {
+          toast('ترانه‌ای باز نیست');
+          return;
+        }
+
+      const { defaultName, data, audioCount, linkedCount } = bundle;
       const blob = new Blob([data], { type: 'application/json' });
 
       const sizeMB = (blob.size / (1024*1024)).toFixed(1);
-      const audioCount = Object.keys(audioData).length;
 
       if (window.showSaveFilePicker) {
         try {

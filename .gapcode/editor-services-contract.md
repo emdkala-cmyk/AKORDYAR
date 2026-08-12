@@ -121,6 +121,29 @@ await service.loadSong(song, {
 ساخت panner/gain یا restore audio را به‌صورت موازی پیاده‌سازی کنند. سرویس
 نباید DOM، `window.edCur`، `DAW` یا `PERF` global را مستقیماً مصرف کند.
 
+### `EditorProjectExportService`
+
+```js
+const service = EditorProjectExportService.create({
+  syncMetadata: (song, options) => void,
+  encodeAudio: async (buffer, options) => Uint8Array
+});
+
+await service.buildBundle({
+  song,
+  daw,
+  onAudioProgress: ({ index, total, clip }) => void
+}) // {
+   // song, data, defaultName, audioData, audioCount, linkedCount
+   // } | null
+```
+
+این سرویس snapshot تایم‌لاین، حذف runtime fieldها، embedding فایل‌های
+`_embedded` و fallback `float32-b64` را انجام می‌دهد. مسیر انتخاب فایل،
+تأیید دانلود، `Blob` و toast همچنان در orchestration رابط کاربری باقی می‌ماند.
+سرویس نباید song اصلی را با فیلدهای export mutate کند؛ bundle روی clone ساخته
+می‌شود.
+
 ### `EditorCommitService`
 
 ```js

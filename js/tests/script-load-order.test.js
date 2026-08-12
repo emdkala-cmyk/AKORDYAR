@@ -63,6 +63,10 @@ assert.ok(
     scriptIndex('js/app/core.js')
 );
 assert.ok(
+  scriptIndex('js/editor/EditorProjectExportService.js') <
+    scriptIndex('js/app/core.js')
+);
+assert.ok(
   scriptIndex('js/editor/EditorChordVersionService.js') <
     scriptIndex('js/app/core.js')
 );
