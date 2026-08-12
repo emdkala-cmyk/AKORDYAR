@@ -6523,20 +6523,14 @@ if (
         _mirrorSyncRAF = requestAnimationFrame(loop);
     }
 
-    // Init DAW (may fail if no AudioContext)
-    try { init(); } catch(ex) { console.warn('DAW init error:', ex); }
-    // Always init song editor
-    edInitSong();
-    // Init دیز/بمل/خودکار selector
-    initAccidentalSelector();
-    // Apply language
-    applyI18n();
-    // Init highlight effect
-    initHighlightEffect();
-    // Auto-check storage and show warning if needed
-    setTimeout(() => {
-      refreshStorageInfo();
-    }, 3000);
+    window.EditorLifecycleService?.initialize?.({
+      initDAW: init,
+      initSong: edInitSong,
+      initAccidentalSelector,
+      applyI18n,
+      initHighlightEffect,
+      refreshStorageInfo
+    });
   
     /**
      * exportAllPlaylistsToFile — خروجی کامل همه پلی‌لیست‌ها در یک فایل JSON

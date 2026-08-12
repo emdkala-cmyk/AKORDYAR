@@ -4083,51 +4083,22 @@ function bufferToWave(abuffer, len) {
 // PART 4: Timeline Rendering & UI Event Listeners
 // ==========================================
 
-/**
- * رندر کردن ظاهر تراک‌ها روی تایم‌لاین
- */
 function renderTimeline() {
-  const container = document.getElementById('timeline-tracks-container');
-  if (!container) return;
-  container.innerHTML = '';
-
-  getEditorDAW().tracks.forEach(track => {
-    const trackEl = document.createElement('div');
-    trackEl.className = 'track-row';
-    trackEl.innerHTML = `
-      <div class="track-header">${track.name}</div>
-      <div class="track-content"></div>
-    `;
-    container.appendChild(trackEl);
+  return window.EditorLifecycleService?.renderTimeline?.({
+    documentRef: document,
+    getDAW: () => getEditorDAW()
   });
 }
 
 // اتصال رویدادهای اولیه صفحه پس از بارگذاری DOM - بخش اول (خط ۳۶۲۳)
 document.addEventListener('DOMContentLoaded', () => {
-  const audioInput = document.getElementById('audio-file-input');
-  if (audioInput) {
-    audioInput.addEventListener('change', async (e) => {
-      const file = e.target.files[0];
-
-      if (!file) {
-        return;
-      }
-
-      const copy = confirm("آیا می‌خواهید فایل صوتی در پوشه پروژه کپی شود؟");
-
-      try {
-        await handleAudioImport(file, copy);
-      } catch (error) {
-        console.error('[AudioImport] Failed to import audio file:', error);
-
-        if (typeof toast === 'function') {
-          toast('خطا در وارد کردن فایل صوتی');
-        }
-      } finally {
-        e.target.value = '';
-      }
-    });
-  }
+  window.EditorLifecycleService?.bindAudioImport?.({
+    documentRef: document,
+    confirmRef: window.confirm,
+    handleAudioImport,
+    toast,
+    logger: console
+  });
 
   // ============================================
   // Menu Command Handlers (Electron)
