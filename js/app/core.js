@@ -169,7 +169,8 @@ let _autoSaveTimer = null;
       document.documentElement.dir = currentLang === 'fa' ? 'rtl' : 'ltr';
       document.documentElement.lang = currentLang;
       // Update dynamic elements
-      if ($('edPrintTitle')) $('edPrintTitle').textContent = edCur?.title || t('untitled');
+      if ($('edPrintTitle')) $('edPrintTitle').textContent =
+        requireEditorSongStateService().getPresentationSnapshot()?.title || t('untitled');
       const syncPlayBtn = $('syncPlayBtn');
       if (syncPlayBtn) syncPlayBtn.textContent = getEditorDAW().isPlaying ? t('syncPause') : t('syncPlay');
     }
@@ -367,8 +368,9 @@ let _autoSaveTimer = null;
     }
 
     function applyQuantize(preset) {
-      const bpm = edCur?.tempo || 120;
-      const sig = edCur?.timeSignature || '4/4';
+      const timing = requireEditorSongStateService().getTimingContext();
+      const bpm = timing.tempo;
+      const sig = timing.timeSignature;
       const config = getTimeSignatureGridConfig(sig, bpm);
       const beatDur = config.beatDuration; // مدت واحد مخرج (سیاه در x/4، چنگ در x/8)
       const barDur = config.measureDuration; // مدت زمان یک میزان بر اساس Time Signature فعال
@@ -423,8 +425,10 @@ let _autoSaveTimer = null;
         return;
       }
 
-      const bpm = edCur?.tempo || 120;
-      const sig = edCur?.timeSignature || '4/4';
+      const songState = requireEditorSongStateService();
+      const timing = songState.getTimingContext();
+      const bpm = timing.tempo;
+      const sig = timing.timeSignature;
       const config = getTimeSignatureGridConfig(sig, bpm);
       const beatsPerBar = config.beatsPerMeasure;
       const beatDur = config.beatDuration; // مدت واحد مخرج (سیاه در x/4، چنگ در x/8)
@@ -550,6 +554,7 @@ let _autoSaveTimer = null;
     // ===== TAP TEMPO =====
     let tapTimes = [];
     function tapTempo() {
+      const songState = requireEditorSongStateService();
       const now = performance.now();
       tapTimes.push(now);
       if (tapTimes.length > 8) tapTimes.shift();
@@ -560,7 +565,7 @@ let _autoSaveTimer = null;
         const bpm = Math.round(60000 / avgMs);
         if (bpm >= 20 && bpm <= 300) {
           $('edTempo').value = bpm;
-          if (edCur) { edCur.tempo = bpm; edSaveSong(); }
+          if (songState.setTempo(bpm)) edSaveSong();
           toast(`تمپو: ${bpm} BPM`);
         }
       }
@@ -572,12 +577,14 @@ let _autoSaveTimer = null;
 
     // ===== TEMPO DETECTION FROM SYNC =====
     function detectTempo() {
-      if (!edCur || !edCur.syncTimes || edCur.syncTimes.length < 2) {
+      const songState = requireEditorSongStateService();
+      const syncTimes = songState.getSyncTimes();
+      if (syncTimes.length < 2) {
         toast('ابتدا سینک دستی را انجام دهید (حداقل ۲ لاین)');
         return;
       }
 
-      const result = SyncAnalysis.detectTempoFromSyncTimes(edCur.syncTimes, {
+      const result = SyncAnalysis.detectTempoFromSyncTimes(syncTimes, {
         minDiff: 0.1,
         maxDiff: 10,
         minBpm: 60,
@@ -594,8 +601,7 @@ let _autoSaveTimer = null;
       const tempoEl = $('edTempo');
       if (tempoEl) tempoEl.value = bestBpm;
 
-      if (edCur) {
-        edCur.tempo = bestBpm;
+      if (songState.setTempo(bestBpm)) {
         edSaveSong();
       }
 
@@ -604,12 +610,14 @@ let _autoSaveTimer = null;
 
     // ===== KEY DETECTION FROM CHORDS =====
     function detectKey() {
-      if (!edCur || !edCur.chords || edCur.chords.length === 0) {
+      const songState = requireEditorSongStateService();
+      const chords = songState.getChords();
+      if (chords.length === 0) {
         toast('آکوردی برای تشخیص گام وجود ندارد');
         return;
       }
 
-      const result = SyncAnalysis.detectKeyFromChords(edCur.chords);
+      const result = SyncAnalysis.detectKeyFromChords(chords);
 
       if (!result.ok) {
         toast('گام قابل تشخیص نبود');
@@ -625,9 +633,7 @@ let _autoSaveTimer = null;
       if (keyEl) keyEl.value = bestKey;
       if (modeEl) modeEl.value = bestMode;
 
-      if (edCur) {
-        edCur.key = bestKey;
-        edCur.keyMode = bestMode;
+      if (songState.setKey(bestKey, bestMode)) {
         edSaveSong();
         edSyncToolbar();
         edRenderEditor();
@@ -956,13 +962,31 @@ function requireChordLineSyncService() {
   return window.ChordLineSyncService;
 }
 
+function requireEditorSongStateService() {
+  if (
+    typeof window.EditorSongStateService !== 'object' ||
+    !window.EditorSongStateService
+  ) {
+    throw new Error(
+      'EditorSongStateService در دسترس نیست. ترتیب scriptها در Akordyar.html را بررسی کنید.'
+    );
+  }
+  if (!window.__editorSongStateServiceBridge) {
+    window.__editorSongStateServiceBridge =
+      window.EditorSongStateService.create({
+        getSong: () => window.EditorRuntimeAdapter?.getSong?.() || null
+      });
+  }
+  return window.__editorSongStateServiceBridge;
+}
+
 function attachHistoryService() {
   if (window.__historyAttached) return;
   window.__historyAttached = true;
   requireHistoryService().init({
     getDAW: () => getEditorDAW(),
     getPERF: () => getEditorPERF(),
-    getEdCur: () => edCur,
+    getEdCur: () => requireEditorSongStateService().currentSong(),
     setEdCur: (v) => setEditorSong(v),
     repairSong: (song) => window.TextEncodingService?.repairSong?.(song) || song,
     getEdSeqPoints: () => edSeqPoints,
@@ -1145,10 +1169,7 @@ function applyState(stateStr) {
         if (tr.muted) h.classList.add('muted-track');
         if (getEditorDAW().tracks.some(t => t.solo) && !tr.solo && tr.type !== 'chord') h.classList.add('solo-dim-track');
         if (tr.type === 'chord') {
-  const chordTarget =
-    edCur && typeof edCur === 'object'
-      ? edCur
-      : tr;
+  const chordTarget = requireEditorSongStateService().currentSong() || tr;
 
   if (!Array.isArray(chordTarget.chordVersions)) {
     chordTarget.chordVersions = [];
@@ -1519,34 +1540,38 @@ function applyState(stateStr) {
 
     // ===== Cubase-style Timeline Grid =====
     function timeToBarBeat(seconds) {
-      const bpm = edCur?.tempo || 120;
-      const sig = edCur?.timeSignature || '4/4';
+      const timing = requireEditorSongStateService().getTimingContext();
+      const bpm = timing.tempo;
+      const sig = timing.timeSignature;
       return window.Meter.timeToBarBeat(seconds, sig, bpm);
     }
 
     function barBeatToTime(bar, beat) {
-      const bpm = edCur?.tempo || 120;
-      const sig = edCur?.timeSignature || '4/4';
+      const timing = requireEditorSongStateService().getTimingContext();
+      const bpm = timing.tempo;
+      const sig = timing.timeSignature;
       return window.Meter.barBeatToTime(bar, beat, sig, bpm);
     }
 
     function drawLaneGrid(canvas) {
+      const timing = requireEditorSongStateService().getTimingContext();
       TimelineGrid.drawLaneGrid(canvas, {
         total: getProjectEnd(),
         timeToX: timeToX,
-        tempo: edCur?.tempo,
-        timeSignature: edCur?.timeSignature,
+        tempo: timing.tempo,
+        timeSignature: timing.timeSignature,
         pxPerSec: getEditorDAW().pxPerSecond
       });
     }
 
     function renderRuler() {
+      const timing = requireEditorSongStateService().getTimingContext();
       const total = getProjectEnd();
       TimelineGrid.renderRuler({
         total: total,
         timeToX: timeToX,
-        tempo: edCur?.tempo,
-        timeSignature: edCur?.timeSignature,
+        tempo: timing.tempo,
+        timeSignature: timing.timeSignature,
         pxPerSec: getEditorDAW().pxPerSecond,
         rulerEl: $('timeline-ruler'),
         labelsEl: $('ruler-labels'),
@@ -1832,7 +1857,8 @@ function applyState(stateStr) {
      let _audioSaveQueued = false;
 
      function scheduleAudioBlobSave() {
-     if (!edCur?.id) return;
+     const songId = requireEditorSongStateService().currentSong()?.id;
+     if (!songId) return;
 
      clearTimeout(_audioSaveTimer);
 
@@ -1845,7 +1871,7 @@ function applyState(stateStr) {
     _audioSaveRunning = true;
 
     try {
-      await saveAudioBlobsForProject(edCur.id);
+      await saveAudioBlobsForProject(songId);
     } catch (e) {
       console.warn('Audio save error:', e);
     } finally {
@@ -1950,7 +1976,8 @@ function applyState(stateStr) {
         saveState(); renderAll(); if (getEditorDAW().isPlaying) scheduleAllFromPlayhead();
         if (storageMode) {
           toast(`${t('loadedOk')} ${clip.name} (کپی در پروژه)`);
-          saveAudioBlobsForProject(edCur.id).catch(() => {});
+          const songId = requireEditorSongStateService().currentSong()?.id;
+          if (songId) saveAudioBlobsForProject(songId).catch(() => {});
         } else {
           toast(`${t('loadedOk')} ${clip.name} (لینک — فقط مسیر ذخیره شد)`);
         }
@@ -2895,10 +2922,12 @@ sels.forEach(c => {
       loadOutputDevices();
     }
     function syncChordLineFromLyrics() {
-      if (!edCur) { toast('سندی برای سینک وجود ندارد'); return; }
+      const songState = requireEditorSongStateService();
+      const song = songState.currentSong();
+      if (!song) { toast('سندی برای سینک وجود ندارد'); return; }
       
       // 1. Extract chords from edCur.chords (parsed from Lyrics)
-      const lyricsChords = edCur.chords || [];
+      const lyricsChords = songState.getChords(song);
       
       // If no chords in Lyrics
       if (lyricsChords.length === 0) { 
@@ -2933,7 +2962,7 @@ sels.forEach(c => {
       const appliedCount = requireChordLineSyncService().applyChordNamesToClips(lyricsChordsInSyncOrder, currentChordLineClips);
       
       // 5. Update state and re-render
-      edCur.hasManualChordLineEdits = false;
+      songState.markChordLineSynced(song);
       
       // Re-render Chord Line popup if open
       if (_chordLinePopup && !_chordLinePopup.closed) {
@@ -3012,12 +3041,14 @@ sels.forEach(c => {
     const HL_EFFECTS = ['neon', 'frost', 'shift', 'depth', 'pulse'];
     const HL_NAMES = { neon: 'Neon Glow', frost: 'Frosted Glass', shift: 'Color Shift', depth: 'Double Shadow', pulse: 'Pulse Glow' };
 
-    function getHighlightEffect() { return edCur?.styles?.highlightEffect || 'depth'; }
+    function getHighlightEffect() {
+      return requireEditorSongStateService().getPresentationSnapshot()?.styles
+        ?.highlightEffect || 'depth';
+    }
 
     function setHighlightEffect(effect) {
       if (!HL_EFFECTS.includes(effect)) return;
-      if (!edCur) return;
-      edCur.styles.highlightEffect = effect;
+      if (!requireEditorSongStateService().setHighlightEffect(effect, HL_EFFECTS)) return;
       // Update selector UI
       document.querySelectorAll('.hl-opt').forEach(el => {
         el.classList.toggle('active', el.dataset.effect === effect);
@@ -3206,7 +3237,9 @@ sels.forEach(c => {
       }
       if (_focusMode) toast(t('focusMode'));
       else toast(t('normalMode'));
-      if (typeof edCur !== 'undefined' && edCur) { setTimeout(() => edRenderChords(), 50); }
+      if (requireEditorSongStateService().currentSong()) {
+        setTimeout(() => edRenderChords(), 50);
+      }
     }
     function openLyricPopup() {
       if (_lyricPopup && !_lyricPopup.closed) { _lyricPopup.focus(); return; }
@@ -3228,16 +3261,12 @@ sels.forEach(c => {
     }
     function syncLyricOnlyPopup() {
       if (!_lyricOnlyPopup || _lyricOnlyPopup.closed) return;
-      if (!edCur) return;
+      const snapshot = requireEditorSongStateService().getPresentationSnapshot();
+      if (!snapshot) return;
       const doc = _lyricOnlyPopup.document;
-      const title = edCur.title || 'بدون نام';
-      const artist = edCur.artist || '';
-      const tSize = edCur.styles?.tSize || 38;
-      const tColor = edCur.styles?.tColor || '#0fa966';
-      const tFont = edCur.styles?.tFont || 'Vazirmatn';
-      const tBold = edCur.styles?.tBold ? 'bold' : 'normal';
-      const align = edCur.styles?.align || 'center';
-      const lines = (edCur.lyrics || '').split('\n');
+      const { title, artist, lyrics, styles } = snapshot;
+      const { tSize, tColor, tFont, tBold, align } = styles;
+      const lines = lyrics.split('\n');
 
       doc.title = title + ' — ' + artist + ' | خواننده';
       doc.documentElement.dir = 'rtl';
@@ -3310,8 +3339,8 @@ sels.forEach(c => {
         if (!_lyricOnlyPopup || _lyricOnlyPopup.closed) return;
         const body = _lyricOnlyPopup.document.getElementById('lopBody');
         if (!body) return;
-        const times = edCur?.syncTimes || [];
-        const t = DAW?.playhead || 0;
+        const times = requireEditorSongStateService().getSyncTimes();
+        const t = getEditorDAW()?.playhead || 0;
         let activeIdx = -1;
         for (let i = 0; i < times.length; i++) {
           if (Number.isFinite(times[i]) && times[i] <= t) activeIdx = i;
@@ -3344,23 +3373,16 @@ sels.forEach(c => {
     }
     function syncChordLinePopup() {
       if (!_chordLinePopup || _chordLinePopup.closed) return;
-      if (!edCur) return;
+      const snapshot = requireEditorSongStateService().getPresentationSnapshot();
+      if (!snapshot) return;
       const doc = _chordLinePopup.document;
-      const title = edCur.title || 'بدون نام';
-      const artist = edCur.artist || '';
-      const keyStr = SongMetadata.getDisplayKey(edCur);
-      const tSize = edCur.styles?.tSize || 38;
-      const tColor = edCur.styles?.tColor || '#0fa966';
-      const tFont = edCur.styles?.tFont || 'Vazirmatn';
-      const tBold = edCur.styles?.tBold ? 'bold' : 'normal';
-      const align = edCur.styles?.align || 'center';
-      const cSize = edCur.styles?.cSize || 38;
-      const cColor = edCur.styles?.cColor || '#e6aa28';
-      const cFont = edCur.styles?.cFont || 'JetBrains Mono';
-      const lines = (edCur.lyrics || '').split('\n');
+      const { title, artist, key, keyMode, lyrics, styles } = snapshot;
+      const keyStr = key + (keyMode === 'min' ? 'm' : '');
+      const { tSize, tColor, tFont, tBold, align, cSize, cColor, cFont } = styles;
+      const lines = lyrics.split('\n');
       // Use independent chordLineClips state - this is the source of truth for Chord Line display
-      const chordLineClips = edCur.chordLineClips || [];
-      const transpose = edCur.transpose || 0;
+      const chordLineClips = snapshot.chordLineClips;
+      const transpose = snapshot.transpose;
       // Render chords from chordLineClips with transpose applied
       const chords = chordLineClips.map(ch => ({ 
         lineIndex: ch.lineIndex, 
@@ -3433,10 +3455,12 @@ sels.forEach(c => {
       // Sync button: copy chords from Lyrics to chordLineClips with spatial ordering
       if (syncBtn) {
         syncBtn.onclick = () => {
-          if (!edCur) return;
+          const songState = requireEditorSongStateService();
+          const song = songState.currentSong();
+          if (!song) return;
           
           // 1. Extract chords from edCur.chords (parsed from Lyrics)
-          const lyricsChords = edCur.chords || [];
+          const lyricsChords = songState.getChords(song);
           
           // If no chords in Lyrics
           if (lyricsChords.length === 0) { 
@@ -3456,7 +3480,7 @@ sels.forEach(c => {
           });
           
           // 3. Get current Chord Line clips
-          const currentChordLineClips = edCur.chordLineClips || [];
+          const currentChordLineClips = songState.getChordLineClips(song);
           
           // If Chord Line is empty
           if (currentChordLineClips.length === 0) {
@@ -3472,8 +3496,8 @@ sels.forEach(c => {
           }
           
           // 5. Update state and re-render
-          edCur.chordLineClips = currentChordLineClips;
-          edCur.hasManualChordLineEdits = false;
+          songState.setChordLineClips(currentChordLineClips, song);
+          songState.markChordLineSynced(song);
           syncChordLinePopup();
           
           // Show result message
@@ -3488,9 +3512,10 @@ sels.forEach(c => {
       // Transpose Up button: only modify chordLineClips
       if (transUpBtn) {
         transUpBtn.onclick = () => {
-          if (!edCur || !edCur.chordLineClips) return;
-          const newTranspose = (edCur.transpose || 0) + 1;
-          edCur.transpose = newTranspose;
+          const songState = requireEditorSongStateService();
+          if (!songState.getChordLineClips().length) return;
+          const newTranspose = songState.getTranspose() + 1;
+          songState.setTranspose(newTranspose);
           // Update transpose display
           if (transValSpan) transValSpan.textContent = (newTranspose > 0 ? '+' : '') + newTranspose;
           // Re-render chords with new transpose (only affects chordLineClips)
@@ -3501,9 +3526,10 @@ sels.forEach(c => {
       // Transpose Down button: only modify chordLineClips
       if (transDownBtn) {
         transDownBtn.onclick = () => {
-          if (!edCur || !edCur.chordLineClips) return;
-          const newTranspose = (edCur.transpose || 0) - 1;
-          edCur.transpose = newTranspose;
+          const songState = requireEditorSongStateService();
+          if (!songState.getChordLineClips().length) return;
+          const newTranspose = songState.getTranspose() - 1;
+          songState.setTranspose(newTranspose);
           // Update transpose display
           if (transValSpan) transValSpan.textContent = (newTranspose > 0 ? '+' : '') + newTranspose;
           // Re-render chords with new transpose (only affects chordLineClips)
@@ -3514,12 +3540,16 @@ sels.forEach(c => {
       // Copy button: copy chord names to clipboard
       if (copyBtn) {
         copyBtn.onclick = () => {
-          if (!edCur || !edCur.chordLineClips || edCur.chordLineClips.length === 0) {
+          const songState = requireEditorSongStateService();
+          const chordLineClips = songState.getChordLineClips();
+          if (chordLineClips.length === 0) {
             toast('آکوردی برای کپی وجود ندارد');
             return;
           }
-          const transpose = edCur.transpose || 0;
-          const chordNames = edCur.chordLineClips.map(ch => ch.name ? edTransposeChord(ch.name, transpose) : '').filter(n => n);
+          const transpose = songState.getTranspose();
+          const chordNames = chordLineClips
+            .map(ch => ch.name ? edTransposeChord(ch.name, transpose) : '')
+            .filter(n => n);
           if (chordNames.length === 0) {
             toast('آکوردی برای کپی وجود ندارد');
             return;
@@ -3684,17 +3714,15 @@ sels.forEach(c => {
         const pb = doc.getElementById('popupBody');
         if (!pb) return;
 
-        const lines = (edCur?.lyrics || '').split('\n');
-        const transpose = edCur?.transpose || 0;
-        const chords = (edCur?.chords || []).map(ch => ({
+        const snapshot = requireEditorSongStateService().getPresentationSnapshot();
+        if (!snapshot) return;
+        const lines = snapshot.lyrics.split('\n');
+        const transpose = snapshot.transpose;
+        const chords = snapshot.chords.map(ch => ({
           lineIndex: ch.lineIndex, charIndex: ch.charIndex,
           anchorType: ch.anchorType, _name: edTransposeChord(ch.name, transpose)
         }));
-        const tSize = edCur?.styles?.tSize || 38;
-        const tColor = edCur?.styles?.tColor || '#0fa966';
-        const tFont = edCur?.styles?.tFont || 'Vazirmatn';
-        const tBold = edCur?.styles?.tBold ? 'bold' : 'normal';
-        const align = edCur?.styles?.align || 'center';
+        const { tSize, tColor, tFont, tBold, align } = snapshot.styles;
 
         // بررسی آیا ساختار خط‌ها واقعاً عوض شده
         const existingLines = Array.from(pb.querySelectorAll('.popup-sync-line'));
@@ -3790,21 +3818,16 @@ sels.forEach(c => {
         try { _lyricPopup.dispatchEvent(new Event('resize')); } catch(_) {}
         return;
       }
-      const title = edCur?.title || t('untitled');
-      const artist = edCur?.artist || '';
-      const keyStr = (edCur?.key || 'C') + ((edCur?.keyMode || 'maj') === 'min' ? 'm' : '');
+      const snapshot = requireEditorSongStateService().getPresentationSnapshot();
+      if (!snapshot) return;
+      const title = snapshot.title || t('untitled');
+      const artist = snapshot.artist || '';
+      const keyStr = (snapshot.key || 'C') + (snapshot.keyMode === 'min' ? 'm' : '');
       const sub = [artist, keyStr ? (currentLang==='fa'?'گام: ':'Key: ') + keyStr : null].filter(Boolean).join('  ·  ');
-      const tSize = edCur?.styles?.tSize || 38;
-      const tColor = edCur?.styles?.tColor || '#0fa966';
-      const tFont = edCur?.styles?.tFont || 'Vazirmatn';
-      const tBold = edCur?.styles?.tBold ? 'bold' : 'normal';
-      const align = edCur?.styles?.align || 'center';
-      const cSize = edCur?.styles?.cSize || 38;
-      const cColor = edCur?.styles?.cColor || '#e6aa28';
-      const cFont = edCur?.styles?.cFont || 'JetBrains Mono';
-      const transpose = edCur?.transpose || 0;
-      const lines = (edCur?.lyrics || '').split('\n');
-      const chords = (edCur?.chords || []).map(ch => ({ lineIndex: ch.lineIndex, charIndex: ch.charIndex, anchorType: ch.anchorType, _name: edTransposeChord(ch.name, transpose) }));
+      const { tSize, tColor, tFont, tBold, align, cSize, cColor, cFont } = snapshot.styles;
+      const transpose = snapshot.transpose;
+      const lines = snapshot.lyrics.split('\n');
+      const chords = snapshot.chords.map(ch => ({ lineIndex: ch.lineIndex, charIndex: ch.charIndex, anchorType: ch.anchorType, _name: edTransposeChord(ch.name, transpose) }));
       _lyricPopup.document.title = title + ' — ' + artist + ' | نوازنده';
       _lyricPopup.document.documentElement.dir = 'rtl';
       _lyricPopup.document.documentElement.lang = 'fa';
@@ -4387,8 +4410,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!_lyricPopup || _lyricPopup.closed) return;
         const popupBody = _lyricPopup.document.getElementById('popupBody');
         if (!popupBody) return;
-        const times = edCur?.syncTimes || [];
-        const t = DAW?.playhead || 0;
+        const times = requireEditorSongStateService().getSyncTimes();
+        const t = getEditorDAW()?.playhead || 0;
         let activeIdx = -1;
         for (let i = 0; i < times.length; i++) {
           if (Number.isFinite(times[i]) && times[i] <= t) activeIdx = i;
@@ -4474,7 +4497,7 @@ let syncTapKeyHandler = null;
             state: syncModeState,
             seqState: seqClState,
             getDAW: () => getEditorDAW(),
-            getEdCur: () => (typeof edCur !== 'undefined' ? edCur : null),
+            getEdCur: () => requireEditorSongStateService().currentSong(),
             $: (id) => $(id),
             t: (key) => t(key),
             toast: (msg) => toast(msg),
@@ -4791,7 +4814,8 @@ let syncTapKeyHandler = null;
 
     // Send current song to Arranger Track
     function sendCurrentSongToArranger() {
-      if (!edCur) { toast('ترانه‌ای باز نیست'); return; }
+      const currentSong = requireEditorSongStateService().currentSong();
+      if (!currentSong) { toast('ترانه‌ای باز نیست'); return; }
       // Save current song to archive first
       edSaveToArchive().then(() => {
         // If no arrangers exist, create one
@@ -4804,8 +4828,8 @@ let syncTapKeyHandler = null;
           editingArr = arrangers[0];
         }
         // Add current song to arranger if not already there
-        if (!editingArr.items.includes(edCur.id)) {
-          editingArr.items.push(edCur.id);
+        if (!editingArr.items.includes(currentSong.id)) {
+          editingArr.items.push(currentSong.id);
         }
         saveArrangers();
         // Open arranger editor
@@ -5523,7 +5547,7 @@ let syncTapKeyHandler = null;
       const cur = parseInt($('edTempo')?.value) || 120;
       const newVal = clamp(cur + delta, 20, 300);
       $('edTempo').value = newVal;
-      if (edCur) { edCur.tempo = newVal; edSaveSong(); }
+      if (requireEditorSongStateService().setTempo(newVal)) edSaveSong();
       renderPerfUI();
     }
 
@@ -5545,16 +5569,18 @@ let syncTapKeyHandler = null;
       const songId = arr.items[arrPerformIdx];
       const song = allSongs.find(s => s.id === songId);
       const setting = getArrItemSetting(arr, songId);
+      const currentSong = requireEditorSongStateService().currentSong();
 
       $('perfSongNum').textContent = `${arrPerformIdx + 1} / ${arr.items.length}`;
       $('perfSongTitle').textContent = song ? (song.title || 'بدون نام') : '—';
       $('perfSongArtist').textContent = song ? (song.artist || '') : '';
-      const keyName = song?.key || edCur?.key || 'C';
-      const keyMode = song?.keyMode || edCur?.keyMode || 'maj';
+      const keyName = song?.key || currentSong?.key || 'C';
+      const keyMode = song?.keyMode || currentSong?.keyMode || 'maj';
       const transVal = setting.transpose || 0;
       $('perfSongKey').innerHTML = `${keyName} ${keyMode === 'maj' ? 'ماژور' : 'مینور'} ${transVal ? `<span class="perf-trans">(${transVal > 0 ? '+' : ''}${transVal})</span>` : ''}`;
       $('perfTransVal').textContent = transVal > 0 ? '+' + transVal : String(transVal);
-      if ($('perfTempoVal')) $('perfTempoVal').textContent = edCur?.tempo || 120;
+      if ($('perfTempoVal')) $('perfTempoVal').textContent =
+        song?.tempo || currentSong?.tempo || 120;
 
       // Render setlist
       const setlistEl = $('perfSetlist');
