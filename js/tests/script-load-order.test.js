@@ -59,7 +59,15 @@ assert.ok(
     scriptIndex('js/app/core.js')
 );
 assert.ok(
+  scriptIndex('js/editor/EditorChordInteractionService.js') <
+    scriptIndex('js/app/core.js')
+);
+assert.ok(
   scriptIndex('js/editor/EditorTextSelectionService.js') <
+    scriptIndex('js/app/core.js')
+);
+assert.ok(
+  scriptIndex('js/editor/EditorMutationService.js') <
     scriptIndex('js/app/core.js')
 );
 assert.ok(

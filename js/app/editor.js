@@ -4440,6 +4440,24 @@ function edBlankSong() {
       return window.__editorSongStateServiceBridge || null;
     }
 
+    let edMutationService = null;
+    function getEditorMutationService() {
+      if (
+        !edMutationService &&
+        typeof window.EditorMutationService?.create === 'function'
+      ) {
+        edMutationService = window.EditorMutationService.create({
+          baseNameFromDisplayed: (name, song) => {
+            const transpose = Number(song?.transpose) || 0;
+            return transpose && name
+              ? edTransposeChord(name, -transpose)
+              : (name || '');
+          }
+        });
+      }
+      return edMutationService;
+    }
+
     let edChordStateService = null;
     function getEditorChordStateService() {
       if (
@@ -4660,6 +4678,33 @@ function edBlankSong() {
       }
       return edChordDragService;
     }
+    let edChordInteractionService = null;
+    function getEditorChordInteractionService() {
+      if (
+        !edChordInteractionService &&
+        typeof window.EditorChordInteractionService?.create === 'function'
+      ) {
+        edChordInteractionService = window.EditorChordInteractionService.create({
+          getSong: () => edCur,
+          getSelected: () => edSelectedChords,
+          selectChord: (index, withToggle) => edSelectChord(index, withToggle),
+          clearSelection: () => edClearChordSelection(),
+          getEditor: () => $('editor'),
+          getWrap: () => $('editorWrap'),
+          getChordElement: index =>
+            document.querySelector(`.chord[data-idx="${index}"]`),
+          isLocked: () => Boolean(edCur?.editorLocked),
+          openChordModal: index => edOpenChordModal(index),
+          geometry: getEditorChordDragService(),
+          mutations: getEditorMutationService(),
+          render: () => edRenderChords(),
+          commit: () => edCommit(),
+          setDragging: value => { edChordDragActive = value; },
+          toast: message => toast(message)
+        });
+      }
+      return edChordInteractionService;
+    }
     // Clear selection when clicking empty area
 if ($('editorWrap')) {
   $('editorWrap').addEventListener('mousedown', e => {
@@ -4689,116 +4734,8 @@ if ($('editorWrap')) {
 
     // -- Chord Drag --
 function edAttachChordDrag(el, idx) {
-  el.style.touchAction = 'none';
-  el.addEventListener('pointerdown', e => {
-    if (e.button !== 0) return;
-    if (edCur && edCur.editorLocked) return;
-
-    window.getSelection()?.removeAllRanges();
-    // Blur editor so space bar can play
-    if ($('editor')) $('editor').blur();
-
-    e.stopPropagation();
-    e.preventDefault();
-    const pointerId = e.pointerId;
-    el.setPointerCapture?.(pointerId);
-
-    if (e.detail === 2) {
-      if (edCur && edCur.editorLocked) { toast('ویرایشگر قفل است'); return; }
-      edOpenChordModal(idx);
-      return;
-    }
-
-    if (!edSelectedChords.includes(idx))
-      edSelectChord(idx, e.shiftKey);
-
-    const isCopy = e.altKey;
-
-        const ch = edCur.chords[idx]; if (!ch) return;
-        const startX = e.clientX;
-        const snapshots = [];
-        edSelectedChords.forEach(i => { const cEl = document.querySelector(`.chord[data-idx="${i}"]`); if (cEl) snapshots.push({ idx: i, el: cEl, origLeft: cEl.offsetLeft }); });
-        let dragging = false, rafId = null, pendingDx = 0;
-        const move = ev => {
-          if (!dragging && Math.abs(ev.clientX - startX) > 3) { dragging = true; edChordDragActive = true; snapshots.forEach(s => { s.el.style.zIndex='10'; s.el.style.opacity='.85'; s.el.style.pointerEvents='none'; }); }
-          if (dragging) { pendingDx = ev.clientX - startX; if (!rafId) rafId = requestAnimationFrame(() => { const dx=pendingDx; rafId=null; snapshots.forEach(s => { s.el.style.left=(s.origLeft+dx)+'px'; }); }); }
-        };
-        const up = ev => {
-          if (ev.pointerId !== pointerId) return;
-          el.releasePointerCapture?.(pointerId);
-          el.removeEventListener('pointermove', move);
-          el.removeEventListener('pointerup', up);
-          el.removeEventListener('pointercancel', up);
-          if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
-          const wasDrag = dragging; dragging = false; edChordDragActive = false;
-          snapshots.forEach(s => { s.el.style.zIndex=''; s.el.style.opacity=''; s.el.style.pointerEvents=''; });
-          if (!wasDrag) return;
-          const wrapRect = $('editorWrap').getBoundingClientRect();
-          if (ev.clientX < wrapRect.left || ev.clientX > wrapRect.right || ev.clientY < wrapRect.top || ev.clientY > wrapRect.bottom) {
-            edSelectedChords.sort((a,b)=>b-a).forEach(i => edRemoveChordAt(i)); edClearChordSelection();
-          } else {
-            const dragService = getEditorChordDragService();
-            const anchorIdx = dragService
-              ? dragService.findAnchorSelectionPosition(
-                  edSelectedChords,
-                  edCur.chords,
-                  lineIndex => $('editor').children[lineIndex],
-                  ev.clientX
-                )
-              : 0;
-            const anchorOrig=edCur.chords[edSelectedChords[anchorIdx]];
-            const anchorLine=$('editor').children[anchorOrig.lineIndex];
-            const anchorNewChar = dragService
-              ? dragService.findNearestChar(anchorLine, ev.clientX)
-              : 0;
-            const charDelta=anchorNewChar-anchorOrig.charIndex;
-            edSelectedChords.forEach(i => {
-              const c=edCur.chords[i]; if(!c)return;
-              const lineEl=$('editor').children[c.lineIndex];
-              const textLen=lineEl
-                ? lineEl.textContent.replace(/\u200B/g,'').length
-                : 0;
-              const moved = dragService
-                ? dragService.moveChord(c, charDelta, textLen)
-                : (() => {
-                    const charIndex = Math.max(
-                      0,
-                      Math.min((c.charIndex || 0) + charDelta, textLen)
-                    );
-                    return {
-                      charIndex,
-                      anchorType:
-                        charIndex <= 0
-                          ? 'LineStart'
-                          : charIndex >= textLen
-                            ? 'LineEnd'
-                            : 'OnCharacter'
-                    };
-                  })();
-              if(isCopy){
-                edCur.chords.push({
-                  lineIndex:c.lineIndex,
-                  charIndex:moved.charIndex,
-                  anchorType:moved.anchorType,
-                  name:c.name
-                });
-                if(!Array.isArray(edCur.baseChordNames))edCur.baseChordNames=[];
-                edCur.baseChordNames.push(edBaseNameFromDisplayed(c.name));
-              }else{
-                c.charIndex=moved.charIndex;
-                c.anchorType=moved.anchorType;
-              }
-            });
-          }
-          edRenderChords();
-          edCommit();
-
-        };
-        el.addEventListener('pointermove', move);
-        el.addEventListener('pointerup', up);
-        el.addEventListener('pointercancel', up);
-      });
-    }
+  getEditorChordInteractionService()?.attach(el, idx);
+}
     // Redraw chords on window resize
     window.addEventListener('resize', () => { if (edCur) edRenderChords(); });
 
@@ -4914,25 +4851,11 @@ if ($('edRedoBtn')) {
 if ($('edRemoveAsterisks')) {
   $('edRemoveAsterisks').onclick = () => {
     if (!edCur || edCur.editorLocked) return;
-    const lines = edCur.lyrics.split('\n');
-    if (!lines.some(l => l.includes('*'))) {
+    const result = getEditorMutationService()?.removeAsterisks(edCur);
+    if (!result?.changed) {
       toast('ستاره‌ای در متن وجود ندارد');
       return;
     }
-    // Adjust chord charIndex: for each line, count asterisks before each chord's position
-    lines.forEach((line, li) => {
-      if (!line.includes('*')) return;
-      edCur.chords.forEach(ch => {
-        if (ch.lineIndex !== li) return;
-        let shift = 0;
-        for (let ci = 0; ci < line.length && ci < ch.charIndex; ci++) {
-          if (line[ci] === '*') shift++;
-        }
-        ch.charIndex = Math.max(0, ch.charIndex - shift);
-      });
-    });
-    // Remove asterisks from lyrics
-    edCur.lyrics = lines.map(l => l.replace(/\*/g, '')).join('\n');
     edRenderEditor(true);
     edSaveSong();
     toast('تمام ستاره‌ها حذف شدند');
@@ -4950,24 +4873,8 @@ if ($('edReverseChords')) {
     if (!confirm('⚠️ آیا مطمئن هستید؟ این کار ترتیب موسیقایی آکوردها را در هر خط برعکس می‌کند و فقط برای موارد خاص کاربرد دارد.')) {
       return;
     }
-    // Group chords by line, sort by charIndex, reverse positions
-    const byLine = {};
-    edCur.chords.forEach((ch, i) => {
-      (byLine[ch.lineIndex] = byLine[ch.lineIndex] || []).push({ idx: i, ch });
-    });
-    Object.values(byLine).forEach(group => {
-      if (group.length < 2) return;
-      group.sort((a, b) => a.ch.charIndex - b.ch.charIndex);
-      // Save target values first (reversed[i].ch are the same objects!)
-      const targets = group.map((g, i) => ({
-        charIndex: group[group.length - 1 - i].ch.charIndex,
-        anchorType: group[group.length - 1 - i].ch.anchorType
-      }));
-      group.forEach((g, i) => {
-        g.ch.charIndex = targets[i].charIndex;
-        g.ch.anchorType = targets[i].anchorType;
-      });
-    });
+    const result = getEditorMutationService()?.reverseChords(edCur);
+    if (!result?.changed) return;
     edRenderEditor(true);
     edSaveSong();
     toast('ترتیب آکورد هر خط برعکس شد (فقط برای موارد خاص)');
@@ -4977,41 +4884,7 @@ if ($('edReverseChords')) {
 if ($('edDoBoth')) {
   $('edDoBoth').onclick = () => {
     if (!edCur || edCur.editorLocked) return;
-    // Step 1: Remove asterisks
-    const lines = edCur.lyrics.split('\n');
-    if (lines.some(l => l.includes('*'))) {
-      lines.forEach((line, li) => {
-        if (!line.includes('*')) return;
-        edCur.chords.forEach(ch => {
-          if (ch.lineIndex !== li) return;
-          let shift = 0;
-          for (let ci = 0; ci < line.length && ci < ch.charIndex; ci++) {
-            if (line[ci] === '*') shift++;
-          }
-          ch.charIndex = Math.max(0, ch.charIndex - shift);
-        });
-      });
-      edCur.lyrics = lines.map(l => l.replace(/\*/g, '')).join('\n');
-    }
-    // Step 2: Reverse chords
-    if (edCur.chords.length) {
-      const byLine = {};
-      edCur.chords.forEach((ch, i) => {
-        (byLine[ch.lineIndex] = byLine[ch.lineIndex] || []).push({ idx: i, ch });
-      });
-      Object.values(byLine).forEach(group => {
-        if (group.length < 2) return;
-        group.sort((a, b) => a.ch.charIndex - b.ch.charIndex);
-        const targets = group.map((g, i) => ({
-          charIndex: group[group.length - 1 - i].ch.charIndex,
-          anchorType: group[group.length - 1 - i].ch.anchorType
-        }));
-        group.forEach((g, i) => {
-          g.ch.charIndex = targets[i].charIndex;
-          g.ch.anchorType = targets[i].anchorType;
-        });
-      });
-    }
+    getEditorMutationService()?.removeAndReverse(edCur);
     edRenderEditor(true);
     edSaveSong();
     toast('ستاره‌ها حذف و آکوردها برعکس شدند');
@@ -5644,34 +5517,20 @@ if (
   !(edCur && edCur.editorLocked)
 ) {
   e.preventDefault();
-
-  edSelectedChords.forEach(idx => {
-    const ch = edCur.chords[idx];
-    if (!ch) return;
-
-    const lineEl = $('editor')?.children[ch.lineIndex];
-    if (!lineEl) return;
-
-    const textLen = lineEl.textContent.replace(/\u200B/g,'').length;
-    const isRTL = window.getComputedStyle(lineEl).direction === 'rtl';
-
-    if (e.code === 'ArrowRight') {
-      ch.charIndex = isRTL
-        ? Math.max(0, ch.charIndex - 1)
-        : Math.min(textLen, ch.charIndex + 1);
-    } else {
-      ch.charIndex = isRTL
-        ? Math.min(textLen, ch.charIndex + 1)
-        : Math.max(0, ch.charIndex - 1);
-    }
-
-    if (ch.charIndex <= 0) ch.anchorType = 'LineStart';
-    else if (ch.charIndex >= textLen) ch.anchorType = 'LineEnd';
-    else ch.anchorType = 'OnCharacter';
-  });
-
-  edRenderChords();
-  edCommit();
+  const direction = e.code === 'ArrowRight' ? 'right' : 'left';
+  const mutation = getEditorMutationService();
+  const changed = mutation?.moveChords(
+    edCur,
+    edSelectedChords,
+    direction,
+    lineIndex => $('editor')?.children[lineIndex]?.textContent
+      ?.replace(/\u200B/g, '').length || 0,
+    false
+  )?.changed;
+  if (changed) {
+    edRenderChords();
+    edCommit();
+  }
 }
 
 
@@ -5684,14 +5543,15 @@ if (
   !(edCur && edCur.editorLocked)
 ) {
   e.preventDefault();
-
-  edSelectedChords
-    .sort((a,b) => b-a)
-    .forEach(i => edRemoveChordAt(i));
-
-  edClearChordSelection();
-  edRenderChords();
-  edCommit();
+  const deleted = getEditorMutationService()?.deleteChords(
+    edCur,
+    edSelectedChords
+  )?.changed;
+  if (deleted) {
+    edClearChordSelection();
+    edRenderChords();
+    edCommit();
+  }
 }
 
     });
