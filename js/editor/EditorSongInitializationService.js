@@ -230,6 +230,8 @@
     syncToolbar,
     renderEditor,
     resetHistory,
+    deactivateHistory,
+    activateHistory,
     renderAll,
     saveState,
     initHighlightEffect,
@@ -238,6 +240,9 @@
     toast,
     logger = console
   } = {}) {
+    // Hydration is a transaction: history must not observe half-restored state.
+    deactivateHistory?.();
+
     const saved = storage?.getItem?.(storageKey);
     if (saved) {
       try {
@@ -294,14 +299,19 @@
     syncToolbar?.();
     renderEditor?.(true);
     renderAll?.();
-    saveState?.();
     initHighlightEffect?.();
     rebuildSongDocument?.(song);
     syncViewStyles?.(song);
+    activateHistory?.();
+    saveState?.();
     return song;
   }
 
-  const service = Object.freeze({ initialize, restoreAudio });
+  const service = Object.freeze({
+    initialize,
+    initializeEditor: initialize,
+    restoreAudio
+  });
   globalScope.EditorSongInitializationService = service;
 
   if (typeof module !== 'undefined' && module.exports) {

@@ -2952,7 +2952,10 @@ function edBlankSong() {
     function getEditorSongInitializationService() {
       if (
         !edSongInitializationService &&
-        typeof window.EditorSongInitializationService?.initialize === 'function'
+        (
+          typeof window.EditorSongInitializationService?.initializeEditor === 'function' ||
+          typeof window.EditorSongInitializationService?.initialize === 'function'
+        )
       ) {
         edSongInitializationService = window.EditorSongInitializationService;
       }
@@ -2960,7 +2963,10 @@ function edBlankSong() {
     }
 
     async function edInitSong() {
-      return getEditorSongInitializationService()?.initialize?.({
+      const initializationService = getEditorSongInitializationService();
+      const initializeEditor = initializationService?.initializeEditor
+        || initializationService?.initialize;
+      return initializeEditor?.({
         storage: localStorage,
         getSong: getCurrentEditorSong,
         setSong: setEditorSong,
@@ -2990,6 +2996,8 @@ function edBlankSong() {
         syncToolbar: edSyncToolbar,
         renderEditor: edRenderEditor,
         resetHistory,
+        deactivateHistory,
+        activateHistory,
         renderAll,
         saveState,
         initHighlightEffect,
@@ -6002,6 +6010,12 @@ if ($('edDoBoth')) {
         _mirrorSyncRAF = requestAnimationFrame(loop);
     }
 
+    // History must be attached before lifecycle initialization. The service
+    // remains disabled until hydration has completed and explicitly activates.
+    if (typeof attachHistoryService === 'function') {
+      attachHistoryService();
+    }
+
     window.EditorLifecycleService?.initialize?.({
       initDAW: init,
       initSong: edInitSong,
@@ -6198,10 +6212,3 @@ function getClipFilePath(clip, projectFilePath = null) {
 if (typeof window !== 'undefined') {
   window.getClipFilePath = getClipFilePath;
 }
-
-// core.js defines the bridge, while editor.js owns the editor callbacks and
-// state it injects. Attach only after both scripts have finished evaluating.
-if (typeof attachHistoryService === 'function') {
-  attachHistoryService();
-}
-

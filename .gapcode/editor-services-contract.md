@@ -54,7 +54,7 @@ EdCurAdapter.syncViewStyles()       // void
 ### `EditorSongInitializationService`
 
 ```js
-await EditorSongInitializationService.initialize({
+await EditorSongInitializationService.initializeEditor({
   getSong: () => Song | null,
   setSong: song => void,
   blankSong: () => Song,
@@ -64,6 +64,8 @@ await EditorSongInitializationService.initialize({
   syncToolbar: () => void,
   renderEditor: force => void,
   resetHistory: () => void,
+  deactivateHistory: () => boolean,
+  activateHistory: () => boolean,
   renderAll: () => void,
   saveState: () => void,
   rebuildSongDocument: song => void,
@@ -71,8 +73,20 @@ await EditorSongInitializationService.initialize({
 }) // Song
 ```
 
-سرویس lifecycle مالک state نیست؛ state را از callbackها می‌گیرد و در پایان
-آهنگ نهایی را برمی‌گرداند.
+`initialize` همچنان alias سازگار با نسخه‌های قبلی است. سرویس lifecycle مالک state
+نیست؛ state را از callbackها می‌گیرد و در پایان آهنگ نهایی را برمی‌گرداند.
+ترتیب اتمیک آن چنین است:
+
+```text
+deactivateHistory
+→ restore/hydrate audio and song
+→ render and rebuild derived documents
+→ activateHistory
+→ saveState (initial snapshot)
+```
+
+در طول restore و hydration نباید history یا autosave به state نیمه‌کاره دسترسی
+داشته باشد.
 
 ### `EditorCommitService`
 
@@ -86,13 +100,22 @@ const result = service.commit() // boolean
 ### `HistoryService`
 
 ```js
-history.init(context)             // void
+history.init(context)             // boolean; context ready, history disabled
+history.activate()                // boolean
+history.deactivate()              // boolean
+history.isHistoryContextReady()   // boolean
+history.isEnabled()               // boolean
+history.serializeState()          // string | null
 history.saveState()               // boolean
 history.applyState(serialized)    // boolean
 history.undo()                    // boolean
 history.redo()                    // boolean
 history.reset()                   // void
 ```
+
+`saveState`، `applyState`، `undo` و `redo` در context ناقص، قبل از فعال‌سازی
+یا بدون song معتبر باید بدون exception مقدار `false` برگردانند. `serializeState`
+در همین شرایط `null` برمی‌گرداند.
 
 ## قرارداد mutation و UI projection
 

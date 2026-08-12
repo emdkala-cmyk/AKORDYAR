@@ -989,12 +989,14 @@ function requireEditorSongRuntimeService() {
 
 function attachHistoryService() {
   if (window.__historyAttached) return;
-  window.__historyAttached = true;
-  requireHistoryService().init({
+  const historyService = requireHistoryService();
+  historyService.init({
     getDAW: () => getEditorDAW(),
     getPERF: () => getEditorPERF(),
     getEdCur: () => requireEditorSongStateService().currentSong(),
+    getSong: () => requireEditorSongStateService().currentSong(),
     setEdCur: (v) => setEditorSong(v),
+    setSong: (v) => setEditorSong(v),
     repairSong: (song) => window.TextEncodingService?.repairSong?.(song) || song,
     getEdSeqPoints: () => edSeqPoints,
     setEdSeqPoints: (v) => { edSeqPoints = v; },
@@ -1018,8 +1020,11 @@ function attachHistoryService() {
     edFlushPendingCommit,
     edCommitTimerRef: () => edCommitTimer,
     toast,
-    t
+    t,
+    logger: console
   });
+  window.__historyAttached = true;
+  return historyService;
 }
 
 function getHistoryService() {
@@ -1027,7 +1032,15 @@ function getHistoryService() {
 }
 
 function resetHistory() {
-  getHistoryService().reset();
+  return getHistoryService().reset();
+}
+
+function activateHistory() {
+  return getHistoryService().activate();
+}
+
+function deactivateHistory() {
+  return getHistoryService().deactivate();
 }
 
 function historyLength() {
