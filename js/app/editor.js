@@ -160,20 +160,23 @@ let edSelectedChords = [];
 
       const clonedSong = JSON.parse(JSON.stringify(song));
       setEditorSong(window.TextEncodingService?.repairSong?.(clonedSong) || clonedSong);
-      // اگر lyrics خالیه ولی rawText داریم، parse کن
-      if (typeof ensureSongParsed === 'function') ensureSongParsed(edCur);
-      if (!edCur.styles) edCur.styles = {};
-      const defaults = { tSize:23,tColor:'#0fa966',tFont:'Vazirmatn',tBold:true,align:'center',cSize:23,cColor:'#e6aa28',cFont:'JetBrains Mono' };
-      Object.keys(defaults).forEach(k => { if (edCur.styles[k] === undefined) edCur.styles[k] = defaults[k]; });
-
-      if (edCur._dawTracks) getEditorDAW().tracks = JSON.parse(JSON.stringify(edCur._dawTracks));
-      if (edCur._dawClips) getEditorDAW().clips = JSON.parse(JSON.stringify(edCur._dawClips));
-      if (edCur._dawSections) getEditorDAW().sections = JSON.parse(JSON.stringify(edCur._dawSections)); else getEditorDAW().sections = [];
-      updateNextIdFromClips();
-      const _oldSec = getEditorDAW().clips.filter(c => c.type === 'section');
-      if (_oldSec.length) { _oldSec.forEach(c => { getEditorDAW().sections.push({ id: c.id, trackId: c.trackId, label: c.name, start: c.start, duration: c.duration, color: c.color }); }); getEditorDAW().clips = getEditorDAW().clips.filter(c => c.type !== 'section'); }
-      if (edCur._dawLoop) { getEditorDAW().loopEnabled = !!edCur._dawLoop.loopEnabled; getEditorDAW().loopA = edCur._dawLoop.loopA || 0; getEditorDAW().loopB = edCur._dawLoop.loopB || 10; }
-      selectionEnd = (getEditorDAW().loopA < getEditorDAW().loopB) ? getEditorDAW().loopB : 0;
+      window.EditorHydrationService.hydrateSong(edCur, {
+        daw: getEditorDAW(),
+        ensureSongParsed,
+        styleDefaults: {
+          tSize: 23, tColor: '#0fa966', tFont: 'Vazirmatn', tBold: true,
+          align: 'center', cSize: 23, cColor: '#e6aa28',
+          cFont: 'JetBrains Mono'
+        },
+        cloneTracks: true,
+        cloneClips: true,
+        cloneSections: true,
+        sectionsFallbackEmpty: true,
+        updateNextIdFromClips
+      });
+      selectionEnd = (getEditorDAW().loopA < getEditorDAW().loopB)
+        ? getEditorDAW().loopB
+        : 0;
 
       // Apply per-song transpose
       const setting = getArrItemSetting(arr, song.id);
@@ -3092,43 +3095,19 @@ function edBlankSong() {
         }
       }
       if (!edCur) setEditorSong(edBlankSong());
-      if (!edCur.styles) edCur.styles = {};
-      if (!edCur.lineColors) edCur.lineColors = [];
-      if (!edCur.chordVersions) edCur.chordVersions = [];
-      if (edCur.activeChordVersion === undefined) edCur.activeChordVersion = 0;
-      // Restore editor lock state
-      if (edCur.editorLocked) {
-        const editor = $('editor');
-        if (editor) editor.contentEditable = 'false';
-        const lockBtn = $('edEditorLockBtn');
-        if (lockBtn) lockBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>';
-      }
-      const defaults = { tSize:38,tColor:'#0fa966',tFont:'Vazirmatn',tBold:true,align:'center', cSize:38,cColor:'#e6aa28',cFont:'JetBrains Mono' };
-      Object.keys(defaults).forEach(k => { if (edCur.styles[k] === undefined) edCur.styles[k] = defaults[k]; });
-      if (edCur._dawTracks) {
-        getEditorDAW().tracks = edCur._dawTracks;
-        ensureAudioCtx();
-        getEditorDAW().tracks.forEach(t => {
-          if (t.type === 'audio') {
-            t._pannerNode = getEditorDAW().audioCtx.createStereoPanner();
-            t._gainNode = getEditorDAW().audioCtx.createGain();
-            t._pannerNode.connect(t._gainNode);
-            t._gainNode.connect(getEditorDAW().masterGain);
-            updateTrackMix(t.id);
-          }
-        });
-      }
-      if (edCur._dawClips) getEditorDAW().clips = edCur._dawClips;
-      if (edCur._dawSections) getEditorDAW().sections = JSON.parse(JSON.stringify(edCur._dawSections));
-      updateNextIdFromClips();
-      // Migrate any old section clips from getEditorDAW().clips to getEditorDAW().sections
-      const oldSections = getEditorDAW().clips.filter(c => c.type === 'section');
-      if (oldSections.length > 0) {
-        oldSections.forEach(c => { getEditorDAW().sections.push({ id: c.id, trackId: c.trackId, label: c.name, start: c.start, duration: c.duration, color: c.color }); });
-        getEditorDAW().clips = getEditorDAW().clips.filter(c => c.type !== 'section');
-      }
-      // Restore loop state
-      if (edCur._dawLoop) { getEditorDAW().loopEnabled = !!edCur._dawLoop.loopEnabled; getEditorDAW().loopA = edCur._dawLoop.loopA || 0; getEditorDAW().loopB = edCur._dawLoop.loopB || 10; }
+      window.EditorHydrationService.hydrateSong(edCur, {
+        documentRef: document,
+        daw: getEditorDAW(),
+        styleDefaults: {
+          tSize: 38, tColor: '#0fa966', tFont: 'Vazirmatn', tBold: true,
+          align: 'center', cSize: 38, cColor: '#e6aa28',
+          cFont: 'JetBrains Mono'
+        },
+        updateNextIdFromClips,
+        ensureAudioCtx,
+        updateTrackMix,
+        initializeAudioTracks: true
+      });
       // Restore audio blobs from IndexedDB
       try {
         await loadAudioBlobsForProject(edCur.id);

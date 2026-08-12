@@ -51,6 +51,10 @@ assert.ok(
     scriptIndex('js/app/core.js')
 );
 assert.ok(
+  scriptIndex('js/editor/EditorHydrationService.js') <
+    scriptIndex('js/app/editor.js')
+);
+assert.ok(
   scriptIndex('js/editor/SyncModeController.js') <
     scriptIndex('js/app/core.js')
 );
