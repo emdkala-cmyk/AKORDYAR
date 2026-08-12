@@ -4377,51 +4377,38 @@ function edBlankSong() {
       return transpose && name ? edTransposeChord(name, -transpose) : (name || '');
     }
 
+    let edChordStateService = null;
+    function getEditorChordStateService() {
+      if (
+        !edChordStateService &&
+        typeof window.EditorChordStateService?.create === 'function'
+      ) {
+        edChordStateService = window.EditorChordStateService.create({
+          baseNameFromDisplayed: (name, song) => {
+            const transpose = Number(song?.transpose) || 0;
+            return transpose && name
+              ? edTransposeChord(name, -transpose)
+              : (name || '');
+          }
+        });
+      }
+      return edChordStateService;
+    }
+
     function edSyncBaseChordName(index) {
-      if (!edCur || !edCur.chords[index]) return;
-      if (!Array.isArray(edCur.baseChordNames)) edCur.baseChordNames = [];
-      edCur.baseChordNames[index] = edBaseNameFromDisplayed(edCur.chords[index].name);
+      getEditorChordStateService()?.syncBaseChordName(edCur, index);
     }
 
     function edRemoveChordAt(index) {
-      if (!edCur || index < 0 || index >= edCur.chords.length) return;
-      edCur.chords.splice(index, 1);
-      if (Array.isArray(edCur.baseChordNames)) edCur.baseChordNames.splice(index, 1);
+      getEditorChordStateService()?.removeChordAt(edCur, index);
     }
 
     function edFilterChordsWithBase(predicate) {
-      if (!edCur || !Array.isArray(edCur.chords)) return;
-      const baseNames = Array.isArray(edCur.baseChordNames) ? edCur.baseChordNames : [];
-      const nextChords = [];
-      const nextBaseNames = [];
-      edCur.chords.forEach((chord, index) => {
-        if (!predicate(chord, index)) return;
-        nextChords.push(chord);
-        const baseName = baseNames[index];
-        nextBaseNames.push(
-          typeof baseName === 'string' && (baseName.trim() || !chord?.name)
-            ? baseName
-            : edBaseNameFromDisplayed(chord?.name || '')
-        );
-      });
-      edCur.chords = nextChords;
-      edCur.baseChordNames = nextBaseNames;
+      getEditorChordStateService()?.filterChordsWithBase(edCur, predicate);
     }
 
     function edEnsureBaseChordNamesAligned() {
-      if (!edCur) return [];
-      const chords = Array.isArray(edCur.chords) ? edCur.chords : [];
-      if (!Array.isArray(edCur.baseChordNames)) edCur.baseChordNames = [];
-      if (edCur.baseChordNames.length > chords.length) {
-        edCur.baseChordNames.splice(chords.length);
-      }
-      chords.forEach((ch, index) => {
-        const baseName = edCur.baseChordNames[index];
-        if (typeof baseName !== 'string' || ((ch?.name || '') && !baseName.trim())) {
-          edCur.baseChordNames[index] = edBaseNameFromDisplayed(ch?.name || '');
-        }
-      });
-      return edCur.baseChordNames;
+      return getEditorChordStateService()?.ensureBaseChordNamesAligned(edCur) || [];
     }
 
     // ===== دیز/بمل/خودکار selector =====

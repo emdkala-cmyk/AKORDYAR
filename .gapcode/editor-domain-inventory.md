@@ -21,6 +21,7 @@
 | history | `js/editor/HistoryService.js` | موجود؛ autosave bridge تثبیت شده |
 | notation | `js/editor/EditorNotationService.js` | استخراج‌شده؛ delegation به `TransposeService` |
 | chord renderer | `js/editor/EditorChordRenderer.js` | استخراج‌شده؛ projection callbackمحور با حفظ wrapper legacy |
+| chord state | `js/editor/EditorChordStateService.js` | استخراج‌شده؛ mutationهای deterministic برای chords/base names |
 | lifecycle | `js/editor/EditorLifecycleService.js` | استخراج‌شده |
 | hydration/restore | `js/editor/EditorHydrationService.js` | استخراج‌شده؛ ۱۷۵ خط |
 | event binding | `js/core/EventBindings.js` | استخراج‌شده و برای action/form contract تست دارد |
@@ -30,7 +31,7 @@
 | فایل | خطوط | مرز فعلی |
 |---|---:|---|
 | `js/app/core.js` | ۵٬۸۱۲ | DAW/runtime glue، timeline، transport و compatibility wrapperها |
-| `js/app/editor.js` | ۶٬۶۶۹ | render/editor commandها، audio restore و legacy UI glue |
+| `js/app/editor.js` | ۶٬۶۵۶ | render/editor commandها، audio restore و legacy UI glue |
 | `js/app/search.js` | ۱۹۵ | quick search؛ نتیجهٔ داینامیک با `data-command` |
 
 ### extraction بعدی با ریسک کنترل‌شده
