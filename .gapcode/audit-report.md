@@ -33,18 +33,19 @@
 |---|---:|
 | `js/app.js` | ۱۱۶ خط |
 | `js/app/core.js` | ۵٬۸۶۳ خط |
-| `js/app/editor.js` | ۶٬۷۵۰ خط |
+| `js/app/editor.js` | ۶٬۷۶۸ خط |
 | `js/app/print.js` | ۱۹۷ خط |
 | `js/app/search.js` | ۱۹۵ خط |
 | `js/editor/EditorAnchorService.js` | ۱۹۷ خط |
 | `js/editor/EditorSelectionService.js` | ۶۱ خط |
 | `js/editor/EditorChordDragService.js` | ۱۱۶ خط |
 | `js/editor/EditorTextSelectionService.js` | ۱۰۷ خط |
+| `js/editor/EditorChordCommandService.js` | ۷۲ خط |
 | `js/editor/EditorChordRenderer.js` | ۱۵۶ خط |
 | `js/editor/EditorChordStateService.js` | ۸۵ خط |
 | `js/editor/EditorHydrationService.js` | ۱۷۵ خط |
 | `js/editor/EditorLifecycleService.js` | ۱۰۴ خط |
-| تست‌های `npm test` | ۳۶ ورودی موفق |
+| تست‌های `npm test` | ۳۷ ورودی موفق |
 | inline attribute در مسیرهای برنامه | صفر |
 
 ### قراردادهای تثبیت‌شده
@@ -57,6 +58,7 @@
 6. state انتخاب آکورد از مسیر `EditorSelectionService` عبور می‌کند و wrapperهای legacy حفظ شده‌اند.
 7. محاسبات مقصد drag از مسیر `EditorChordDragService` عبور می‌کند و mutation سند در editor باقی مانده است.
 8. ساخت و restore Range انتخاب متن از مسیر `EditorTextSelectionService` عبور می‌کند.
+9. نرمال‌سازی، parse و mutation نام آکورد از مسیر `EditorChordCommandService` عبور می‌کند؛ orchestration مودال در editor باقی است.
 
 ### بدهی‌های قابل پیگیری
 

@@ -26,6 +26,7 @@
 | selection state | `js/editor/EditorSelectionService.js` | استخراج‌شده؛ انتخاب، toggle، clear و projection کلاس selected |
 | drag geometry | `js/editor/EditorChordDragService.js` | استخراج‌شده؛ nearest character، anchor normalization و انتخاب anchor مرجع |
 | text selection restore | `js/editor/EditorTextSelectionService.js` | استخراج‌شده؛ mapping offset به Range و restore Selection |
+| chord commands | `js/editor/EditorChordCommandService.js` | استخراج‌شده؛ نرمال‌سازی، parse و mutation نام آکورد با callback نام پایه |
 | lifecycle | `js/editor/EditorLifecycleService.js` | استخراج‌شده |
 | hydration/restore | `js/editor/EditorHydrationService.js` | استخراج‌شده؛ ۱۷۵ خط |
 | event binding | `js/core/EventBindings.js` | استخراج‌شده و برای action/form contract تست دارد |
@@ -35,15 +36,14 @@
 | فایل | خطوط | مرز فعلی |
 |---|---:|---|
 | `js/app/core.js` | ۵٬۸۶۳ | DAW/runtime glue، timeline، transport و compatibility wrapperها |
-| `js/app/editor.js` | ۶٬۷۵۰ | render/editor commandها، audio restore و legacy UI glue؛ selection، drag و text restore از مسیر سرویس |
+| `js/app/editor.js` | ۶٬۷۶۸ | render/editor commandها، audio restore و legacy UI glue؛ selection، drag، text restore و chord command از مسیر سرویس |
 | `js/app/search.js` | ۱۹۵ | quick search؛ نتیجهٔ داینامیک با `data-command` |
 
 ### extraction بعدی با ریسک کنترل‌شده
 
-1. `EditorSelectionService`: تکمیل مرز commit و chord modal.
-2. `EditorAudioRestoreService`: مسیرهای restore صدا از editor، با حفظ `EditorRuntimeAdapter`.
-3. `TimelineController`: commandهای DAW و render loop با تست load-order.
-4. `LyricPopupController`: پاپ‌اپ‌های lyric/chord line پس از تثبیت مرزهای state.
+1. `EditorAudioRestoreService`: مسیرهای restore صدا از editor، با حفظ `EditorRuntimeAdapter`.
+2. `TimelineController`: commandهای DAW و render loop با تست load-order.
+3. `LyricPopupController`: پاپ‌اپ‌های lyric/chord line پس از تثبیت مرزهای state.
 
 هر مرحله باید قبل از جابه‌جایی، contract test و regression کامل داشته باشد؛ ترتیب scriptهای `Akordyar.html` بدون عبور تست load-order تغییر نمی‌کند.
 
