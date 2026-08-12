@@ -144,6 +144,32 @@ await service.buildBundle({
 سرویس نباید song اصلی را با فیلدهای export mutate کند؛ bundle روی clone ساخته
 می‌شود.
 
+### `EditorSongImportService`
+
+```js
+const service = EditorSongImportService.create({
+  getSong: () => Song | null,
+  setSong: song => void,
+  createBlankSong: () => Song,
+  isValidNote: note => boolean
+});
+
+service.applyParsedResult({
+  lyrics,
+  chords,
+  title,
+  artist,
+  key,
+  keyMode,
+  timeSignature
+}) // { song, chordCount, title } | null
+```
+
+این سرویس mutation دامنه‌ی import را انجام می‌دهد: metadata، lyrics، chords،
+کلید اصلی، transpose، `baseChordNames` و state مستقل chord-line. حذف clipهای
+chord از DAW، save، render و بستن modal جزو orchestration UI هستند و نباید در
+سرویس قرار بگیرند.
+
 ### `EditorCommitService`
 
 ```js

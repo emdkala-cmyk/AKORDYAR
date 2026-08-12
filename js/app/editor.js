@@ -49,6 +49,22 @@ function getEditorProjectExportService() {
   return edProjectExportService;
 }
 
+let edSongImportService = null;
+function getEditorSongImportService() {
+  if (
+    !edSongImportService &&
+    typeof window.EditorSongImportService?.create === 'function'
+  ) {
+    edSongImportService = window.EditorSongImportService.create({
+      getSong: getCurrentEditorSong,
+      setSong: song => setEditorSong(song),
+      createBlankSong: edBlankSong,
+      isValidNote: note => typeof etIsValidNote !== 'function' || etIsValidNote(note)
+    });
+  }
+  return edSongImportService;
+}
+
     /**
      * همگام‌سازی UI بعد از تغییر آهنگ — فراخوانی مشترک بین loadArrSong و hotSwapToNextSong
      */
@@ -2331,31 +2347,11 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
         }
       }
 
-      // --- Apply parsed result to edCur (no post-parse mutations) ---
-      if (!edCur) setEditorSong(edBlankSong());
-      edCur.lyrics = parsedResult.lyrics;
-      edCur.chords = parsedResult.chords;
-
-      // --- Apply metadata ---
-      if (parsedResult.title) edCur.title = parsedResult.title;
-      if (parsedResult.artist) edCur.artist = parsedResult.artist;
-      if (parsedResult.key) {
-        const cleanKey = parsedResult.key.replace('m', '');
-        if (typeof etIsValidNote === 'function' && etIsValidNote(cleanKey)) edCur.key = cleanKey;
-        if (parsedResult.keyMode === 'min') edCur.keyMode = 'min';
+      const imported = getEditorSongImportService()?.applyParsedResult(parsedResult);
+      if (!imported) {
+        toast('ترانه‌ای باز نیست');
+        return;
       }
-      if (parsedResult.timeSignature) edCur.timeSignature = parsedResult.timeSignature;
-
-      // --- Set originalKey as source of truth (Bug 2 fix) ---
-      // The imported key IS the original key. Never fall back to a wrong default.
-      edCur.originalKey = edCur.key || 'C';
-      edCur.originalKeyMode = edCur.keyMode || 'maj';
-      edCur.transpose = 0;
-      // Initialize baseChordNames from imported chords (original names, no positions)
-      edCur.baseChordNames = (edCur.chords || []).map(ch => ch.name || '');
-      // Initialize chordLineClips for independent Chord Line state (Bug fix: prevent auto-overwrite from Lyrics)
-      if (!edCur.chordLineClips) edCur.chordLineClips = [];
-      if (!edCur.hasManualChordLineEdits) edCur.hasManualChordLineEdits = false;
 
       getEditorDAW().clips = getEditorDAW().clips.filter(c => c.type !== 'chord');
 
@@ -2365,7 +2361,7 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
       edSaveSong();
       renderAll();
       closeImportChordModal();
-      toast('ترانه با ' + edCur.chords.length + ' آکورد وارد شد: ' + (parsedResult.title || 'بدون نام'));
+      toast('ترانه با ' + imported.chordCount + ' آکورد وارد شد: ' + (imported.title || 'بدون نام'));
     }
 
     function openShortcutModal() {
