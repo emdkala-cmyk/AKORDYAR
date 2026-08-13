@@ -144,11 +144,23 @@ function createSyncHub(httpServer, options = {}) {
         lastSnapshot = Object.assign({}, lastSnapshot, { doc: message.p.doc, keyState: message.p.keyState });
       } else if (type === Protocol.MSG.HIGHLIGHT) {
         lastSnapshot = Object.assign({}, lastSnapshot, { highlight: message.p });
+      } else if (type === Protocol.MSG.PLAYHEAD) {
+        lastSnapshot = Object.assign({}, lastSnapshot, { playback: message.p });
       } else if (type === Protocol.MSG.VIEW) {
         lastSnapshot = Object.assign({}, lastSnapshot, { view: message.p.view });
       }
       broadcast(type, message.p, message.m);
     }
+  }
+
+  function handleSlaveMessage(peer, message) {
+    if (message.t !== Protocol.MSG.SEEK_REQUEST &&
+        message.t !== Protocol.MSG.TRANSPORT_REQUEST) {
+      return;
+    }
+    if (!masterId || !peers.has(masterId)) return;
+    const master = peers.get(masterId);
+    send(master.ws, message.t, message.p, message.m);
   }
 
   function handlePong(peer) {
@@ -186,6 +198,14 @@ function createSyncHub(httpServer, options = {}) {
             return;
           }
           handleMasterMessage(peer, message);
+          break;
+        case Protocol.MSG.SEEK_REQUEST:
+        case Protocol.MSG.TRANSPORT_REQUEST:
+          if (peer.role !== Protocol.ROLE.SLAVE) {
+            send(ws, 'welcome', { ok: false, error: Protocol.ERROR_CODE.FORBIDDEN });
+            return;
+          }
+          handleSlaveMessage(peer, message);
           break;
         default:
           // پیام‌های دیگر نادیده گرفته شوند

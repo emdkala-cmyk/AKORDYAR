@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <meta name="theme-color" content="#000000" />
+  <meta name="theme-color" content="#0F131E" />
   <title>Akordyar — نمای نوازنده (گوشی)</title>
   <link rel="stylesheet" href="fonts/Vazirmatn.css" />
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body { height: 100%; min-height: 100%; background: #000000 !important; color: #E2E8F0; font-family: 'Vazirmatn', sans-serif; overflow: hidden; }
+    html, body { height: 100%; min-height: 100%; background: #0F131E !important; color: #E2E8F0; font-family: 'Vazirmatn', sans-serif; overflow: hidden; }
     body { margin: 0; }
-    #pv-container { width: 100%; height: 100vh; overflow-y: auto; background: #000000 !important; color: #E2E8F0; }
+    #pv-container { width: 100%; height: 100vh; overflow-y: auto; background: #0F131E !important; color: #E2E8F0; }
     #status-bar {
       position: fixed; top: 0; left: 0; right: 0; z-index: 50;
       display: flex; align-items: center; justify-content: space-between;
@@ -21,18 +21,29 @@
     #status-dot { width: 9px; height: 9px; border-radius: 50%; background: #fbbf24; display: inline-block; margin-left: 6px; }
     #status-dot.on { background: #4ade80; }
     #status-dot.off { background: #f87171; }
-    #settings-btn { background: rgba(0,242,254,0.15); border: 1px solid rgba(0,242,254,0.4); color: #00F2FE; border-radius: 8px; padding: 4px 10px; font-family: inherit; cursor: pointer; }
+    #settings-btn { background: rgba(0,242,254,0.15); border: 1px solid rgba(0,242,254,0.4); color: #00F2FE; border-radius: 8px; padding: 7px 11px; font-family: inherit; cursor: pointer; }
     #settings-panel {
-      position: fixed; top: 40px; left: 0; right: 0; z-index: 60;
+      position: fixed; top: 48px; right: 10px; left: 10px; z-index: 60;
       background: rgba(15,19,30,0.98); border-bottom: 1px solid rgba(0,242,254,0.3);
-      padding: 14px; display: none; font-size: 13px;
+      padding: 14px; display: none; font-size: 13px; border: 1px solid rgba(0,242,254,0.3);
+      border-radius: 14px; box-shadow: 0 14px 35px rgba(0,0,0,0.45);
     }
     #settings-panel.open { display: block; }
-    .row { display: flex; align-items: center; justify-content: space-between; margin: 8px 0; }
+    .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 10px 0; }
     .row label { color: #94a3b8; }
-    .row input[type=range] { width: 55%; }
-    .row input[type=color] { width: 42px; height: 28px; border: none; background: none; }
-    .row select { background: #1e293b; color: #E2E8F0; border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; padding: 3px 6px; font-family: inherit; }
+    .row input[type=range] { width: 62%; accent-color: #00F2FE; }
+    .switch { width: 42px; height: 24px; accent-color: #00F2FE; }
+    #timeline-bar {
+      position: fixed; right: 0; bottom: 0; left: 0; z-index: 55;
+      padding: 8px 12px 10px; color: #A0AEC0;
+      background: linear-gradient(180deg, rgba(22,27,38,0.92), rgba(15,19,30,0.98));
+      border-top: 1px solid #232B3E; box-shadow: 0 -5px 18px rgba(0,0,0,0.3);
+    }
+    #timeline-controls { display: flex; align-items: center; gap: 8px; }
+    #timeline-controls button { min-width: 34px; height: 30px; border: 1px solid #303B52; border-radius: 8px; background: #161B26; color: #E2E8F0; font-size: 16px; }
+    #timeline-range { flex: 1; accent-color: #00F2FE; }
+    #timeline-time { min-width: 74px; direction: ltr; text-align: center; font: 11px monospace; color: #00F2FE; }
+    #timeline-progress { width: 100%; accent-color: #00F2FE; height: 5px; }
     .hint { text-align: center; color: #64748b; margin-top: 20vh; font-size: 14px; padding: 0 20px; }
   </style>
 </head>
@@ -44,51 +55,35 @@
 
   <div id="settings-panel">
     <div class="row">
-      <label>اندازه فونت</label>
-    <input id="set-fontSize" type="range" min="14" max="48" step="1" value="20" />
-    </div>
-    <div class="row">
-      <label>فونت</label>
-      <select id="set-fontFamily">
-        <option value="Vazirmatn">وزیرمتن</option>
-        <option value="JetBrains Mono">JetBrains Mono</option>
-        <option value="sans-serif">ساده</option>
-      </select>
-    </div>
-    <div class="row">
-      <label>رنگ متن</label>
-      <input id="set-textColor" type="color" value="#E2E8F0" />
-    </div>
-    <div class="row">
-      <label>رنگ آکورد</label>
-      <input id="set-chordColor" type="color" value="#00F2FE" />
-    </div>
-    <div class="row">
-      <label>رنگ هایلایت</label>
-      <input id="set-highlightColor" type="color" value="#FF2E93" />
-    </div>
-    <div class="row">
-      <label>زوم</label>
-      <input id="set-scale" type="range" min="0.7" max="1.6" step="0.05" value="1" />
+      <label>اندازه متن و آکورد</label>
+      <input id="set-fontSize" type="range" min="14" max="42" step="1" value="20" />
     </div>
     <div class="row">
       <label>نمایش آکوردها</label>
-      <input id="set-showChords" type="checkbox" checked />
+      <input id="set-showChords" class="switch" type="checkbox" checked />
     </div>
   </div>
 
   <div id="pv-container">
     <div class="hint" id="hint">منتظر اتصال به لپتاپ...<br/>وقتی آهنگ پخش شود، اینجا نمایش داده میشود.</div>
   </div>
+  <div id="timeline-bar">
+    <div id="timeline-controls">
+      <button id="timeline-stop" type="button" title="توقف">■</button>
+      <button id="timeline-play" type="button" title="پخش">▶</button>
+      <input id="timeline-range" type="range" min="0" max="0" step="0.01" value="0" />
+      <span id="timeline-time">00:00 / 00:00</span>
+    </div>
+  </div>
 
   <div id="debug-log" style="position:fixed;bottom:0;left:0;right:0;z-index:70;max-height:30vh;overflow-y:auto;background:rgba(0,0,0,0.85);color:#0f0;font:11px monospace;padding:4px 8px;display:none;border-top:1px solid #0f0;"></div>
 
   <!-- پروتکل مشترک -->
-  <script src="js/sync/protocol.js"></script>
+  <script src="js/sync/protocol.js?v=20260813-8"></script>
   <!-- رندرر نوازنده (همان پنل F9 دسکتاپ) -->
-  <script src="js/playerViewRenderer.js?v=20260813-6"></script>
+  <script src="js/playerViewRenderer.js?v=20260813-8"></script>
   <!-- کلاینت گوشی -->
-  <script src="js/sync/mobileClient.js"></script>
+  <script src="js/sync/mobileClient.js?v=20260813-8"></script>
 
   <script>
     const container = document.getElementById('pv-container');
@@ -97,11 +92,33 @@
     const statusText = document.getElementById('status-text');
     const settingsBtn = document.getElementById('settings-btn');
     const settingsPanel = document.getElementById('settings-panel');
+    const timelineRange = document.getElementById('timeline-range');
+    const timelinePlay = document.getElementById('timeline-play');
+    const timelineStop = document.getElementById('timeline-stop');
+    const timelineTime = document.getElementById('timeline-time');
 
     function updateStatus(on) {
       dot.className = on ? 'on' : 'off';
       statusText.textContent = on ? 'متصل به لپتاپ' : 'قطع شد — در حال تلاش مجدد...';
     }
+
+    function formatTimelineTime(seconds) {
+      const value = Math.max(0, Number(seconds) || 0);
+      const mins = Math.floor(value / 60);
+      const secs = Math.floor(value % 60);
+      return String(mins).padStart(2, '0') + ':' + String(secs).padStart(2, '0');
+    }
+
+    function updatePlaybackUI(playback) {
+      const time = Math.max(0, Number(playback?.time) || 0);
+      const duration = Math.max(0, Number(playback?.duration) || 0);
+      timelineRange.max = String(duration);
+      timelineRange.value = String(Math.min(time, duration || time));
+      timelinePlay.textContent = playback?.isPlaying ? '❚❚' : '▶';
+      timelineTime.textContent =
+        formatTimelineTime(time) + ' / ' + formatTimelineTime(duration);
+    }
+    window.updatePlaybackUI = updatePlaybackUI;
 
     // ===== لاگ دیباگ (موقت) =====
     const debugLog = document.getElementById('debug-log');
@@ -136,16 +153,26 @@
     observer.observe(container, { childList: true, subtree: true });
 
     window.AkordMobileClient.init(container);
+    const initialMobileView = window.AkordMobileClient.getLocalView();
+    document.getElementById('set-fontSize').value =
+      String(initialMobileView.fontSize || 20);
+    document.getElementById('set-showChords').checked =
+      initialMobileView.showChords !== false;
 
     // ===== تنظیمات محلی گوشی (فقط روی این دستگاه) =====
-    settingsBtn.addEventListener('click', () => settingsPanel.classList.toggle('open'));
+    settingsBtn.addEventListener('click', (event) => {
+      event.stopPropagation();
+      settingsPanel.classList.toggle('open');
+    });
+    document.addEventListener('click', (event) => {
+      if (
+        settingsPanel.classList.contains('open') &&
+        !settingsPanel.contains(event.target) &&
+        event.target !== settingsBtn
+      ) settingsPanel.classList.remove('open');
+    });
     const map = {
       'set-fontSize': ['fontSize', v => parseInt(v, 10)],
-      'set-fontFamily': ['fontFamily', v => v],
-      'set-textColor': ['textColor', v => v],
-      'set-chordColor': ['chordColor', v => v],
-      'set-highlightColor': ['highlightColor', v => v],
-      'set-scale': ['scale', v => parseFloat(v)],
       'set-showChords': ['showChords', v => v.checked]
     };
     Object.keys(map).forEach(id => {
@@ -154,6 +181,18 @@
         const patch = {}; patch[key] = conv(e.target);
         window.AkordMobileClient.setLocalView(patch);
       });
+    });
+
+    timelinePlay.addEventListener('click', () => {
+      window.AkordMobileClient.requestTransport(
+        timelinePlay.textContent === '▶' ? 'play' : 'pause'
+      );
+    });
+    timelineStop.addEventListener('click', () => {
+      window.AkordMobileClient.requestTransport('stop');
+    });
+    timelineRange.addEventListener('input', () => {
+      window.AkordMobileClient.seek(parseFloat(timelineRange.value));
     });
   </script>
 </body>

@@ -35,6 +35,22 @@ function getCurrentSong() {
   return window.EdCurAdapter?.getEdCur?.() || null;
 }
 
+function getRuntimePlaybackDuration(daw) {
+  if (!daw) return 0;
+  let end = Number(daw.timelineDuration) || 0;
+  for (const clip of daw.clips || []) {
+    const start = Number(clip?.start) || 0;
+    const duration = Number(clip?.duration) || 0;
+    end = Math.max(end, start + duration);
+  }
+  for (const section of daw.sections || []) {
+    const start = Number(section?.start) || 0;
+    const duration = Number(section?.duration) || 0;
+    end = Math.max(end, start + duration);
+  }
+  return Math.max(0, end);
+}
+
 /* ═══════════════════════════════════════════════
    rebuildSongDocumentFromEdCur
    ═══════════════════════════════════════════════ */
@@ -152,7 +168,8 @@ function startPlaybackSync() {
       if (store && window.SharedEngine && _songDocument) {
         store.setPlaybackState({
           time: daw.playhead || 0,
-          isPlaying: !!daw.isPlaying
+          isPlaying: !!daw.isPlaying,
+          duration: getRuntimePlaybackDuration(daw)
         });
         const hl = window.SharedEngine.computeHighlight(
           store.getState().playbackState, _songDocument

@@ -105,6 +105,7 @@ const SongDocumentModel = (() => {
         id: '', title: '', artist: '',
         originalKey: 'C', currentKey: 'C', transpose: 0, mode: 'major',
         rawLyrics: '', rawChords: [],
+        styles: {},
         lines: [], sections: [], cues: []
       };
     }
@@ -138,6 +139,7 @@ const SongDocumentModel = (() => {
       mode:         ed.keyMode || 'major',
       rawLyrics:    rawLyrics,
       rawChords:    rawChords,
+      styles:       ed.styles || {},
       lines:        lines,
       sections:     [],
       cues:         cues,

@@ -81,7 +81,11 @@
         const store = getStore();
         if (!store) return;
         const pb = store.getState().playbackState;
-        send(Protocol.MSG.PLAYHEAD, { time: pb.time, isPlaying: pb.isPlaying });
+        send(Protocol.MSG.PLAYHEAD, {
+          time: pb.time,
+          isPlaying: pb.isPlaying,
+          duration: pb.duration || 0
+        });
       });
     }
 
@@ -180,6 +184,20 @@
           if (snap) send(Protocol.MSG.SNAPSHOT, snap);
         } else if (t === Protocol.MSG.PEER_JOIN) {
           onPeerJoin();
+        } else if (t === Protocol.MSG.SEEK_REQUEST) {
+          const time = Number(res.message.p && res.message.p.time);
+          if (Number.isFinite(time) && typeof globalScope.seekTransport === 'function') {
+            globalScope.seekTransport(time, false, true);
+          }
+        } else if (t === Protocol.MSG.TRANSPORT_REQUEST) {
+          const action = res.message.p && res.message.p.action;
+          if (action === 'play' && typeof globalScope.startTransport === 'function') {
+            globalScope.startTransport();
+          } else if (action === 'pause' && typeof globalScope.pauseTransport === 'function') {
+            globalScope.pauseTransport();
+          } else if (action === 'stop' && typeof globalScope.stopTransport === 'function') {
+            globalScope.stopTransport();
+          }
         }
       };
 

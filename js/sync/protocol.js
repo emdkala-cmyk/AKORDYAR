@@ -34,6 +34,8 @@
     PLAYHEAD: 'playhead',     // وضعیت پخش هر فریم: { time, isPlaying }
     HIGHLIGHT:'highlight',    // هایلایت خط فعال: { activeLineId, doneLines }
     VIEW:     'view',         // viewState پیش‌فرض مستر (برای اولین رندر اسلیو)
+    SEEK_REQUEST: 'seek-request', // درخواست جابه‌جایی تایم‌لاین از گوشی
+    TRANSPORT_REQUEST: 'transport-request', // play/pause/stop از گوشی
 
     // ===== از Hub به Slave =====
     SNAPSHOT: 'snapshot',     // ارسال کل وضعیت فعلی به اسلیو تازه‌وارد

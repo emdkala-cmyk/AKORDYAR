@@ -2212,6 +2212,12 @@ sels.forEach(c => {
       // Update perf UI play button
       if (perfModeActive) { $('perfPlayBtn').textContent = '▶'; renderPerfUI(); }
     }
+    // SyncHub uses these explicit window hooks for timeline controls requested
+    // by the phone Player View.
+    window.startTransport = startTransport;
+    window.pauseTransport = pauseTransport;
+    window.stopTransport = stopTransport;
+    window.seekTransport = seekTransport;
     // Arranger end: uses selectionEnd if defined, otherwise end of song content
     // Does NOT depend on loopEnabled — selection range is separate from loop
     function getArrangerEnd() {

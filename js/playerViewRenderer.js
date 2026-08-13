@@ -119,8 +119,12 @@ const PlayerViewRenderer = (() => {
     const fontFamily   = (vs.fontFamily || 'Vazirmatn') + ', sans-serif';
     const fontSize     = vs.fontSize || 24;
     const backgroundColor = vs.backgroundColor || '#0F131E';
-    const cSize        = Math.round(fontSize * 0.7);
+    const cSize        = Math.round(fontSize * (vs.mobileLayout ? 0.82 : 0.7));
     const cFont        = '"JetBrains Mono", monospace';
+    const isMobileLayout = vs.mobileLayout === true;
+    const highlightEffect =
+      vs.highlightEffect || doc.styles?.highlightEffect || 'depth';
+    container.dataset.highlightEffect = highlightEffect;
 
     // Container styles
     container.style.fontFamily      = fontFamily;
@@ -130,10 +134,15 @@ const PlayerViewRenderer = (() => {
     container.style.backgroundColor = backgroundColor;
     container.style.direction       = 'rtl';
     container.style.textAlign       = 'center';
-    container.style.padding         = '20px 40px';
+    container.style.padding         = isMobileLayout
+      ? '76px 24px 104px'
+      : '20px 40px';
     container.style.overflowY       = 'auto';
     container.style.height          = '100%';
     container.style.position        = 'relative';
+    if (isMobileLayout) {
+      container.style.paddingBottom = '108px';
+    }
     if (vs.scale && vs.scale !== 1) {
       container.style.transform       = 'scale(' + vs.scale + ')';
       container.style.transformOrigin = 'center top';
@@ -171,9 +180,42 @@ const PlayerViewRenderer = (() => {
     // خطوط عمودی که موقعیت ضرب‌ها و میزان‌ها را نشان می‌دهند
     _renderQuantizeGrid(container, vs);
 
+    const header = document.createElement('header');
+    header.className = 'pv-song-header';
+    header.style.position = 'relative';
+    header.style.zIndex = '12';
+    header.style.textAlign = 'center';
+    header.style.padding = isMobileLayout ? '8px 8px 14px' : '8px 8px 12px';
+    header.style.marginBottom = isMobileLayout ? '6px' : '4px';
+    header.style.borderBottom = '1px solid rgba(35,43,62,0.9)';
+    header.style.background = 'linear-gradient(180deg, #1C2333, #161B26)';
+    header.style.borderRadius = '10px';
+    header.style.boxShadow = '0 4px 18px rgba(0,0,0,0.22)';
+
+    const titleEl = document.createElement('div');
+    titleEl.className = 'pv-song-title';
+    titleEl.textContent = doc.title || 'بدون عنوان';
+    titleEl.style.fontSize = isMobileLayout ? '17px' : '20px';
+    titleEl.style.fontWeight = '900';
+    titleEl.style.color = '#00F2FE';
+    titleEl.style.textShadow = '0 0 16px rgba(0,242,254,0.25)';
+    header.appendChild(titleEl);
+
+    if (doc.artist) {
+      const artistEl = document.createElement('div');
+      artistEl.className = 'pv-song-artist';
+      artistEl.textContent = doc.artist;
+      artistEl.style.fontSize = '12px';
+      artistEl.style.color = '#718096';
+      artistEl.style.marginTop = '3px';
+      header.appendChild(artistEl);
+    }
+    container.appendChild(header);
+
     // Render lines (بدون هایلایت اولیه — فقط ساختار)
     (doc.lines || []).forEach(line => {
       const lineEl = document.createElement('div');
+      lineEl.className = 'pv-line';
       lineEl.dataset.lineId = line.id;
       lineEl.dataset.lineIndex = line.index;
       lineEl.style.minHeight    = '1.4em';
@@ -217,6 +259,7 @@ const PlayerViewRenderer = (() => {
           el.className = 'pv-chord';
           el.dataset.chordId = ch.id;
           el.dataset.lineId = line.id;
+          el.dataset.lineIndex = line.index;
           el.textContent = ch.name;
           el.style.position      = 'absolute';
           el.style.pointerEvents = 'none';
@@ -233,6 +276,8 @@ const PlayerViewRenderer = (() => {
           const connector = document.createElement('div');
           connector.className = 'pv-chord-line';
           connector.dataset.chordLineId = ch.id;
+          connector.dataset.lineId = line.id;
+          connector.dataset.lineIndex = line.index;
           connector.style.position = 'absolute';
           connector.style.width = '2px';
           connector.style.pointerEvents = 'none';
@@ -371,31 +416,105 @@ const PlayerViewRenderer = (() => {
     const doneLines    = (highlight && highlight.doneLines) ? highlight.doneLines : new Set();
     const hlColor      = (viewState || {}).highlightColor || '#FF2E93';
     const textColor    = (viewState || {}).textColor || '#E2E8F0';
+    const highlightEffect =
+      (viewState || {}).highlightEffect ||
+      container.dataset.highlightEffect ||
+      'depth';
 
     [...container.children].forEach(el => {
       if (!el.dataset.lineId) return;
 
-      const isActive = activeLineId && el.dataset.lineId === activeLineId;
       const lineIndex = +el.dataset.lineIndex;
       const isDone = Number.isFinite(lineIndex) && doneLines.has(lineIndex);
+      const isChord = el.classList.contains('pv-chord');
+      const isConnector = el.classList.contains('pv-chord-line');
+      const lineActive = activeLineId && el.dataset.lineId === activeLineId;
 
-      if (isActive) {
-        el.style.color      = '#fff';
-        el.style.textShadow = '0 0 10px ' + hlColor + '60';
-        el.style.background = hlColor + '12';
-        el.style.zIndex     = '10';
+      el.classList.toggle('pv-active', !!lineActive);
+      el.classList.toggle('pv-done', !!isDone);
+      el.classList.toggle('pv-hl-' + highlightEffect, !!lineActive);
+
+      if (isConnector) {
+        el.style.background = lineActive ? '#fff' : (viewState || {}).chordColor || '#00F2FE';
+        el.style.opacity = lineActive ? '0.95' : (isDone ? '0.25' : '0.5');
+        el.style.zIndex = lineActive ? '11' : '4';
+        return;
+      }
+
+      if (lineActive) {
+        const effect = highlightEffect;
+        const isNeon = effect === 'neon';
+        const isFrost = effect === 'frost';
+        const isShift = effect === 'shift';
+        const isPulse = effect === 'pulse';
+        const isDepth = !isNeon && !isFrost && !isShift && !isPulse;
+
+        el.style.color = isChord
+          ? (isShift ? '#00F2FE' : '#fff')
+          : (isNeon ? '#00F2FE' : isPulse ? '#22D364' : '#E2E8F0');
+        el.style.textShadow = isNeon
+          ? '0 0 8px rgba(0,242,254,0.8), 0 0 20px rgba(0,242,254,0.4)'
+          : isFrost
+            ? '0 0 12px rgba(255,255,255,0.45)'
+            : isShift
+              ? '0 0 12px rgba(255,46,147,0.55), 0 0 24px rgba(0,242,254,0.35)'
+              : isPulse
+                ? '0 0 12px rgba(34,211,100,0.8), 0 0 28px rgba(34,211,100,0.35)'
+                : '0 1px 0 rgba(0,0,0,0.8), 0 2px 0 rgba(0,0,0,0.7), 0 4px 8px rgba(0,0,0,0.5), 0 0 15px rgba(255,46,147,0.3)';
+        if (!isChord) {
+          el.style.background = isNeon
+            ? 'linear-gradient(180deg, rgba(0,242,254,0.2), rgba(0,242,254,0.04) 55%, transparent)'
+            : isFrost
+              ? 'linear-gradient(135deg, rgba(255,255,255,0.1), rgba(200,220,255,0.08))'
+              : isShift
+                ? 'linear-gradient(135deg, rgba(255,46,147,0.15), rgba(123,47,255,0.15), rgba(0,242,254,0.15))'
+                : isPulse
+                  ? 'linear-gradient(180deg, rgba(34,211,100,0.12), rgba(34,211,100,0.02) 55%, transparent)'
+                  : 'linear-gradient(180deg, rgba(255,46,147,0.15), rgba(255,46,147,0.02) 60%, transparent)';
+          el.style.border = isDepth
+            ? '1px solid rgba(255,46,147,0.2)'
+            : isNeon
+              ? '1px solid rgba(0,242,254,0.3)'
+              : isFrost
+                ? '1px solid rgba(255,255,255,0.15)'
+                : isPulse
+                  ? '1px solid rgba(34,211,100,0.25)'
+                  : '1px solid transparent';
+          el.style.borderRadius = isFrost ? '12px' : '8px';
+          el.style.boxShadow = isNeon
+            ? '0 0 15px rgba(0,242,254,0.3), 0 0 30px rgba(0,242,254,0.1)'
+            : isFrost
+              ? 'inset 0 1px 0 rgba(255,255,255,0.15), 0 4px 16px rgba(0,0,0,0.3)'
+              : isPulse
+                ? '0 0 20px rgba(34,211,100,0.6), inset 0 0 20px rgba(34,211,100,0.1)'
+                : isDepth
+                  ? '0 6px 20px rgba(0,0,0,0.4), 0 2px 6px rgba(255,46,147,0.2)'
+                  : '';
+        }
+        el.style.zIndex     = isChord ? '11' : '10';
         el.style.opacity    = '';
       } else if (isDone) {
         el.style.opacity    = '0.35';
-        el.style.color      = '';
+        if (!isChord) el.style.color = '';
         el.style.textShadow = '';
-        el.style.background = '';
+        if (!isChord) el.style.background = '';
+        if (!isChord) {
+          el.style.border = '';
+          el.style.borderRadius = '';
+          el.style.boxShadow = '';
+        }
         el.style.zIndex     = '';
       } else {
-        el.style.color      = textColor;
+        if (isChord) el.style.color = (viewState || {}).chordColor || '#00F2FE';
+        else el.style.color = textColor;
         el.style.opacity    = '';
         el.style.textShadow = '';
-        el.style.background = '';
+        if (!isChord) el.style.background = '';
+        if (!isChord) {
+          el.style.border = '';
+          el.style.borderRadius = '';
+          el.style.boxShadow = '';
+        }
         el.style.zIndex     = '';
       }
     });

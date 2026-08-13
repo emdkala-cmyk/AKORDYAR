@@ -20,17 +20,18 @@
   const Protocol = globalScope.AkordSyncProtocol;
 
   const MobileClient = (() => {
-    const MOBILE_VIEW_STORAGE_KEY = 'akord_mobile_view_v2';
+    const MOBILE_VIEW_STORAGE_KEY = 'akord_mobile_view_v3';
     const DEFAULT_MOBILE_VIEW = {
       fontSize: 20,
-      backgroundColor: '#000000',
-      showQuantizeGrid: false
+      showQuantizeGrid: false,
+      mobileLayout: true
     };
     let ws = null;
     let connected = false;
     let container = null;
     let currentDoc = null;
     let currentKey = null;
+    let playback = { time: 0, isPlaying: false, duration: 0 };
     let remoteView = null;          // viewState که از مستر آمده (پیش‌فرض)
     let highlight = {
       activeLineId: null, activeTokenId: null, activeChordId: null, doneLines: new Set()
@@ -48,8 +49,15 @@
         {},
         remoteView || {},
         localOverride || {},
-        // Phone Player View intentionally stays clean and black.
-        { backgroundColor: '#000000', showQuantizeGrid: false }
+        // Match the default desktop Player View palette on the phone.
+        {
+          backgroundColor: '#0F131E',
+          textColor: '#E2E8F0',
+          chordColor: '#00F2FE',
+          highlightColor: '#FF2E93',
+          showQuantizeGrid: false,
+          mobileLayout: true
+        }
       );
     }
 
@@ -114,8 +122,13 @@
             currentDoc = p.doc || null;
             currentKey = p.keyState || null;
             remoteView = p.view || null;
+            playback = Object.assign(
+              { time: 0, isPlaying: false, duration: 0 },
+              p.playback || {}
+            );
             if (p.highlight) applyHighlight(p.highlight);
             renderFull();
+            if (typeof updatePlaybackUI === 'function') updatePlaybackUI(playback);
             break;
           case Protocol.MSG.DOC:
             currentDoc = p.doc || null;
@@ -131,8 +144,8 @@
             renderHighlight();
             break;
           case Protocol.MSG.PLAYHEAD:
-            // گوشی نمایشگر است؛ playhead را فقط برای همگامسازی زمان نگه می‌داریم
-            // (رندر PlayerView بر اساس activeLineId است، نه زمان خام)
+            playback = Object.assign({}, playback, p);
+            if (typeof updatePlaybackUI === 'function') updatePlaybackUI(playback);
             break;
           case Protocol.MSG.PEER_LEAVE:
             break;
@@ -158,6 +171,17 @@
       };
     }
 
+    function seek(time) {
+      const duration = Number(playback.duration) || 0;
+      const value = Math.max(0, Math.min(Number(time) || 0, duration || Number(time) || 0));
+      send(Protocol.MSG.SEEK_REQUEST, { time: value });
+    }
+
+    function requestTransport(action) {
+      if (!['play', 'pause', 'stop'].includes(action)) return;
+      send(Protocol.MSG.TRANSPORT_REQUEST, { action });
+    }
+
     /**
      * تنظیمات محلی گوشی — فقط روی این دستگاه اعمال می‌شود.
      * @param {object} patch { fontSize, fontFamily, chordColor, textColor, highlightColor, backgroundColor, scale, showChords }
@@ -179,8 +203,8 @@
         if (raw) {
           localOverride = Object.assign({}, DEFAULT_MOBILE_VIEW, JSON.parse(raw));
         }
-        localOverride.backgroundColor = '#000000';
         localOverride.showQuantizeGrid = false;
+        localOverride.mobileLayout = true;
       } catch (e) {}
     }
 
@@ -192,7 +216,19 @@
 
     function isConnected() { return connected; }
 
-    return { init, connect, setLocalView, isConnected };
+    function getLocalView() {
+      return Object.assign({}, localOverride);
+    }
+
+    return {
+      init,
+      connect,
+      setLocalView,
+      getLocalView,
+      seek,
+      requestTransport,
+      isConnected
+    };
   })();
 
   globalScope.AkordMobileClient = MobileClient;
