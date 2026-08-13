@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <title>Akordyar Sync — تشخیص (لپ‌تاپ)</title>
+  <style>
+    body { background:#0F131E; color:#E2E8F0; font-family:'Segoe UI',sans-serif; padding:20px; }
+    h2 { color:#00F2FE; }
+    button { background:#1e293b; color:#E2E8F0; border:1px solid #334155; border-radius:8px; padding:10px 16px; margin:6px; cursor:pointer; font-family:inherit; }
+    button:hover { background:#334155; }
+    #status { margin:12px 0; padding:12px; border-radius:8px; background:#1e293b; white-space:pre-wrap; font-family:monospace; font-size:13px; line-height:1.6; }
+    .ok { color:#4ade80; } .bad { color:#f87171; } .warn { color:#fbbf24; }
+  </style>
+</head>
+<body>
+  <h2>🔧 تشخیص سینک آکوردیار (Master / لپ‌تاپ)</h2>
+  <div>
+    <button onclick="checkAll()">بررسی همه‌چیز</button>
+    <button onclick="testMasterConnect()">تست اتصال مستر</button>
+    <button onclick="sendTestDoc()">ارسال تست doc</button>
+    <button onclick="openPhone()">باز کردن صفحه گوشی</button>
+  </div>
+  <div id="status">دکمه «بررسی همه‌چیز» را بزنید…</div>
+
+  <script src="js/sync/protocol.js"></script>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    function log(msg, cls) {
+      const s = $('status');
+      const line = document.createElement('div');
+      if (cls) line.className = cls;
+      line.textContent = '• ' + msg;
+      s.appendChild(line);
+      s.scrollTop = s.scrollHeight;
+    }
+
+    function checkAll() {
+      $('status').innerHTML = '';
+      log('بررسی ماژولها...');
+      log('AkordSyncProtocol: ' + (typeof AkordSyncProtocol !== 'undefined' ? '✅' : '❌'), typeof AkordSyncProtocol !== 'undefined' ? 'ok' : 'bad');
+      log('AkordMasterSync: ' + (typeof AkordMasterSync !== 'undefined' ? '✅' : '❌'), typeof AkordMasterSync !== 'undefined' ? 'ok' : 'bad');
+      log('PerformanceStore: ' + (typeof PerformanceStore !== 'undefined' ? '✅' : '❌'), typeof PerformanceStore !== 'undefined' ? 'ok' : 'bad');
+      log('AkordDeviceManager: ' + (typeof AkordDeviceManager !== 'undefined' ? '✅' : '❌'), typeof AkordDeviceManager !== 'undefined' ? 'ok' : 'bad');
+
+      if (typeof AkordMasterSync !== 'undefined') {
+        log('MasterSync.isConnected(): ' + (AkordMasterSync.isConnected() ? '✅ متصل' : '⚠️ غیرمتصل'), AkordMasterSync.isConnected() ? 'ok' : 'warn');
+      }
+      if (typeof PerformanceStore !== 'undefined') {
+        const st = PerformanceStore.getState();
+        const lines = (st.songDocument && st.songDocument.lines || []).length;
+        log('PerformanceStore.songDocument.lines: ' + lines, lines > 0 ? 'ok' : 'warn');
+        log('playbackState: ' + JSON.stringify(st.playbackState));
+      }
+      fetch('/api/sync/info?' + Date.now()).then(r => r.json()).then(info => {
+        log('--- وضعیت سرور ---');
+        log('masters: ' + info.masters + ' | slaves: ' + info.slaves + ' | total: ' + info.total);
+        log('آدرس LAN: ' + (info.lanIps || []).join(' , '));
+        log('آدرس گوشی: ' + info.clientUrl);
+      }).catch(e => log('خطا در دریافت وضعیت سرور: ' + e.message, 'bad'));
+    }
+
+    function testMasterConnect() {
+      if (typeof AkordMasterSync === 'undefined') { log('AkordMasterSync تعریف نشده', 'bad'); return; }
+      log('در حال اتصال مستر...');
+      AkordMasterSync.connect('Laptop-Debug');
+      setTimeout(() => log('MasterSync.isConnected بعد از ۱ ثانیه: ' + (AkordMasterSync.isConnected() ? '✅' : '❌')), 1000);
+    }
+
+    function sendTestDoc() {
+      const ws = new WebSocket((location.protocol === 'https:' ? 'wss' : 'ws') + '://' + location.host + '/sync');
+      ws.onopen = () => {
+        ws.send(JSON.stringify({ magic:'AKORDSYNC', v:1, t:'hello', p:{ role:'master', name:'Debug' } }));
+      };
+      ws.onmessage = (ev) => {
+        const m = JSON.parse(ev.data);
+        if (m.t === 'welcome' && m.p.ok) {
+          log('مستر تست وصل شد، ارسال doc تست...', 'ok');
+          ws.send(JSON.stringify({ magic:'AKORDSYNC', v:1, t:'doc', p:{ doc:{ lines:[{id:'t1',text:'تست از دیباگ',chords:[{name:'C',charIndex:0}]}] }, keyState:{ currentKey:'C' } } }));
+          log('doc تست ارسال شد. حالا صفحه گوشی را چک کن.', 'ok');
+        } else if (m.t === 'welcome' && !m.p.ok) {
+          log('خطا در اتصال مستر تست: ' + JSON.stringify(m.p), 'bad');
+        }
+      };
+      ws.onerror = (e) => log('خطای WS مستر تست', 'bad');
+    }
+
+    function openPhone() {
+      const proto = location.protocol === 'https:' ? 'https' : 'http';
+      window.open(proto + '://' + location.hostname + ':3000/sync-client.html', '_blank');
+    }
+  </script>
+</body>
+</html>

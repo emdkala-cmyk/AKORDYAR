@@ -483,6 +483,45 @@ const SharedEngine = (() => {
      6) Chord Alignment
      ═══════════════════════════════════════════════ */
 
+  function normalizeAnchorType(anchorType, charIndex, textLength) {
+    const raw = String(anchorType || '').trim().toLowerCase();
+    const numericIndex = Number(charIndex);
+
+    if (raw === 'linestart' || raw === 'line-start' || raw === 'start' || raw === 'begin' || raw === 'beginning') {
+      return 'LineStart';
+    }
+    if (raw === 'lineend' || raw === 'line-end' || raw === 'end' || raw === 'finish') {
+      return 'LineEnd';
+    }
+    if (raw === 'betweencharacters' || raw === 'between-characters' || raw === 'between') {
+      return 'BetweenCharacters';
+    }
+
+    // Older imported songs may have no anchorType. Infer explicit boundaries
+    // from the same charIndex contract used by the editor.
+    if (!raw || raw === 'mid' || raw === 'middle' || raw === 'charindex') {
+      if (textLength === 0 || numericIndex === 0) return 'LineStart';
+      if (Number.isFinite(numericIndex) && numericIndex >= textLength) return 'LineEnd';
+    }
+
+    return 'OnCharacter';
+  }
+
+  function normalizeChordCharIndex(line, charIndex, anchorType) {
+    const textLength = (line && line.text ? line.text : '').length;
+    if (anchorType === 'LineStart') return 0;
+    if (anchorType === 'LineEnd') return textLength;
+    if (!textLength) return 0;
+
+    const numericIndex = Number(charIndex);
+    if (!Number.isFinite(numericIndex)) return 0;
+
+    const maxIndex = anchorType === 'BetweenCharacters'
+      ? textLength
+      : Math.max(0, textLength - 1);
+    return Math.max(0, Math.min(Math.trunc(numericIndex), maxIndex));
+  }
+
   function findTokenIndexForChar(line, charIndex, anchorType) {
     if (!line.tokens || !line.tokens.length) return 0;
 
@@ -492,24 +531,24 @@ const SharedEngine = (() => {
     if (!tokens.length) return 0;
 
     // آکورد ابتدای خط — به اولین توکن غیرفضا متصل شود
-    if (anchorType === 'start' || charIndex <= 0) {
+    if (anchorType === 'LineStart' || anchorType === 'start' || charIndex <= 0) {
       return tokens[0].index;
     }
 
     // آکورد انتهای خط — به آخرین توکن غیرفضا متصل شود
-    if (anchorType === 'end' || (charIndex != null && charIndex >= textLength)) {
+    if (anchorType === 'LineEnd' || anchorType === 'end' || (charIndex != null && charIndex >= textLength)) {
       return tokens[tokens.length - 1].index;
     }
 
     // آکورد وسط خط — نزدیک‌ترین توکن به charIndex
-    let bestIdx = 0;
+    let bestIdx = tokens[0].index;
     let bestDist = Infinity;
-    line.tokens.forEach((tok, idx) => {
+    tokens.forEach(tok => {
       const mid = (tok.charStart + tok.charEnd) / 2;
       const dist = Math.abs(mid - charIndex);
       if (dist < bestDist) {
         bestDist = dist;
-        bestIdx = idx;
+        bestIdx = tok.index;
       }
     });
     return bestIdx;
@@ -524,20 +563,28 @@ const SharedEngine = (() => {
 
     chords.forEach((ch, idx) => {
       const li = ch.lineIndex;
-      const ci = ch.charIndex || 0;
       if (!Number.isInteger(li) || li < 0 || li >= doc.lines.length) return;
 
       const line = doc.lines[li];
-      const anchorType = ch.anchorType || 'mid';
-      const tokenIndex = findTokenIndexForChar(line, ci, anchorType);
+      const textLength = (line.text || '').length;
+      const anchorType = normalizeAnchorType(ch.anchorType, ch.charIndex, textLength);
+      const charIndex = normalizeChordCharIndex(line, ch.charIndex, anchorType);
+      const suppliedTokenIndex = Number.isInteger(ch.tokenIndex)
+        ? ch.tokenIndex
+        : null;
+      const tokenIndex = suppliedTokenIndex != null &&
+        line.tokens.some(tok => tok.index === suppliedTokenIndex)
+        ? suppliedTokenIndex
+        : findTokenIndexForChar(line, charIndex, anchorType);
 
       line.chords.push({
         id:         'ln' + li + '_ch' + idx,
         name:       ch.name || '',
         baseName:   ch.name || '',
         lineIndex:  li,
+        charIndex:  charIndex,
         tokenIndex: tokenIndex,
-        offset:     0,
+        offset:     Number.isFinite(Number(ch.offset)) ? Number(ch.offset) : 0,
         anchorType: anchorType,
         logicalSlot: ch.logicalSlot != null ? ch.logicalSlot : 0
       });

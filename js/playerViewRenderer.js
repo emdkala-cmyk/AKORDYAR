@@ -52,6 +52,53 @@ const PlayerViewRenderer = (() => {
     return r.getBoundingClientRect();
   }
 
+  function normalizeAnchorType(anchorType, charIndex, textLength) {
+    const raw = String(anchorType || '').trim().toLowerCase();
+    const numericIndex = Number(charIndex);
+
+    if (raw === 'linestart' || raw === 'line-start' || raw === 'start' || raw === 'begin') {
+      return 'LineStart';
+    }
+    if (raw === 'lineend' || raw === 'line-end' || raw === 'end' || raw === 'finish') {
+      return 'LineEnd';
+    }
+    if (raw === 'betweencharacters' || raw === 'between-characters' || raw === 'between') {
+      return 'BetweenCharacters';
+    }
+    if (!raw || raw === 'mid' || raw === 'middle' || raw === 'charindex') {
+      if (textLength === 0 || numericIndex === 0) return 'LineStart';
+      if (Number.isFinite(numericIndex) && numericIndex >= textLength) return 'LineEnd';
+    }
+    return 'OnCharacter';
+  }
+
+  function resolveChordCharIndex(line, chord, anchorType) {
+    const textLength = (line && line.text ? line.text : '').length;
+    if (anchorType === 'LineStart') return 0;
+    if (anchorType === 'LineEnd') return textLength;
+    if (!textLength) return 0;
+
+    const rawIndex = Number(chord && chord.charIndex);
+    if (Number.isFinite(rawIndex)) {
+      const maxIndex = anchorType === 'BetweenCharacters'
+        ? textLength
+        : Math.max(0, textLength - 1);
+      return Math.max(0, Math.min(Math.trunc(rawIndex), maxIndex));
+    }
+
+    const tokenIndex = Number(chord && chord.tokenIndex);
+    const token = Array.isArray(line.tokens)
+      ? line.tokens.find(item => Number(item.index) === tokenIndex)
+      : null;
+    if (token && Number.isFinite(Number(token.charStart))) {
+      return Math.max(0, Math.min(
+        Math.trunc(Number(token.charStart)),
+        Math.max(0, textLength - 1)
+      ));
+    }
+    return 0;
+  }
+
   /* ═══════════════════════════════════════════════
      رندر اولیه / بازسازی کامل
      فقط وقتی صدا بزن:
@@ -71,6 +118,7 @@ const PlayerViewRenderer = (() => {
     const showChords   = vs.showChords !== false;
     const fontFamily   = (vs.fontFamily || 'Vazirmatn') + ', sans-serif';
     const fontSize     = vs.fontSize || 24;
+    const backgroundColor = vs.backgroundColor || '#0F131E';
     const cSize        = Math.round(fontSize * 0.7);
     const cFont        = '"JetBrains Mono", monospace';
 
@@ -79,7 +127,8 @@ const PlayerViewRenderer = (() => {
     container.style.fontSize        = fontSize + 'px';
     container.style.lineHeight      = String(vs.lineHeight || 2.0);
     container.style.color           = textColor;
-    container.style.backgroundColor = vs.backgroundColor || '#0F131E';
+    container.style.backgroundColor = backgroundColor;
+    container.style.direction       = 'rtl';
     container.style.textAlign       = 'center';
     container.style.padding         = '20px 40px';
     container.style.overflowY       = 'auto';
@@ -88,6 +137,21 @@ const PlayerViewRenderer = (() => {
     if (vs.scale && vs.scale !== 1) {
       container.style.transform       = 'scale(' + vs.scale + ')';
       container.style.transformOrigin = 'center top';
+    } else {
+      container.style.transform       = 'none';
+      container.style.transformOrigin = '';
+    }
+
+    // Keep the whole scroll surface on one color. Otherwise the body can
+    // show through after the first viewport on mobile.
+    const ownerDocument = container.ownerDocument;
+    if (ownerDocument) {
+      if (ownerDocument.documentElement) {
+        ownerDocument.documentElement.style.backgroundColor = backgroundColor;
+      }
+      if (ownerDocument.body) {
+        ownerDocument.body.style.backgroundColor = backgroundColor;
+      }
     }
 
     // ═══ خطوط کوانتایز (Grid Lines) ═══
@@ -101,7 +165,7 @@ const PlayerViewRenderer = (() => {
       lineEl.dataset.lineIndex = line.index;
       lineEl.style.minHeight    = '1.4em';
       lineEl.style.whiteSpace   = 'pre-wrap';
-      lineEl.style.lineHeight   = '2.6';
+      lineEl.style.lineHeight   = String(vs.lineHeight || 2.0);
       lineEl.style.padding      = '4px 12px';
       lineEl.style.borderRadius = '8px';
       lineEl.style.transition   = 'opacity 0.25s ease, color 0.25s ease, background 0.25s ease, text-shadow 0.25s ease';
@@ -109,16 +173,18 @@ const PlayerViewRenderer = (() => {
       lineEl.style.marginTop    = '1.8em';
       lineEl.style.color        = textColor;
 
-      // Lyric text
       lineEl.textContent = line.text || '\u200B';
 
       container.appendChild(lineEl);
     });
 
-    // Position chords using Range + container-relative coords
+    // Position chords using the exact text Range that the desktop Player View
+    // uses. Build the elements first, then position them again after the
+    // mobile font has finished loading.
     if (showChords) {
       const GAP = Math.max(10, cSize * 0.6);
-      const containerRect = container.getBoundingClientRect();
+      const MARGIN = 5;
+      const chordElements = [];
 
       (doc.lines || []).forEach(line => {
         if (!line.chords || !line.chords.length) return;
@@ -129,12 +195,15 @@ const PlayerViewRenderer = (() => {
         line.chords.forEach(ch => {
           if (!ch.name) return;
 
-          const rect = getCharRect(lineEl, ch.charIndex || 0, ch.anchorType || 'CharIndex');
-          if (!rect) return;
-
+          const anchorType = normalizeAnchorType(
+            ch.anchorType,
+            ch.charIndex,
+            (line.text || '').length
+          );
           const el = document.createElement('span');
           el.className = 'pv-chord';
           el.dataset.chordId = ch.id;
+          el.dataset.lineId = line.id;
           el.textContent = ch.name;
           el.style.position      = 'absolute';
           el.style.pointerEvents = 'none';
@@ -149,19 +218,52 @@ const PlayerViewRenderer = (() => {
           el.style.opacity       = '0';
 
           container.appendChild(el);
-          const elW = el.offsetWidth;
-
-          // ═══ مختصات نسبت به container (نه viewport) ═══
-          const xViewport = (rect.left + rect.right) / 2;
-          const xContainer = xViewport - containerRect.left;
-          const yViewport = rect.top;
-          const yContainer = yViewport - containerRect.top;
-
-          el.style.top    = (yContainer + lineEl.offsetTop - cSize - GAP) + 'px';
-          el.style.left   = (xContainer - elW / 2) + 'px';
-          el.style.opacity = '1';
+          chordElements.push({ el, line, lineEl, chord: ch, anchorType });
         });
       });
+
+      const positionChords = () => {
+        const containerRect = container.getBoundingClientRect();
+        const isRTLContainer =
+          (getComputedStyle(container).direction || 'rtl') === 'rtl';
+
+        chordElements.forEach(({ el, line, lineEl, chord, anchorType }) => {
+          const charIndex = resolveChordCharIndex(line, chord, anchorType);
+          const rect = getCharRect(lineEl, charIndex, anchorType);
+          if (!rect) return;
+
+          const isRTL =
+            (getComputedStyle(lineEl).direction || (isRTLContainer ? 'rtl' : 'ltr')) === 'rtl';
+          let xViewport;
+          if (anchorType === 'LineStart') {
+            xViewport = isRTL ? rect.right + MARGIN : rect.left - MARGIN;
+          } else if (anchorType === 'LineEnd') {
+            xViewport = isRTL ? rect.left - MARGIN : rect.right + MARGIN;
+          } else if (anchorType === 'BetweenCharacters') {
+            xViewport = rect.right;
+          } else {
+            xViewport = (rect.left + rect.right) / 2;
+          }
+
+          const xContainer = xViewport - containerRect.left + container.scrollLeft;
+          const yContainer = rect.top - containerRect.top + container.scrollTop;
+
+          el.style.top = (yContainer - cSize - GAP) + 'px';
+          el.style.left = (xContainer - el.offsetWidth / 2) + 'px';
+          el.style.opacity = '1';
+        });
+      };
+
+      positionChords();
+      if (document.fonts && document.fonts.ready) {
+        document.fonts.ready
+          .then(positionChords)
+          .catch(() => {});
+      }
+      const raf = typeof requestAnimationFrame === 'function'
+        ? requestAnimationFrame
+        : (callback => setTimeout(callback, 0));
+      raf(() => raf(positionChords));
     }
 
     // اعمال هایلایت اولیه

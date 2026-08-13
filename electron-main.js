@@ -651,6 +651,20 @@ function waitForServer(maxAttempts = 60) {
 }
 
 // ============================================
+// Firewall: allow phones to connect to port 3000 (sync)
+// ============================================
+function addFirewallRuleForElectron() {
+  const { execSync } = require('child_process');
+  try {
+    execSync('netsh advfirewall firewall delete rule name="Akordyar Sync 3000 Electron"', { stdio: 'ignore' });
+    execSync('netsh advfirewall firewall add rule name="Akordyar Sync 3000 Electron" dir=in action=allow protocol=TCP localport=3000', { stdio: 'ignore' });
+    log('Firewall', 'Port 3000 rule for Electron is ready - phone can connect');
+  } catch (e) {
+    logError('Firewall', 'Could not add firewall rule (run as admin once): ' + e.message);
+  }
+}
+
+// ============================================
 // Start Express server in-process
 // ============================================
 async function startServerInProcess() {
@@ -670,6 +684,9 @@ async function startServerInProcess() {
     // require کردن سرور — خودش روی PORT گوش می‌ده
     serverModule = require(serverPath);
     log('Server', 'Server module loaded successfully');
+
+    // ensure phone can connect through firewall
+    addFirewallRuleForElectron();
 
     return true;
   } catch (e) {
@@ -711,6 +728,18 @@ function createWindow() {
   });
 
   log('Window', `Loading URL: ${SERVER_URL}`);
+  mainWindow.webContents.on('did-start-loading', () => {
+    log('Window', 'Renderer started loading');
+  });
+  mainWindow.webContents.on('did-stop-loading', () => {
+    log('Window', 'Renderer stopped loading');
+  });
+  mainWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
+    log('Renderer', `[${level}] ${message} (${sourceId}:${line})`);
+  });
+  mainWindow.webContents.on('render-process-gone', (event, details) => {
+    logError('Renderer', `Process gone: ${details.reason || 'unknown'} exitCode=${details.exitCode}`);
+  });
   mainWindow.loadURL(SERVER_URL);
 
   if (isDev) {
@@ -722,17 +751,6 @@ function createWindow() {
   // نمایش خطاهای صفحه
   mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
     logError('Window', `Failed to load: ${errorDescription} (${errorCode})`);
-    if (errorCode === -3) {
-      // ABORTED — معمولاً ناشی از reload
-      return;
-    }
-    // تلاش مجدد بعد از 1 ثانیه
-    setTimeout(() => {
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        log('Window', 'Retrying load...');
-        mainWindow.loadURL(SERVER_URL);
-      }
-    }, 1000);
   });
 }
 

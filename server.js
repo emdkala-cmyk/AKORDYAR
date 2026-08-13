@@ -136,6 +136,51 @@ function extractLaminorSongLinks(document, artistPageUrl) {
 const app = express();
 const PORT = 3000;
 
+// ===== Sync Hub (Master/Slave WebSocket) =====
+let _syncHub = null;
+function startSyncHub(server) {
+  try {
+    const { createSyncHub } = require('./server/syncHub.js');
+    _syncHub = createSyncHub(server, { path: '/sync', port: PORT });
+    console.log(`\x1b[35m[SyncHub]\x1b[0m WebSocket sync ready at ws://0.0.0.0:${PORT}/sync`);
+    console.log(`\x1b[35m[SyncHub]\x1b[0m LAN address: http://${_syncHub.getLocalIp()}:${PORT}/sync-client.html`);
+  } catch (e) {
+    console.error('\x1b[35m[SyncHub]\x1b[0m failed to start:', e.message);
+  }
+}
+
+// اطلاعات شبکه برای ساخت QR روی دسکتاپ (لپ‌تاپ = Master)
+app.get('/api/sync/info', (req, res) => {
+  try {
+    const os = require('os');
+    const ifaces = os.networkInterfaces();
+    const ips = [];
+    for (const name of Object.keys(ifaces)) {
+      for (const iface of ifaces[name] || []) {
+        if (iface.family === 'IPv4' && !iface.internal) ips.push(iface.address);
+      }
+    }
+    // اولویت‌بندی: رنج هاتسپات/موبایل اول، بعد بقیه (رنجهای خصوصی محلی)
+    const isHotspot = (ip) => /^192\.168\.(4[3-9]|5|1[0-9])/.test(ip) || /^192\.168\./.test(ip);
+    const isPrivate = (ip) => /^(192\.168|10\.|172\.(1[6-9]|2[0-9]|3[0-1]))/.test(ip);
+    const hotspot = ips.filter(isHotspot);
+    const priv = ips.filter(isPrivate).filter(ip => !hotspot.includes(ip));
+    const ordered = hotspot.concat(priv).concat(ips.filter(ip => !hotspot.includes(ip) && !priv.includes(ip)));
+    const primary = ordered[0] || '127.0.0.1';
+    res.json({
+      lanIps: ordered,
+      localIp: primary,
+      port: PORT,
+      clientUrl: `http://${primary}:${PORT}/sync-client.html`,
+      slaves: _syncHub ? _syncHub.getSlaveCount() : 0,
+      masters: _syncHub ? (_syncHub.getPeerCount() - _syncHub.getSlaveCount()) : 0,
+      total: _syncHub ? _syncHub.getPeerCount() : 0
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.use(express.json());
 app.use(express.static(__dirname));
 // ===== API برای خواندن و پخش فایل صوتی از روی هارد =====
@@ -790,14 +835,18 @@ app.post('/api/save-to-folder', async (req, res) => {
 });
 
 if (!module.exports.__listening) {
-  const server = app.listen(PORT, () => {
+  const server = app.listen(PORT, '0.0.0.0', () => {
     const url = `http://localhost:${PORT}/Akordyar.html`;
     console.log(`\x1b[36m[Akordyar]\x1b[0m Server running at http://localhost:${PORT}`);
     console.log(`\x1b[36m[Akordyar]\x1b[0m Open ${url} to use the app`);
 
+    // راه‌اندازی WebSocket Sync Hub
+    startSyncHub(server);
+
     // در حالت وب (نه Electron)، مرورگر رو خودکار باز کن
     const isElectron = !!(process.versions && process.versions.electron);
-    if (!isElectron) {
+    const isDesktopLauncher = process.env.AKORDYAR_DESKTOP === '1';
+    if (!isElectron && !isDesktopLauncher) {
       try {
         const { openBrowser } = require('./browser-opener.js');
         // 500ms صبر کن تا سرور مطمئن بشه آماده‌ست
