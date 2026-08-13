@@ -21,7 +21,11 @@
 
   const MobileClient = (() => {
     const MOBILE_VIEW_STORAGE_KEY = 'akord_mobile_view_v2';
-    const DEFAULT_MOBILE_VIEW = { fontSize: 20 };
+    const DEFAULT_MOBILE_VIEW = {
+      fontSize: 20,
+      backgroundColor: '#000000',
+      showQuantizeGrid: false
+    };
     let ws = null;
     let connected = false;
     let container = null;
@@ -40,7 +44,13 @@
 
     function mergedView() {
       // ترکیب view مستر + تنظیمات محلی گوشی (محلی اولویت دارد)
-      return Object.assign({}, remoteView || {}, localOverride || {});
+      return Object.assign(
+        {},
+        remoteView || {},
+        localOverride || {},
+        // Phone Player View intentionally stays clean and black.
+        { backgroundColor: '#000000', showQuantizeGrid: false }
+      );
     }
 
     function renderFull() {
@@ -169,6 +179,8 @@
         if (raw) {
           localOverride = Object.assign({}, DEFAULT_MOBILE_VIEW, JSON.parse(raw));
         }
+        localOverride.backgroundColor = '#000000';
+        localOverride.showQuantizeGrid = false;
       } catch (e) {}
     }
 

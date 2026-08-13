@@ -147,11 +147,24 @@ const PlayerViewRenderer = (() => {
     const ownerDocument = container.ownerDocument;
     if (ownerDocument) {
       if (ownerDocument.documentElement) {
-        ownerDocument.documentElement.style.backgroundColor = backgroundColor;
+        ownerDocument.documentElement.style.setProperty(
+          'background-color',
+          backgroundColor,
+          'important'
+        );
       }
       if (ownerDocument.body) {
-        ownerDocument.body.style.backgroundColor = backgroundColor;
+        ownerDocument.body.style.setProperty(
+          'background-color',
+          backgroundColor,
+          'important'
+        );
       }
+      container.style.setProperty(
+        'background-color',
+        backgroundColor,
+        'important'
+      );
     }
 
     // ═══ خطوط کوانتایز (Grid Lines) ═══
@@ -217,8 +230,27 @@ const PlayerViewRenderer = (() => {
           el.style.direction     = 'ltr';
           el.style.opacity       = '0';
 
+          const connector = document.createElement('div');
+          connector.className = 'pv-chord-line';
+          connector.dataset.chordLineId = ch.id;
+          connector.style.position = 'absolute';
+          connector.style.width = '2px';
+          connector.style.pointerEvents = 'none';
+          connector.style.opacity = '0.5';
+          connector.style.background = chordColor;
+          connector.style.zIndex = '4';
+          connector.style.visibility = 'hidden';
+
           container.appendChild(el);
-          chordElements.push({ el, line, lineEl, chord: ch, anchorType });
+          container.appendChild(connector);
+          chordElements.push({
+            el,
+            connector,
+            line,
+            lineEl,
+            chord: ch,
+            anchorType
+          });
         });
       });
 
@@ -227,7 +259,7 @@ const PlayerViewRenderer = (() => {
         const isRTLContainer =
           (getComputedStyle(container).direction || 'rtl') === 'rtl';
 
-        chordElements.forEach(({ el, line, lineEl, chord, anchorType }) => {
+        chordElements.forEach(({ el, connector, line, lineEl, chord, anchorType }) => {
           const charIndex = resolveChordCharIndex(line, chord, anchorType);
           const rect = getCharRect(lineEl, charIndex, anchorType);
           if (!rect) return;
@@ -251,6 +283,10 @@ const PlayerViewRenderer = (() => {
           el.style.top = (yContainer - cSize - GAP) + 'px';
           el.style.left = (xContainer - el.offsetWidth / 2) + 'px';
           el.style.opacity = '1';
+          connector.style.left = xContainer + 'px';
+          connector.style.top = (yContainer - GAP) + 'px';
+          connector.style.height = Math.max(4, GAP) + 'px';
+          connector.style.visibility = 'visible';
         });
       };
 
