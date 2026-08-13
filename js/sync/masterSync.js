@@ -24,6 +24,43 @@
     return globalScope.PerformanceStore || null;
   }
 
+  function buildTimeline() {
+    const daw = globalScope.RuntimeStateAdapter?.getDAW?.() || null;
+    const song = globalScope.EdCurAdapter?.getEdCur?.() || null;
+    const sourceClips = Array.isArray(daw?.clips)
+      ? daw.clips.filter(clip => clip && clip.type === 'chord')
+      : [];
+    const songClips = Array.isArray(song?.chordLineClips)
+      ? song.chordLineClips
+      : [];
+    const clips = (sourceClips.length ? sourceClips : songClips)
+      .map((clip, index) => ({
+        id: String(clip.id || 'chord-' + index),
+        type: 'chord',
+        name: String(clip.name || clip.label || '').trim(),
+        start: Math.max(0, Number(clip.start) || 0),
+        duration: Math.max(0.05, Number(clip.duration) || 1),
+        color: clip.color || '#9F7AEA'
+      }))
+      .filter(clip => clip.name);
+
+    let duration = Number(daw?.timelineDuration) || 0;
+    clips.forEach(clip => {
+      duration = Math.max(duration, clip.start + clip.duration);
+    });
+
+    return {
+      duration: Math.max(0, duration),
+      pxPerSecond: Math.max(12, Math.min(260, Number(daw?.pxPerSecond) || 70)),
+      tempo: Math.max(
+        1,
+        Number(song?.tempo) || Number(daw?.tempo) || 120
+      ),
+      timeSignature: song?.timeSignature || daw?.timeSignature || '4/4',
+      clips
+    };
+  }
+
   function buildSnapshot() {
     const store = getStore();
     if (!store) return null;
@@ -33,7 +70,8 @@
       keyState: st.keyState,
       view: st.viewStates && st.viewStates.playerView,
       playback: st.playbackState,
-      highlight: st.highlightState
+      highlight: st.highlightState,
+      timeline: buildTimeline()
     };
   }
 
@@ -43,6 +81,7 @@
     let deviceName = 'Laptop';
     let _unsubs = [];
     let _lastHighlightKey = '';
+    let _lastTimelineKey = '';
     let _rafScheduled = false;
 
     function url() {
@@ -65,11 +104,22 @@
       const store = getStore();
       if (!store) return;
       const st = store.getState();
+      const timeline = buildTimeline();
       send(Protocol.MSG.DOC, {
         doc: st.songDocument,
-        keyState: st.keyState
+        keyState: st.keyState,
+        timeline
       });
+      _lastTimelineKey = JSON.stringify(timeline);
       send(Protocol.MSG.VIEW, { view: st.viewStates && st.viewStates.playerView });
+    }
+
+    function pushTimelineIfChanged() {
+      const timeline = buildTimeline();
+      const key = JSON.stringify(timeline);
+      if (key === _lastTimelineKey) return;
+      _lastTimelineKey = key;
+      send(Protocol.MSG.TIMELINE, timeline);
     }
 
     function pushPlayhead() {
@@ -81,6 +131,7 @@
         const store = getStore();
         if (!store) return;
         const pb = store.getState().playbackState;
+        pushTimelineIfChanged();
         send(Protocol.MSG.PLAYHEAD, {
           time: pb.time,
           isPlaying: pb.isPlaying,
@@ -239,6 +290,7 @@
       if (ws) { try { ws.close(); } catch (e) {} }
       ws = null;
       connected = false;
+      _lastTimelineKey = '';
     }
 
     return { connect, disconnect, isConnected, ensureConnected, resendSnapshot };

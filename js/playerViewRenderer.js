@@ -125,6 +125,7 @@ const PlayerViewRenderer = (() => {
     const highlightEffect =
       vs.highlightEffect || doc.styles?.highlightEffect || 'depth';
     container.dataset.highlightEffect = highlightEffect;
+    container.dataset.mobileLayout = isMobileLayout ? 'true' : 'false';
 
     // Container styles
     container.style.fontFamily      = fontFamily;
@@ -240,6 +241,26 @@ const PlayerViewRenderer = (() => {
       const GAP = Math.max(10, cSize * 0.6);
       const MARGIN = 5;
       const chordElements = [];
+
+      if (isMobileLayout) {
+        container.dataset.highlightChordZone = String(GAP + cSize);
+        (doc.lines || []).forEach(line => {
+          const lineEl = container.querySelector(
+            '.pv-line[data-line-id="' + line.id + '"]'
+          );
+          if (!lineEl) return;
+          const frame = document.createElement('div');
+          frame.className = 'pv-line-highlight-frame';
+          frame.dataset.highlightLineId = line.id;
+          frame.style.position = 'absolute';
+          frame.style.display = 'none';
+          frame.style.pointerEvents = 'none';
+          frame.style.zIndex = '8';
+          frame.style.boxSizing = 'border-box';
+          frame.style.borderRadius = '8px';
+          container.appendChild(frame);
+        });
+      }
 
       (doc.lines || []).forEach(line => {
         if (!line.chords || !line.chords.length) return;
@@ -421,6 +442,66 @@ const PlayerViewRenderer = (() => {
       container.dataset.highlightEffect ||
       'depth';
 
+    const mobileHighlightFrames = container.querySelectorAll(
+      '.pv-line-highlight-frame'
+    );
+    mobileHighlightFrames.forEach(frame => {
+      const lineId = frame.dataset.highlightLineId;
+      const lineEl = container.querySelector(
+        '.pv-line[data-line-id="' + lineId + '"]'
+      );
+      const isActive = !!activeLineId && activeLineId === lineId;
+      if (!lineEl || !isActive) {
+        frame.style.display = 'none';
+        return;
+      }
+
+      const zone = Math.max(
+        0,
+        Number(container.dataset.highlightChordZone) || 0
+      );
+      const effect = highlightEffect;
+      const isNeon = effect === 'neon';
+      const isFrost = effect === 'frost';
+      const isShift = effect === 'shift';
+      const isPulse = effect === 'pulse';
+      const isDepth = !isNeon && !isFrost && !isShift && !isPulse;
+
+      frame.style.display = 'block';
+      frame.style.left = lineEl.offsetLeft + 'px';
+      frame.style.top = Math.max(0, lineEl.offsetTop - zone) + 'px';
+      frame.style.width = lineEl.offsetWidth + 'px';
+      frame.style.height = (lineEl.offsetHeight + zone) + 'px';
+      frame.style.background = isNeon
+        ? 'linear-gradient(180deg, rgba(0,242,254,0.2), rgba(0,242,254,0.04) 55%, transparent)'
+        : isFrost
+          ? 'linear-gradient(135deg, rgba(255,255,255,0.1), rgba(200,220,255,0.08))'
+          : isShift
+            ? 'linear-gradient(135deg, rgba(255,46,147,0.15), rgba(123,47,255,0.15), rgba(0,242,254,0.15))'
+            : isPulse
+              ? 'linear-gradient(180deg, rgba(34,211,100,0.12), rgba(34,211,100,0.02) 55%, transparent)'
+              : 'linear-gradient(180deg, rgba(255,46,147,0.15), rgba(255,46,147,0.02) 60%, transparent)';
+      frame.style.border = isDepth
+        ? '1px solid rgba(255,46,147,0.2)'
+        : isNeon
+          ? '1px solid rgba(0,242,254,0.3)'
+          : isFrost
+            ? '1px solid rgba(255,255,255,0.15)'
+            : isPulse
+              ? '1px solid rgba(34,211,100,0.25)'
+              : '1px solid transparent';
+      frame.style.borderRadius = isFrost ? '12px' : '8px';
+      frame.style.boxShadow = isNeon
+        ? '0 0 15px rgba(0,242,254,0.3), 0 0 30px rgba(0,242,254,0.1)'
+        : isFrost
+          ? 'inset 0 1px 0 rgba(255,255,255,0.15), 0 4px 16px rgba(0,0,0,0.3)'
+          : isPulse
+            ? '0 0 20px rgba(34,211,100,0.6), inset 0 0 20px rgba(34,211,100,0.1)'
+            : isDepth
+              ? '0 6px 20px rgba(0,0,0,0.4), 0 2px 6px rgba(255,46,147,0.2)'
+              : '';
+    });
+
     [...container.children].forEach(el => {
       if (!el.dataset.lineId) return;
 
@@ -470,7 +551,13 @@ const PlayerViewRenderer = (() => {
                 ? 'linear-gradient(135deg, rgba(255,46,147,0.15), rgba(123,47,255,0.15), rgba(0,242,254,0.15))'
                 : isPulse
                   ? 'linear-gradient(180deg, rgba(34,211,100,0.12), rgba(34,211,100,0.02) 55%, transparent)'
-                  : 'linear-gradient(180deg, rgba(255,46,147,0.15), rgba(255,46,147,0.02) 60%, transparent)';
+              : 'linear-gradient(180deg, rgba(255,46,147,0.15), rgba(255,46,147,0.02) 60%, transparent)';
+          if (
+            container.dataset.mobileLayout === 'true' &&
+            el.classList.contains('pv-line')
+          ) {
+            el.style.background = 'transparent';
+          }
           el.style.border = isDepth
             ? '1px solid rgba(255,46,147,0.2)'
             : isNeon
@@ -479,7 +566,14 @@ const PlayerViewRenderer = (() => {
                 ? '1px solid rgba(255,255,255,0.15)'
                 : isPulse
                   ? '1px solid rgba(34,211,100,0.25)'
-                  : '1px solid transparent';
+              : '1px solid transparent';
+          if (
+            container.dataset.mobileLayout === 'true' &&
+            el.classList.contains('pv-line')
+          ) {
+            el.style.border = '1px solid transparent';
+            el.style.boxShadow = 'none';
+          }
           el.style.borderRadius = isFrost ? '12px' : '8px';
           el.style.boxShadow = isNeon
             ? '0 0 15px rgba(0,242,254,0.3), 0 0 30px rgba(0,242,254,0.1)'
@@ -490,6 +584,14 @@ const PlayerViewRenderer = (() => {
                 : isDepth
                   ? '0 6px 20px rgba(0,0,0,0.4), 0 2px 6px rgba(255,46,147,0.2)'
                   : '';
+          if (
+            container.dataset.mobileLayout === 'true' &&
+            el.classList.contains('pv-line')
+          ) {
+            el.style.background = 'transparent';
+            el.style.border = '1px solid transparent';
+            el.style.boxShadow = 'none';
+          }
         }
         el.style.zIndex     = isChord ? '11' : '10';
         el.style.opacity    = '';

@@ -133,21 +133,31 @@ function createSyncHub(httpServer, options = {}) {
   function handleMasterMessage(peer, message) {
     const type = message.t;
     // فقط پیام‌های مجاز مستر را عبور بده
-    if (type === Protocol.MSG.DOC ||
+    if (type === Protocol.MSG.SNAPSHOT ||
+        type === Protocol.MSG.DOC ||
         type === Protocol.MSG.PLAYHEAD ||
         type === Protocol.MSG.HIGHLIGHT ||
-        type === Protocol.MSG.VIEW) {
+        type === Protocol.MSG.VIEW ||
+        type === Protocol.MSG.TIMELINE) {
       // به‌روزرسانی snapshot داخلی برای اسلیوهای بعدی
       if (type === Protocol.MSG.SNAPSHOT) {
         lastSnapshot = message.p;
       } else if (type === Protocol.MSG.DOC) {
-        lastSnapshot = Object.assign({}, lastSnapshot, { doc: message.p.doc, keyState: message.p.keyState });
+        lastSnapshot = Object.assign({}, lastSnapshot, {
+          doc: message.p.doc,
+          keyState: message.p.keyState
+        });
+        if (message.p.timeline) {
+          lastSnapshot.timeline = message.p.timeline;
+        }
       } else if (type === Protocol.MSG.HIGHLIGHT) {
         lastSnapshot = Object.assign({}, lastSnapshot, { highlight: message.p });
       } else if (type === Protocol.MSG.PLAYHEAD) {
         lastSnapshot = Object.assign({}, lastSnapshot, { playback: message.p });
       } else if (type === Protocol.MSG.VIEW) {
         lastSnapshot = Object.assign({}, lastSnapshot, { view: message.p.view });
+      } else if (type === Protocol.MSG.TIMELINE) {
+        lastSnapshot = Object.assign({}, lastSnapshot, { timeline: message.p });
       }
       broadcast(type, message.p, message.m);
     }
@@ -192,6 +202,8 @@ function createSyncHub(httpServer, options = {}) {
         case Protocol.MSG.PLAYHEAD:
         case Protocol.MSG.HIGHLIGHT:
         case Protocol.MSG.VIEW:
+        case Protocol.MSG.SNAPSHOT:
+        case Protocol.MSG.TIMELINE:
           // فقط مستر اجازه دارد
           if (peer.role !== Protocol.ROLE.MASTER) {
             send(ws, 'welcome', { ok: false, error: Protocol.ERROR_CODE.FORBIDDEN });

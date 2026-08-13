@@ -31,6 +31,7 @@
     let container = null;
     let currentDoc = null;
     let currentKey = null;
+    let timeline = null;
     let playback = { time: 0, isPlaying: false, duration: 0 };
     let remoteView = null;          // viewState که از مستر آمده (پیش‌فرض)
     let highlight = {
@@ -87,6 +88,12 @@
       }
     }
 
+    function renderTimeline() {
+      if (typeof updateMobileTimeline === 'function') {
+        updateMobileTimeline(timeline, playback);
+      }
+    }
+
     function send(type, payload) {
       if (!ws || ws.readyState !== WebSocket.OPEN) return;
       ws.send(JSON.stringify(Protocol.pack(type, payload)));
@@ -126,14 +133,17 @@
               { time: 0, isPlaying: false, duration: 0 },
               p.playback || {}
             );
+            timeline = p.timeline || timeline;
             if (p.highlight) applyHighlight(p.highlight);
             renderFull();
-            if (typeof updatePlaybackUI === 'function') updatePlaybackUI(playback);
+            renderTimeline();
             break;
           case Protocol.MSG.DOC:
             currentDoc = p.doc || null;
             currentKey = p.keyState || null;
+            if (p.timeline) timeline = p.timeline;
             renderFull();
+            renderTimeline();
             break;
           case Protocol.MSG.VIEW:
             remoteView = p.view || null;
@@ -145,7 +155,11 @@
             break;
           case Protocol.MSG.PLAYHEAD:
             playback = Object.assign({}, playback, p);
-            if (typeof updatePlaybackUI === 'function') updatePlaybackUI(playback);
+            renderTimeline();
+            break;
+          case Protocol.MSG.TIMELINE:
+            timeline = p;
+            renderTimeline();
             break;
           case Protocol.MSG.PEER_LEAVE:
             break;

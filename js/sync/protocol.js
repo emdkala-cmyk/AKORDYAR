@@ -34,6 +34,7 @@
     PLAYHEAD: 'playhead',     // وضعیت پخش هر فریم: { time, isPlaying }
     HIGHLIGHT:'highlight',    // هایلایت خط فعال: { activeLineId, doneLines }
     VIEW:     'view',         // viewState پیش‌فرض مستر (برای اولین رندر اسلیو)
+    TIMELINE: 'timeline',     // آینه‌ی تایم‌لاین آکوردها
     SEEK_REQUEST: 'seek-request', // درخواست جابه‌جایی تایم‌لاین از گوشی
     TRANSPORT_REQUEST: 'transport-request', // play/pause/stop از گوشی
 
