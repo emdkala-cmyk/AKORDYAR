@@ -26,7 +26,8 @@
     "express": "^4.18.2",
     "jsdom": "^24.0.0",
     "qrcode": "^1.5.4",
-    "qrcode-generator": "^1.5.2"
+    "qrcode-generator": "^1.5.2",
+    "ws": "^8.21.1"
   },
   "devDependencies": {
     "electron": "^31.7.7",
@@ -42,17 +43,21 @@
     },
     "files": [
       "electron-main.js",
+      "preload.js",
       "server.js",
+      "server/**/*",
       "parser-test.js",
       "Akordyar.html",
       "sync-client.html",
       "package.json",
       "js/**/*",
       "styles/**/*",
+      "fonts/**/*",
       "build/icon.png",
       "build/icon.ico",
       "node_modules/express/**/*",
-      "node_modules/jsdom/**/*"
+      "node_modules/jsdom/**/*",
+      "node_modules/ws/**/*"
     ],
     "asar": false,
     "win": {

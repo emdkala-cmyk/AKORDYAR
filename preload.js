@@ -16,7 +16,7 @@
  *   readDir, prepareRecordings
 */
 
-const { contextBridge, ipcRenderer } = require('electron');
+const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
 const MENU_CHANNELS = Object.freeze([
     'menu-new-song',
@@ -97,6 +97,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
      * @returns {Promise<ArrayBuffer>}
      */
     readAudioFile: (filePath) => invoke('audio:read-file', filePath),
+
+    /**
+     * دریافت مسیر واقعی فایل انتخاب‌شده در Electron.
+     * در نسخه‌های جدید Electron، file.path از renderer حذف شده و
+     * باید از webUtils.getPathForFile در preload استفاده شود.
+     */
+    getPathForFile: (file) => {
+        try {
+            return webUtils?.getPathForFile?.(file) || null;
+        } catch (_) {
+            return null;
+        }
+    },
 
     /**
      * کپی فایل به پوشه پروژه
