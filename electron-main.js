@@ -12,6 +12,7 @@
 const { app, BrowserWindow, shell, ipcMain, dialog, Menu } = require('electron');
 const path = require('path');
 const http = require('http');
+const { spawn, execFileSync } = require('child_process');
 const fsPromises = require('fs').promises;
 const fsSync = require('fs');
 
@@ -19,7 +20,7 @@ const SERVER_PORT = 3000;
 const SERVER_URL = `http://localhost:${SERVER_PORT}/Akordyar.html`;
 
 let mainWindow = null;
-let serverModule = null;
+let serverProcess = null;
 
 const IPC_CHANNELS = Object.freeze([
   'audio:read-file',
@@ -307,20 +308,43 @@ function logError(tag, msg) {
 }
 
 // ============================================
-// Check if port is already in use (server might be running externally)
+// Check if port is already in use
 // ============================================
-function isServerAlreadyRunning() {
-  return new Promise((resolve) => {
-    const req = http.get(SERVER_URL, (res) => {
-      res.resume();
-      resolve(res.statusCode === 200);
-    });
-    req.on('error', () => resolve(false));
-    req.setTimeout(1500, () => {
-      req.destroy();
-      resolve(false);
-    });
-  });
+function stopExistingServerOnPort() {
+  if (process.platform !== 'win32') return;
+
+  try {
+    const netstat = execFileSync(
+      'netstat',
+      ['-ano', '-p', 'tcp'],
+      { encoding: 'utf8', windowsHide: true }
+    );
+    const pids = new Set();
+
+    for (const line of netstat.split(/\r?\n/)) {
+      const match = line.match(
+        /^\s*TCP\s+\S+:3000\s+\S+\s+LISTENING\s+(\d+)\s*$/i
+      );
+      if (match && Number(match[1]) !== process.pid) {
+        pids.add(match[1]);
+      }
+    }
+
+    for (const pid of pids) {
+      try {
+        execFileSync(
+          'taskkill',
+          ['/PID', pid, '/T', '/F'],
+          { stdio: 'ignore', windowsHide: true }
+        );
+        log('Server', `Stopped previous process on port ${SERVER_PORT} (PID ${pid})`);
+      } catch (error) {
+        logError('Server', `Could not stop PID ${pid}: ${error.message}`);
+      }
+    }
+  } catch (error) {
+    logError('Server', `Could not inspect port ${SERVER_PORT}: ${error.message}`);
+  }
 }
 
 // ============================================
@@ -665,7 +689,9 @@ function addFirewallRuleForElectron() {
 }
 
 // ============================================
-// Start Express server in-process
+// Start the LAN server as a separate Node-compatible process.
+// This intentionally mirrors Run-Akordyar.bat so the packaged app and
+// development launcher expose the same HTTP/WebSocket server behavior.
 // ============================================
 async function startServerInProcess() {
   try {
@@ -678,12 +704,36 @@ async function startServerInProcess() {
       return false;
     }
 
-    log('Server', `Loading server from: ${serverPath}`);
-    process.chdir(path.dirname(serverPath));
+    log('Server', `Starting external LAN server from: ${serverPath}`);
 
-    // require کردن سرور — خودش روی PORT گوش می‌ده
-    serverModule = require(serverPath);
-    log('Server', 'Server module loaded successfully');
+    const childEnv = {
+      ...process.env,
+      AKORDYAR_DESKTOP: '1',
+      ELECTRON_RUN_AS_NODE: '1'
+    };
+
+    serverProcess = spawn(process.execPath, [serverPath], {
+      cwd: path.dirname(serverPath),
+      env: childEnv,
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe']
+    });
+
+    serverProcess.stdout?.on('data', data => {
+      const text = String(data).trim();
+      if (text) console.log(`[LAN Server] ${text}`);
+    });
+    serverProcess.stderr?.on('data', data => {
+      const text = String(data).trim();
+      if (text) console.error(`[LAN Server] ${text}`);
+    });
+    serverProcess.once('error', error => {
+      logError('Server', `External server process error: ${error.message}`);
+    });
+    serverProcess.once('exit', (code, signal) => {
+      log('Server', `External server exited code=${code ?? 'null'} signal=${signal ?? 'null'}`);
+      serverProcess = null;
+    });
 
     // ensure phone can connect through firewall
     addFirewallRuleForElectron();
@@ -712,6 +762,7 @@ function createWindow() {
    webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
+      sandbox: false,
       webSecurity: false,
       preload: path.join(__dirname, 'preload.js')
     }
@@ -763,34 +814,30 @@ app.whenReady().then(async () => {
   // ایجاد منوی اصلی برنامه
   createMenu();
 
-  // اگر سرور از قبل داره اجرا می‌شه (مثلاً کاربر npm run server زده)،
-  // دوباره استارتش نزن
-  const alreadyRunning = await isServerAlreadyRunning();
-  if (alreadyRunning) {
-    log('Server', 'Server already running externally — skipping internal start');
-  } else {
-    log('Server', 'Starting internal Express server...');
-    const started = await startServerInProcess();
-    if (!started) {
-      logError('Server', 'Failed to start server. Aborting.');
-      dialog.showErrorBox(
-        'Akordyar — خطای راه‌اندازی',
-        'سرور Express راه‌اندازی نشد. لطفاً لاگ‌های کنسول را بررسی کنید.\n\n' +
-        'اگر پورت ۳۰۰۰ اشغال است، آن را آزاد کنید.'
-      );
-      app.quit();
-      return;
-    }
-    log('Server', 'Waiting for server to accept connections...');
-    const ok = await waitForServer();
-    if (!ok) {
-      logError('Server', 'Server did not respond in time');
-      dialog.showErrorBox(
-        'Akordyar — خطای اتصال',
-        'سرور روی پورت ۳۰۰۰ پاسخ نداد.\n' +
-        'ممکن است پورت اشغال باشد یا خطای دیگری رخ داده باشد.'
-      );
-    }
+  // مثل Run-Akordyar.bat، همیشه سرور متعلق به همین نسخه را اجرا کن.
+  // این کار مانع اتصال تصادفی به server.js قدیمیِ باقی‌مانده روی پورت ۳۰۰۰ می‌شود.
+  stopExistingServerOnPort();
+  log('Server', 'Starting internal Express server...');
+  const started = await startServerInProcess();
+  if (!started) {
+    logError('Server', 'Failed to start server. Aborting.');
+    dialog.showErrorBox(
+      'Akordyar — خطای راه‌اندازی',
+      'سرور Express راه‌اندازی نشد. لطفاً لاگ‌های کنسول را بررسی کنید.\n\n' +
+      'اگر پورت ۳۰۰۰ اشغال است، آن را آزاد کنید.'
+    );
+    app.quit();
+    return;
+  }
+  log('Server', 'Waiting for server to accept connections...');
+  const ok = await waitForServer();
+  if (!ok) {
+    logError('Server', 'Server did not respond in time');
+    dialog.showErrorBox(
+      'Akordyar — خطای اتصال',
+      'سرور روی پورت ۳۰۰۰ پاسخ نداد.\n' +
+      'ممکن است پورت اشغال باشد یا خطای دیگری رخ داده باشد.'
+    );
   }
 
   createWindow();
@@ -806,12 +853,13 @@ app.on('window-all-closed', () => {
 
 app.on('before-quit', () => {
   log('App', 'Shutting down...');
-  if (serverModule && serverModule.__server) {
+  if (serverProcess && !serverProcess.killed) {
     try {
-      serverModule.__server.close();
-      log('Server', 'HTTP server closed');
+      serverProcess.kill();
+      log('Server', 'External LAN server stopped');
     } catch (e) {
       // ignore
     }
+    serverProcess = null;
   }
 });
