@@ -2249,6 +2249,7 @@ sels.forEach(c => {
       } else {
         stopAllVoices();
       }
+      if (typeof publishPlaybackSync === 'function') publishPlaybackSync();
     }
 
     // Return-to-start on pause (Cubase style)
@@ -2301,6 +2302,7 @@ sels.forEach(c => {
           getEditorDAW().playhead,
           transportStartAudioTime
         );
+        if (typeof publishPlaybackSync === 'function') publishPlaybackSync();
         $('play-btn').style.color = 'var(--accent-neon-pink)';
         scheduleAllFromPlayhead();
 
@@ -2496,8 +2498,10 @@ sels.forEach(c => {
 
       // Update perf play button
       if (perfModeActive) $('perfPlayBtn').textContent = '▶';
+      if (typeof publishPlaybackSync === 'function') publishPlaybackSync();
     }
     function stopTransport() { pauseTransport(); getEditorDAW().playhead = 0; updatePlayheadUI();
+      if (typeof publishPlaybackSync === 'function') publishPlaybackSync();
       // Auto-advance arranger when song finishes
       if (arrPerformActive && arrPerformData) {
         // If pause mode, don't auto-advance
@@ -3247,6 +3251,14 @@ sels.forEach(c => {
         setTimeout(() => edRenderChords(), 50);
       }
     }
+
+    function installPopupHighlightLoop(popup, doc) {
+      if (!popup || !doc?.body) return;
+      const script = doc.createElement('script');
+      script.textContent = '(function(){if(window.__akordHighlightLoopStarted)return;window.__akordHighlightLoopStarted=true;function frame(){try{window._syncHighlight?.()}catch(_){}if(!window.closed)window.requestAnimationFrame(frame)}frame()})();';
+      doc.body.appendChild(script);
+    }
+
     function openLyricPopup() {
       if (isPopupOpen(_lyricPopup)) { popupWindowBridge?.focus?.(_lyricPopup); return; }
       _lyricPopup = openPopupWindow('lyricPopup', 'width=900,height=700,menubar=no,toolbar=no,location=no,status=no');
@@ -3355,7 +3367,10 @@ sels.forEach(c => {
         const body = popupDocument(_lyricOnlyPopup)?.getElementById('lopBody');
         if (!body) return;
         const times = requireEditorSongStateService().getSyncTimes();
-        const t = getEditorDAW()?.playhead || 0;
+        const daw = getEditorDAW();
+        const t = daw?.isPlaying
+          ? getTransportPlayhead()
+          : (Number.isFinite(daw?.playhead) ? daw.playhead : 0);
         let activeIdx = -1;
         for (let i = 0; i < times.length; i++) {
           if (Number.isFinite(times[i]) && times[i] <= t) activeIdx = i;
@@ -3376,6 +3391,7 @@ sels.forEach(c => {
         }
       }
       popupWindowBridge?.set?.(_lyricOnlyPopup, '_syncHighlight', _syncSingerHighlight);
+      installPopupHighlightLoop(_lyricOnlyPopup, doc);
     }
 
     // ===== CHORD LINE POPUP (detachable, small) =====
@@ -4493,7 +4509,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const popupBody = popupDocument(_lyricPopup)?.getElementById('popupBody');
         if (!popupBody) return;
         const times = requireEditorSongStateService().getSyncTimes();
-        const t = getEditorDAW()?.playhead || 0;
+        const daw = getEditorDAW();
+        const t = daw?.isPlaying
+          ? getTransportPlayhead()
+          : (Number.isFinite(daw?.playhead) ? daw.playhead : 0);
         let activeIdx = -1;
         for (let i = 0; i < times.length; i++) {
           if (Number.isFinite(times[i]) && times[i] <= t) activeIdx = i;
@@ -4517,6 +4536,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
       popupWindowBridge?.set?.(_lyricPopup, '_syncHighlight', _syncLyricPopupHighlight);
+      installPopupHighlightLoop(_lyricPopup, _pvDoc);
       // Fallback chord render chain: اگر rAF اولیه در full rebuild fail شد
       [200, 500, 1000].forEach(function(ms) {
         setTimeout(function() {

@@ -15,6 +15,27 @@ function isPerformancePopupOpen(popup) {
   return performanceWindowBridge?.isOpen?.(popup) ?? Boolean(popup && !popup.closed);
 }
 
+function installPerformancePopupHighlightLoop(popup, doc) {
+  if (!popup || !doc?.body) return;
+  const script = doc.createElement('script');
+  script.textContent = `
+    (function () {
+      if (window.__akordPerformanceHighlightLoopStarted) return;
+      window.__akordPerformanceHighlightLoopStarted = true;
+      function frame() {
+        try {
+          if (typeof window._syncHighlight === 'function') {
+            window._syncHighlight();
+          }
+        } catch (_) {}
+        if (!window.closed) window.requestAnimationFrame(frame);
+      }
+      frame();
+    })();
+  `;
+  doc.body.appendChild(script);
+}
+
 function getPerformancePopupDocument(popup) {
   return performanceWindowBridge?.getDocument?.(popup) || popup?.document || null;
 }
@@ -49,6 +70,30 @@ function getRuntimePlaybackDuration(daw) {
     end = Math.max(end, start + duration);
   }
   return Math.max(0, end);
+}
+
+/**
+ * Read the authoritative transport position without depending on the
+ * editor window's RAF loop.  The propagation loop below is only a state
+ * publisher; AudioContext remains the playback clock.
+ */
+function getRuntimePlaybackTime(daw) {
+  if (!daw) return 0;
+  const audioNow = daw.audioCtx?.currentTime;
+  if (
+    daw.isPlaying &&
+    Number.isFinite(daw.playOriginAudio) &&
+    Number.isFinite(daw.playOriginTime) &&
+    Number.isFinite(audioNow)
+  ) {
+    return Math.max(
+      0,
+      daw.playOriginTime + Math.max(0, audioNow - daw.playOriginAudio)
+    );
+  }
+  return Number.isFinite(Number(daw.playhead))
+    ? Math.max(0, Number(daw.playhead))
+    : 0;
 }
 
 /* ═══════════════════════════════════════════════
@@ -150,43 +195,50 @@ function syncViewStylesToEdCur() {
    Playback sync loop
    ═══════════════════════════════════════════════ */
 
-let _perfBridgeRafId = null;
+let _perfBridgeTimerId = null;
+let _perfBridgeRunning = false;
 let _lastPerfSyncTime = 0;
 
-function startPlaybackSync() {
-  if (_perfBridgeRafId) return;
-  const tick = () => {
-    const daw = getRuntimeDAW();
-    const store = getRuntimePerformanceStore();
-    if (!daw) {
-      _perfBridgeRafId = requestAnimationFrame(tick);
-      return;
-    }
-    const now = performance.now();
-    if (now - _lastPerfSyncTime > 33) {
-      _lastPerfSyncTime = now;
-      if (store && window.SharedEngine && _songDocument) {
-        store.setPlaybackState({
-          time: daw.playhead || 0,
-          isPlaying: !!daw.isPlaying,
-          duration: getRuntimePlaybackDuration(daw)
-        });
-        const hl = window.SharedEngine.computeHighlight(
-          store.getState().playbackState, _songDocument
-        );
-        store.setHighlightState(hl);
-      }
-    }
-    _perfBridgeRafId = requestAnimationFrame(tick);
+function publishPlaybackSync() {
+  const daw = getRuntimeDAW();
+  const store = getRuntimePerformanceStore();
+  if (!daw || !store || !window.SharedEngine || !_songDocument) return;
+
+  const now = performance.now();
+  if (now - _lastPerfSyncTime < 24) return;
+  _lastPerfSyncTime = now;
+
+  const playbackState = {
+    time: getRuntimePlaybackTime(daw),
+    isPlaying: !!daw.isPlaying,
+    duration: getRuntimePlaybackDuration(daw)
   };
-  _perfBridgeRafId = requestAnimationFrame(tick);
+  store.setPlaybackState(playbackState);
+  store.setHighlightState(
+    window.SharedEngine.computeHighlight(playbackState, _songDocument)
+  );
+}
+
+function schedulePlaybackSync() {
+  if (!_perfBridgeRunning || _perfBridgeTimerId) return;
+  _perfBridgeTimerId = setTimeout(() => {
+    _perfBridgeTimerId = null;
+    publishPlaybackSync();
+    schedulePlaybackSync();
+  }, 33);
+}
+
+function startPlaybackSync() {
+  if (_perfBridgeRunning) return;
+  _perfBridgeRunning = true;
+  publishPlaybackSync();
+  schedulePlaybackSync();
 }
 
 function stopPlaybackSync() {
-  if (_perfBridgeRafId) {
-    cancelAnimationFrame(_perfBridgeRafId);
-    _perfBridgeRafId = null;
-  }
+  _perfBridgeRunning = false;
+  if (_perfBridgeTimerId) clearTimeout(_perfBridgeTimerId);
+  _perfBridgeTimerId = null;
 }
 
 /* ═══════════════════════════════════════════════
@@ -245,6 +297,7 @@ function wirePerformanceBroadcasts() {
 let _singerPopup = null;
 let _singerUnsubs = [];
 let _singerCloseTimer = null;
+let _singerClockHighlightKey = '';
 
 function _clearSingerUnsubs() {
   _singerUnsubs.forEach(function (u) {
@@ -318,7 +371,36 @@ function openSingerView() {
     );
   }
 
+  function renderSingerHighlightFromClock() {
+    if (!isPerformancePopupOpen(_singerPopup) || !root) return;
+    if (!window.SingerViewRenderer) return;
+
+    const daw = getRuntimeDAW();
+    const st = store.getState();
+    const playbackState = {
+      time: getRuntimePlaybackTime(daw),
+      isPlaying: !!daw?.isPlaying,
+      duration: getRuntimePlaybackDuration(daw)
+    };
+    const nextHighlight =
+      window.SharedEngine && _songDocument
+        ? window.SharedEngine.computeHighlight(playbackState, _songDocument)
+        : st.highlightState;
+    const key = JSON.stringify([
+      nextHighlight?.activeLineId || null,
+      nextHighlight?.activeTokenId || null,
+      nextHighlight?.activeChordId || null,
+      Array.from(nextHighlight?.doneLines || [])
+    ]);
+    if (key === _singerClockHighlightKey) return;
+    _singerClockHighlightKey = key;
+    SingerViewRenderer.updateSingerHighlight(
+      nextHighlight, st.viewStates.singerView, root
+    );
+  }
+
   renderSingerFull();
+  _singerClockHighlightKey = '';
   if (typeof publishPerformanceState === 'function') publishPerformanceState();
 
   // contentUpdated = full render (تعویض آهنگ)
@@ -329,6 +411,12 @@ function openSingerView() {
   _singerUnsubs.push(store.subscribe('highlightChanged', renderSingerHighlight));
   _singerUnsubs.push(store.subscribe('playbackStateChanged', renderSingerHighlight));
 
+  performanceWindowBridge?.set?.(
+    _singerPopup,
+    '_syncHighlight',
+    renderSingerHighlightFromClock
+  );
+  installPerformancePopupHighlightLoop(_singerPopup, doc);
   startPlaybackSync();
 
   if (_singerCloseTimer) clearInterval(_singerCloseTimer);
@@ -491,5 +579,9 @@ if (typeof window !== 'undefined') {
   window.addEventListener('DOMContentLoaded', () => {
     ensurePerformanceChannel();
     wirePerformanceBroadcasts();
+    // Keep the shared playback state alive even when no performance popup is
+    // open.  The published position is derived from AudioContext, not from
+    // this timer's cadence.
+    startPlaybackSync();
   });
 }

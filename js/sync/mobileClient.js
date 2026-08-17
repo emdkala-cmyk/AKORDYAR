@@ -24,7 +24,9 @@
     const DEFAULT_MOBILE_VIEW = {
       fontSize: 20,
       showQuantizeGrid: false,
-      mobileLayout: true
+      mobileLayout: true,
+      textColor: '#0fa966',
+      chordColor: '#e6aa28'
     };
     let ws = null;
     let connected = false;
@@ -33,10 +35,18 @@
     let currentKey = null;
     let timeline = null;
     let playback = { time: 0, isPlaying: false, duration: 0 };
+    let playbackAnchor = {
+      time: 0,
+      receivedAt: performance.now(),
+      isPlaying: false,
+      duration: 0
+    };
+    let playbackRafId = null;
     let remoteView = null;          // viewState که از مستر آمده (پیش‌فرض)
     let highlight = {
       activeLineId: null, activeTokenId: null, activeChordId: null, doneLines: new Set()
     };
+    let lastRenderedHighlightKey = '';
     let localOverride = Object.assign({}, DEFAULT_MOBILE_VIEW); // تنظیمات محلی گوشی
 
     function url() {
@@ -53,13 +63,75 @@
         // Match the default desktop Player View palette on the phone.
         {
           backgroundColor: '#0F131E',
-          textColor: '#E2E8F0',
-          chordColor: '#00F2FE',
+          textColor: '#0fa966',
+          chordColor: '#e6aa28',
           highlightColor: '#FF2E93',
           showQuantizeGrid: false,
           mobileLayout: true
         }
       );
+    }
+
+    function getRenderedPlayback(now = performance.now()) {
+      const base = Object.assign({}, playback);
+      if (!base.isPlaying) return base;
+
+      const elapsed = Math.max(0, now - playbackAnchor.receivedAt) / 1000;
+      const duration = Number(base.duration) || 0;
+      const time = Math.max(0, playbackAnchor.time + elapsed);
+      return Object.assign(base, {
+        time: duration > 0 ? Math.min(duration, time) : time
+      });
+    }
+
+    function setPlaybackState(next) {
+      const now = performance.now();
+      const incoming = Object.assign({}, playback, next || {});
+      const incomingTime = Math.max(0, Number(incoming.time) || 0);
+      const previous = getRenderedPlayback(now);
+      const discontinuity =
+        !playback.isPlaying ||
+        !incoming.isPlaying ||
+        Math.abs(incomingTime - (Number(playback.time) || 0)) > 0.75;
+
+      // WebSocket packets carry the authoritative position, but they arrive
+      // after network latency.  Keep a continuous local anchor between
+      // packets and never move backwards because a newer packet describes an
+      // earlier instant than our already-rendered prediction.
+      const anchorTime = discontinuity
+        ? incomingTime
+        : Math.max(incomingTime, Number(previous.time) || 0);
+
+      playback = incoming;
+      playbackAnchor = {
+        time: anchorTime,
+        receivedAt: now,
+        isPlaying: !!incoming.isPlaying,
+        duration: Number(incoming.duration) || 0
+      };
+    }
+
+    function highlightKey(value) {
+      return JSON.stringify([
+        value?.activeLineId || null,
+        value?.activeTokenId || null,
+        value?.activeChordId || null,
+        Array.from(value?.doneLines || [])
+      ]);
+    }
+
+    function getRenderedHighlight() {
+      if (
+        currentDoc &&
+        globalScope.SharedEngine &&
+        typeof globalScope.SharedEngine.computeHighlight === 'function'
+      ) {
+        return globalScope.SharedEngine.computeHighlight(
+          getRenderedPlayback(),
+          currentDoc
+        );
+      }
+      return highlight;
     }
 
     function renderFull() {
@@ -77,21 +149,40 @@
       } else {
         if (typeof dbg === 'function') dbg('PlayerViewRenderer undefined!');
       }
+      lastRenderedHighlightKey = '';
+      renderHighlight(true);
     }
 
-    function renderHighlight() {
+    function renderHighlight(force = false) {
       if (!container) return;
+      const nextHighlight = getRenderedHighlight();
+      const key = highlightKey(nextHighlight);
+      if (!force && key === lastRenderedHighlightKey) return;
+      lastRenderedHighlightKey = key;
       if (globalScope.PlayerViewRenderer) {
         globalScope.PlayerViewRenderer.updatePlayerHighlight(
-          highlight, mergedView(), container
+          nextHighlight, mergedView(), container
         );
       }
     }
 
-    function renderTimeline() {
+    function renderTimeline(nextPlayback = getRenderedPlayback()) {
       if (typeof updateMobileTimeline === 'function') {
-        updateMobileTimeline(timeline, playback);
+        updateMobileTimeline(timeline, nextPlayback);
       }
+      globalScope.updatePlaybackUI?.(nextPlayback);
+    }
+
+    function renderPlaybackFrame() {
+      const nextPlayback = getRenderedPlayback();
+      renderTimeline(nextPlayback);
+      renderHighlight();
+      playbackRafId = requestAnimationFrame(renderPlaybackFrame);
+    }
+
+    function startPlaybackRenderLoop() {
+      if (playbackRafId) return;
+      playbackRafId = requestAnimationFrame(renderPlaybackFrame);
     }
 
     function send(type, payload) {
@@ -129,10 +220,8 @@
             currentDoc = p.doc || null;
             currentKey = p.keyState || null;
             remoteView = p.view || null;
-            playback = Object.assign(
-              { time: 0, isPlaying: false, duration: 0 },
-              p.playback || {}
-            );
+            playback = { time: 0, isPlaying: false, duration: 0 };
+            setPlaybackState(p.playback || {});
             timeline = p.timeline || timeline;
             if (p.highlight) applyHighlight(p.highlight);
             renderFull();
@@ -151,10 +240,10 @@
             break;
           case Protocol.MSG.HIGHLIGHT:
             applyHighlight(p);
-            renderHighlight();
+            renderHighlight(true);
             break;
           case Protocol.MSG.PLAYHEAD:
-            playback = Object.assign({}, playback, p);
+            setPlaybackState(p);
             renderTimeline();
             break;
           case Protocol.MSG.TIMELINE:
@@ -225,6 +314,7 @@
     function init(el) {
       container = el;
       loadLocalView();
+      startPlaybackRenderLoop();
       connect();
     }
 

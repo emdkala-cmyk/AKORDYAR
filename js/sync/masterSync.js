@@ -82,7 +82,6 @@
     let _unsubs = [];
     let _lastHighlightKey = '';
     let _lastTimelineKey = '';
-    let _rafScheduled = false;
 
     function url() {
       const proto = location.protocol === 'https:' ? 'wss' : 'ws';
@@ -123,20 +122,17 @@
     }
 
     function pushPlayhead() {
-      // ارسال در next frame برای جلوگیری از انباشت پیام در یک فریم
-      if (_rafScheduled) return;
-      _rafScheduled = true;
-      requestAnimationFrame(() => {
-        _rafScheduled = false;
-        const store = getStore();
-        if (!store) return;
-        const pb = store.getState().playbackState;
-        pushTimelineIfChanged();
-        send(Protocol.MSG.PLAYHEAD, {
-          time: pb.time,
-          isPlaying: pb.isPlaying,
-          duration: pb.duration || 0
-        });
+      // PerformanceBridge already publishes at a bounded cadence.  Sending
+      // directly here avoids tying mobile transport updates to the master's
+      // (throttleable) RAF loop.
+      const store = getStore();
+      if (!store) return;
+      const pb = store.getState().playbackState;
+      pushTimelineIfChanged();
+      send(Protocol.MSG.PLAYHEAD, {
+        time: pb.time,
+        isPlaying: pb.isPlaying,
+        duration: pb.duration || 0
       });
     }
 

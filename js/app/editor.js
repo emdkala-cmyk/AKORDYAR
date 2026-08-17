@@ -5630,6 +5630,7 @@ if ($('edDoBoth')) {
         const _gbeatDur = _gcfg.beatDuration;
         const _gbarDur = _gcfg.measureDuration;
         const _gpxPerSec = getEditorDAW().pxPerSecond;
+        targetDiv.dataset.mirrorPps = String(_gpxPerSec);
         const _gpxPerBar = _gbarDur * _gpxPerSec;
         let _gbarStep = 1;
         if (_gpxPerBar > 120) _gbarStep = 1;
@@ -5791,49 +5792,52 @@ if ($('edDoBoth')) {
     }
 
     // ======== موتور همگام‌سازی زنده پلی‌هد و اسکرول ========
-    let _mirrorSyncRAF = null;
+    // The popup owns the render loop.  The callback below only reads the
+    // authoritative AudioContext-derived transport position from the parent.
+    function installMirrorSyncLoop(popupDoc) {
+      if (!popupDoc?.body) return;
+      const script = popupDoc.createElement('script');
+      script.textContent = '(function(){if(window.__akordMirrorLoopStarted)return;window.__akordMirrorLoopStarted=true;function frame(){try{window._syncMirrorTimeline?.()}catch(_){}if(!window.closed)window.requestAnimationFrame(frame)}frame()})();';
+      popupDoc.body.appendChild(script);
+    }
+
+    function syncMirrorTimelineFrame() {
+      try {
+        if (!editorPopupIsOpen(_lyricPopup)) return;
+        const popupDoc = editorPopupDocument(_lyricPopup);
+        if (!popupDoc) return;
+        const targetDiv = popupDoc.getElementById('playerChordMirror');
+        if (!targetDiv) return;
+
+        const daw = getEditorDAW();
+        const time = daw?.isPlaying && typeof getTransportPlayhead === 'function'
+          ? getTransportPlayhead()
+          : (Number.isFinite(daw?.playhead) ? daw.playhead : 0);
+        const pxPerSecond = Math.max(1, Number(daw?.pxPerSecond) || 70);
+        if (targetDiv.dataset.mirrorPps !== String(pxPerSecond)) {
+          safeMirrorTimeline();
+          return;
+        }
+        const mirrorPlayhead = targetDiv.querySelector('.mirror-playhead');
+        const clone = targetDiv.querySelector('.track-lane, [class*="chord"]');
+        if (!mirrorPlayhead || !clone) return;
+
+        const offset = (targetDiv.clientWidth / 2) - (Math.max(0, time) * pxPerSecond);
+        clone.style.transform = 'translate3d(' + offset + 'px,0,0)';
+        const rulerInner = targetDiv.querySelector('.mirror-ruler-inner');
+        if (rulerInner) {
+          rulerInner.style.transform = 'translate3d(' + offset + 'px,0,0)';
+        }
+      } catch (_) {}
+    }
 
     function startMirrorSync() {
-        if (_mirrorSyncRAF) cancelAnimationFrame(_mirrorSyncRAF);
-
-        function loop() {
-            try {
-                if (!editorPopupIsOpen(_lyricPopup)) return;
-                const popupDoc = editorPopupDocument(_lyricPopup);
-                if (!popupDoc) return;
-                const targetDiv = popupDoc.getElementById('playerChordMirror');
-                if (!targetDiv) return;
-
-                const mainLane = document.querySelector('.track-lane.chord-lane');
-                const mainPlayhead = document.querySelector('.playhead, .timeline-playhead, .daw-playhead, #main-playhead');
-                const mirrorPlayhead = targetDiv.querySelector('.mirror-playhead');
-                const clone = targetDiv.querySelector('.track-lane, [class*="chord"]');
-
-                if (mainLane && mainPlayhead && mirrorPlayhead) {
-                    // محاسبه موقعیت پلی‌هد اصلی نسبت به صفحه
-                    const mainRect = mainLane.getBoundingClientRect();
-                    const phRect = mainPlayhead.getBoundingClientRect();
-                    // موقعیت پلی‌هد نسبت به شروع تایم‌لاین (بدون در نظر گرفتن اسکرول)
-                    const phLeftInLane = phRect.left - mainRect.left + mainLane.parentElement.scrollLeft;
-                    // وسط کانتینر پلیر
-                    const containerCenter = targetDiv.clientWidth / 2;
-                    // اسکرول کلون تا پلی‌هد وسط بماند
-                    if (clone) {
-                        clone.style.left = (containerCenter - phLeftInLane) + 'px';
-                    }
-                    // هماهنگ کردن رولر بالا با حرکت لاین
-                    const rulerInner = targetDiv.querySelector('.mirror-ruler-inner');
-                    if (rulerInner) {
-                        rulerInner.style.left = (containerCenter - phLeftInLane) + 'px';
-                    }
-                }
-
-            } catch (e) {}
-
-            _mirrorSyncRAF = requestAnimationFrame(loop);
-        }
-
-        _mirrorSyncRAF = requestAnimationFrame(loop);
+      if (!editorPopupIsOpen(_lyricPopup)) return;
+      const popupDoc = editorPopupDocument(_lyricPopup);
+      if (!popupDoc) return;
+      window.WindowBridge?.set?.(_lyricPopup, '_syncMirrorTimeline', syncMirrorTimelineFrame);
+      syncMirrorTimelineFrame();
+      installMirrorSyncLoop(popupDoc);
     }
 
     // History must be attached before lifecycle initialization. The service
