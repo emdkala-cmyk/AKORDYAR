@@ -122,6 +122,15 @@ const PlayerViewRenderer = (() => {
     const cSize        = Math.round(fontSize * (vs.mobileLayout ? 0.82 : 0.7));
     const cFont        = '"JetBrains Mono", monospace';
     const isMobileLayout = vs.mobileLayout === true;
+    // Chords are absolutely positioned above the text line.  On narrow
+    // screens a lyric line can wrap to two visual rows, so the chord zone
+    // must be reserved from the line layout instead of relying on the
+    // character's wrapped Range y-position.
+    const chordGap = Math.max(10, cSize * 0.6);
+    const chordZone = chordGap + cSize;
+    const mobileLineMargin = isMobileLayout
+      ? Math.max(2.8, 1.4 + (chordZone / Math.max(1, fontSize)))
+      : 1.8;
     const highlightEffect =
       vs.highlightEffect || doc.styles?.highlightEffect || 'depth';
     container.dataset.highlightEffect = highlightEffect;
@@ -226,7 +235,7 @@ const PlayerViewRenderer = (() => {
       lineEl.style.borderRadius = '8px';
       lineEl.style.transition   = 'opacity 0.25s ease, color 0.25s ease, background 0.25s ease, text-shadow 0.25s ease';
       lineEl.style.position     = 'relative';
-      lineEl.style.marginTop    = '1.8em';
+      lineEl.style.marginTop    = mobileLineMargin + 'em';
       lineEl.style.color        = textColor;
 
       lineEl.textContent = line.text || '\u200B';
@@ -238,12 +247,12 @@ const PlayerViewRenderer = (() => {
     // uses. Build the elements first, then position them again after the
     // mobile font has finished loading.
     if (showChords) {
-      const GAP = Math.max(10, cSize * 0.6);
+      const GAP = chordGap;
       const MARGIN = 5;
       const chordElements = [];
 
       if (isMobileLayout) {
-        container.dataset.highlightChordZone = String(GAP + cSize);
+        container.dataset.highlightChordZone = String(chordZone);
         (doc.lines || []).forEach(line => {
           const lineEl = container.querySelector(
             '.pv-line[data-line-id="' + line.id + '"]'
@@ -345,12 +354,21 @@ const PlayerViewRenderer = (() => {
 
           const xContainer = xViewport - containerRect.left + container.scrollLeft;
           const yContainer = rect.top - containerRect.top + container.scrollTop;
+          // Mobile text may wrap.  If we use the Range's y-coordinate there,
+          // a chord anchored to a character on the second wrapped row lands
+          // on top of the first row (or on the next line).  Keep every chord
+          // for a line in that line's reserved chord band instead.
+          const chordLineTop = isMobileLayout
+            ? lineEl.offsetTop
+            : yContainer;
+          const chordTop = chordLineTop - cSize - GAP;
+          const connectorTop = chordLineTop - GAP;
 
-          el.style.top = (yContainer - cSize - GAP) + 'px';
+          el.style.top = chordTop + 'px';
           el.style.left = (xContainer - el.offsetWidth / 2) + 'px';
           el.style.opacity = '1';
           connector.style.left = xContainer + 'px';
-          connector.style.top = (yContainer - GAP) + 'px';
+          connector.style.top = connectorTop + 'px';
           connector.style.height = Math.max(4, GAP) + 'px';
           connector.style.visibility = 'visible';
         });
@@ -442,6 +460,8 @@ const PlayerViewRenderer = (() => {
     const doneLines    = (highlight && highlight.doneLines) ? highlight.doneLines : new Set();
     const hlColor      = (viewState || {}).highlightColor || '#FF2E93';
     const textColor    = (viewState || {}).textColor || '#E2E8F0';
+    const chordColor   = (viewState || {}).chordColor || '#00F2FE';
+    const isMobileLayout = container.dataset.mobileLayout === 'true';
     const highlightEffect =
       (viewState || {}).highlightEffect ||
       container.dataset.highlightEffect ||
@@ -521,7 +541,12 @@ const PlayerViewRenderer = (() => {
       el.classList.toggle('pv-hl-' + highlightEffect, !!lineActive);
 
       if (isConnector) {
-        el.style.background = lineActive ? '#fff' : (viewState || {}).chordColor || '#00F2FE';
+        // Player View keeps the chord palette while the active row is
+        // highlighted.  Do the same on mobile; turning the connector white
+        // made the whole active chord look like a second text highlight.
+        el.style.background = lineActive && !isMobileLayout
+          ? '#fff'
+          : chordColor;
         el.style.opacity = lineActive ? '0.95' : (isDone ? '0.25' : '0.5');
         el.style.zIndex = lineActive ? '11' : '4';
         return;
@@ -535,18 +560,29 @@ const PlayerViewRenderer = (() => {
         const isPulse = effect === 'pulse';
         const isDepth = !isNeon && !isFrost && !isShift && !isPulse;
 
-        el.style.color = isChord
-          ? (isShift ? '#00F2FE' : '#fff')
-          : (isNeon ? '#00F2FE' : isPulse ? '#22D364' : '#E2E8F0');
-        el.style.textShadow = isNeon
-          ? '0 0 8px rgba(0,242,254,0.8), 0 0 20px rgba(0,242,254,0.4)'
-          : isFrost
-            ? '0 0 12px rgba(255,255,255,0.45)'
-            : isShift
-              ? '0 0 12px rgba(255,46,147,0.55), 0 0 24px rgba(0,242,254,0.35)'
-              : isPulse
-                ? '0 0 12px rgba(34,211,100,0.8), 0 0 28px rgba(34,211,100,0.35)'
-                : '0 1px 0 rgba(0,0,0,0.8), 0 2px 0 rgba(0,0,0,0.7), 0 4px 8px rgba(0,0,0,0.5), 0 0 15px rgba(255,46,147,0.3)';
+        if (isMobileLayout) {
+          // Mobile uses the same visual contract as the Player View:
+          // highlight the row/frame, but preserve the configured lyric and
+          // chord colors.  In particular, do not force either element to
+          // white when the active line changes.
+          el.style.color = isChord ? chordColor : textColor;
+          el.style.textShadow = isChord
+            ? '0 1px 0 rgba(0,0,0,0.75), 0 0 10px rgba(230,170,40,0.22)'
+            : '0 1px 0 rgba(0,0,0,0.8), 0 2px 0 rgba(0,0,0,0.7), 0 4px 8px rgba(0,0,0,0.5)';
+        } else {
+          el.style.color = isChord
+            ? (isShift ? '#00F2FE' : '#fff')
+            : (isNeon ? '#00F2FE' : isPulse ? '#22D364' : '#E2E8F0');
+          el.style.textShadow = isNeon
+            ? '0 0 8px rgba(0,242,254,0.8), 0 0 20px rgba(0,242,254,0.4)'
+            : isFrost
+              ? '0 0 12px rgba(255,255,255,0.45)'
+              : isShift
+                ? '0 0 12px rgba(255,46,147,0.55), 0 0 24px rgba(0,242,254,0.35)'
+                : isPulse
+                  ? '0 0 12px rgba(34,211,100,0.8), 0 0 28px rgba(34,211,100,0.35)'
+                  : '0 1px 0 rgba(0,0,0,0.8), 0 2px 0 rgba(0,0,0,0.7), 0 4px 8px rgba(0,0,0,0.5), 0 0 15px rgba(255,46,147,0.3)';
+        }
         if (!isChord) {
           el.style.background = isNeon
             ? 'linear-gradient(180deg, rgba(0,242,254,0.2), rgba(0,242,254,0.04) 55%, transparent)'
@@ -602,7 +638,8 @@ const PlayerViewRenderer = (() => {
         el.style.opacity    = '';
       } else if (isDone) {
         el.style.opacity    = '0.35';
-        if (!isChord) el.style.color = '';
+        if (isChord) el.style.color = chordColor;
+        else el.style.color = '';
         el.style.textShadow = '';
         if (!isChord) el.style.background = '';
         if (!isChord) {
@@ -612,7 +649,7 @@ const PlayerViewRenderer = (() => {
         }
         el.style.zIndex     = '';
       } else {
-        if (isChord) el.style.color = (viewState || {}).chordColor || '#00F2FE';
+        if (isChord) el.style.color = chordColor;
         else el.style.color = textColor;
         el.style.opacity    = '';
         el.style.textShadow = '';
