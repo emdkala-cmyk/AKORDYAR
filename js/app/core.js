@@ -628,6 +628,63 @@ const globalScope = isBrowser ? window : global;
       toast(`گام تشخیص داده شده: ${bestKey} ${bestMode === 'maj' ? 'ماژور' : 'مینور'} (امتیاز: ${result.score})`);
     }
 
+    const TIMELINE_PANEL_HEIGHT_KEY = 'akordyar.timelinePanelHeight';
+    const DEFAULT_TIMELINE_PANEL_HEIGHT = 320;
+    const MIN_TIMELINE_PANEL_HEIGHT = 120;
+
+    function getTimelinePanelHeight() {
+      try {
+        const stored = Number.parseInt(
+          localStorage.getItem(TIMELINE_PANEL_HEIGHT_KEY),
+          10
+        );
+        if (Number.isFinite(stored)) {
+          return Math.max(MIN_TIMELINE_PANEL_HEIGHT, Math.min(
+            Math.max(MIN_TIMELINE_PANEL_HEIGHT, window.innerHeight - 160),
+            stored
+          ));
+        }
+      } catch (_) {
+        // localStorage may be unavailable in a restricted renderer.
+      }
+      return DEFAULT_TIMELINE_PANEL_HEIGHT;
+    }
+
+    function setTimelinePanelHeight(height, { persist = true } = {}) {
+      const app = document.querySelector('.app-container');
+      if (!app) return DEFAULT_TIMELINE_PANEL_HEIGHT;
+
+      const maxHeight = Math.max(MIN_TIMELINE_PANEL_HEIGHT, window.innerHeight - 160);
+      const nextHeight = Math.round(Math.max(
+        MIN_TIMELINE_PANEL_HEIGHT,
+        Math.min(maxHeight, Number(height) || DEFAULT_TIMELINE_PANEL_HEIGHT)
+      ));
+      const computedRows = getComputedStyle(app).gridTemplateRows
+        .trim()
+        .split(/\s+/);
+      const topRow = computedRows[0] || 'auto';
+      const workspaceRow = computedRows[1] || '1fr';
+      // Keep the four app rows explicit. Reusing the complete computed
+      // string can produce invalid rows in Chromium when a track contains
+      // a minmax()/fit-content() expression.
+      app.style.gridTemplateRows = `${topRow} ${workspaceRow} 4px ${nextHeight}px`;
+      app.dataset.timelinePanelHeight = String(nextHeight);
+
+      if (persist) {
+        try {
+          localStorage.setItem(TIMELINE_PANEL_HEIGHT_KEY, String(nextHeight));
+        } catch (_) {
+          // Persistence is best-effort; the current session remains resized.
+        }
+      }
+      return nextHeight;
+    }
+
+    if (typeof window !== 'undefined') {
+      window.getTimelinePanelHeight = getTimelinePanelHeight;
+      window.setTimelinePanelHeight = setTimelinePanelHeight;
+    }
+
     function togglePanel(panel) {
       const el = panel === 'sidebar' ? document.querySelector('.sidebar') :
                  panel === 'inspector' ? document.querySelector('.inspector') :
@@ -640,7 +697,13 @@ const globalScope = isBrowser ? window : global;
         const app = document.querySelector('.app-container');
         const sep = $('timelineSep');
         if (sep) sep.style.display = el.style.display;
-        if (app && !_focusMode) app.style.gridTemplateRows = isHidden ? 'auto 1fr 4px 320px' : 'auto 1fr 0px 0px';
+        if (app && !_focusMode) {
+          if (isHidden) {
+            setTimelinePanelHeight(getTimelinePanelHeight());
+          } else {
+            app.style.gridTemplateRows = 'auto 1fr 0px 0px';
+          }
+        }
       }
     }
 
@@ -1510,36 +1573,6 @@ function applyState(stateStr) {
         }
       });
     }
-
-    // ===== HEADER RESIZE (drag to resize track names column) =====
-    (function initHeaderResize() {
-      const resizeEl = document.getElementById('timelineHeaderResize');
-      const grid = document.querySelector('.timeline-workspace-grid');
-      if (!resizeEl || !grid) return;
-
-      let startX = 0, startW = 0;
-      const onMouseMove = (e) => {
-        const dx = e.clientX - startX;
-        const newW = Math.max(120, Math.min(500, startW + dx));
-        grid.style.gridTemplateColumns = newW + 'px 4px 1fr';
-        document.documentElement.style.setProperty('--header-w', newW + 'px');
-      };
-      const onMouseUp = () => {
-        document.removeEventListener('mousemove', onMouseMove);
-        document.removeEventListener('mouseup', onMouseUp);
-        document.body.style.cursor = '';
-        document.body.style.userSelect = '';
-      };
-      resizeEl.addEventListener('pointerdown', (e) => {
-        if (e.button !== 0) return;
-        e.preventDefault();
-        startX = e.clientX;
-        startW = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--header-w')) || 240;
-        document.body.style.cursor = 'col-resize';
-        document.body.style.userSelect = 'none';
-        startEditorPointerDrag(resizeEl, e, onMouseMove, onMouseUp);
-      });
-    })();
 
     function addNewTrack(name, icon) {
       const n = getEditorDAW().tracks.length + 1; ensureAudioCtx();
@@ -3991,6 +4024,8 @@ function renderTimeline() {
 
 // اتصال رویدادهای اولیه صفحه پس از بارگذاری DOM - بخش اول (خط ۳۶۲۳)
 document.addEventListener('DOMContentLoaded', () => {
+  setTimelinePanelHeight(getTimelinePanelHeight(), { persist: false });
+
   window.EditorLifecycleService?.bindAudioImport?.({
     documentRef: document,
     confirmRef: window.confirm,

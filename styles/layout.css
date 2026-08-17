@@ -13,6 +13,12 @@
     "timeline timeline timeline";
   height: calc(100vh - 52px);
 }
+.app-container.timeline-is-floating {
+  grid-template-rows: auto 1fr 0 0 !important;
+}
+.app-container.timeline-is-floating .timeline-sep {
+  display: none !important;
+}
 
 /* ===== Windows Title Bar ===== */
 .win-titlebar { grid-area: titlebar; display: flex; align-items: center; background: #0a0e17; border-bottom: 1px solid #1a2030; height: 28px; padding: 0 8px; -webkit-app-region: drag; }
@@ -37,8 +43,23 @@
 .win-menu-dropdown .menu-sep { height: 1px; background: #374151; margin: 4px 0; }
 .win-menu-dropdown .menu-entry.disabled { color: #4b5563; pointer-events: none; }
 
-.timeline-sep { grid-area: timeline-sep; cursor: ns-resize; background: var(--border-subtle); transition: background 0.2s; }
+.timeline-sep {
+  grid-area: timeline-sep;
+  min-height: 4px;
+  width: 100%;
+  cursor: ns-resize;
+  touch-action: none;
+  user-select: none;
+  background: var(--border-subtle);
+  transition: background 0.2s;
+  position: relative;
+  z-index: 50;
+}
 .timeline-sep:hover { background: var(--accent-teal); }
+.timeline-sep.resizing {
+  background: var(--accent-cyan-glow);
+  box-shadow: 0 0 8px rgba(0, 242, 254, 0.45);
+}
 
 .panel { background: rgba(15,17,23,0.98); }
 

@@ -53,6 +53,7 @@
       "js/**/*",
       "styles/**/*",
       "fonts/**/*",
+      "assets/**/*",
       "build/icon.png",
       "build/icon.ico",
       "node_modules/express/**/*",

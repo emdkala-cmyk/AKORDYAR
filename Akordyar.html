@@ -297,8 +297,62 @@
       </div>
     </aside>
 
-    <section class="timeline">
+    <section class="timeline" id="timelinePanel">
       <div class="tl-toolbar" data-inline-actions>
+        <div class="timeline-panel-layout-controls" id="timelinePanelLayoutControls">
+          <button
+            type="button"
+            class="timeline-layout-btn timeline-panel-drag-handle"
+            id="timelinePanelDragHandle"
+            title="برای جابه‌جایی تایم‌لاین بکشید"
+            aria-label="جابه‌جایی تایم‌لاین"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <circle cx="8" cy="5" r="1.5"/><circle cx="16" cy="5" r="1.5"/>
+              <circle cx="8" cy="12" r="1.5"/><circle cx="16" cy="12" r="1.5"/>
+              <circle cx="8" cy="19" r="1.5"/><circle cx="16" cy="19" r="1.5"/>
+            </svg>
+          </button>
+          <button
+            type="button"
+            class="timeline-layout-btn"
+            id="timelineFloatBtn"
+            data-timeline-layout-action="toggle-floating"
+            title="جدا کردن تایم‌لاین"
+            aria-label="جدا کردن یا اتصال تایم‌لاین"
+            aria-pressed="false"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <rect x="3" y="7" width="14" height="14" rx="1"/>
+              <path d="M8 3h13v13"/><path d="M14 3h7v7"/>
+            </svg>
+          </button>
+          <button
+            type="button"
+            class="timeline-layout-btn"
+            id="timelineMaximizeBtn"
+            data-timeline-layout-action="toggle-maximize"
+            title="بزرگ‌نمایی کامل تایم‌لاین"
+            aria-label="بزرگ‌نمایی کامل تایم‌لاین"
+            aria-pressed="false"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <rect x="3" y="3" width="18" height="18" rx="1"/>
+              <path d="M8 3v4H3M16 3v4h5M8 21v-4H3M16 21v-4h5"/>
+            </svg>
+          </button>
+          <button
+            type="button"
+            class="timeline-layout-btn"
+            data-timeline-layout-action="reset-layout"
+            title="بازنشانی چیدمان تایم‌لاین"
+            aria-label="بازنشانی چیدمان تایم‌لاین"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v6h6"/>
+            </svg>
+          </button>
+        </div>
         <button class="tl-tool-btn rec-btn" id="recBtn" data-action="toggleRec" title="ضبط صدا از میکروفن/ورودی (R)">● REC</button>
         <button class="tl-tool-btn" data-action="split" title="Split (S)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="22"/><polyline points="8 6 12 2 16 6"/><polyline points="8 18 12 22 16 18"/></svg></button>
         <button class="tl-tool-btn" data-action="cut" title="Cut (Ctrl+X)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg></button>
@@ -359,6 +413,28 @@
             </div>
           </div>
         </div>
+        <div
+          class="timeline-vertical-scrollbar"
+          id="timelineVerticalScrollbar"
+          aria-label="اسکرول عمودی لاین‌های تایم‌لاین"
+          role="scrollbar"
+          aria-orientation="vertical"
+          tabindex="0"
+        >
+          <div class="timeline-vertical-scrollbar-content" id="timelineVerticalScrollbarContent"></div>
+        </div>
+        <div class="timeline-scrollbar-left-footer" aria-hidden="true"></div>
+        <div
+          class="timeline-bottom-scrollbar"
+          id="timelineHorizontalScrollbar"
+          aria-label="اسکرول افقی تایم‌لاین"
+          role="scrollbar"
+          aria-orientation="horizontal"
+          tabindex="0"
+        >
+          <div class="timeline-bottom-scrollbar-content" id="timelineHorizontalScrollbarContent"></div>
+        </div>
+        <div class="timeline-scroll-corner" aria-hidden="true"></div>
       </div>
     </section>
 
@@ -916,6 +992,8 @@
 <script src="js/editor/SyncModeController.js"></script>
 <script src="js/core/TimelineGrid.js"></script>
 <script src="js/core/TimelineViewportService.js"></script>
+<script src="js/core/TimelineScrollbarsService.js"></script>
+<script src="js/core/TimelinePanelLayoutService.js"></script>
 <script src="js/core/TimelineTrackRendererService.js"></script>
 <script src="js/sharedEngine.js"></script>
   <script src="js/performanceStore.js"></script>

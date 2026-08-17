@@ -23,14 +23,107 @@
     getSelection = () => globalScope.getSelection?.(),
     requestFrame = callback => (globalScope.requestAnimationFrame || (fn => setTimeout(fn, 0)))(callback),
     cancelFrame = id => (globalScope.cancelAnimationFrame || clearTimeout)(id),
+    setSelected = () => {},
+    isColorToolActive = () => false,
+    onPaintChord = () => false,
     toast = () => {}
   } = {}) {
+    let selectionBound = false;
+
+    function chordElements() {
+      return Array.from(getWrap()?.querySelectorAll?.('.chord') || []);
+    }
+
+    function bindSelectionSurface() {
+      const wrap = getWrap();
+      if (!wrap?.addEventListener || selectionBound) return;
+      selectionBound = true;
+      const eventDocument = globalScope.document;
+
+      wrap.addEventListener('pointerdown', event => {
+        if (event.button !== 0 || event.target.closest?.('.chord')) return;
+
+        const pointerId = event.pointerId;
+        const startX = event.clientX;
+        const startY = event.clientY;
+        let selecting = false;
+        let frameId = null;
+        let latestEvent = event;
+
+        const updateSelection = () => {
+          frameId = null;
+          if (!selecting) return;
+          const x1 = Math.min(startX, latestEvent.clientX);
+          const x2 = Math.max(startX, latestEvent.clientX);
+          const y1 = Math.min(startY, latestEvent.clientY);
+          const y2 = Math.max(startY, latestEvent.clientY);
+          const selected = chordElements()
+            .filter(element => {
+              const rect = element.getBoundingClientRect();
+              return rect.right >= x1 && rect.left <= x2 &&
+                rect.bottom >= y1 && rect.top <= y2;
+            })
+            .map(element => Number.parseInt(element.dataset.idx, 10))
+            .filter(Number.isInteger);
+          setSelected(selected);
+        };
+
+        const move = moveEvent => {
+          if (moveEvent.pointerId !== pointerId) return;
+          latestEvent = moveEvent;
+          if (!selecting &&
+            (Math.abs(moveEvent.clientX - startX) > 4 ||
+             Math.abs(moveEvent.clientY - startY) > 4)) {
+            selecting = true;
+            getSelection()?.removeAllRanges?.();
+          }
+          if (!selecting || frameId) return;
+          frameId = requestFrame(updateSelection);
+          moveEvent.preventDefault?.();
+        };
+
+        const finish = endEvent => {
+          if (endEvent.pointerId !== pointerId) return;
+          if (frameId) cancelFrame(frameId);
+          eventDocument?.removeEventListener?.('pointermove', move);
+          eventDocument?.removeEventListener?.('pointerup', finish);
+          eventDocument?.removeEventListener?.('pointercancel', finish);
+          if (selecting) {
+            endEvent.preventDefault?.();
+            endEvent.stopPropagation?.();
+          }
+        };
+
+        (eventDocument || wrap).addEventListener('pointermove', move);
+        (eventDocument || wrap).addEventListener('pointerup', finish);
+        (eventDocument || wrap).addEventListener('pointercancel', finish);
+      }, true);
+    }
+
     function attach(element, index) {
       if (!element?.addEventListener) return;
       element.style.touchAction = 'none';
+      let pointerDoubleClickHandled = false;
+
+      element.addEventListener('dblclick', event => {
+        if (event.button !== 0 || isLocked()) return;
+        if (pointerDoubleClickHandled) {
+          pointerDoubleClickHandled = false;
+          return;
+        }
+        event.preventDefault?.();
+        event.stopPropagation?.();
+        openChordModal(index);
+      });
 
       element.addEventListener('pointerdown', event => {
         if (event.button !== 0 || isLocked()) return;
+
+        if (isColorToolActive() && onPaintChord(index, event)) {
+          event.preventDefault?.();
+          event.stopPropagation?.();
+          return;
+        }
 
         getSelection()?.removeAllRanges?.();
         getEditor()?.blur?.();
@@ -45,6 +138,10 @@
             toast('ویرایشگر قفل است');
             return;
           }
+          pointerDoubleClickHandled = true;
+          globalScope.setTimeout?.(() => {
+            pointerDoubleClickHandled = false;
+          }, 500);
           openChordModal(index);
           return;
         }
@@ -169,7 +266,8 @@
       });
     }
 
-    return Object.freeze({ attach });
+    bindSelectionSurface();
+    return Object.freeze({ attach, bindSelectionSurface });
   }
 
   globalScope.EditorChordInteractionService = Object.freeze({ create });

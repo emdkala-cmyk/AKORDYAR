@@ -315,6 +315,18 @@ function getEditorSongImportService() {
       updateZoomFontScale();
     }
 
+    function getTimelineZoomAnchorX() {
+      const scroll = $('tl-scroll');
+      if (!scroll) return null;
+      const rect = scroll.getBoundingClientRect();
+      return rect.left + (scroll.clientWidth / 2);
+    }
+
+    function zoomTimelineHorizontal(direction) {
+      const factor = direction > 0 ? 1.2 : (1 / 1.2);
+      setZoom(getEditorDAW().pxPerSecond * factor, getTimelineZoomAnchorX());
+    }
+
     const MIN_LANE_HEIGHT = 32;
     const MAX_LANE_HEIGHT = 240;
 
@@ -355,6 +367,51 @@ function getEditorSongImportService() {
       updateZoomFontScale();
     }
 
+    function zoomTimelineVertical(direction) {
+      const factor = direction > 0 ? 1.2 : (1 / 1.2);
+      setVerticalZoom(getEditorDAW().laneHeight * factor);
+    }
+
+    function getTimelineSelectionRange() {
+      const daw = getEditorDAW();
+      const clips = (daw.clips || []).filter(clip => daw.selectedIds?.has(clip.id));
+      const sections = (daw.sections || []).filter(section =>
+        daw.selectedSectionIds?.has(section.id)
+      );
+      const items = [...clips, ...sections].filter(item =>
+        Number.isFinite(item.start) && Number.isFinite(item.duration)
+      );
+      if (!items.length) return null;
+      return {
+        start: Math.min(...items.map(item => item.start)),
+        end: Math.max(...items.map(item => item.start + item.duration))
+      };
+    }
+
+    function zoomTimelineToSelection() {
+      const scroll = $('tl-scroll');
+      const range = getTimelineSelectionRange();
+      if (!scroll || !range || range.end <= range.start) {
+        toast('ابتدا یک آیتم در تایم‌لاین انتخاب کنید');
+        return;
+      }
+      const padding = Math.max(0.25, (range.end - range.start) * 0.08);
+      const start = Math.max(0, range.start - padding);
+      const end = range.end + padding;
+      const viewportWidth = Math.max(1, scroll.clientWidth - 24);
+      setZoom(viewportWidth / Math.max(0.05, end - start), null);
+      scroll.scrollLeft = Math.max(0, timeToX(start) - 12);
+    }
+
+    function zoomTimelineFull() {
+      const scroll = $('tl-scroll');
+      const total = Math.max(0.05, getProjectEnd());
+      if (!scroll) return;
+      const viewportWidth = Math.max(1, scroll.clientWidth - 24);
+      setZoom(viewportWidth / total, null);
+      scroll.scrollLeft = 0;
+    }
+
     function toggleSelectedTrackHeight() {
       const daw = getEditorDAW();
       const track = daw.tracks.find(tr => tr.id === daw.selectedTrackId);
@@ -366,25 +423,23 @@ function getEditorSongImportService() {
       const baseHeight = clamp(Math.round(daw.laneHeight || 64), MIN_LANE_HEIGHT, MAX_LANE_HEIGHT);
       const expandedHeight = clamp(Math.round(Math.max(96, baseHeight * 1.75)), MIN_LANE_HEIGHT, MAX_LANE_HEIGHT);
       const currentHeight = track.laneHeight || baseHeight;
+      const isExpanded = Boolean(track.laneHeight && currentHeight >= expandedHeight - 1);
 
-      if (track.laneHeight && currentHeight >= expandedHeight - 1) {
-        track.laneHeight = null;
-        const lane = document.querySelector(`.track-lane[data-track-id="${track.id}"]`);
-        const name = document.querySelector(`.track-name[data-track-id="${track.id}"]`);
-        [lane, name].forEach(el => {
-          if (!el) return;
-          el.style.removeProperty('--lane-h');
-          el.style.removeProperty('height');
-        });
-        const grid = lane?.querySelector('.lane-grid');
-        if (grid) drawLaneGrid(grid);
-        updateZoomFontScale();
-      } else {
+      // Z behaves like a DAW track zoom command: one selected track expands
+      // and every other track returns to the shared base height.
+      daw.tracks.forEach(item => { item.laneHeight = null; });
+      document.querySelectorAll('.track-lane, .track-name').forEach(element => {
+        element.style.removeProperty('--lane-h');
+        element.style.removeProperty('height');
+      });
+      document.querySelectorAll('.lane-grid').forEach(grid => drawLaneGrid(grid));
+
+      if (!isExpanded) {
         setLaneHeight(track.id, expandedHeight);
       }
       updateTrackSelectionUI();
       saveState();
-      toast(track.laneHeight ? 'لاین بزرگ شد' : 'اندازه لاین به حالت عادی برگشت');
+      toast(isExpanded ? 'اندازه لاین‌ها به حالت عادی برگشت' : 'لاین انتخاب‌شده بزرگ شد');
     }
 
     /* ===== CHORD EDITOR & MIDI ===== */
@@ -2838,19 +2893,6 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
       $('timeline-ruler').addEventListener('pointerdown', beginScrub);
       $('playhead-hit').addEventListener('pointerdown', beginScrub);
 
-      // Timeline separator drag: drag up = lanes bigger, drag down = lanes smaller
-      const sepEl = $('timelineSep');
-      if (sepEl) {
-        sepEl.style.touchAction = 'none';
-        sepEl.addEventListener('pointerdown', (e) => {
-          e.preventDefault();
-          const startY = e.clientY;
-          const origH = getEditorDAW().laneHeight;
-          const onMove = (ev) => { const dy = startY - ev.clientY; setVerticalZoom(origH + dy * 0.5); };
-          startPointerDrag(sepEl, e, onMove);
-        });
-      }
-      
       toast(t('dawReady'));
 
       // Global deselect: clicking anywhere clears all selections
@@ -2867,6 +2909,26 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
 
       // ===== DRAG & DROP audio files onto timeline =====
       const tlScroll = $('tl-scroll');
+      const timelineScrollbars = window.TimelineScrollbarsService?.create?.({
+        documentRef: document,
+        windowRef: window
+      });
+      timelineScrollbars?.init?.();
+
+      const timelinePanelLayout = window.TimelinePanelLayoutService?.create?.({
+        documentRef: document,
+        windowRef: window,
+        getDockHeight: () => window.getTimelinePanelHeight?.() || 320,
+        setDockHeight: height => window.setTimelinePanelHeight?.(height) || height,
+        onViewportChange: () => timelineScrollbars?.syncGeometry?.()
+      });
+      timelinePanelLayout?.init?.();
+
+      // Public handles are intentionally service-shaped, so popup/runtime code
+      // can request a geometry refresh without reaching into editor internals.
+      window.timelineScrollbars = timelineScrollbars;
+      window.timelinePanelLayout = timelinePanelLayout;
+
       const audioDropService = window.AudioDropImportService?.create?.({
         getDAW: () => getEditorDAW(),
         getSong: getCurrentEditorSong,
@@ -2892,24 +2954,6 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
         logger: console
       });
       audioDropService?.bind?.(tlScroll);
-
-      // Timeline resizable separator
-      const sep = $('timelineSep');
-      if (sep) {
-        sep.style.touchAction = 'none';
-        sep.addEventListener('pointerdown', e => {
-          e.preventDefault();
-          const startY = e.clientY;
-          const grid = $('app-container') || document.querySelector('.app-container');
-          const startRow = parseInt(getComputedStyle(grid).gridTemplateRows.split(' ')[3]) || 320;
-          const move = ev => {
-            const delta = startY - ev.clientY;
-            const newH = Math.max(120, Math.min(window.innerHeight - 200, startRow + delta));
-            grid.style.gridTemplateRows = `75px 1fr 4px ${newH}px`;
-          };
-          startPointerDrag(sep, e, move);
-        });
-      }
       // Init sync UI
       initSyncUI();
     })();
@@ -3917,6 +3961,9 @@ function edBlankSong() {
           getWrap: () => $('editorWrap'),
           getChordElement: index =>
             document.querySelector(`.chord[data-idx="${index}"]`),
+          setSelected: indices => getEditorSelectionService()?.set(indices),
+          isColorToolActive: () => isColorToolActive(),
+          onPaintChord: (index, event) => paintLyricChord(index, event),
           isLocked: () => Boolean(edCur?.editorLocked),
           openChordModal: index => edOpenChordModal(index),
           geometry: getEditorChordDragService(),
@@ -3947,7 +3994,7 @@ if ($('editorWrap')) {
 
 
     // -- Chord Drag --
-function edAttachChordDrag(el, idx) {
+    function edAttachChordDrag(el, idx) {
   getEditorChordInteractionService()?.attach(el, idx);
 }
     let edAltDown = false;
@@ -4674,6 +4721,10 @@ if ($('edDoBoth')) {
           onTogglePlayheadMode: () => togglePlayheadMode(),
           onToggleRecording: () => toggleRec(),
           onToggleSelectedTrackHeight: () => toggleSelectedTrackHeight(),
+          onZoomHorizontal: zoomIn => zoomTimelineHorizontal(zoomIn ? 1 : -1),
+          onZoomVertical: zoomIn => zoomTimelineVertical(zoomIn ? 1 : -1),
+          onZoomToSelection: () => zoomTimelineToSelection(),
+          onZoomFull: () => zoomTimelineFull(),
           isFocusMode: () => _focusMode,
           isSyncActive: () => syncActive,
           onSyncTap: () => syncTap(),
@@ -4857,6 +4908,50 @@ if ($('edDoBoth')) {
       }
     }
 
+    function paintLyricChord(index, event = {}) {
+      const songState = getEditorSongStateService();
+      const song = songState?.currentSong?.();
+      const chord = songState?.getChords?.()[index];
+      if (!song || !chord || song.editorLocked) return false;
+
+      if (colorToolMode === 'brush') {
+        if (event.shiftKey) {
+          songState.setChordColorStyle(currentColor);
+          songState.clearChordColors();
+          saveState();
+          edRenderChords();
+          edSaveSong();
+          toast('رنگ همه آکوردها: ' + currentColor);
+          return true;
+        }
+
+        const selectedIndices = edSelectedChords.includes(index) && edSelectedChords.length > 1
+          ? [...edSelectedChords]
+          : [index];
+        selectedIndices.forEach(selectedIndex => {
+          if (songState.getChords()[selectedIndex]) {
+            songState.setChordColor(selectedIndex, currentColor);
+          }
+        });
+        saveState();
+        edRenderChords();
+        edSaveSong();
+        toast(selectedIndices.length > 1
+          ? `رنگ ${selectedIndices.length} آکورد اعمال شد`
+          : 'رنگ آکورد: ' + currentColor);
+        return true;
+      }
+
+      if (colorToolMode === 'eyedropper') {
+        selectColor(songState.getChordColor(index, '#e6aa28'));
+        toast('رنگ نمونه: ' + currentColor);
+        deactivateColorTool();
+        return true;
+      }
+
+      return false;
+    }
+
     // Context-Aware: detect what was clicked and paint/pick it
     // Shift+click = paint ALL items of same type (global)
     // Regular click = paint ONLY this item (per-item)
@@ -4920,17 +5015,7 @@ if ($('edDoBoth')) {
         const chordEl = e.target.closest('.chord');
         if (chordEl && song) {
           const ci = parseInt(chordEl.dataset.idx);
-          if (isGlobal) {
-            songState.setChordColorStyle(currentColor);
-            songState.clearChordColors();
-            saveState(); edRenderChords(); edSaveSong();
-            toast('رنگ همه آکوردها: ' + currentColor);
-          } else if (ci >= 0 && songState.getChords()[ci]) {
-            songState.setChordColor(ci, currentColor);
-            saveState(); edRenderChords(); edSaveSong();
-            toast('رنگ آکورد: ' + currentColor);
-          }
-          return true;
+          return paintLyricChord(ci, { ...e, shiftKey: isGlobal });
         }
         // 4. Editor general area (not on specific element)
         if (e.target.closest('#editor') && song) {
@@ -5049,9 +5134,25 @@ if ($('edDoBoth')) {
       if (!ew) return;
       ew.addEventListener('mousedown', (e) => {
         if (!isColorToolActive() || e.button !== 0) return;
-        if (paintContextAware(e)) { e.preventDefault(); e.stopPropagation(); }
+        if (paintContextAware(e)) {
+          e.preventDefault();
+          e.stopPropagation();
+        } else if (!e.target.closest('#colorQuickBar, #colorPickerInput')) {
+          deactivateColorTool();
+        }
       }, true);
     })();
+
+    // Leaving the paintable surfaces exits the tool. This prevents the brush
+    // from remaining armed while navigating unrelated editor controls.
+    document.addEventListener('mousedown', e => {
+      if (!isColorToolActive()) return;
+      if (e.target.closest(
+        '#colorBrushBtn, #colorEyedropperBtn, #colorPickerInput, #colorQuickBar, ' +
+        '.chord, .eline, .clip, .section-tag, .track-lane'
+      )) return;
+      deactivateColorTool();
+    }, true);
 
     // Patch track lane mousedown for empty-area coloring
     (function patchLaneMouse() {

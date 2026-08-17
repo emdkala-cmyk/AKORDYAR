@@ -55,6 +55,10 @@
     onTogglePlayheadMode = () => {},
     onToggleRecording = () => {},
     onToggleSelectedTrackHeight = () => {},
+    onZoomHorizontal = () => {},
+    onZoomVertical = () => {},
+    onZoomToSelection = () => {},
+    onZoomFull = () => {},
     onClearSelection = () => {},
     isFocusMode = () => false,
     isSyncActive = () => false,
@@ -185,6 +189,61 @@
       if (getShortcutMatch(event, 'focusMode')) {
         event.preventDefault?.();
         onFocusMode(event);
+        return true;
+      }
+
+      if (
+        !editable &&
+        !isChordModalOpen() &&
+        !event.ctrlKey &&
+        !event.metaKey &&
+        !event.shiftKey &&
+        (event.code === 'KeyG' || event.code === 'KeyH')
+      ) {
+        event.preventDefault?.();
+        onZoomHorizontal(event.code === 'KeyH', event);
+        return true;
+      }
+
+      if (
+        !editable &&
+        !isChordModalOpen() &&
+        !event.ctrlKey &&
+        !event.metaKey &&
+        !event.altKey &&
+        !event.shiftKey &&
+        (event.code === 'KeyJ' || event.code === 'KeyK')
+      ) {
+        event.preventDefault?.();
+        onZoomVertical(event.code === 'KeyK', event);
+        return true;
+      }
+
+      if (
+        !editable &&
+        !isChordModalOpen() &&
+        event.altKey &&
+        !event.ctrlKey &&
+        !event.metaKey &&
+        !event.shiftKey &&
+        event.code === 'KeyS'
+      ) {
+        event.preventDefault?.();
+        onZoomToSelection(event);
+        return true;
+      }
+
+      if (
+        !editable &&
+        !isChordModalOpen() &&
+        event.shiftKey &&
+        !event.ctrlKey &&
+        !event.metaKey &&
+        !event.altKey &&
+        event.code === 'KeyF'
+      ) {
+        event.preventDefault?.();
+        onZoomFull(event);
         return true;
       }
 
