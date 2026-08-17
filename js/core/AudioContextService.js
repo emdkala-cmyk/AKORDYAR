@@ -221,9 +221,9 @@ class AudioContextService {
     if (!node) return;
     this._activeNodes.add(node);
     // Auto-remove from tracking once the node naturally stops.
-    if (node && typeof node.onended === 'function') {
+    try {
       node.onended = () => this._activeNodes.delete(node);
-    }
+    } catch (_) { /* some test doubles may be immutable */ }
   }
 
   /**

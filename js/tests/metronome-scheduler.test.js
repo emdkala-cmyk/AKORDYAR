@@ -194,6 +194,28 @@ tests.push(() => {
   passCount++;
 });
 
+// 4b. A delayed UI timer skips missed beats instead of emitting a late burst.
+tests.push(() => {
+  const { fakeCtx, service } = setup();
+  const timer = makeFakeTimer();
+  const sched = new MetronomeScheduler({
+    audioContextService: service,
+    getMeterConfig, isStrongBeat: FakeMeter.isStrongBeat,
+    lookahead: 25, scheduleAheadTime: 0.1,
+    timer: timer.fn
+  });
+  sched.start({ bpm: 120, timeSignature: '4/4', startTime: 0 });
+  const scheduledBeforeStall = fakeCtx._oscs.length;
+
+  // Simulate a zoom/layout stall that blocks the scheduler past two beats.
+  fakeCtx.currentTime = 1.25;
+  timer.runNext();
+
+  assert.strictEqual(fakeCtx._oscs.length, scheduledBeforeStall, 'missed beats must not burst late');
+  assert.ok(sched.getState().nextNoteTime > fakeCtx.currentTime, 'scheduler must resume on a future beat');
+  passCount++;
+});
+
 // 5. isAccent correctly detected via meter (strong beat = first beat of measure)
 tests.push(() => {
   const { fakeCtx, service } = setup();

@@ -351,6 +351,9 @@ const globalScope = isBrowser ? window : global;
         audioContextService: audioContextServiceBridge,
         metronomeEngine: metronomeEngineBridge,
         getMeterConfig: getTimeSignatureGridConfig,
+        // Keep a generous audio-side reserve so short UI/layout stalls
+        // cannot starve the Web Audio queue during timeline zoom.
+        scheduleAheadTime: 1.5,
         isStrongBeat: window.Meter && typeof window.Meter.isStrongBeat === 'function'
           ? window.Meter.isStrongBeat
           : () => false
@@ -1342,8 +1345,8 @@ function applyState(stateStr) {
       });
     }
 
-    function renderAll() {
-  renderTracks(); renderRuler(); renderClips(); renderLoopRegion(); updatePlayheadUI(); updateHud();
+    function renderAll(options = {}) {
+  renderTracks(); renderRuler(); renderClips(options); renderLoopRegion(); updatePlayheadUI(); updateHud();
   edRenderClMarkers();
 }
 
@@ -1458,14 +1461,17 @@ function applyState(stateStr) {
       });
     }
 
-    function renderClips() {
+    function renderClips(options = {}) {
+      const preserveWaveforms = options.preserveWaveforms === true;
       document.querySelectorAll('.clip').forEach(el => el.remove());
       document.querySelectorAll('.section-tag').forEach(el => el.remove());
       // Render audio & chord clips
       getEditorDAW().clips.forEach(clip => {
         const lane = document.querySelector(`.track-lane[data-track-id="${clip.trackId}"]`); if (!lane) return;
         const hint = lane.querySelector('.empty-lane-hint'); if (hint) hint.remove();
-        if (clip.type !== 'chord') refreshClipWaveImage(clip);
+        if (clip.type !== 'chord' && (!preserveWaveforms || !clip.waveUrl)) {
+          refreshClipWaveImage(clip);
+        }
         const el = document.createElement('div');
         el.className = 'clip' + (clip.type === 'chord' ? ' chord-clip' : '') + (getEditorDAW().selectedIds.has(clip.id) ? ' selected' : '');
         el.dataset.clipId = clip.id; el.style.left = timeToX(clip.start) + 'px'; el.style.width = Math.max(30, timeToX(clip.duration)) + 'px';

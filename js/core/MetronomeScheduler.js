@@ -150,6 +150,14 @@ class MetronomeScheduler {
     const ctx = this.audioContextService.getContext();
     if (!ctx) return;
 
+    // If the UI thread was busy (for example while the timeline is being
+    // zoomed), do not emit a burst of late clicks. Drop missed grid points
+    // and continue from the next future beat instead.
+    const earliestFutureNote = ctx.currentTime - 0.005;
+    while (this._nextNoteTime < earliestFutureNote) {
+      this._advanceBeat();
+    }
+
     // Reserve every beat that is within the look-ahead window.
     // `this._nextNoteTime` is guaranteed non-negative because we clamped it
     // in start() and only ever increment it by beatDuration.

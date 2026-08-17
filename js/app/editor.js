@@ -311,7 +311,10 @@ function getEditorSongImportService() {
       // خودکار بزرگ کردن تایم‌لاین بر اساس عرض صفحه نمایش
       const visibleTime = scroll.clientWidth / newPps;
       ensureTimelineFits(visibleTime + 10);
-      getEditorDAW().clips.forEach(c => refreshClipWaveImage(c)); requestRenderAll(); scroll.scrollLeft = Math.max(0, timeToX(anchorTime) - rel);
+      // Zoom changes clip geometry only. Rebuilding every waveform canvas here
+      // blocks the UI thread and starves the metronome scheduler; existing
+      // waveform images scale with the clip until an edit requires a refresh.
+      renderAll({ preserveWaveforms: true }); scroll.scrollLeft = Math.max(0, timeToX(anchorTime) - rel);
       updateZoomFontScale();
     }
 
