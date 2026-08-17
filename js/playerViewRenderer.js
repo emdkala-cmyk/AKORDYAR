@@ -128,7 +128,8 @@ const PlayerViewRenderer = (() => {
     // character's wrapped Range y-position.
     const chordGap = Math.max(10, cSize * 0.6);
     const chordZone = chordGap + cSize;
-    const mobileLineMargin = isMobileLayout
+    const mobileChordZone = isMobileLayout && showChords ? chordZone : 0;
+    const mobileLineMargin = isMobileLayout && mobileChordZone > 0
       ? Math.max(2.8, 1.4 + (chordZone / Math.max(1, fontSize)))
       : 1.8;
     // A wrapped mobile lyric row needs enough baseline distance for the
@@ -136,7 +137,7 @@ const PlayerViewRenderer = (() => {
     // chord ordering/anchors intact without letting a second-row chord
     // collide with the first row's text.
     const baseLineHeight = Number(vs.lineHeight) || 2.0;
-    const lineHeight = isMobileLayout
+    const lineHeight = isMobileLayout && mobileChordZone > 0
       ? Math.max(baseLineHeight, 1.35 + (chordZone / Math.max(1, fontSize)))
       : baseLineHeight;
     const highlightEffect =
@@ -251,6 +252,28 @@ const PlayerViewRenderer = (() => {
       container.appendChild(lineEl);
     });
 
+    // The mobile highlight frame is independent from chord visibility.
+    // Hiding chords must never remove the active-line highlight.
+    if (isMobileLayout) {
+      container.dataset.highlightChordZone = String(mobileChordZone);
+      (doc.lines || []).forEach(line => {
+        const lineEl = container.querySelector(
+          '.pv-line[data-line-id="' + line.id + '"]'
+        );
+        if (!lineEl) return;
+        const frame = document.createElement('div');
+        frame.className = 'pv-line-highlight-frame';
+        frame.dataset.highlightLineId = line.id;
+        frame.style.position = 'absolute';
+        frame.style.display = 'none';
+        frame.style.pointerEvents = 'none';
+        frame.style.zIndex = '8';
+        frame.style.boxSizing = 'border-box';
+        frame.style.borderRadius = '8px';
+        container.appendChild(frame);
+      });
+    }
+
     // Position chords using the exact text Range that the desktop Player View
     // uses. Build the elements first, then position them again after the
     // mobile font has finished loading.
@@ -258,26 +281,6 @@ const PlayerViewRenderer = (() => {
       const GAP = chordGap;
       const MARGIN = 5;
       const chordElements = [];
-
-      if (isMobileLayout) {
-        container.dataset.highlightChordZone = String(chordZone);
-        (doc.lines || []).forEach(line => {
-          const lineEl = container.querySelector(
-            '.pv-line[data-line-id="' + line.id + '"]'
-          );
-          if (!lineEl) return;
-          const frame = document.createElement('div');
-          frame.className = 'pv-line-highlight-frame';
-          frame.dataset.highlightLineId = line.id;
-          frame.style.position = 'absolute';
-          frame.style.display = 'none';
-          frame.style.pointerEvents = 'none';
-          frame.style.zIndex = '8';
-          frame.style.boxSizing = 'border-box';
-          frame.style.borderRadius = '8px';
-          container.appendChild(frame);
-        });
-      }
 
       (doc.lines || []).forEach(line => {
         if (!line.chords || !line.chords.length) return;
