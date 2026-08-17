@@ -352,6 +352,18 @@
               <path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v6h6"/>
             </svg>
           </button>
+          <button
+            type="button"
+            class="timeline-layout-btn timeline-close-btn"
+            id="timelineCloseBtn"
+            data-timeline-layout-action="toggle-closed"
+            title="بستن تایم‌لاین"
+            aria-label="بستن تایم‌لاین"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M6 6l12 12M18 6L6 18"/>
+            </svg>
+          </button>
         </div>
         <button class="tl-tool-btn rec-btn" id="recBtn" data-action="toggleRec" title="ضبط صدا از میکروفن/ورودی (R)">● REC</button>
         <button class="tl-tool-btn" data-action="split" title="Split (S)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="22"/><polyline points="8 6 12 2 16 6"/><polyline points="8 18 12 22 16 18"/></svg></button>
@@ -499,6 +511,15 @@
       </div>
     </div>
   </div>
+
+  <button
+    type="button"
+    id="timelineRestoreBtn"
+    class="timeline-restore-btn"
+    hidden
+    title="باز کردن تایم‌لاین"
+    aria-label="باز کردن تایم‌لاین"
+  >🎛 تایم‌لاین</button>
 
   <input type="file" id="audio-file-input" accept="audio/*,.mp3,.wav,.ogg,.m4a,.flac,.aac">
   <div class="toast" id="toast"></div>

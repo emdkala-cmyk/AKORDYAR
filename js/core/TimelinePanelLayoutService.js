@@ -46,6 +46,7 @@
     return {
       mode,
       maximized: mode === 'floating' && Boolean(value.maximized),
+      closed: Boolean(value.closed),
       dockHeight: clamp(toFinite(value.dockHeight, DEFAULT_LAYOUT.dockHeight), 120, 2000),
       headerWidth: clamp(toFinite(value.headerWidth, DEFAULT_LAYOUT.headerWidth), 140, 520),
       floating: clampFloatingRect(value.floating || DEFAULT_LAYOUT.floating, viewport)
@@ -127,6 +128,8 @@
       elements.dragHandle = documentRef?.getElementById?.('timelinePanelDragHandle') || null;
       elements.floatButton = documentRef?.getElementById?.('timelineFloatBtn') || null;
       elements.maximizeButton = documentRef?.getElementById?.('timelineMaximizeBtn') || null;
+      elements.closeButton = documentRef?.getElementById?.('timelineCloseBtn') || null;
+      elements.restoreButton = documentRef?.getElementById?.('timelineRestoreBtn') || null;
       elements.headerResize = documentRef?.getElementById?.('timelineHeaderResize') || null;
       elements.grid = documentRef?.querySelector?.('.timeline-workspace-grid') || null;
       return Boolean(elements.app && elements.panel);
@@ -161,6 +164,9 @@
       elements.maximizeButton?.classList?.toggle('active', floating && state.maximized);
       elements.floatButton?.setAttribute?.('aria-pressed', String(floating));
       elements.maximizeButton?.setAttribute?.('aria-pressed', String(floating && state.maximized));
+      elements.closeButton?.setAttribute?.('aria-label', state.closed ? 'باز کردن تایم‌لاین' : 'بستن تایم‌لاین');
+      elements.closeButton?.setAttribute?.('title', state.closed ? 'باز کردن تایم‌لاین' : 'بستن تایم‌لاین');
+      elements.restoreButton?.toggleAttribute?.('hidden', !state.closed);
       if (elements.floatButton) {
         elements.floatButton.title = floating
           ? 'اتصال دوبارهٔ تایم‌لاین به پایین برنامه'
@@ -171,8 +177,12 @@
     function applyDocked({ persist = true } = {}) {
       state.mode = 'docked';
       state.maximized = false;
+      state.closed = false;
       elements.app.classList.remove('timeline-is-floating');
+      elements.app.classList.remove('timeline-is-closed');
       elements.panel.classList.remove('timeline-floating', 'timeline-maximized');
+      elements.panel.style.display = '';
+      elements.separator.style.display = '';
       clearFloatingStyles();
       const appliedHeight = toFinite(setDockHeight(state.dockHeight), state.dockHeight);
       state.dockHeight = appliedHeight;
@@ -184,9 +194,13 @@
 
     function applyFloating({ persist = true } = {}) {
       state.mode = 'floating';
+      state.closed = false;
       state.floating = clampFloatingRect(state.floating, viewportSize());
       elements.app.classList.add('timeline-is-floating');
+      elements.app.classList.remove('timeline-is-closed');
       elements.panel.classList.add('timeline-floating');
+      elements.panel.style.display = '';
+      elements.separator.style.display = 'none';
       elements.panel.classList.toggle('timeline-maximized', state.maximized);
 
       if (state.maximized) {
@@ -205,6 +219,18 @@
       setHeaderWidth(state.headerWidth, { persist: false });
       updateControls();
       if (persist) schedulePersist();
+      onViewportChange();
+    }
+
+    function applyClosed({ persist = true } = {}) {
+      state.closed = true;
+      elements.panel.style.display = 'none';
+      elements.separator.style.display = 'none';
+      elements.app.classList.add('timeline-is-closed');
+      updateControls();
+      if (persist) {
+        schedulePersist();
+      }
       onViewportChange();
     }
 
@@ -250,6 +276,10 @@
     }
 
     function toggleFloating() {
+      if (state.closed) {
+        openPanel();
+        return;
+      }
       if (state.mode === 'floating') dockPanel();
       else floatPanel();
     }
@@ -272,6 +302,26 @@
         headerWidth: DEFAULT_LAYOUT.headerWidth
       }, viewportSize());
       applyDocked();
+    }
+
+    function closePanel() {
+      applyClosed();
+    }
+
+    function openPanel() {
+      if (!state?.closed) return;
+      state.closed = false;
+      elements.panel.style.display = '';
+      elements.separator.style.display = state.mode === 'docked' ? '' : 'none';
+      elements.app.classList.remove('timeline-is-closed');
+      if (state.mode === 'floating') applyFloating({ persist: false });
+      else applyDocked({ persist: false });
+      writeState();
+    }
+
+    function toggleClosed() {
+      if (state.closed) openPanel();
+      else closePanel();
     }
 
     function cleanupPointerSession() {
@@ -343,12 +393,16 @@
       event.preventDefault();
       event.stopPropagation();
       const startY = event.clientY;
-      const startHeight = Math.max(120, elements.panel.getBoundingClientRect().height);
-      const maximum = Math.max(120, toFinite(windowRef.innerHeight, 720) - 160);
+      const appRect = elements.app.getBoundingClientRect();
+      const appBottom = appRect.bottom;
+      const maximum = Math.max(120, appRect.height - 4);
       elements.separator.classList.add('resizing');
 
       startPointerSession(event, elements.separator, moveEvent => {
-        const next = clamp(startHeight + startY - moveEvent.clientY, 120, maximum);
+        // The separator is the moving edge. Keep the bottom edge of the
+        // docked timeline anchored to the app viewport so dragging the green
+        // line moves the timeline's top edge instead of its bottom edge.
+        const next = clamp(appBottom - moveEvent.clientY, 120, maximum);
         state.dockHeight = toFinite(setDockHeight(next), next);
         onViewportChange();
       }, () => {
@@ -379,6 +433,7 @@
       if (action === 'toggle-floating') toggleFloating();
       else if (action === 'toggle-maximize') toggleMaximized();
       else if (action === 'reset-layout') resetLayout();
+      else if (action === 'toggle-closed') toggleClosed();
     }
 
     function handleWindowResize() {
@@ -405,6 +460,10 @@
         event.preventDefault();
         toggleMaximized();
       });
+      listen(elements.restoreButton, 'click', event => {
+        event.preventDefault();
+        openPanel();
+      });
       listen(elements.separator, 'pointerdown', handleSeparatorDragStart, { passive: false });
       listen(elements.headerResize, 'pointerdown', handleHeaderResizeStart, { passive: false });
       listen(windowRef, 'resize', handleWindowResize, { passive: true });
@@ -419,7 +478,8 @@
         resizeObserver.observe(elements.panel);
       }
 
-      if (state.mode === 'floating') applyFloating({ persist: false });
+      if (state.closed) applyClosed({ persist: false });
+      else if (state.mode === 'floating') applyFloating({ persist: false });
       else applyDocked({ persist: false });
       writeState();
       return api;
@@ -446,6 +506,9 @@
       float: floatPanel,
       toggleFloating,
       toggleMaximized,
+      close: closePanel,
+      open: openPanel,
+      toggleClosed,
       reset: resetLayout,
       getState: () => ({
         ...state,

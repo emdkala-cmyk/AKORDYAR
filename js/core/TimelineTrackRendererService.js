@@ -479,7 +479,11 @@
           seekTransport(time, true);
           if (!event.ctrlKey && !event.metaKey) clearSelection();
           daw.marquee = {
-            ...clientToInnerPoint(event.clientX, event.clientY)
+            ...clientToInnerPoint(event.clientX, event.clientY),
+            // Marquee selection is scoped to the lane where it starts. This
+            // prevents dragging over the chord lane from selecting every
+            // clip on every other track.
+            trackId: track.id
           };
           startPointerDrag(lane, event, onDocumentMouseMove, onDocumentMouseUp);
         });

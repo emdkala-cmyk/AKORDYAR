@@ -425,18 +425,28 @@ function getEditorSongImportService() {
       const currentHeight = track.laneHeight || baseHeight;
       const isExpanded = Boolean(track.laneHeight && currentHeight >= expandedHeight - 1);
 
-      // Z behaves like a DAW track zoom command: one selected track expands
-      // and every other track returns to the shared base height.
-      daw.tracks.forEach(item => { item.laneHeight = null; });
-      document.querySelectorAll('.track-lane, .track-name').forEach(element => {
-        element.style.removeProperty('--lane-h');
-        element.style.removeProperty('height');
+      // Z focuses the selected track: it becomes large and every other track
+      // becomes compact. Pressing Z again restores the normal layout.
+      daw.tracks.forEach(item => {
+        const nextHeight = isExpanded
+          ? null
+          : (item.id === track.id ? expandedHeight : MIN_LANE_HEIGHT);
+        item.laneHeight = nextHeight;
+        const lane = document.querySelector(`.track-lane[data-track-id="${item.id}"]`);
+        const name = document.querySelector(`.track-name[data-track-id="${item.id}"]`);
+        [lane, name].forEach(element => {
+          if (!element) return;
+          if (nextHeight == null) {
+            element.style.removeProperty('--lane-h');
+            element.style.removeProperty('height');
+          } else {
+            element.style.setProperty('--lane-h', `${nextHeight}px`);
+            element.style.height = `${nextHeight}px`;
+          }
+        });
+        const grid = lane?.querySelector('.lane-grid');
+        if (grid) drawLaneGrid(grid);
       });
-      document.querySelectorAll('.lane-grid').forEach(grid => drawLaneGrid(grid));
-
-      if (!isExpanded) {
-        setLaneHeight(track.id, expandedHeight);
-      }
       updateTrackSelectionUI();
       saveState();
       toast(isExpanded ? 'اندازه لاین‌ها به حالت عادی برگشت' : 'لاین انتخاب‌شده بزرگ شد');
@@ -2897,6 +2907,12 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
 
       // Global deselect: clicking anywhere clears all selections
       document.addEventListener('mousedown', (e) => {
+        const colorSurface = e.target.closest(
+          '.clip, .section-tag, .track-lane, #editorWrap, .tl-toolbar, .tl-zoom, .color-tool-group, #colorQuickBar'
+        );
+        if (isColorToolActive() && !colorSurface) {
+          deactivateColorTool();
+        }
         if (e.target.closest('.chord') || e.target.closest('.clip') || e.target.closest('.section-tag') || e.target.closest('#editorWrap') || e.target.closest('.tl-toolbar') || e.target.closest('.tl-zoom')) return;
         edClearChordSelection();
         clearSelection();
@@ -5087,7 +5103,12 @@ if ($('edDoBoth')) {
           if (clipId) {
             const clip = getClip(clipId);
             if (clip && colorToolMode === 'brush') {
-              applyColorToClip(clip, currentColor); saveState();
+              // Paint the clicked timeline item only. Re-render immediately
+              // so the persisted clip color is also the rendered color after
+              // the next interaction/repaint.
+              applyColorToClip(clip, currentColor);
+              saveState();
+              renderClips();
               e.stopPropagation(); e.preventDefault();
               toast('رنگ کلیپ: ' + currentColor); return;
             } else if (clip && colorToolMode === 'eyedropper') {

@@ -659,15 +659,12 @@ const globalScope = isBrowser ? window : global;
         MIN_TIMELINE_PANEL_HEIGHT,
         Math.min(maxHeight, Number(height) || DEFAULT_TIMELINE_PANEL_HEIGHT)
       ));
-      const computedRows = getComputedStyle(app).gridTemplateRows
-        .trim()
-        .split(/\s+/);
-      const topRow = computedRows[0] || 'auto';
-      const workspaceRow = computedRows[1] || '1fr';
-      // Keep the four app rows explicit. Reusing the complete computed
-      // string can produce invalid rows in Chromium when a track contains
-      // a minmax()/fit-content() expression.
-      app.style.gridTemplateRows = `${topRow} ${workspaceRow} 4px ${nextHeight}px`;
+      // Keep the workspace row flexible. Using resolved values from
+      // getComputedStyle() here freezes the workspace at its current pixel
+      // height; after the next drag the whole grid then grows/shrinks from
+      // the bottom, moving the horizontal scrollbar instead of the top
+      // separator. The 1fr row must remain a fraction at all times.
+      app.style.gridTemplateRows = `auto minmax(0, 1fr) 4px ${nextHeight}px`;
       app.dataset.timelinePanelHeight = String(nextHeight);
 
       if (persist) {
@@ -686,6 +683,10 @@ const globalScope = isBrowser ? window : global;
     }
 
     function togglePanel(panel) {
+      if (panel === 'timeline' && window.timelinePanelLayout?.toggleClosed) {
+        window.timelinePanelLayout.toggleClosed();
+        return;
+      }
       const el = panel === 'sidebar' ? document.querySelector('.sidebar') :
                  panel === 'inspector' ? document.querySelector('.inspector') :
                  panel === 'timeline' ? document.querySelector('.timeline') : null;
@@ -1365,6 +1366,14 @@ function applyState(stateStr) {
           el.style.background = `linear-gradient(180deg, ${chordColor}cc, ${chordColor}77)`;
           el.style.borderColor = chordColor;
           el.innerHTML = `<span>${clip.name}</span><div class="resize-handle left" data-edge="left"></div><div class="resize-handle right" data-edge="right"></div>`;
+          // Keep chord editing reliable even when the first click causes a
+          // clip re-render. The delegated/native double-click path complements
+          // the pointer timing fallback in onClipMouseDown.
+          el.addEventListener('dblclick', event => {
+            event.preventDefault();
+            event.stopPropagation();
+            openTimelineChordEditor(clip.id);
+          });
         }
         el.addEventListener('pointerdown', onClipMouseDown); lane.appendChild(el);
       });
@@ -1816,6 +1825,15 @@ sels.forEach(c => {
     function clientToTime(clientX) { const inner = $('tl-inner').getBoundingClientRect(); return clamp(xToTime(clientX - inner.left), 0, getProjectEnd()); }
     function clientToInnerPoint(clientX, clientY) { const inner = $('tl-inner').getBoundingClientRect(); return { x: clientX - inner.left, y: clientY - inner.top }; }
 
+    function openTimelineChordEditor(clipId) {
+      const clip = getClip(clipId);
+      if (!clip || clip.type !== 'chord' || typeof openChordEditor !== 'function') return;
+      const now = Date.now();
+      if (clip._lastModalOpenAt && now - clip._lastModalOpenAt < 120) return;
+      clip._lastModalOpenAt = now;
+      openChordEditor(clipId);
+    }
+
     function onClipMouseDown(e) {
   if (e.button !== 0) return;
 
@@ -1845,7 +1863,7 @@ sels.forEach(c => {
   const _dy = Math.abs(e.clientY - (clip._clickY || 0));
   if (clip._clickTimer && (_now - (clip._clickTime || 0)) < 350 && _dx < 5 && _dy < 5) {
     clearTimeout(clip._clickTimer); clip._clickTimer = null;
-    if (clip.type === 'chord') openChordEditor(clip.id);
+    if (clip.type === 'chord') openTimelineChordEditor(clip.id);
     return;
   }
   clip._clickX = e.clientX; clip._clickY = e.clientY; clip._clickTime = _now;
@@ -1963,12 +1981,37 @@ sels.forEach(c => {
         box.style.display = 'block'; box.style.left = x1 + 'px'; box.style.top = y1 + 'px'; box.style.width = (x2 - x1) + 'px'; box.style.height = (y2 - y1) + 'px';
         // Select clips inside marquee
         const clipIds = [];
-        document.querySelectorAll('.clip').forEach(el => { const r = el.getBoundingClientRect(), ir = $('tl-inner').getBoundingClientRect(); const cx1 = r.left - ir.left, cy1 = r.top - ir.top, cx2 = cx1 + r.width, cy2 = cy1 + r.height; if (!(cx2 < x1 || cx1 > x2 || cy2 < y1 || cy1 > y2)) clipIds.push(el.dataset.clipId); });
+        const marqueeTrackId = getEditorDAW().marquee.trackId;
+        document.querySelectorAll('.clip').forEach(el => {
+          const clip = getClip(el.dataset.clipId);
+          if (marqueeTrackId && clip?.trackId !== marqueeTrackId) return;
+          const r = el.getBoundingClientRect();
+          const ir = $('tl-inner').getBoundingClientRect();
+          const cx1 = r.left - ir.left;
+          const cy1 = r.top - ir.top;
+          const cx2 = cx1 + r.width;
+          const cy2 = cy1 + r.height;
+          if (!(cx2 < x1 || cx1 > x2 || cy2 < y1 || cy1 > y2)) {
+            clipIds.push(el.dataset.clipId);
+          }
+        });
         getEditorDAW().selectedIds = new Set(clipIds);
         document.querySelectorAll('.clip').forEach(el => el.classList.toggle('selected', getEditorDAW().selectedIds.has(el.dataset.clipId)));
         // Select sections inside marquee
         const secIds = [];
-        document.querySelectorAll('.section-tag').forEach(el => { const r = el.getBoundingClientRect(), ir = $('tl-inner').getBoundingClientRect(); const cx1 = r.left - ir.left, cy1 = r.top - ir.top, cx2 = cx1 + r.width, cy2 = cy1 + r.height; if (!(cx2 < x1 || cx1 > x2 || cy2 < y1 || cy1 > y2)) secIds.push(el.dataset.sectionId); });
+        document.querySelectorAll('.section-tag').forEach(el => {
+          const section = getEditorDAW().sections?.find(item => item.id === el.dataset.sectionId);
+          if (marqueeTrackId && section?.trackId !== marqueeTrackId) return;
+          const r = el.getBoundingClientRect();
+          const ir = $('tl-inner').getBoundingClientRect();
+          const cx1 = r.left - ir.left;
+          const cy1 = r.top - ir.top;
+          const cx2 = cx1 + r.width;
+          const cy2 = cy1 + r.height;
+          if (!(cx2 < x1 || cx1 > x2 || cy2 < y1 || cy1 > y2)) {
+            secIds.push(el.dataset.sectionId);
+          }
+        });
         getEditorDAW().selectedSectionIds = new Set(secIds);
         document.querySelectorAll('.section-tag').forEach(el => el.classList.toggle('selected', getEditorDAW().selectedSectionIds.has(el.dataset.sectionId)));
       }

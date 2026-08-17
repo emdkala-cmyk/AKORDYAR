@@ -11,13 +11,21 @@
     "sidebar workspace inspector"
     "sidebar timeline-sep inspector"
     "timeline timeline timeline";
-  height: calc(100vh - 52px);
+  /*
+   * The Electron menu is outside the renderer viewport. Keeping the old
+   * 52px subtraction left an unused strip below the docked timeline.
+   */
+  height: 100dvh;
+  min-height: 0;
 }
 .app-container.timeline-is-floating {
   grid-template-rows: auto 1fr 0 0 !important;
 }
 .app-container.timeline-is-floating .timeline-sep {
   display: none !important;
+}
+.app-container.timeline-is-closed {
+  grid-template-rows: auto minmax(0, 1fr) 0 0 !important;
 }
 
 /* ===== Windows Title Bar ===== */
@@ -59,6 +67,23 @@
 .timeline-sep.resizing {
   background: var(--accent-cyan-glow);
   box-shadow: 0 0 8px rgba(0, 242, 254, 0.45);
+}
+.timeline-restore-btn {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 1900;
+  border: 1px solid var(--accent-teal);
+  border-radius: 6px;
+  padding: 7px 12px;
+  background: #111722;
+  color: var(--accent-cyan-glow);
+  font: 700 12px var(--font-family);
+  cursor: pointer;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+}
+.timeline-restore-btn:hover {
+  background: #1F2736;
 }
 
 .panel { background: rgba(15,17,23,0.98); }

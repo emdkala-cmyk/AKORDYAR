@@ -2,7 +2,7 @@
  * timeline.css — Timeline toolbar, tracks, clips, playhead, ruler, loop
  */
 
-.timeline { grid-area: timeline; padding: 6px 10px 8px; background: var(--timeline-bg); border-top: 1px solid var(--border-subtle); display: flex; flex-direction: column; gap: 4px; min-height: 0; direction: ltr; box-sizing: border-box; }
+.timeline { grid-area: timeline; padding: 6px 10px 0; background: var(--timeline-bg); border-top: 1px solid var(--border-subtle); display: flex; flex-direction: column; gap: 4px; min-height: 0; direction: ltr; box-sizing: border-box; }
 .timeline.timeline-floating {
   position: fixed;
   z-index: 1800;
@@ -49,6 +49,11 @@
   color: var(--accent-cyan-glow);
   background: #263142;
   border-color: var(--accent-teal);
+}
+.timeline-close-btn:hover {
+  color: #fff;
+  background: #7F1D1D;
+  border-color: #EF4444;
 }
 .timeline-panel-drag-handle { cursor: move; touch-action: none; }
 .timeline-layout-dragging,
