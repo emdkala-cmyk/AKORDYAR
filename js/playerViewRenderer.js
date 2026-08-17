@@ -265,7 +265,20 @@ const PlayerViewRenderer = (() => {
         frame.className = 'pv-line-highlight-frame';
         frame.dataset.highlightLineId = line.id;
         frame.style.position = 'absolute';
-        frame.style.display = 'none';
+        // Keep the frame mounted so a line change can cross-fade instead of
+        // flashing through display:none -> display:block.
+        frame.style.display = 'block';
+        frame.style.opacity = '0';
+        frame.style.transition = [
+          'opacity 180ms ease',
+          'top 220ms cubic-bezier(0.22, 0.61, 0.36, 1)',
+          'left 220ms cubic-bezier(0.22, 0.61, 0.36, 1)',
+          'width 220ms cubic-bezier(0.22, 0.61, 0.36, 1)',
+          'height 220ms cubic-bezier(0.22, 0.61, 0.36, 1)',
+          'background 180ms ease',
+          'box-shadow 180ms ease'
+        ].join(', ');
+        frame.style.willChange = 'opacity, top, left, width, height';
         frame.style.pointerEvents = 'none';
         frame.style.zIndex = '8';
         frame.style.boxSizing = 'border-box';
@@ -484,10 +497,17 @@ const PlayerViewRenderer = (() => {
         '.pv-line[data-line-id="' + lineId + '"]'
       );
       const isActive = !!activeLineId && activeLineId === lineId;
-      if (!lineEl || !isActive) {
+      if (!lineEl) {
         frame.style.display = 'none';
+        frame.style.opacity = '0';
         return;
       }
+
+      frame.style.display = 'block';
+      // Inactive frames stay mounted at their previous geometry and fade out
+      // naturally while the next active frame fades in.
+      frame.style.opacity = isActive ? '1' : '0';
+      if (!isActive) return;
 
       const zone = Math.max(
         0,
