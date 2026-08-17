@@ -44,7 +44,7 @@ assert.ok(
 );
 assert.ok(
   scriptIndex('js/core/Meter.js') <
-    scriptIndex('js/playerViewRenderer.js?v=20260813-8')
+  scriptIndex('js/playerViewRenderer.js?v=20260817-10')
 );
 assert.ok(
   syncClientHtml.indexOf('src="js/core/Meter.js"') <
