@@ -14,6 +14,7 @@
   'use strict';
 
   const DeviceManager = (() => {
+    const PANEL_POSITION_KEY = 'akordyar.syncPanelPosition.v1';
     let panelEl = null;
     let qrCanvas = null;
     let listEl = null;
@@ -21,6 +22,39 @@
     let _pollTimer = null;
 
     function el(id) { return document.getElementById(id); }
+
+    function clampPanelPosition(root, left, top) {
+      const width = root.offsetWidth || 58;
+      const height = root.offsetHeight || 58;
+      return {
+        left: Math.max(0, Math.min(Number(left) || 0, Math.max(0, window.innerWidth - width))),
+        top: Math.max(0, Math.min(Number(top) || 0, Math.max(0, window.innerHeight - height)))
+      };
+    }
+
+    function loadPanelPosition(root) {
+      try {
+        const saved = JSON.parse(globalScope.localStorage?.getItem(PANEL_POSITION_KEY) || 'null');
+        if (!saved) return;
+        const position = clampPanelPosition(root, saved.left, saved.top);
+        root.style.left = `${position.left}px`;
+        root.style.top = `${position.top}px`;
+      } catch (_) {
+        // Position persistence is best effort.
+      }
+    }
+
+    function savePanelPosition(root) {
+      try {
+        const rect = root.getBoundingClientRect();
+        globalScope.localStorage?.setItem(PANEL_POSITION_KEY, JSON.stringify({
+          left: parseFloat(root.style.left) || rect.left,
+          top: parseFloat(root.style.top) || rect.top
+        }));
+      } catch (_) {
+        // Position persistence is best effort.
+      }
+    }
 
     function buildPanel() {
       if (panelEl) return panelEl;
@@ -66,6 +100,7 @@
 
       document.body.appendChild(root);
       panelEl = root;
+      loadPanelPosition(root);
       qrCanvas = el('akord-sync-qr');
       listEl = el('akord-sync-list');
       statusEl = el('akord-sync-status');
@@ -75,7 +110,7 @@
       if (headerEl) {
         headerEl.innerHTML = `
           <span id="akord-sync-icon" aria-hidden="true">
-            <svg viewBox="0 0 32 32" width="26" height="26" fill="none"
+            <svg viewBox="0 0 32 32" width="20" height="20" fill="none"
               stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="8" cy="16" r="3.2"></circle>
               <circle cx="24" cy="8" r="3.2"></circle>
@@ -87,8 +122,9 @@
           <span id="akord-sync-toggle" aria-hidden="true">⌄</span>
         `;
         headerEl.style.cssText = [
-          'display:flex', 'align-items:center', 'justify-content:center', 'gap:8px',
-          'width:100%', 'height:100%', 'padding:8px', 'cursor:pointer',
+          'display:flex', 'align-items:center', 'justify-content:center', 'gap:6px',
+          'width:100%', 'height:100%', 'padding:6px', 'cursor:grab',
+          'touch-action:none', 'user-select:none',
           'color:#dffcff', 'background:linear-gradient(135deg,rgba(0,242,254,.22),rgba(255,46,147,.18))',
           'border-radius:inherit', 'transition:background .2s ease'
         ].join(';');
@@ -137,7 +173,61 @@
         headerEl.style.padding = hidden ? '10px 14px' : '8px';
         root.setAttribute('aria-expanded', String(hidden));
       };
-      el('akord-sync-header').addEventListener('click', togglePanel);
+      let suppressHeaderClick = false;
+      let dragSession = null;
+      const finishHeaderDrag = (event, persist = true) => {
+        if (!dragSession || event.pointerId !== dragSession.pointerId) return;
+        const wasDragged = dragSession.moved;
+        window.removeEventListener('pointermove', dragSession.move, true);
+        window.removeEventListener('pointerup', dragSession.end, true);
+        window.removeEventListener('pointercancel', dragSession.cancel, true);
+        try {
+          headerEl.releasePointerCapture?.(dragSession.pointerId);
+        } catch (_) {}
+        dragSession = null;
+        headerEl.style.cursor = 'grab';
+        if (wasDragged) {
+          suppressHeaderClick = true;
+          if (persist) savePanelPosition(root);
+        }
+      };
+
+      headerEl.addEventListener('pointerdown', event => {
+        if (event.button !== 0) return;
+        const rect = root.getBoundingClientRect();
+        const startX = event.clientX;
+        const startY = event.clientY;
+        const pointerId = event.pointerId;
+        const move = moveEvent => {
+          if (!dragSession || moveEvent.pointerId !== pointerId) return;
+          const dx = moveEvent.clientX - startX;
+          const dy = moveEvent.clientY - startY;
+          if (!dragSession.moved && Math.hypot(dx, dy) < 3) return;
+          dragSession.moved = true;
+          const position = clampPanelPosition(root, rect.left + dx, rect.top + dy);
+          root.style.left = `${position.left}px`;
+          root.style.top = `${position.top}px`;
+        };
+        const end = endEvent => finishHeaderDrag(endEvent);
+        const cancel = cancelEvent => finishHeaderDrag(cancelEvent, false);
+        dragSession = { pointerId, moved: false, move, end, cancel };
+        headerEl.style.cursor = 'grabbing';
+        event.preventDefault();
+        try {
+          headerEl.setPointerCapture?.(pointerId);
+        } catch (_) {}
+        window.addEventListener('pointermove', move, { capture: true, passive: false });
+        window.addEventListener('pointerup', end, { capture: true });
+        window.addEventListener('pointercancel', cancel, { capture: true });
+      });
+
+      headerEl.addEventListener('click', () => {
+        if (suppressHeaderClick) {
+          suppressHeaderClick = false;
+          return;
+        }
+        togglePanel();
+      });
       root.addEventListener('keydown', event => {
         if (event.key === 'Enter' || event.key === ' ') {
           event.preventDefault();

@@ -44,6 +44,7 @@ const service = KeyboardService.create({
   isEditorLocked: () => false,
   hasSelectedChords: () => true,
   hasSelectedChordLineClip: () => true,
+  onTogglePlay: () => calls.push('play'),
   isSequentialChordingActive: () => false,
   onQuantizeSelectedChords: () => calls.push('quantize'),
   onMoveSelectedChords: direction => calls.push(`move:${direction}`),
@@ -74,6 +75,13 @@ const del = keyEvent('Delete');
 windowRef.dispatch(del);
 assert.equal(del.prevented, true);
 assert.deepEqual(calls, ['quantize', 'move:right', 'delete']);
+
+const selectSpace = keyEvent('Space', {
+  target: { tagName: 'SELECT' }
+});
+assert.equal(service.handleGlobalKeydownCapture(selectSpace), true);
+assert.equal(selectSpace.prevented, true);
+assert.deepEqual(calls, ['quantize', 'move:right', 'delete', 'play']);
 
 service.destroy();
 assert.equal(service.isBound(), false);

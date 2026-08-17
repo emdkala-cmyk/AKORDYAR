@@ -16,6 +16,13 @@
     );
   }
 
+  function isSelectTarget(target) {
+    return (
+      target?.tagName === 'SELECT' ||
+      Boolean(target?.closest?.('select'))
+    );
+  }
+
   function create({
     windowRef = globalScope,
     isChordModalOpen = () => false,
@@ -119,8 +126,23 @@
       }
 
       const editable = isEditableTarget(event.target);
+      const isSpace = event.code === 'Space';
+      const hasModifier = event.ctrlKey || event.metaKey || event.altKey;
+
+      // A focused native select consumes Space to open its dropdown before the
+      // normal editor shortcut handler gets a chance to toggle playback.
+      // Keep text fields editable, but let Space retain its transport meaning
+      // when Song Properties focus is on a select control.
+      if (isSpace && isSelectTarget(event.target) && !hasModifier) {
+        event.preventDefault?.();
+        event.stopPropagation?.();
+        if (isPerfModeActive()) onPerfTogglePlay(event);
+        else onTogglePlay(event);
+        return true;
+      }
+
       if (
-        event.code === 'Space' &&
+        isSpace &&
         isPerfModeActive() &&
         !editable
       ) {
@@ -131,7 +153,7 @@
       }
 
       if (
-        event.code === 'Space' &&
+        isSpace &&
         !event.ctrlKey &&
         !event.metaKey &&
         !event.altKey &&
