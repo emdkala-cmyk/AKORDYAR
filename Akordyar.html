@@ -18,8 +18,17 @@
 <body>
   <div class="app-container">
     <div class="timeline-sep" id="timelineSep"></div>
-    <aside class="sidebar panel" data-event-group="navigation">
-      <div class="section-title">PROJECT</div>
+    <aside class="sidebar panel" id="projectPanel" data-event-group="navigation">
+      <div class="side-panel-layout-toolbar" id="projectPanelLayoutControls">
+        <button type="button" class="side-panel-layout-btn side-panel-drag-handle" id="projectPanelDragHandle" title="برای جابه‌جایی Project بکشید" aria-label="جابه‌جایی Project">⠿</button>
+        <span class="side-panel-layout-title">PROJECT</span>
+        <button type="button" class="side-panel-layout-btn" id="projectPanelFloatBtn" data-panel-layout-action="toggle-floating" title="شناور کردن پنجره Project" aria-label="شناور کردن پنجره Project" aria-pressed="false">↗</button>
+        <button type="button" class="side-panel-layout-btn" id="projectPanelMaximizeBtn" data-panel-layout-action="toggle-maximize" title="بزرگ‌نمایی پنجره Project" aria-label="بزرگ‌نمایی پنجره Project" aria-pressed="false">□</button>
+        <button type="button" class="side-panel-layout-btn" id="projectPanelResetBtn" data-panel-layout-action="reset-layout" title="بازنشانی چیدمان Project" aria-label="بازنشانی چیدمان Project">↺</button>
+        <button type="button" class="side-panel-layout-btn side-panel-close-btn" id="projectPanelCloseBtn" data-panel-layout-action="toggle-closed" title="بستن پنجره Project" aria-label="بستن پنجره Project">×</button>
+      </div>
+      <div class="side-panel-content sidebar-content" id="projectPanelContent">
+        <div class="side-panel-content-inner">
 
       <div class="nav-list">
         <div class="nav-item" data-command="projectHubOpen"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg> <span>مرکز پروژه</span></div>
@@ -52,6 +61,8 @@
           <div id="storageBarInner" class="storage-bar-fill" style="width:0%;"></div>
         </div>
         <div id="storageText" style="font-size:11px;color:#fff;white-space:normal;word-break:break-all;line-height:1.4;text-align:center;padding:4px 8px;"></div>
+      </div>
+        </div>
       </div>
     </aside>
 
@@ -175,8 +186,17 @@
       </div>
     </main>
 
-    <aside class="inspector panel" data-inline-actions>
-      <div class="section-title">SONG PROPERTIES</div>
+    <aside class="inspector panel" id="songPropertiesPanel" data-inline-actions>
+      <div class="side-panel-layout-toolbar" id="songPropertiesPanelLayoutControls">
+        <button type="button" class="side-panel-layout-btn side-panel-drag-handle" id="songPropertiesPanelDragHandle" title="برای جابه‌جایی Song Properties بکشید" aria-label="جابه‌جایی Song Properties">⠿</button>
+        <span class="side-panel-layout-title">SONG PROPERTIES</span>
+        <button type="button" class="side-panel-layout-btn" id="songPropertiesPanelFloatBtn" data-panel-layout-action="toggle-floating" title="شناور کردن پنجره Song Properties" aria-label="شناور کردن پنجره Song Properties" aria-pressed="false">↗</button>
+        <button type="button" class="side-panel-layout-btn" id="songPropertiesPanelMaximizeBtn" data-panel-layout-action="toggle-maximize" title="بزرگ‌نمایی پنجره Song Properties" aria-label="بزرگ‌نمایی پنجره Song Properties" aria-pressed="false">□</button>
+        <button type="button" class="side-panel-layout-btn" id="songPropertiesPanelResetBtn" data-panel-layout-action="reset-layout" title="بازنشانی چیدمان Song Properties" aria-label="بازنشانی چیدمان Song Properties">↺</button>
+        <button type="button" class="side-panel-layout-btn side-panel-close-btn" id="songPropertiesPanelCloseBtn" data-panel-layout-action="toggle-closed" title="بستن پنجره Song Properties" aria-label="بستن پنجره Song Properties">×</button>
+      </div>
+      <div class="side-panel-content inspector-content" id="songPropertiesPanelContent">
+        <div class="side-panel-content-inner">
 
       <div class="ins-card">
         <div class="ins-card-title">اطلاعات پایه</div>
@@ -293,6 +313,8 @@
         <div class="project-stats-row">
           <span class="stat-label">خطوط</span>
           <span class="stat-value" id="statLineCount">0</span>
+        </div>
+      </div>
         </div>
       </div>
     </aside>
@@ -891,6 +913,9 @@
     </div>
   </div>
 
+  <button type="button" class="side-panel-restore-btn project-panel-restore-btn" id="projectPanelRestoreBtn" hidden>باز کردن Project</button>
+  <button type="button" class="side-panel-restore-btn song-properties-panel-restore-btn" id="songPropertiesPanelRestoreBtn" hidden>باز کردن Song Properties</button>
+
   <!-- Song Note Modal -->
   <div class="arr-song-note-overlay" id="arrSongNoteOverlay">
     <div class="arr-song-note-panel">
@@ -1015,6 +1040,7 @@
 <script src="js/core/TimelineViewportService.js"></script>
 <script src="js/core/TimelineScrollbarsService.js"></script>
 <script src="js/core/TimelinePanelLayoutService.js"></script>
+<script src="js/core/DockablePanelLayoutService.js"></script>
 <script src="js/core/TimelineTrackRendererService.js"></script>
 <script src="js/sharedEngine.js"></script>
   <script src="js/performanceStore.js"></script>

@@ -687,6 +687,14 @@ const globalScope = isBrowser ? window : global;
         window.timelinePanelLayout.toggleClosed();
         return;
       }
+      if (panel === 'sidebar' && window.projectPanelLayout?.toggleClosed) {
+        window.projectPanelLayout.toggleClosed();
+        return;
+      }
+      if (panel === 'inspector' && window.songPropertiesPanelLayout?.toggleClosed) {
+        window.songPropertiesPanelLayout.toggleClosed();
+        return;
+      }
       const el = panel === 'sidebar' ? document.querySelector('.sidebar') :
                  panel === 'inspector' ? document.querySelector('.inspector') :
                  panel === 'timeline' ? document.querySelector('.timeline') : null;
@@ -706,6 +714,80 @@ const globalScope = isBrowser ? window : global;
           }
         }
       }
+    }
+
+    function syncDockableSidePanelGrid() {
+      const app = document.querySelector('.app-container');
+      const projectPanel = document.getElementById('projectPanel');
+      const songPropertiesPanel = document.getElementById('songPropertiesPanel');
+      if (!app || !projectPanel || !songPropertiesPanel) return;
+
+      const isDocked = panel => (
+        panel.style.display !== 'none' &&
+        !panel.classList.contains('side-panel-floating') &&
+        !panel.classList.contains('side-panel-closed')
+      );
+      app.style.gridTemplateColumns = [
+        isDocked(projectPanel) ? '240px' : '0px',
+        'minmax(0, 1fr)',
+        isDocked(songPropertiesPanel) ? '300px' : '0px'
+      ].join(' ');
+    }
+
+    function initDockableSidePanels() {
+      const service = window.DockablePanelLayoutService;
+      if (!service?.create) return;
+      if (window.projectPanelLayout || window.songPropertiesPanelLayout) {
+        syncDockableSidePanelGrid();
+        return;
+      }
+
+      const onStateChange = () => syncDockableSidePanelGrid();
+      window.projectPanelLayout = service.create({
+        documentRef: document,
+        windowRef: window,
+        storageKey: 'akordyar.projectPanelLayout.v1',
+        panelId: 'projectPanel',
+        controlsId: 'projectPanelLayoutControls',
+        dragHandleId: 'projectPanelDragHandle',
+        floatButtonId: 'projectPanelFloatBtn',
+        maximizeButtonId: 'projectPanelMaximizeBtn',
+        resetButtonId: 'projectPanelResetBtn',
+        closeButtonId: 'projectPanelCloseBtn',
+        restoreButtonId: 'projectPanelRestoreBtn',
+        side: 'left',
+        minWidth: 280,
+        minHeight: 300,
+        defaultFloating: { left: 24, top: 80, width: 380, height: 620 },
+        onStateChange
+      });
+      window.songPropertiesPanelLayout = service.create({
+        documentRef: document,
+        windowRef: window,
+        storageKey: 'akordyar.songPropertiesPanelLayout.v1',
+        panelId: 'songPropertiesPanel',
+        controlsId: 'songPropertiesPanelLayoutControls',
+        dragHandleId: 'songPropertiesPanelDragHandle',
+        floatButtonId: 'songPropertiesPanelFloatBtn',
+        maximizeButtonId: 'songPropertiesPanelMaximizeBtn',
+        resetButtonId: 'songPropertiesPanelResetBtn',
+        closeButtonId: 'songPropertiesPanelCloseBtn',
+        restoreButtonId: 'songPropertiesPanelRestoreBtn',
+        side: 'right',
+        minWidth: 280,
+        minHeight: 300,
+        defaultFloating: { left: 0, top: 80, width: 380, height: 620 },
+        onStateChange
+      });
+      window.projectPanelLayout.init();
+      window.songPropertiesPanelLayout.init();
+      syncDockableSidePanelGrid();
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initDockableSidePanels, { once: true });
+    } else {
+      initDockableSidePanels();
     }
 
     function toggleLang() {
@@ -4075,6 +4157,7 @@ function renderTimeline() {
 // اتصال رویدادهای اولیه صفحه پس از بارگذاری DOM - بخش اول (خط ۳۶۲۳)
 document.addEventListener('DOMContentLoaded', () => {
   setTimelinePanelHeight(getTimelinePanelHeight(), { persist: false });
+  initDockableSidePanels();
 
   window.EditorLifecycleService?.bindAudioImport?.({
     documentRef: document,
