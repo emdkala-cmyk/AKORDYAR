@@ -23,6 +23,7 @@ class MetronomeScheduler {
     metronomeEngine,
     getMeterConfig,
     isStrongBeat,
+    getLoop = () => null,
     lookahead = 25,          // ms between scheduler ticks
     scheduleAheadTime = 0.1, // seconds of beats to reserve ahead
     timer = null             // injectable setTimeout for tests
@@ -41,6 +42,7 @@ class MetronomeScheduler {
     this.metronomeEngine = metronomeEngine || null;
     this.getMeterConfig = getMeterConfig;
     this.isStrongBeat = isStrongBeat;
+    this.getLoop = typeof getLoop === 'function' ? getLoop : () => null;
     this.lookahead = lookahead;
     this.scheduleAheadTime = scheduleAheadTime;
 
@@ -60,6 +62,13 @@ class MetronomeScheduler {
     this._beatDuration = 0.5;
     this._beatsPerMeasure = 4;
     this._soundType = 'classic';
+    this._loopConfig = null;
+    this._nextLoopBoundaryTime = null;
+    // Affine mapping from integer beat index to AudioContext time.  The
+    // anchor is reset when a loop/future transport remaps the timeline; beat
+    // advancement then derives from that mapping instead of accumulating
+    // `beatDuration` deltas or falling back to the original startTime.
+    this._noteTimeAnchor = null;
 
     // Bind all internal methods to `this` so context is never lost.
     this.start = this.start.bind(this);
@@ -83,8 +92,10 @@ class MetronomeScheduler {
   *
   * @param {object} opts
   * @param {number} [opts.bpm=120]
-  * @param {string} [opts.timeSignature='4/4']
-  * @param {number} [opts.startTime] — AudioContext time for beat 0
+   * @param {string} [opts.timeSignature='4/4']
+   * @param {number} [opts.startTime] — AudioContext time for beat 0
+   * @param {number} [opts.playheadPosition] — timeline position at transport start
+   * @param {number} [opts.transportStartTime] — AudioContext time transport starts
   * @param {string} [opts.soundType='classic']
   * @returns {boolean} true when started
   */
@@ -92,6 +103,8 @@ class MetronomeScheduler {
    bpm = 120,
    timeSignature = '4/4',
    startTime = null,
+   playheadPosition = null,
+   transportStartTime = null,
    soundType = 'classic'
  } = {}) {
    const ctx = this.audioContextService.getContext();
@@ -123,7 +136,13 @@ class MetronomeScheduler {
     // Calculate which beat the playhead is currently on so the first
     // scheduled beat is the *next* grid point (never the past).
     const nowCtx = ctx.currentTime;
-    const playheadNow = Math.max(0, nowCtx - this._startTime);
+    const hasFutureTransportStart =
+      Number.isFinite(playheadPosition) &&
+      Number.isFinite(transportStartTime) &&
+      transportStartTime > nowCtx + 1e-9;
+    const playheadNow = hasFutureTransportStart
+      ? Math.max(0, playheadPosition)
+      : Math.max(0, nowCtx - this._startTime);
     const beatRatio = playheadNow / this._beatDuration;
     const nearestBeat = Math.round(beatRatio);
     const normalizedRatio = Math.abs(beatRatio - nearestBeat) <= 1e-9
@@ -133,10 +152,48 @@ class MetronomeScheduler {
 
     // The first note time is the AudioContext instant for the current beat.
     // Clamp to `nowCtx` so we never schedule into the past.
-    this._nextNoteTime = Math.max(
-      nowCtx,
-      this._startTime + this._currentBeat * this._beatDuration
-    );
+    this._nextNoteTime = hasFutureTransportStart
+      ? Math.max(
+          transportStartTime,
+          transportStartTime +
+            (this._currentBeat * this._beatDuration - playheadNow)
+        )
+      : Math.max(
+          nowCtx,
+          this._startTime + this._currentBeat * this._beatDuration
+        );
+    this._loopConfig = this._readLoopConfig();
+    this._nextLoopBoundaryTime = null;
+    if (this._loopConfig) {
+      if (playheadNow >= this._loopConfig.end) {
+        const loopedTime = this._loopConfig.start +
+          ((playheadNow - this._loopConfig.start) % this._loopConfig.length);
+        const loopedRatio = loopedTime / this._beatDuration;
+        const loopedNearest = Math.round(loopedRatio);
+        const loopedNormalized = Math.abs(loopedRatio - loopedNearest) <= 1e-9
+          ? loopedNearest
+          : loopedRatio;
+        this._currentBeat = Math.max(0, Math.ceil(loopedNormalized));
+        const loopedAudioOrigin = hasFutureTransportStart
+          ? transportStartTime
+          : nowCtx;
+        this._nextNoteTime = loopedAudioOrigin + Math.max(
+          0,
+          this._currentBeat * this._beatDuration - loopedTime
+        );
+        this._nextLoopBoundaryTime = loopedAudioOrigin +
+          Math.max(0, this._loopConfig.end - loopedTime);
+      } else {
+        this._nextLoopBoundaryTime = hasFutureTransportStart
+          ? transportStartTime +
+            Math.max(0, this._loopConfig.end - playheadNow)
+          : this._startTime + this._loopConfig.end;
+      }
+    }
+    this._noteTimeAnchor = {
+      beat: this._currentBeat,
+      audioTime: this._nextNoteTime
+    };
 
     this.running = true;
 
@@ -168,7 +225,7 @@ class MetronomeScheduler {
   * The look-ahead loop. Runs every `lookahead` ms and reserves all beats
   * that fall within `scheduleAheadTime` of the current AudioContext time.
   */
- _scheduleNext() {
+  _scheduleNext() {
    if (!this.running) return;
    const ctx = this.audioContextService.getContext();
    if (!ctx) return;
@@ -179,15 +236,20 @@ class MetronomeScheduler {
     // the next future beat. A tiny floating-point tolerance keeps exact
     // boundaries stable without intentionally playing late clicks.
     const nowCtx = ctx.currentTime;
+    this._refreshLoopConfig(nowCtx);
+    this._advanceLoopBoundaryIfNeeded();
     const pastTolerance = 1e-6;
     while (this._nextNoteTime < nowCtx - pastTolerance) {
       this._advanceBeat();
+      this._advanceLoopBoundaryIfNeeded();
     }
 
     // Reserve every beat that is within the look-ahead window.
     while (this._nextNoteTime < nowCtx + this.scheduleAheadTime) {
+      if (this._advanceLoopBoundaryIfNeeded()) continue;
       this._scheduleBeat(this._currentBeat, this._nextNoteTime);
       this._advanceBeat();
+      this._advanceLoopBoundaryIfNeeded();
     }
 
     this._timerID = this._timer(() => this._scheduleNext(), this.lookahead);
@@ -223,9 +285,101 @@ class MetronomeScheduler {
    */
   _advanceBeat() {
     this._currentBeat++;
+    if (
+      this._noteTimeAnchor &&
+      Number.isFinite(this._noteTimeAnchor.beat) &&
+      Number.isFinite(this._noteTimeAnchor.audioTime)
+    ) {
+      this._nextNoteTime =
+        this._noteTimeAnchor.audioTime +
+        (this._currentBeat - this._noteTimeAnchor.beat) * this._beatDuration;
+      return;
+    }
     this._nextNoteTime =
       this._startTime +
       this._currentBeat * this._beatDuration;
+  }
+
+  _readLoopConfig() {
+    let loop = null;
+    try {
+      loop = this.getLoop();
+    } catch (_) {
+      loop = null;
+    }
+    const start = Number(loop?.start);
+    const end = Number(loop?.end);
+    if (
+      !loop?.enabled ||
+      !Number.isFinite(start) ||
+      !Number.isFinite(end) ||
+      end - start <= 1e-6
+    ) {
+      return null;
+    }
+    return { start, end, length: end - start };
+  }
+
+  _refreshLoopConfig(nowCtx) {
+    const next = this._readLoopConfig();
+    const previous = this._loopConfig;
+    if (
+      previous &&
+      next &&
+      previous.start === next.start &&
+      previous.end === next.end
+    ) {
+      return;
+    }
+    this._loopConfig = next;
+    if (!next) {
+      this._nextLoopBoundaryTime = null;
+      return;
+    }
+
+    const timelineNow = Math.max(0, nowCtx - this._startTime);
+    if (timelineNow < next.end) {
+      this._nextLoopBoundaryTime = this._startTime + next.end;
+      return;
+    }
+    const loopedTime = next.start +
+      ((timelineNow - next.start) % next.length);
+    this._nextLoopBoundaryTime = nowCtx +
+      Math.max(0, next.end - loopedTime);
+  }
+
+  _advanceLoopBoundaryIfNeeded() {
+    const loop = this._loopConfig;
+    if (
+      !loop ||
+      !Number.isFinite(this._nextLoopBoundaryTime) ||
+      this._nextNoteTime < this._nextLoopBoundaryTime - 1e-9
+    ) {
+      return false;
+    }
+
+    let guard = 0;
+    while (guard++ < 1000) {
+      const firstBeatRatio = loop.start / this._beatDuration;
+      const firstNearest = Math.round(firstBeatRatio);
+      const firstNormalized = Math.abs(firstBeatRatio - firstNearest) <= 1e-9
+        ? firstNearest
+        : firstBeatRatio;
+      const firstBeat = Math.max(0, Math.ceil(firstNormalized));
+      const firstBeatTime = firstBeat * this._beatDuration;
+      const boundary = this._nextLoopBoundaryTime;
+      this._currentBeat = firstBeat;
+      this._nextNoteTime = boundary + Math.max(0, firstBeatTime - loop.start);
+      this._noteTimeAnchor = {
+        beat: this._currentBeat,
+        audioTime: this._nextNoteTime
+      };
+      this._nextLoopBoundaryTime = boundary + loop.length;
+      if (this._nextNoteTime < this._nextLoopBoundaryTime - 1e-9) {
+        return true;
+      }
+    }
+    return true;
   }
 
   /**
@@ -242,6 +396,7 @@ class MetronomeScheduler {
       currentBeat: this._currentBeat,
       startTime: this._startTime,
       soundType: this._soundType,
+      loopConfig: this._loopConfig,
       hasTimer: !!this._timerID
     };
   }

@@ -248,6 +248,103 @@ tests.push(() => {
   passCount++;
 });
 
+// 4d. A look-ahead window may cross a loop boundary without duplicating or
+// skipping the grid phase.
+tests.push(() => {
+  const { fakeCtx, service } = setup();
+  const timer = makeFakeTimer();
+  const sched = new MetronomeScheduler({
+    audioContextService: service,
+    getMeterConfig,
+    isStrongBeat: FakeMeter.isStrongBeat,
+    getLoop: () => ({ enabled: true, start: 1, end: 2 }),
+    scheduleAheadTime: 1.5,
+    timer: timer.fn
+  });
+
+  sched.start({ bpm: 120, timeSignature: '4/4', startTime: 0 });
+  assert.deepEqual(
+    fakeCtx._oscs.map(osc => osc.startedAt),
+    [0, 0.5, 1]
+  );
+
+  fakeCtx.currentTime = 1.9;
+  timer.runNext();
+  assert.ok(
+    fakeCtx._oscs.some(osc => Math.abs(osc.startedAt - 2) < 1e-9),
+    'the first beat at loop start must be scheduled at the exact loop boundary'
+  );
+  assert.ok(
+    fakeCtx._oscs.every(osc => osc.startedAt < 3 + 1e-9),
+    'scheduler must not schedule beyond the next loop cycle'
+  );
+  assert.ok(
+    fakeCtx._oscs.every(osc => osc.startedAt < 1.9 || osc.startedAt >= 2 - 1e-9),
+    'loop remapping must never re-schedule historical context times'
+  );
+  assert.deepEqual(
+    fakeCtx._oscs.map(osc => Number(osc.startedAt.toFixed(9))),
+    [0, 0.5, 1, 2, 2.5, 3],
+    'loop beats must remain on the same absolute AudioContext grid'
+  );
+  passCount++;
+});
+
+// 4e. Count-in can reserve the first playback beat in the future while
+// preserving the requested timeline position.
+tests.push(() => {
+  const { fakeCtx, service } = setup();
+  const timer = makeFakeTimer();
+  const sched = new MetronomeScheduler({
+    audioContextService: service,
+    getMeterConfig,
+    isStrongBeat: FakeMeter.isStrongBeat,
+    scheduleAheadTime: 0.1,
+    timer: timer.fn
+  });
+  sched.start({
+    bpm: 120,
+    timeSignature: '4/4',
+    startTime: 0,
+    playheadPosition: 2,
+    transportStartTime: 2
+  });
+  assert.equal(sched.getState().nextNoteTime, 2);
+  assert.equal(fakeCtx._oscs.length, 0);
+  fakeCtx.currentTime = 1.95;
+  timer.runNext();
+  assert.equal(fakeCtx._oscs[0].startedAt, 2);
+  passCount++;
+});
+
+// 4f. A future transport start also remains future when the requested
+// playhead is already beyond the loop end.
+tests.push(() => {
+  const { fakeCtx, service } = setup();
+  const timer = makeFakeTimer();
+  const sched = new MetronomeScheduler({
+    audioContextService: service,
+    getMeterConfig,
+    isStrongBeat: FakeMeter.isStrongBeat,
+    getLoop: () => ({ enabled: true, start: 1, end: 2 }),
+    scheduleAheadTime: 0.1,
+    timer: timer.fn
+  });
+  sched.start({
+    bpm: 120,
+    timeSignature: '4/4',
+    startTime: 0,
+    playheadPosition: 2.5,
+    transportStartTime: 2
+  });
+  assert.equal(sched.getState().nextNoteTime, 2);
+  assert.equal(fakeCtx._oscs.length, 0);
+  fakeCtx.currentTime = 1.95;
+  timer.runNext();
+  assert.equal(fakeCtx._oscs[0].startedAt, 2);
+  passCount++;
+});
+
 // 5. isAccent correctly detected via meter (strong beat = first beat of measure)
 tests.push(() => {
   const { fakeCtx, service } = setup();

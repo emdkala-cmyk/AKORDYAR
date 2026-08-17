@@ -351,6 +351,14 @@ const globalScope = isBrowser ? window : global;
         audioContextService: audioContextServiceBridge,
         metronomeEngine: metronomeEngineBridge,
         getMeterConfig: getTimeSignatureGridConfig,
+        getLoop: () => {
+          const daw = getEditorDAW();
+          return {
+            enabled: Boolean(daw.loopEnabled),
+            start: daw.loopA,
+            end: daw.loopB
+          };
+        },
         // Keep a generous audio-side reserve so short UI/layout stalls
         // cannot starve the Web Audio queue during timeline zoom.
         scheduleAheadTime: 1.5,
@@ -489,6 +497,8 @@ const globalScope = isBrowser ? window : global;
           bpm: _mbpm,
           timeSignature: _msig,
           startTime: _timelineZeroAudioTime,
+          playheadPosition: getEditorDAW().playhead,
+          transportStartTime: _clock.transportStartAudioTime,
           soundType: APP_SETTINGS.metroSound || 'classic'
         });
         if (!_started) return;
@@ -1008,18 +1018,26 @@ const requestRenderSyncLyrics = debounce(() => { renderSyncLyrics(); }, 120);
      * Keep transport timing on the same AudioContext clock used by audio
      * tracks and the metronome scheduler.
      */
-    function setTransportOrigin(currentTime = getEditorDAW().playhead) {
+    function setTransportOrigin(
+      currentTime = getEditorDAW().playhead,
+      audioOriginOverride = null
+    ) {
       const daw = getEditorDAW();
       const safeTime = Number.isFinite(currentTime) ? currentTime : 0;
       const perfOrigin = PlayheadMath.createOrigin(performance.now(), safeTime);
       daw.playOriginPerf = perfOrigin.playOriginPerf;
       daw.playOriginTime = perfOrigin.playOriginTime;
       const audioNow = daw.audioCtx?.currentTime;
-      daw.playOriginAudio = Number.isFinite(audioNow) ? audioNow : null;
+      daw.playOriginAudio = Number.isFinite(audioOriginOverride)
+        ? audioOriginOverride
+        : (Number.isFinite(audioNow) ? audioNow : null);
       return daw.playOriginAudio;
     }
 
-    function getTransportClockSnapshot() {
+    function getTransportClockSnapshot({
+      visual = false,
+      performanceTime = performance.now()
+    } = {}) {
       const daw = getEditorDAW();
       const audioNow = daw.audioCtx?.currentTime;
       if (
@@ -1027,6 +1045,13 @@ const requestRenderSyncLyrics = debounce(() => { renderSyncLyrics(); }, 120);
         Number.isFinite(daw.playOriginAudio) &&
         Number.isFinite(audioNow)
       ) {
+        const visualAudioTime = visual
+          ? PlayheadMath.getOutputAlignedAudioTime(
+              daw.audioCtx,
+              performanceTime,
+              audioNow
+            )
+          : audioNow;
         return {
           audioTime: audioNow,
           timelineTime: PlayheadMath.getAudioElapsed(
@@ -1034,6 +1059,15 @@ const requestRenderSyncLyrics = debounce(() => { renderSyncLyrics(); }, 120);
             daw.playOriginAudio,
             daw.playOriginTime
           ),
+          visualAudioTime: Number.isFinite(visualAudioTime)
+            ? visualAudioTime
+            : audioNow,
+          visualTimelineTime: PlayheadMath.getAudioElapsed(
+            Number.isFinite(visualAudioTime) ? visualAudioTime : audioNow,
+            daw.playOriginAudio,
+            daw.playOriginTime
+          ),
+          transportStartAudioTime: daw.playOriginAudio,
           timelineZeroAudioTime: PlayheadMath.getTimelineZeroAudioTime(
             daw.playOriginAudio,
             daw.playOriginTime
@@ -1045,17 +1079,24 @@ const requestRenderSyncLyrics = debounce(() => { renderSyncLyrics(); }, 120);
         return {
           audioTime: Number.isFinite(audioNow) ? audioNow : null,
           timelineTime: Number.isFinite(daw.playhead) ? daw.playhead : 0,
+          visualAudioTime: Number.isFinite(audioNow) ? audioNow : null,
+          visualTimelineTime: Number.isFinite(daw.playhead) ? daw.playhead : 0,
+          transportStartAudioTime: null,
           timelineZeroAudioTime: null
         };
       }
 
+      const fallbackTimelineTime = PlayheadMath.getElapsed(
+        performanceTime,
+        daw.playOriginPerf,
+        daw.playOriginTime
+      );
       return {
         audioTime: null,
-        timelineTime: PlayheadMath.getElapsed(
-          performance.now(),
-          daw.playOriginPerf,
-          daw.playOriginTime
-        ),
+        timelineTime: fallbackTimelineTime,
+        visualAudioTime: null,
+        visualTimelineTime: fallbackTimelineTime,
+        transportStartAudioTime: null,
         timelineZeroAudioTime: null
       };
     }
@@ -1063,6 +1104,25 @@ const requestRenderSyncLyrics = debounce(() => { renderSyncLyrics(); }, 120);
     function getTransportPlayhead() {
       return getTransportClockSnapshot().timelineTime;
     }
+
+    const playbackTimelineController =
+      globalScope.PlaybackTimelineController?.create({
+        getDAW: () => getEditorDAW(),
+        ensureAudioCtx,
+        stopAllVoices,
+        getTransportClockSnapshot,
+        getNode: id => $(id),
+        timeToX: t => t * getEditorDAW().pxPerSecond,
+        formatTime
+      });
+    const scheduleAllFromPlayhead = (...args) =>
+      playbackTimelineController?.scheduleAllFromPlayhead?.(...args);
+    const getDisplayPlayheadTime = (...args) =>
+      playbackTimelineController?.getDisplayPlayheadTime?.(...args) || 0;
+    const updatePlayheadUI = (...args) =>
+      playbackTimelineController?.updatePlayheadUI?.(...args);
+    const syncTimelineViewportToPlayhead = (...args) =>
+      playbackTimelineController?.syncTimelineViewportToPlayhead?.(...args);
 
 // ==========================================
 // ProjectAudioService Bridge
@@ -1354,36 +1414,6 @@ function applyState(stateStr) {
     function stopAllVoices() {
       for (const [id, v] of getEditorDAW().voices) { try { v.source.onended = null; v.source.stop(0); } catch (_) {} try { v.source.disconnect(); } catch (_) {} try { v.gain.disconnect(); } catch (_) {} }
       getEditorDAW().voices.clear();
-    }
-
-   function scheduleAllFromPlayhead() {
-     const ctx = ensureAudioCtx(); stopAllVoices();
-     if (!getEditorDAW().isPlaying || getEditorDAW().isScrubbing) return;
-      // Use the same transport-clock playhead that the metronome scheduler
-      // relies on, so audio clips and metronome clicks stay locked together.
-      const clock = getTransportClockSnapshot();
-      const nowT = clock.timelineTime;
-      const ctxNow = Number.isFinite(clock.audioTime)
-        ? clock.audioTime
-        : ctx.currentTime;
-      getEditorDAW().clips.forEach(clip => {
-        if (clip.type === 'chord') return;
-        const tr = getEditorDAW().tracks.find(t => t.id === clip.trackId);
-        if (tr && (tr.muted || (getEditorDAW().tracks.some(t => t.solo) && !tr.solo))) return;
-        const buffer = getEditorDAW().bufferCache.get(clip.bufferKey); if (!buffer) return;
-        const local = nowT - clip.start; if (local >= clip.duration) return;
-        let when = ctxNow, mediaOffset = clip.offset, playDur = clip.duration;
-        if (local < 0) when = ctxNow + (-local); else { mediaOffset = clip.offset + local; playDur = clip.duration - local; }
-        if (mediaOffset >= buffer.duration - 0.0005) return; playDur = Math.min(playDur, buffer.duration - mediaOffset); if (playDur <= 0.005) return;
-        const gain = ctx.createGain(); gain.gain.value = 1; gain.connect(tr._pannerNode);
-        const source = ctx.createBufferSource(); source.buffer = buffer; source.connect(gain);
-        // Apply transpose via playbackRate
-        const semitones = tr.transpose || 0;
-        if (semitones !== 0) source.playbackRate.value = Math.pow(2, semitones / 12);
-        try { source.start(when, mediaOffset, playDur); } catch (err) { return; }
-        source.onended = () => { if (getEditorDAW().voices.get(clip.id)?.source === source) getEditorDAW().voices.delete(clip.id); };
-        getEditorDAW().voices.set(clip.id, { source, gain });
-      });
     }
 
     function renderAll(options = {}) {
@@ -1680,38 +1710,6 @@ function applyState(stateStr) {
         el.appendChild(resR);
         lane.appendChild(el);
       });
-    }
-
-    function updatePlayheadUI() {
-      const x = timeToX(getEditorDAW().playhead); $('main-playhead').style.left = x + 'px'; $('playhead-hit').style.left = x + 'px';
-      $('time-display').value = formatTime(getEditorDAW().playhead); $('ph-label').textContent = formatTime(getEditorDAW().playhead);
-      const activeChord = getEditorDAW().clips.filter(c => c.type === 'chord' && getEditorDAW().playhead >= c.start && getEditorDAW().playhead < c.start + c.duration).pop();
-      if (activeChord && $('live-chord')) $('live-chord').textContent = activeChord.name;
-      else if ($('live-chord')) $('live-chord').textContent = 'None';
-      syncTimelineViewportToPlayhead();
-    }
-
-    function syncTimelineViewportToPlayhead() {
-      const scroll = $('tl-scroll');
-      if (!scroll) return;
-
-      const viewportService = window.TimelineViewportService;
-      const current = Number(scroll.scrollLeft) || 0;
-      const maxScrollLeft = Math.max(0, (scroll.scrollWidth || 0) - (scroll.clientWidth || 0));
-      const next = viewportService?.getScrollLeftForPlayhead
-        ? viewportService.getScrollLeftForPlayhead({
-            playheadX: timeToX(getEditorDAW().playhead),
-            scrollLeft: current,
-            viewportWidth: scroll.clientWidth,
-            mode: getEditorDAW().playheadMode,
-            margin: 60,
-            maxScrollLeft
-          })
-        : current;
-
-      if (Number.isFinite(next) && Math.abs(next - current) > 0.5) {
-        scroll.scrollLeft = next;
-      }
     }
 
     function autoScrollToPlayhead() {
@@ -2296,10 +2294,13 @@ sels.forEach(c => {
         countInTimer = null;
       }
 
-      const beginPlayback = () => {
+      const beginPlayback = (transportStartAudioTime = null) => {
         getEditorDAW().isPlaying = true;
         getEditorDAW().isScrubbing = false;
-        setTransportOrigin(getEditorDAW().playhead);
+        setTransportOrigin(
+          getEditorDAW().playhead,
+          transportStartAudioTime
+        );
         $('play-btn').style.color = 'var(--accent-neon-pink)';
         scheduleAllFromPlayhead();
 
@@ -2310,7 +2311,7 @@ sels.forEach(c => {
         if (metroActive && !metroTimer) startMetronome();
       };
 
-      const tick = () => {
+      const tick = (rafTimestamp) => {
         if (!getEditorDAW().isPlaying) return;
         if (!getEditorDAW().isScrubbing) getEditorDAW().playhead = getTransportPlayhead();
 
@@ -2319,11 +2320,17 @@ sels.forEach(c => {
           var looped = PlayheadMath.applyLoop(getEditorDAW().playhead, getEditorDAW().loopEnabled, getEditorDAW().loopA, getEditorDAW().loopB);
           getEditorDAW().playhead = looped.playhead;
           setTransportOrigin(getEditorDAW().playhead);
-          scheduleAllFromPlayhead();
-          if (metroActive) startMetronome();
+          scheduleAllFromPlayhead({
+            preserveVoices: true,
+            loopOnly: true
+          });
         }
 
-        updatePlayheadUI();
+        updatePlayheadUI({
+          performanceTime: Number.isFinite(rafTimestamp)
+            ? rafTimestamp
+            : performance.now()
+        });
         // Look-ahead scheduler runs independently of RAF. Only fall back to
         // RAF-based beat checking when the scheduler is unavailable.
         if (!getMetronomeSchedulerBridge()) checkMetronomeTick(getEditorDAW().playhead);
@@ -2428,29 +2435,36 @@ sels.forEach(c => {
         alignPlayheadToNearestMeasure(config);
         const beatsPerBar = config.beatsPerMeasure;
         const beatDur = config.beatDuration;
-        let countBeat = 0;
         const totalBeats = countInBars * beatsPerBar;
-        const generation = countInGeneration;
         getEditorDAW().isPlaying = false;
         getEditorDAW().isScrubbing = false;
         stopAllVoices();
         if (metroTimer) stopMetronome();
         $('play-btn').style.color = 'var(--accent-cyan-glow)';
         toast('🔢 شمارش: ' + countInBars + ' میزان');
-        const countInTick = () => {
-          if (generation !== countInGeneration) return;
-          if (countBeat >= totalBeats) {
-            countInTimer = null;
-            beginPlayback();
-            if (getEditorDAW().rafId) cancelAnimationFrame(getEditorDAW().rafId);
-            getEditorDAW().rafId = requestAnimationFrame(tick);
-            return;
+        const countInCtx = ensureAudioCtx();
+        const countInStartAudio = countInCtx.currentTime;
+        const transportStartAudio =
+          countInStartAudio + totalBeats * beatDur;
+        for (let countBeat = 0; countBeat < totalBeats; countBeat++) {
+          const isAccent = window.Meter.isStrongBeat(
+            countBeat % beatsPerBar,
+            sig
+          );
+          if (audioContextServiceBridge?.playClickAt) {
+            audioContextServiceBridge.playClickAt(
+              isAccent,
+              APP_SETTINGS.metroSound || 'classic',
+              countInStartAudio + countBeat * beatDur
+            );
+          } else {
+            playClick(isAccent);
           }
-          playClick(countBeat % beatsPerBar === 0);
-          countBeat++;
-          countInTimer = setTimeout(countInTick, beatDur * 1000);
-        };
-        countInTick();
+        }
+        countInTimer = null;
+        beginPlayback(transportStartAudio);
+        if (getEditorDAW().rafId) cancelAnimationFrame(getEditorDAW().rafId);
+        getEditorDAW().rafId = requestAnimationFrame(tick);
         return;
       }
 
@@ -2471,6 +2485,7 @@ sels.forEach(c => {
       }
       getEditorDAW().isPlaying = false; getEditorDAW().isScrubbing = false; if (getEditorDAW().rafId) cancelAnimationFrame(getEditorDAW().rafId); getEditorDAW().rafId = null; stopAllVoices(); $('play-btn').style.color = 'var(--accent-cyan-glow)'; updatePlayheadUI();
       getEditorDAW().playOriginAudio = null;
+      audioContextServiceBridge?.stopAll?.();
 
       // Auto-stop metronome
       if (metroTimer) stopMetronome();

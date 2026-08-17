@@ -44,6 +44,47 @@ var PlayheadMath = (function() {
   }
 
   /**
+   * Resolve the audio time currently reaching the output device.
+   *
+   * AudioContext.currentTime is the scheduling clock. For visual playback,
+   * Chromium/Electron can expose a more useful presentation mapping through
+   * getOutputTimestamp(): contextTime is the sample at performanceTime.
+   * Projecting that pair to the current performance timestamp keeps the
+   * playhead aligned with what is audible without introducing a UI timer or a
+   * hand-tuned delay.
+   */
+  function getOutputAlignedAudioTime(audioContext, performanceTime, fallback) {
+    var fallbackTime = Number.isFinite(fallback)
+      ? fallback
+      : Number(audioContext && audioContext.currentTime);
+    if (
+      !audioContext ||
+      typeof audioContext.getOutputTimestamp !== 'function'
+    ) {
+      return Number.isFinite(fallbackTime) ? fallbackTime : null;
+    }
+
+    try {
+      var timestamp = audioContext.getOutputTimestamp();
+      var contextTime = Number(timestamp && timestamp.contextTime);
+      var timestampPerformance = Number(timestamp && timestamp.performanceTime);
+      var nowPerformance = Number(performanceTime);
+      if (
+        Number.isFinite(contextTime) &&
+        Number.isFinite(timestampPerformance) &&
+        Number.isFinite(nowPerformance)
+      ) {
+        return contextTime + (nowPerformance - timestampPerformance) / 1000;
+      }
+    } catch (_) {
+      // Some Electron/Chromium versions expose the method but can reject it
+      // while the audio device is being reconfigured.
+    }
+
+    return Number.isFinite(fallbackTime) ? fallbackTime : null;
+  }
+
+  /**
    * AudioContext time corresponding to timeline position zero.
    */
   function getTimelineZeroAudioTime(originAudio, originTime) {
@@ -105,6 +146,7 @@ var PlayheadMath = (function() {
     clamp: clamp,
     getElapsed: getElapsed,
     getAudioElapsed: getAudioElapsed,
+    getOutputAlignedAudioTime: getOutputAlignedAudioTime,
     getTimelineZeroAudioTime: getTimelineZeroAudioTime,
     createOrigin: createOrigin,
     snapToNearestMeasureStart: snapToNearestMeasureStart,

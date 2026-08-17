@@ -207,6 +207,10 @@ assert.ok(
     scriptIndex('js/app/core.js')
 );
 assert.ok(
+  scriptIndex('js/core/PlaybackTimelineController.js') <
+    scriptIndex('js/app/core.js')
+);
+assert.ok(
   scriptIndex('js/core/EditorSongStateService.js') <
     scriptIndex('js/app/core.js')
 );
