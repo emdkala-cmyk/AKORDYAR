@@ -5094,6 +5094,128 @@ if ($('edDoBoth')) {
       }
     }
 
+    let timelineBrushDrag = null;
+
+    function getTimelineItemAtPoint(clientX, clientY) {
+      const lanes = document.getElementById('lanes-container');
+      if (!lanes) return null;
+
+      const directTarget = document.elementFromPoint?.(clientX, clientY);
+      const directItem = directTarget?.closest?.('.clip, .section-tag');
+      if (directItem && lanes.contains(directItem)) return directItem;
+
+      // Some audio clips contain transparent/empty waveform regions where
+      // elementFromPoint() returns no element. Use the rendered item bounds
+      // as a fallback so brush painting works consistently on every track.
+      const items = lanes.querySelectorAll('.clip, .section-tag');
+      for (let index = items.length - 1; index >= 0; index -= 1) {
+        const rect = items[index].getBoundingClientRect();
+        if (
+          clientX >= rect.left &&
+          clientX <= rect.right &&
+          clientY >= rect.top &&
+          clientY <= rect.bottom
+        ) {
+          return items[index];
+        }
+      }
+      return null;
+    }
+
+    function paintTimelineItemAtPoint(clientX, clientY) {
+      if (!timelineBrushDrag || colorToolMode !== 'brush') return false;
+      const item = getTimelineItemAtPoint(clientX, clientY);
+      if (!item) {
+        timelineBrushDrag.lastKey = null;
+        return false;
+      }
+
+      const key = item.classList.contains('section-tag')
+        ? `section:${item.dataset.sectionId}`
+        : `clip:${item.dataset.clipId}`;
+      if (timelineBrushDrag.lastKey === key) return false;
+      timelineBrushDrag.lastKey = key;
+
+      if (item.classList.contains('section-tag')) {
+        const section = (getEditorDAW().sections || [])
+          .find(candidate => candidate.id === item.dataset.sectionId);
+        if (!section) return false;
+        applyColorToSection(section, currentColor);
+      } else {
+        const clip = getClip(item.dataset.clipId);
+        if (!clip) return false;
+        applyColorToClip(clip, currentColor);
+      }
+
+      timelineBrushDrag.changed = true;
+      timelineBrushDrag.paintedKeys.add(key);
+      return true;
+    }
+
+    function finishTimelineBrushDrag(event) {
+      if (!timelineBrushDrag) return;
+      if (
+        event?.pointerId != null &&
+        timelineBrushDrag.pointerId != null &&
+        event.pointerId !== timelineBrushDrag.pointerId
+      ) return;
+
+      const drag = timelineBrushDrag;
+      timelineBrushDrag = null;
+      document.removeEventListener('pointermove', drag.move, true);
+      document.removeEventListener('pointerup', drag.end, true);
+      document.removeEventListener('pointercancel', drag.end, true);
+      document.body.classList.remove('timeline-color-dragging');
+
+      if (drag.changed) {
+        saveState();
+        renderClips();
+        toast(`رنگ ${drag.paintedKeys.size} آیتم اعمال شد`);
+      }
+    }
+
+    function beginTimelineBrushDrag(event) {
+      if (colorToolMode !== 'brush' || event.button !== 0) return false;
+      finishTimelineBrushDrag();
+
+      const pointerId = event.pointerId;
+      const move = moveEvent => {
+        if (moveEvent.pointerId !== pointerId) return;
+        paintTimelineItemAtPoint(moveEvent.clientX, moveEvent.clientY);
+        moveEvent.preventDefault();
+        moveEvent.stopPropagation();
+      };
+      const end = endEvent => finishTimelineBrushDrag(endEvent);
+
+      timelineBrushDrag = {
+        pointerId,
+        lastKey: null,
+        changed: false,
+        paintedKeys: new Set(),
+        move,
+        end
+      };
+      document.body.classList.add('timeline-color-dragging');
+      document.addEventListener('pointermove', move, true);
+      document.addEventListener('pointerup', end, true);
+      document.addEventListener('pointercancel', end, true);
+      paintTimelineItemAtPoint(event.clientX, event.clientY);
+      event.preventDefault();
+      event.stopPropagation();
+      return true;
+    }
+
+    // Paint only the item under the pointer, including clips and sections on
+    // every track. Starting on empty space lets the brush cross multiple lanes.
+    (function bindTimelineBrushDrag() {
+      const lanes = document.getElementById('lanes-container');
+      if (!lanes) return;
+      lanes.addEventListener('pointerdown', event => {
+        if (colorToolMode !== 'brush' || event.button !== 0) return;
+        beginTimelineBrushDrag(event);
+      }, true);
+    })();
+
     // Patch onClipMouseDown for timeline clips
     (function patchClipMouse() {
       const origHandler = onClipMouseDown;
@@ -5128,6 +5250,7 @@ if ($('edDoBoth')) {
       if (!lanes) return;
       lanes.addEventListener('mousedown', (e) => {
         if (!isColorToolActive() || e.button !== 0) return;
+        if (colorToolMode === 'brush') return;
         const secTagEl = e.target.closest('.section-tag');
         if (!secTagEl) return;
         const sec = (getEditorDAW().sections || []).find(s => s.id === secTagEl.dataset.sectionId);
@@ -5181,6 +5304,7 @@ if ($('edDoBoth')) {
       if (!lanes) return;
       lanes.addEventListener('mousedown', (e) => {
         if (!isColorToolActive() || e.button !== 0) return;
+        if (colorToolMode === 'brush') return;
         if (e.target.closest('.clip') || e.target.closest('.section-tag')) return;
         if (paintContextAware(e)) { e.preventDefault(); e.stopPropagation(); }
       }, true);

@@ -478,8 +478,13 @@
 
           seekTransport(time, true);
           if (!event.ctrlKey && !event.metaKey) clearSelection();
+          const marqueePoint = clientToInnerPoint(event.clientX, event.clientY);
           daw.marquee = {
-            ...clientToInnerPoint(event.clientX, event.clientY),
+            // Keep the coordinate names aligned with the marquee renderer.
+            // Using x/y here while the move handler reads x0/y0 produces
+            // NaN bounds, which makes every clip pass the hit test.
+            x0: marqueePoint.x,
+            y0: marqueePoint.y,
             // Marquee selection is scoped to the lane where it starts. This
             // prevents dragging over the chord lane from selecting every
             // clip on every other track.

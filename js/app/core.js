@@ -1834,6 +1834,15 @@ sels.forEach(c => {
       openChordEditor(clipId);
     }
 
+    function getMarqueeLaneElements(selector) {
+      const marquee = getEditorDAW().marquee;
+      const trackId = String(marquee?.trackId ?? '');
+      if (!trackId) return [];
+      const lane = Array.from(document.querySelectorAll('.track-lane'))
+        .find(element => String(element.dataset.trackId ?? '') === trackId);
+      return lane ? Array.from(lane.querySelectorAll(selector)) : [];
+    }
+
     function onClipMouseDown(e) {
   if (e.button !== 0) return;
 
@@ -1981,14 +1990,13 @@ sels.forEach(c => {
         box.style.display = 'block'; box.style.left = x1 + 'px'; box.style.top = y1 + 'px'; box.style.width = (x2 - x1) + 'px'; box.style.height = (y2 - y1) + 'px';
         // Select clips inside marquee
         const clipIds = [];
-        const marqueeTrackId = getEditorDAW().marquee.trackId;
-        document.querySelectorAll('.clip').forEach(el => {
+        const innerRect = $('tl-inner').getBoundingClientRect();
+        getMarqueeLaneElements('.clip').forEach(el => {
           const clip = getClip(el.dataset.clipId);
-          if (marqueeTrackId && clip?.trackId !== marqueeTrackId) return;
+          if (!clip) return;
           const r = el.getBoundingClientRect();
-          const ir = $('tl-inner').getBoundingClientRect();
-          const cx1 = r.left - ir.left;
-          const cy1 = r.top - ir.top;
+          const cx1 = r.left - innerRect.left;
+          const cy1 = r.top - innerRect.top;
           const cx2 = cx1 + r.width;
           const cy2 = cy1 + r.height;
           if (!(cx2 < x1 || cx1 > x2 || cy2 < y1 || cy1 > y2)) {
@@ -1999,13 +2007,12 @@ sels.forEach(c => {
         document.querySelectorAll('.clip').forEach(el => el.classList.toggle('selected', getEditorDAW().selectedIds.has(el.dataset.clipId)));
         // Select sections inside marquee
         const secIds = [];
-        document.querySelectorAll('.section-tag').forEach(el => {
+        getMarqueeLaneElements('.section-tag').forEach(el => {
           const section = getEditorDAW().sections?.find(item => item.id === el.dataset.sectionId);
-          if (marqueeTrackId && section?.trackId !== marqueeTrackId) return;
+          if (!section) return;
           const r = el.getBoundingClientRect();
-          const ir = $('tl-inner').getBoundingClientRect();
-          const cx1 = r.left - ir.left;
-          const cy1 = r.top - ir.top;
+          const cx1 = r.left - innerRect.left;
+          const cy1 = r.top - innerRect.top;
           const cx2 = cx1 + r.width;
           const cy2 = cy1 + r.height;
           if (!(cx2 < x1 || cx1 > x2 || cy2 < y1 || cy1 > y2)) {

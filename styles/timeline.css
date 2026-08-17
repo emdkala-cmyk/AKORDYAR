@@ -58,6 +58,8 @@
 .timeline-panel-drag-handle { cursor: move; touch-action: none; }
 .timeline-layout-dragging,
 .timeline-layout-dragging * { user-select: none !important; }
+.timeline-color-dragging,
+.timeline-color-dragging * { user-select: none !important; cursor: crosshair !important; }
 .tl-snap-btn { background: #1F2937; border: 1px solid #4B5563; color: #9CA3AF; border-radius: 3px; padding: 0 8px; font-size: 11px; cursor: pointer; height: 26px; min-width: 28px; display: inline-flex; align-items: center; justify-content: center; }
 .tl-snap-btn.active { background: #2563EB; color: #fff; border-color: #3B82F6; }
 .tl-snap-btn:hover { background: #374151; }
