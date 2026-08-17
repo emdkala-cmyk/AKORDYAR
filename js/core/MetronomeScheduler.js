@@ -70,51 +70,63 @@ class MetronomeScheduler {
     this.getState = this.getState.bind(this);
   }
 
-  /**
-   * Start the look-ahead scheduler.
-   *
-   * @param {object} opts
-   * @param {number} [opts.bpm=120]
-   * @param {string} [opts.timeSignature='4/4']
-   * @param {number} [opts.startTime] — AudioContext time to start from
-   * @param {string} [opts.soundType='classic']
-   * @returns {boolean} true when started
-   */
-  start({
-    bpm = 120,
-    timeSignature = '4/4',
-    startTime = null,
-    soundType = 'classic'
-  } = {}) {
-    const ctx = this.audioContextService.getContext();
-    if (!ctx) return false;
+ /**
+  * Start the look-ahead scheduler.
+  *
+  * The `startTime` parameter is the AudioContext time at which beat 0
+  * (playhead=0) should sound.  To keep the metronome perfectly locked to
+  * the transport, compute it as:
+  *
+  *     startTime = ctx.currentTime - playheadPosition
+  *
+  * where both values are captured at the same instant.
+  *
+  * @param {object} opts
+  * @param {number} [opts.bpm=120]
+  * @param {string} [opts.timeSignature='4/4']
+  * @param {number} [opts.startTime] — AudioContext time for beat 0
+  * @param {string} [opts.soundType='classic']
+  * @returns {boolean} true when started
+  */
+ start({
+   bpm = 120,
+   timeSignature = '4/4',
+   startTime = null,
+   soundType = 'classic'
+ } = {}) {
+   const ctx = this.audioContextService.getContext();
+   if (!ctx) return false;
 
-    this._bpm = bpm;
-    this._timeSignature = timeSignature;
-    this._soundType = soundType || 'classic';
+   this._bpm = bpm;
+   this._timeSignature = timeSignature;
+   this._soundType = soundType || 'classic';
 
-    const config = this.getMeterConfig(timeSignature, bpm);
-    if (!config || !Number.isFinite(config.beatDuration) || config.beatDuration <= 0) {
-      return false;
-    }
-    this._beatDuration = config.beatDuration;
-    this._beatsPerMeasure = config.beatsPerMeasure || 4;
+   const config = this.getMeterConfig(timeSignature, bpm);
+   if (!config || !Number.isFinite(config.beatDuration) || config.beatDuration <= 0) {
+     return false;
+   }
+   this._beatDuration = config.beatDuration;
+   this._beatsPerMeasure = config.beatsPerMeasure || 4;
 
-    // The AudioContext time for beat 0. This can be negative when the
-    // playhead is already inside the timeline. Start from the first grid beat
-    // at or after the current playhead; never schedule historical beats in a
-    // burst just because their absolute timeline times are in the past.
-    this._startTime = startTime !== null ? startTime : ctx.currentTime;
-    const playheadAtStart = (ctx.currentTime - this._startTime) / this._beatDuration;
+    // ── Accurate start-time alignment ──────────────────────────────
+    // Use the caller-supplied startTime when available; otherwise fall
+    // back to the current AudioContext time (beat 0 = now).
+    this._startTime = Number.isFinite(startTime) ? startTime : ctx.currentTime;
+
+    // Calculate which beat the playhead is currently on so the first
+    // scheduled beat is the *next* grid point (never the past).
+    const nowCtx = ctx.currentTime;
+    const playheadNow = Math.max(0, nowCtx - this._startTime);
     const epsilon = 1e-9;
-    this._currentBeat = Math.max(
-      0,
-      Math.ceil(playheadAtStart - epsilon)
-    );
+    this._currentBeat = Math.max(0, Math.ceil(playheadNow / this._beatDuration - epsilon));
+
+    // The first note time is the AudioContext instant for the current beat.
+    // Clamp to `nowCtx` so we never schedule into the past.
     this._nextNoteTime = Math.max(
-      ctx.currentTime,
+      nowCtx,
       this._startTime + this._currentBeat * this._beatDuration
     );
+
     this.running = true;
 
     if (this.metronomeEngine) this.metronomeEngine.start();
@@ -141,59 +153,48 @@ class MetronomeScheduler {
     }
   }
 
-  /**
-   * The look-ahead loop. Runs every `lookahead` ms and reserves all beats
-   * that fall within `scheduleAheadTime` of the current AudioContext time.
-   */
-  _scheduleNext() {
-    if (!this.running) return;
-    const ctx = this.audioContextService.getContext();
-    if (!ctx) return;
+ /**
+  * The look-ahead loop. Runs every `lookahead` ms and reserves all beats
+  * that fall within `scheduleAheadTime` of the current AudioContext time.
+  */
+ _scheduleNext() {
+   if (!this.running) return;
+   const ctx = this.audioContextService.getContext();
+   if (!ctx) return;
 
-    // If the UI thread was busy (for example while the timeline is being
-    // zoomed), do not emit a burst of late clicks. Drop missed grid points
-    // and continue from the next future beat instead.
-    const earliestFutureNote = ctx.currentTime - 0.005;
-    while (this._nextNoteTime < earliestFutureNote) {
+    // ── Drop missed beats (UI thread was busy, e.g. during zoom) ──
+    // Never emit a burst of late clicks.  Silently advance past any grid
+    // points whose scheduled time has already passed, then continue from
+    // the next future beat.  A 2 ms grace window prevents dropping beats
+    // due to normal setTimeout jitter.
+    const nowCtx = ctx.currentTime;
+    const graceWindow = 0.002; // 2 ms — tight enough to catch real lag
+    while (this._nextNoteTime + graceWindow < nowCtx) {
       this._advanceBeat();
     }
 
     // Reserve every beat that is within the look-ahead window.
-    // `this._nextNoteTime` is guaranteed non-negative because we clamped it
-    // in start() and only ever increment it by beatDuration.
-    while (this._nextNoteTime < ctx.currentTime + this.scheduleAheadTime) {
+    while (this._nextNoteTime < nowCtx + this.scheduleAheadTime) {
       this._scheduleBeat(this._currentBeat, this._nextNoteTime);
       this._advanceBeat();
     }
 
-    // `this._timer` is an arrow-function wrapper around setTimeout, so
-    // calling it as `this._timer(...)` never triggers "Illegal invocation".
     this._timerID = this._timer(() => this._scheduleNext(), this.lookahead);
   }
 
-  /**
-   * Schedule a single click at an exact AudioContext time.
-   * Uses MetronomeEngine when available to track beat transitions and
-   * compute accents; otherwise falls back to isStrongBeat.
-   *
-   * @param {number} beatNumber
-   * @param {number} time — AudioContext time (seconds)
-   */
-  _scheduleBeat(beatNumber, time) {
-    if (this.metronomeEngine) {
-      const playheadTime = time - this._startTime;
-      const beatEvent = this.metronomeEngine.nextBeat(playheadTime, {
-        bpm: this._bpm,
-        timeSignature: this._timeSignature
-      });
-      if (beatEvent) {
-        this.audioContextService.playClickAt(beatEvent.isAccent, this._soundType, time);
-      }
-    } else {
+ /**
+  * Schedule a single click at an exact AudioContext time.
+  * Uses isStrongBeat directly to compute accents — the scheduler already
+  * knows the exact beat number, so there is no need to route through
+  * MetronomeEngine (which maintains its own internal state and can drift).
+  *
+  * @param {number} beatNumber
+  * @param {number} time — AudioContext time (seconds)
+  */
+ _scheduleBeat(beatNumber, time) {
       const beatInMeasure = beatNumber % this._beatsPerMeasure;
       const isAccent = this.isStrongBeat(beatInMeasure, this._timeSignature);
       this.audioContextService.playClickAt(isAccent, this._soundType, time);
-    }
   }
 
   /**

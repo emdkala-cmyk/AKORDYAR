@@ -466,30 +466,27 @@ const globalScope = isBrowser ? window : global;
       if (metroActive && getEditorDAW().isPlaying) startMetronome();
       else stopMetronome();
     }
-    function startMetronome() {
-      stopMetronome();
-      const _mbpm = parseInt($('edTempo')?.value) || 120;
-      const _msig = $('edTimeSig')?.value || '4/4';
-      // Look-ahead scheduler: reserves clicks ahead of time in audioCtx.currentTime.
-      // This decouples metronome timing from the RAF loop (fixes zoom/scroll stutter).
-      const scheduler = getMetronomeSchedulerBridge();
-      if (scheduler) {
-        // Start the metronome from the current playhead position so it stays
-        // in sync with the transport. `startTime` is the AudioContext time at
-        // which beat 0 should sound: ctx.currentTime - current playhead.
+   function startMetronome() {
+     stopMetronome();
+     const _mbpm = parseInt($('edTempo')?.value) || 120;
+     const _msig = $('edTimeSig')?.value || '4/4';
+     // Look-ahead scheduler: reserves clicks ahead of time in audioCtx.currentTime.
+     // This decouples metronome timing from the RAF loop (fixes zoom/scroll stutter).
+     const scheduler = getMetronomeSchedulerBridge();
+     if (scheduler) {
         const _ctx = ensureAudioCtx();
-        const _ctxNow = _ctx?.currentTime || 0;
-        const _playhead = Number.isFinite(getEditorDAW().playhead) ? getEditorDAW().playhead : 0;
-        const _originAudio = Number.isFinite(getEditorDAW().playOriginAudio)
-          ? getEditorDAW().playOriginAudio
-          : _ctxNow - _playhead;
-        const _originTime = Number.isFinite(getEditorDAW().playOriginTime)
-          ? getEditorDAW().playOriginTime
-          : 0;
+        // ── Perfect sync: capture both ctx.currentTime and the playhead
+        // at the same instant so startTime is exactly aligned with the
+        // transport clock.  This avoids any drift between the AudioContext
+        // time used by the scheduler and the playOriginAudio captured
+        // earlier in setTransportOrigin().
+        const _ctxNow = _ctx?.currentTime;
+        if (!Number.isFinite(_ctxNow)) return;
+        const _playhead = getTransportPlayhead();
         scheduler.start({
           bpm: _mbpm,
           timeSignature: _msig,
-          startTime: _originAudio - _originTime,
+          startTime: _ctxNow - _playhead,
           soundType: APP_SETTINGS.metroSound || 'classic'
         });
         // Mark the metronome as running so pauseTransport()/stopTransport()
@@ -1324,10 +1321,12 @@ function applyState(stateStr) {
       getEditorDAW().voices.clear();
     }
 
-    function scheduleAllFromPlayhead() {
-      const ctx = ensureAudioCtx(); stopAllVoices();
-      if (!getEditorDAW().isPlaying || getEditorDAW().isScrubbing) return;
-      const nowT = getEditorDAW().playhead; const ctxNow = ctx.currentTime;
+   function scheduleAllFromPlayhead() {
+     const ctx = ensureAudioCtx(); stopAllVoices();
+     if (!getEditorDAW().isPlaying || getEditorDAW().isScrubbing) return;
+      // Use the same transport-clock playhead that the metronome scheduler
+      // relies on, so audio clips and metronome clicks stay locked together.
+      const nowT = getTransportPlayhead(); const ctxNow = ctx.currentTime;
       getEditorDAW().clips.forEach(clip => {
         if (clip.type === 'chord') return;
         const tr = getEditorDAW().tracks.find(t => t.id === clip.trackId);
