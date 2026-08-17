@@ -24,6 +24,7 @@
       rafId: null,
       playOriginPerf: 0,
       playOriginTime: 0,
+      playOriginAudio: null,
       audioCtx: null,
       masterGain: null,
       voices: new Map(),

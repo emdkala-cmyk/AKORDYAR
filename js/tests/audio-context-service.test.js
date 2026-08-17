@@ -129,4 +129,22 @@ serviceSuspended._masterGain = { gain: { value: 1 }, connect: () => {} };
 const resumedCtx = serviceSuspended.getContext();
 assert.strictEqual(resumedCtx.state, 'running', 'suspended ctx must resume');
 
+// ─── Test 5: A provided context is reused as the shared transport clock ───
+const sharedCtx = new FakeAudioContext();
+let providerCalls = 0;
+const serviceShared = new AudioContextService({
+  AudioContextCtor: FakeAudioContext,
+  contextProvider: () => {
+    providerCalls++;
+    return sharedCtx;
+  }
+});
+assert.strictEqual(serviceShared.getContext(), sharedCtx, 'provider context must be reused');
+assert.strictEqual(providerCalls, 1, 'provider must be consulted once before binding');
+assert.strictEqual(serviceShared.setContext(sharedCtx), sharedCtx, 'same context remains attached');
+
+const replacementCtx = new FakeAudioContext();
+assert.strictEqual(serviceShared.setContext(replacementCtx), replacementCtx, 'service can rebind to a new context');
+assert.strictEqual(serviceShared.getContext(), replacementCtx, 'replacement context must remain active');
+
 console.log('AudioContextService tests passed');

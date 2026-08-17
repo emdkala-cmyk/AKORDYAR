@@ -14,7 +14,8 @@
 class AudioContextService {
   constructor({
     AudioContextCtor,
-    destination = null
+    destination = null,
+    contextProvider = null
   } = {}) {
     this._Ctx = AudioContextCtor || (typeof window !== 'undefined'
       ? (window.AudioContext || window.webkitAudioContext)
@@ -29,6 +30,56 @@ class AudioContextService {
 
     // For Node tests we inject a fake destination.
     this._externalDestination = destination;
+    this._contextProvider = typeof contextProvider === 'function'
+      ? contextProvider
+      : null;
+  }
+
+  /**
+   * Attach the service to an already-created AudioContext.
+   *
+   * The transport owns the main context for track playback. Reusing that
+   * context here keeps metronome clicks and the visual playhead on the same
+   * audio clock instead of allowing two independent clocks to drift.
+   *
+   * @param {AudioContext|null} context
+   * @returns {AudioContext|null}
+   */
+  setContext(context) {
+    if (!context) return this._ctx;
+    if (this._ctx === context) {
+      this._ensureMasterGain();
+      return this._ctx;
+    }
+
+    if (this._ctx) this.stopAll();
+    try {
+      if (this._masterGain && typeof this._masterGain.disconnect === 'function') {
+        this._masterGain.disconnect();
+      }
+    } catch (_) { /* noop */ }
+
+    this._ctx = context;
+    this._masterGain = null;
+    this._ensureMasterGain();
+    return this._ctx;
+  }
+
+  /**
+   * Create the optional master gain after a context is available.
+   */
+  _ensureMasterGain() {
+    if (!this._ctx || this._masterGain) return;
+    try {
+      this._masterGain = this._ctx.createGain();
+      this._masterGain.gain.value = 1;
+      const dest = this._externalDestination || this._ctx.destination;
+      this._masterGain.connect(dest);
+    } catch (err) {
+      console.warn('[AudioContextService] Failed to initialise masterGain:', err);
+      // Keep the raw context so basic oscillator nodes still work.
+      this._masterGain = null;
+    }
   }
 
   /**
@@ -36,6 +87,15 @@ class AudioContextService {
    * Returns null when no AudioContext implementation is available.
    */
   getContext() {
+    if (!this._ctx && this._contextProvider) {
+      try {
+        const providedContext = this._contextProvider();
+        if (providedContext) this.setContext(providedContext);
+      } catch (err) {
+        console.warn('[AudioContextService] Context provider failed:', err);
+      }
+    }
+
     if (!this._ctx) {
       if (!this._Ctx) return null;
       try {
@@ -44,17 +104,9 @@ class AudioContextService {
         console.warn('[AudioContextService] Failed to create AudioContext:', err);
         return null;
       }
-      try {
-        this._masterGain = this._ctx.createGain();
-        this._masterGain.gain.value = 1;
-        const dest = this._externalDestination || this._ctx.destination;
-        this._masterGain.connect(dest);
-      } catch (err) {
-        console.warn('[AudioContextService] Failed to initialise masterGain:', err);
-        // Keep the raw context so basic oscillator nodes still work.
-        this._masterGain = null;
-      }
     }
+
+    this._ensureMasterGain();
 
     if (this._ctx && this._ctx.state === 'suspended' && typeof this._ctx.resume === 'function') {
       try { this._ctx.resume().catch(() => {}); } catch (_) { /* noop */ }

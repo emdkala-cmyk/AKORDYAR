@@ -323,7 +323,18 @@ const globalScope = isBrowser ? window : global;
     // path remains as a fallback for backward compatibility.
     const audioContextServiceBridge =
       typeof window.AudioContextService === 'function'
-        ? new window.AudioContextService()
+        ? new window.AudioContextService({
+            // The transport creates the authoritative context lazily. The
+            // provider lets the metronome adopt that same context whenever
+            // it becomes available, preventing two audio clocks from drifting.
+            contextProvider: () => {
+              try {
+                return getEditorDAW()?.audioCtx || null;
+              } catch (_) {
+                return null;
+              }
+            }
+          })
         : null;
 
     // Safe bridge for MetronomeScheduler: the look-ahead scheduler reserves
@@ -463,12 +474,16 @@ const globalScope = isBrowser ? window : global;
         // Start the metronome from the current playhead position so it stays
         // in sync with the transport. `startTime` is the AudioContext time at
         // which beat 0 should sound: ctx.currentTime - current playhead.
-        const _ctxNow = audioContextServiceBridge.getContext()?.currentTime || 0;
+        const _ctx = ensureAudioCtx();
+        const _ctxNow = _ctx?.currentTime || 0;
         const _playhead = Number.isFinite(getEditorDAW().playhead) ? getEditorDAW().playhead : 0;
+        const _originAudio = Number.isFinite(getEditorDAW().playOriginAudio)
+          ? getEditorDAW().playOriginAudio
+          : _ctxNow - _playhead;
         scheduler.start({
           bpm: _mbpm,
           timeSignature: _msig,
-          startTime: _ctxNow - _playhead,
+          startTime: _originAudio - _playhead,
           soundType: APP_SETTINGS.metroSound || 'classic'
         });
         // Mark the metronome as running so pauseTransport()/stopTransport()
@@ -920,7 +935,7 @@ const requestRenderSyncLyrics = debounce(() => { renderSyncLyrics(); }, 120);
       playhead: 0, isPlaying: false, isScrubbing: false,
       timelineDuration: 120, pxPerSecond: 70, laneHeight: 64, loadTrackId: null,
       selectedTrackId: null,
-      rafId: null, playOriginPerf: 0, playOriginTime: 0,
+      rafId: null, playOriginPerf: 0, playOriginTime: 0, playOriginAudio: null,
       audioCtx: null, masterGain: null, voices: new Map(),
       nextId: 100, bufferCache: new Map(), waveCache: new Map(),
       drag: null, marquee: null, editingChordClipId: null, selectedPlayhead: false,
@@ -973,7 +988,42 @@ const requestRenderSyncLyrics = debounce(() => { renderSyncLyrics(); }, 120);
         daw.masterGain.gain.value = 1; daw.masterGain.connect(daw.audioCtx.destination);
       }
       if (daw.audioCtx.state === 'suspended') daw.audioCtx.resume().catch(() => {});
+      if (audioContextServiceBridge?.setContext) {
+        audioContextServiceBridge.setContext(daw.audioCtx);
+      }
       return daw.audioCtx;
+    }
+
+    /**
+     * Keep transport timing on the same AudioContext clock used by audio
+     * tracks and the metronome scheduler.
+     */
+    function setTransportOrigin(currentTime = getEditorDAW().playhead) {
+      const daw = getEditorDAW();
+      const safeTime = Number.isFinite(currentTime) ? currentTime : 0;
+      const perfOrigin = PlayheadMath.createOrigin(performance.now(), safeTime);
+      daw.playOriginPerf = perfOrigin.playOriginPerf;
+      daw.playOriginTime = perfOrigin.playOriginTime;
+      const audioNow = daw.audioCtx?.currentTime;
+      daw.playOriginAudio = Number.isFinite(audioNow) ? audioNow : null;
+      return daw.playOriginAudio;
+    }
+
+    function getTransportPlayhead() {
+      const daw = getEditorDAW();
+      const audioNow = daw.audioCtx?.currentTime;
+      if (
+        daw.isPlaying &&
+        Number.isFinite(daw.playOriginAudio) &&
+        Number.isFinite(audioNow)
+      ) {
+        return daw.playOriginTime + Math.max(0, audioNow - daw.playOriginAudio);
+      }
+      return PlayheadMath.getElapsed(
+        performance.now(),
+        daw.playOriginPerf,
+        daw.playOriginTime
+      );
     }
 
 // ==========================================
@@ -2129,8 +2179,14 @@ sels.forEach(c => {
 
     function seekTransport(t, keepPlaying = true, noSnap = false) {
       getEditorDAW().playhead = PlayheadMath.clamp(roundMs(noSnap ? t : snapTime(t)), getProjectEnd());
-      if (getEditorDAW().isPlaying) { var _ori = PlayheadMath.createOrigin(performance.now(), getEditorDAW().playhead); getEditorDAW().playOriginPerf = _ori.playOriginPerf; getEditorDAW().playOriginTime = _ori.playOriginTime; }
-      updatePlayheadUI(); if (getEditorDAW().isPlaying && !getEditorDAW().isScrubbing) scheduleAllFromPlayhead(); else stopAllVoices();
+      if (getEditorDAW().isPlaying) setTransportOrigin(getEditorDAW().playhead);
+      updatePlayheadUI();
+      if (getEditorDAW().isPlaying && !getEditorDAW().isScrubbing) {
+        scheduleAllFromPlayhead();
+        if (metroActive) startMetronome();
+      } else {
+        stopAllVoices();
+      }
     }
 
     // Return-to-start on pause (Cubase style)
@@ -2179,12 +2235,7 @@ sels.forEach(c => {
       const beginPlayback = () => {
         getEditorDAW().isPlaying = true;
         getEditorDAW().isScrubbing = false;
-        var _ori = PlayheadMath.createOrigin(
-          performance.now(),
-          getEditorDAW().playhead
-        );
-        getEditorDAW().playOriginPerf = _ori.playOriginPerf;
-        getEditorDAW().playOriginTime = _ori.playOriginTime;
+        setTransportOrigin(getEditorDAW().playhead);
         $('play-btn').style.color = 'var(--accent-neon-pink)';
         scheduleAllFromPlayhead();
 
@@ -2197,16 +2248,15 @@ sels.forEach(c => {
 
       const tick = () => {
         if (!getEditorDAW().isPlaying) return;
-        if (!getEditorDAW().isScrubbing) getEditorDAW().playhead = PlayheadMath.getElapsed(performance.now(), getEditorDAW().playOriginPerf, getEditorDAW().playOriginTime);
+        if (!getEditorDAW().isScrubbing) getEditorDAW().playhead = getTransportPlayhead();
 
         // Loop A-B: if playhead reaches B, jump back to A (math delegated to PlayheadMath)
         if (getEditorDAW().loopEnabled && !getEditorDAW().isRecording && getEditorDAW().playhead >= getEditorDAW().loopB) {
           var looped = PlayheadMath.applyLoop(getEditorDAW().playhead, getEditorDAW().loopEnabled, getEditorDAW().loopA, getEditorDAW().loopB);
           getEditorDAW().playhead = looped.playhead;
-          var ori = PlayheadMath.createOrigin(performance.now(), getEditorDAW().playhead);
-          getEditorDAW().playOriginPerf = ori.playOriginPerf;
-          getEditorDAW().playOriginTime = ori.playOriginTime;
+          setTransportOrigin(getEditorDAW().playhead);
           scheduleAllFromPlayhead();
+          if (metroActive) startMetronome();
         }
 
         updatePlayheadUI();
@@ -2352,7 +2402,11 @@ sels.forEach(c => {
         countInTimer = null;
       }
       if (getEditorDAW().isRecording) endRec();
+      if (getEditorDAW().isPlaying && !getEditorDAW().isScrubbing) {
+        getEditorDAW().playhead = getTransportPlayhead();
+      }
       getEditorDAW().isPlaying = false; getEditorDAW().isScrubbing = false; if (getEditorDAW().rafId) cancelAnimationFrame(getEditorDAW().rafId); getEditorDAW().rafId = null; stopAllVoices(); $('play-btn').style.color = 'var(--accent-cyan-glow)'; updatePlayheadUI();
+      getEditorDAW().playOriginAudio = null;
 
       // Auto-stop metronome
       if (metroTimer) stopMetronome();
