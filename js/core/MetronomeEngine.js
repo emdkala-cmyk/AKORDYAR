@@ -59,7 +59,12 @@ class MetronomeEngine {
       return null;
     }
 
-    const beatIndex = Math.floor(playheadTime / beatDuration);
+    const ratio = playheadTime / beatDuration;
+    const nearest = Math.round(ratio);
+    const normalizedRatio = Math.abs(ratio - nearest) <= 1e-9
+      ? nearest
+      : ratio;
+    const beatIndex = Math.max(0, Math.floor(normalizedRatio));
     if (beatIndex === this.lastBeat) return null;
 
     const beatInMeasure = beatIndex % beatsPerMeasure;

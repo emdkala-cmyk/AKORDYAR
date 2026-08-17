@@ -293,7 +293,7 @@ const globalScope = isBrowser ? window : global;
 
     // ===== SNAP TO GRID =====
     let snapEnabled = true;
-    let snapValue = 0.25; // seconds (default: 1/4 beat)
+    let snapValue = 0.5; // derived from the active meter; compatibility cache only
     let snapPreset = '1/4';
 
     /**
@@ -369,8 +369,13 @@ const globalScope = isBrowser ? window : global;
 
     function snapTime(time) {
       if (!snapEnabled) return time;
-      // Snap to nearest grid point using snapValue set by applyQuantize
-      return Math.round(time / snapValue) * snapValue;
+      const timing = requireEditorSongStateService().getTimingContext();
+      const config = getTimeSignatureGridConfig(
+        timing.timeSignature,
+        timing.tempo
+      );
+      snapValue = getActiveQuantizeGridStep(config);
+      return window.Meter.snapTimeToGrid(time, snapValue);
     }
 
     // ===== QUANTIZE =====
@@ -474,21 +479,19 @@ const globalScope = isBrowser ? window : global;
      // This decouples metronome timing from the RAF loop (fixes zoom/scroll stutter).
      const scheduler = getMetronomeSchedulerBridge();
      if (scheduler) {
-        const _ctx = ensureAudioCtx();
-        // ── Perfect sync: capture both ctx.currentTime and the playhead
-        // at the same instant so startTime is exactly aligned with the
-        // transport clock.  This avoids any drift between the AudioContext
-        // time used by the scheduler and the playOriginAudio captured
-        // earlier in setTransportOrigin().
-        const _ctxNow = _ctx?.currentTime;
-        if (!Number.isFinite(_ctxNow)) return;
-        const _playhead = getTransportPlayhead();
-        scheduler.start({
+        ensureAudioCtx();
+        // Beat zero is derived from the exact transport origin. No second
+        // clock sample or UI timestamp participates in metronome phase.
+        const _clock = getTransportClockSnapshot();
+        const _timelineZeroAudioTime = _clock.timelineZeroAudioTime;
+        if (!Number.isFinite(_timelineZeroAudioTime)) return;
+        const _started = scheduler.start({
           bpm: _mbpm,
           timeSignature: _msig,
-          startTime: _ctxNow - _playhead,
+          startTime: _timelineZeroAudioTime,
           soundType: APP_SETTINGS.metroSound || 'classic'
         });
+        if (!_started) return;
         // Mark the metronome as running so pauseTransport()/stopTransport()
         // will call stopMetronome() (which stops the scheduler + audio nodes).
         metroTimer = true;
@@ -569,7 +572,10 @@ const globalScope = isBrowser ? window : global;
         const bpm = Math.round(60000 / avgMs);
         if (bpm >= 20 && bpm <= 300) {
           $('edTempo').value = bpm;
-          if (songState.setTempo(bpm)) edSaveSong();
+          if (songState.setTempo(bpm)) {
+            edSaveSong();
+            handleTimingChange();
+          }
           toast(`تمپو: ${bpm} BPM`);
         }
       }
@@ -607,6 +613,7 @@ const globalScope = isBrowser ? window : global;
 
       if (songState.setTempo(bestBpm)) {
         edSaveSong();
+        handleTimingChange();
       }
 
       toast(`تمپوی تشخیص داده شده: ${bestBpm} BPM (از ${result.intervals.length} لاین سینک)`);
@@ -961,7 +968,7 @@ const requestRenderSyncLyrics = debounce(() => { renderSyncLyrics(); }, 120);
     const $ = (id) => document.getElementById(id);
     const uid = (p = 'c') => p + (getEditorDAW().nextId++);
     const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-    const roundMs = (t) => Math.round(t * 1000) / 1000;
+    const roundMs = (t) => Math.round(t * 1e9) / 1e9;
 
     // آپدیت nextId بر اساس بزرگ‌ترین ID موجود (جلوگیری از تداخل آیدی)
     function updateNextIdFromClips() {
@@ -1012,7 +1019,7 @@ const requestRenderSyncLyrics = debounce(() => { renderSyncLyrics(); }, 120);
       return daw.playOriginAudio;
     }
 
-    function getTransportPlayhead() {
+    function getTransportClockSnapshot() {
       const daw = getEditorDAW();
       const audioNow = daw.audioCtx?.currentTime;
       if (
@@ -1020,13 +1027,41 @@ const requestRenderSyncLyrics = debounce(() => { renderSyncLyrics(); }, 120);
         Number.isFinite(daw.playOriginAudio) &&
         Number.isFinite(audioNow)
       ) {
-        return daw.playOriginTime + Math.max(0, audioNow - daw.playOriginAudio);
+        return {
+          audioTime: audioNow,
+          timelineTime: PlayheadMath.getAudioElapsed(
+            audioNow,
+            daw.playOriginAudio,
+            daw.playOriginTime
+          ),
+          timelineZeroAudioTime: PlayheadMath.getTimelineZeroAudioTime(
+            daw.playOriginAudio,
+            daw.playOriginTime
+          )
+        };
       }
-      return PlayheadMath.getElapsed(
-        performance.now(),
-        daw.playOriginPerf,
-        daw.playOriginTime
-      );
+
+      if (!daw.isPlaying) {
+        return {
+          audioTime: Number.isFinite(audioNow) ? audioNow : null,
+          timelineTime: Number.isFinite(daw.playhead) ? daw.playhead : 0,
+          timelineZeroAudioTime: null
+        };
+      }
+
+      return {
+        audioTime: null,
+        timelineTime: PlayheadMath.getElapsed(
+          performance.now(),
+          daw.playOriginPerf,
+          daw.playOriginTime
+        ),
+        timelineZeroAudioTime: null
+      };
+    }
+
+    function getTransportPlayhead() {
+      return getTransportClockSnapshot().timelineTime;
     }
 
 // ==========================================
@@ -1326,7 +1361,11 @@ function applyState(stateStr) {
      if (!getEditorDAW().isPlaying || getEditorDAW().isScrubbing) return;
       // Use the same transport-clock playhead that the metronome scheduler
       // relies on, so audio clips and metronome clicks stay locked together.
-      const nowT = getTransportPlayhead(); const ctxNow = ctx.currentTime;
+      const clock = getTransportClockSnapshot();
+      const nowT = clock.timelineTime;
+      const ctxNow = Number.isFinite(clock.audioTime)
+        ? clock.audioTime
+        : ctx.currentTime;
       getEditorDAW().clips.forEach(clip => {
         if (clip.type === 'chord') return;
         const tr = getEditorDAW().tracks.find(t => t.id === clip.trackId);
@@ -1351,6 +1390,20 @@ function applyState(stateStr) {
   renderTracks(); renderRuler(); renderClips(options); renderLoopRegion(); updatePlayheadUI(); updateHud();
   edRenderClMarkers();
 }
+
+    function handleTimingChange() {
+      const timing = requireEditorSongStateService().getTimingContext();
+      const config = getTimeSignatureGridConfig(
+        timing.timeSignature,
+        timing.tempo
+      );
+      snapValue = getActiveQuantizeGridStep(config);
+      renderTracks();
+      renderRuler();
+      renderClips({ preserveWaveforms: true });
+      updatePlayheadUI();
+      if (metroActive && getEditorDAW().isPlaying) startMetronome();
+    }
 
 
     let timelineTrackRendererService = null;
@@ -2186,7 +2239,10 @@ sels.forEach(c => {
     }
 
     function seekTransport(t, keepPlaying = true, noSnap = false) {
-      getEditorDAW().playhead = PlayheadMath.clamp(roundMs(noSnap ? t : snapTime(t)), getProjectEnd());
+      getEditorDAW().playhead = PlayheadMath.clamp(
+        noSnap ? t : snapTime(t),
+        getProjectEnd()
+      );
       if (getEditorDAW().isPlaying) setTransportOrigin(getEditorDAW().playhead);
       updatePlayheadUI();
       if (getEditorDAW().isPlaying && !getEditorDAW().isScrubbing) {
@@ -5563,7 +5619,10 @@ let syncTapKeyHandler = null;
       const cur = parseInt($('edTempo')?.value) || 120;
       const newVal = clamp(cur + delta, 20, 300);
       $('edTempo').value = newVal;
-      if (requireEditorSongStateService().setTempo(newVal)) edSaveSong();
+      if (requireEditorSongStateService().setTempo(newVal)) {
+        edSaveSong();
+        handleTimingChange();
+      }
       renderPerfUI();
     }
 

@@ -31,6 +31,7 @@
     renderTracks = () => {},
     renderRuler = () => {},
     renderClips = () => {},
+    onTimingChange = null,
     toast = () => {},
     noteNames = []
   } = {}) {
@@ -242,9 +243,12 @@
         if (!song) return;
         song.timeSignature = timeSignature.value;
         save();
-        renderTracks();
-        renderRuler();
-        renderClips();
+        if (typeof onTimingChange === 'function') onTimingChange();
+        else {
+          renderTracks();
+          renderRuler();
+          renderClips();
+        }
       };
 
       const tempo = element('edTempo');
@@ -253,6 +257,7 @@
         if (!song) return;
         song.tempo = Number.parseInt(tempo.value, 10) || 120;
         save();
+        if (typeof onTimingChange === 'function') onTimingChange();
       };
 
       const genre = element('edGenre');

@@ -30,6 +30,30 @@ var PlayheadMath = (function() {
   }
 
   /**
+   * Compute timeline time from the AudioContext clock.
+   */
+  function getAudioElapsed(audioNow, originAudio, originTime) {
+    if (
+      !Number.isFinite(audioNow) ||
+      !Number.isFinite(originAudio) ||
+      !Number.isFinite(originTime)
+    ) {
+      return Number.isFinite(originTime) ? originTime : 0;
+    }
+    return originTime + Math.max(0, audioNow - originAudio);
+  }
+
+  /**
+   * AudioContext time corresponding to timeline position zero.
+   */
+  function getTimelineZeroAudioTime(originAudio, originTime) {
+    if (!Number.isFinite(originAudio) || !Number.isFinite(originTime)) {
+      return null;
+    }
+    return originAudio - originTime;
+  }
+
+  /**
    * Create a new playback origin snapshot.
    * Called after seek, resume, loop correction, or transport start.
    *
@@ -80,6 +104,8 @@ var PlayheadMath = (function() {
   return {
     clamp: clamp,
     getElapsed: getElapsed,
+    getAudioElapsed: getAudioElapsed,
+    getTimelineZeroAudioTime: getTimelineZeroAudioTime,
     createOrigin: createOrigin,
     snapToNearestMeasureStart: snapToNearestMeasureStart,
     applyLoop: applyLoop

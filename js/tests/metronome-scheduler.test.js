@@ -7,6 +7,7 @@ const assert = require('assert');
 const AudioContextService = require('../core/AudioContextService.js');
 const MetronomeScheduler = require('../core/MetronomeScheduler.js');
 const MetronomeEngine = require('../core/MetronomeEngine.js');
+const Meter = require('../core/Meter.js');
 
 // ─── Fake Audio Context (minimal for scheduling tests) ───
 class FakeAudioContext {
@@ -37,7 +38,7 @@ class FakeAudioContext {
     return {
       type: 'square', frequency: { value: 600 },
       connect() { oscs.push(this); },
-      start() {}, stop() {}
+      start(time) { this.startedAt = time; }, stop() {}
     };
   }
   createBuffer(channels, length, sampleRate) {
@@ -62,22 +63,7 @@ const FakeMeter = {
 
 // ─── getMeterConfig from TimelineGrid logic (simplified for tests) ───
 function getMeterConfig(timeSignature, bpm) {
-  const parts = (timeSignature || '4/4').split('/');
-  if (parts.length !== 2) return null;
-  const num = Number(parts[0]);
-  const den = Number(parts[1]);
-  if (!Number.isFinite(num) || !Number.isFinite(den) || num <= 0 || den <= 0) return null;
-  const beatUnit = den;
-  const beatsPerMeasure = num;
-  const beatDuration = 60 / (bpm || 120) * (4 / beatUnit);
-  const measureDuration = beatDuration * beatsPerMeasure;
-  return {
-    numerator: num, denominator: den,
-    beatUnit, beatsPerMeasure,
-    subdivisionsPerBeat: 2,
-    unitsPerMeasure: beatsPerMeasure * 2,
-    measureDuration, beatDuration
-  };
+  return Meter.getMeterConfig(timeSignature, bpm);
 }
 
 // ─── Fake timer capture (injectable setTimeout) ───
@@ -194,6 +180,33 @@ tests.push(() => {
   passCount++;
 });
 
+// 3c. x/8 seek alignment uses eighth-note beats and the shared meter phase.
+tests.push(() => {
+  const { fakeCtx, service } = setup();
+  const timer = makeFakeTimer();
+  const sched = new MetronomeScheduler({
+    audioContextService: service,
+    getMeterConfig,
+    isStrongBeat: FakeMeter.isStrongBeat,
+    timer: timer.fn
+  });
+
+  // 7/8 @ 120 BPM => 0.25 s per beat. At timeline 2.1181,
+  // the next shared grid point is 2.25, or context time 0.1319.
+  sched.start({
+    bpm: 120,
+    timeSignature: '7/8',
+    startTime: -2.1181
+  });
+  assert.strictEqual(sched.getState().beatDuration, 0.25);
+  assert.ok(Math.abs(sched.getState().nextNoteTime - 0.1319) < 1e-9);
+  fakeCtx.currentTime = 0.05;
+  timer.runNext();
+  assert.equal(fakeCtx._oscs.length, 1);
+  assert.ok(Math.abs(fakeCtx._oscs[0].startedAt - 0.1319) < 1e-9);
+  passCount++;
+});
+
 // 4b. A delayed UI timer skips missed beats instead of emitting a late burst.
 tests.push(() => {
   const { fakeCtx, service } = setup();
@@ -213,6 +226,25 @@ tests.push(() => {
 
   assert.strictEqual(fakeCtx._oscs.length, scheduledBeforeStall, 'missed beats must not burst late');
   assert.ok(sched.getState().nextNoteTime > fakeCtx.currentTime, 'scheduler must resume on a future beat');
+  passCount++;
+});
+
+// 4c. Beat times are derived from integer indices, so no drift accumulates.
+tests.push(() => {
+  const { service } = setup();
+  const sched = new MetronomeScheduler({
+    audioContextService: service,
+    getMeterConfig,
+    isStrongBeat: FakeMeter.isStrongBeat,
+    timer: makeFakeTimer().fn
+  });
+  sched.start({ bpm: 137, timeSignature: '9/8', startTime: 0.123456789 });
+  sched._currentBeat = 1_000_000;
+  sched._advanceBeat();
+  assert.equal(
+    sched.getState().nextNoteTime,
+    0.123456789 + 1_000_001 * sched.getState().beatDuration
+  );
   passCount++;
 });
 

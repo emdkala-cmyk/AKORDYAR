@@ -102,7 +102,14 @@ class MetronomeScheduler {
    this._soundType = soundType || 'classic';
 
    const config = this.getMeterConfig(timeSignature, bpm);
-   if (!config || !Number.isFinite(config.beatDuration) || config.beatDuration <= 0) {
+   if (
+     !config ||
+     config.isValid === false ||
+     !Number.isFinite(config.beatDuration) ||
+     config.beatDuration <= 0 ||
+     !Number.isFinite(config.beatsPerMeasure) ||
+     config.beatsPerMeasure <= 0
+   ) {
      return false;
    }
    this._beatDuration = config.beatDuration;
@@ -117,8 +124,12 @@ class MetronomeScheduler {
     // scheduled beat is the *next* grid point (never the past).
     const nowCtx = ctx.currentTime;
     const playheadNow = Math.max(0, nowCtx - this._startTime);
-    const epsilon = 1e-9;
-    this._currentBeat = Math.max(0, Math.ceil(playheadNow / this._beatDuration - epsilon));
+    const beatRatio = playheadNow / this._beatDuration;
+    const nearestBeat = Math.round(beatRatio);
+    const normalizedRatio = Math.abs(beatRatio - nearestBeat) <= 1e-9
+      ? nearestBeat
+      : beatRatio;
+    this._currentBeat = Math.max(0, Math.ceil(normalizedRatio));
 
     // The first note time is the AudioContext instant for the current beat.
     // Clamp to `nowCtx` so we never schedule into the past.
@@ -165,11 +176,11 @@ class MetronomeScheduler {
     // ── Drop missed beats (UI thread was busy, e.g. during zoom) ──
     // Never emit a burst of late clicks.  Silently advance past any grid
     // points whose scheduled time has already passed, then continue from
-    // the next future beat.  A 2 ms grace window prevents dropping beats
-    // due to normal setTimeout jitter.
+    // the next future beat. A tiny floating-point tolerance keeps exact
+    // boundaries stable without intentionally playing late clicks.
     const nowCtx = ctx.currentTime;
-    const graceWindow = 0.002; // 2 ms — tight enough to catch real lag
-    while (this._nextNoteTime + graceWindow < nowCtx) {
+    const pastTolerance = 1e-6;
+    while (this._nextNoteTime < nowCtx - pastTolerance) {
       this._advanceBeat();
     }
 
@@ -193,7 +204,17 @@ class MetronomeScheduler {
   */
  _scheduleBeat(beatNumber, time) {
       const beatInMeasure = beatNumber % this._beatsPerMeasure;
-      const isAccent = this.isStrongBeat(beatInMeasure, this._timeSignature);
+      let isAccent = this.isStrongBeat(beatInMeasure, this._timeSignature);
+      if (this.metronomeEngine) {
+        const beatEvent = this.metronomeEngine.nextBeat(
+          beatNumber * this._beatDuration,
+          {
+            bpm: this._bpm,
+            timeSignature: this._timeSignature
+          }
+        );
+        if (beatEvent) isAccent = beatEvent.isAccent;
+      }
       this.audioContextService.playClickAt(isAccent, this._soundType, time);
   }
 
@@ -201,8 +222,10 @@ class MetronomeScheduler {
    * Advance the beat clock to the next note time.
    */
   _advanceBeat() {
-    this._nextNoteTime += this._beatDuration;
     this._currentBeat++;
+    this._nextNoteTime =
+      this._startTime +
+      this._currentBeat * this._beatDuration;
   }
 
   /**

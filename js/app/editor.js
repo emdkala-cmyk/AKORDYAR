@@ -306,6 +306,9 @@ function getEditorSongImportService() {
     function setZoom(pps, anchorClientX) {
       const scroll = $('tl-scroll'); const oldPps = getEditorDAW().pxPerSecond; const newPps = clamp(pps, 5, 260);
       if (Math.abs(newPps - oldPps) < 0.01) return;
+      if (getEditorDAW().isPlaying && !getEditorDAW().isScrubbing) {
+        getEditorDAW().playhead = getTransportPlayhead();
+      }
       let anchorTime = getEditorDAW().playhead; if (typeof anchorClientX === 'number') anchorTime = clientToTime(anchorClientX);
       const rel = timeToX(anchorTime) - scroll.scrollLeft; getEditorDAW().pxPerSecond = newPps; $('zoom-range').value = String(Math.round(newPps));
       // خودکار بزرگ کردن تایم‌لاین بر اساس عرض صفحه نمایش
@@ -4570,6 +4573,7 @@ if ($('edDoBoth')) {
           renderTracks: () => renderTracks(),
           renderRuler: () => renderRuler(),
           renderClips: () => renderClips(),
+          onTimingChange: () => handleTimingChange(),
           toast: message => toast(message),
           noteNames: typeof ED_ALL_NOTE_NAMES !== 'undefined'
             ? ED_ALL_NOTE_NAMES

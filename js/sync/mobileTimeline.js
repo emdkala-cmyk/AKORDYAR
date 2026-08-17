@@ -19,17 +19,7 @@
   }
 
   function meterConfig(timeSignature, tempo) {
-    const parts = String(timeSignature || '4/4').split('/');
-    const numerator = Math.max(1, parseInt(parts[0], 10) || 4);
-    const denominator = Math.max(1, parseInt(parts[1], 10) || 4);
-    const bpm = Math.max(1, finite(tempo, 120));
-    const beatDuration = (60 / bpm) * (4 / denominator);
-    return {
-      numerator,
-      denominator,
-      beatDuration,
-      measureDuration: beatDuration * numerator
-    };
+    return globalScope.Meter.getMeterConfig(timeSignature, tempo);
   }
 
   function normalizeTimeline(input) {
@@ -144,7 +134,11 @@
       );
 
       for (let bar = 0; bar < barCount; bar += 1) {
-        const time = bar * meter.measureDuration;
+        const barStartBeat = bar * meter.beatsPerMeasure;
+        const time = globalScope.Meter.beatIndexToTime(
+          barStartBeat,
+          meter
+        );
         const x = (state.originSeconds + time) * state.pixelsPerSecond;
 
         grid.appendChild(makeLine('mobile-timeline-bar-line', x));
@@ -155,8 +149,14 @@
         label.textContent = String(bar + 1);
         rulerTrack.appendChild(label);
 
-        for (let beat = 1; beat < meter.numerator; beat += 1) {
-          const beatX = x + beat * meter.beatDuration * state.pixelsPerSecond;
+        for (let beat = 1; beat < meter.beatsPerMeasure; beat += 1) {
+          const beatTime = globalScope.Meter.beatIndexToTime(
+            barStartBeat + beat,
+            meter
+          );
+          const beatX =
+            (state.originSeconds + beatTime) *
+            state.pixelsPerSecond;
           if (beatX >= state.sceneWidth) break;
           grid.appendChild(makeLine('mobile-timeline-beat-line', beatX));
         }

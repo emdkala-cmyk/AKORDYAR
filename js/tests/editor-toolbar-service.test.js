@@ -82,6 +82,7 @@ let renderCount = 0;
 let chordRenderCount = 0;
 let saveCount = 0;
 let appliedKey = null;
+let timingChangeCount = 0;
 const context = {
   Event,
   setTimeout: callback => callback()
@@ -97,6 +98,7 @@ const service = context.EditorToolbarService.create({
   renderChords: () => { chordRenderCount += 1; },
   save: () => { saveCount += 1; },
   applyKeyChange: (key, mode) => { appliedKey = { key, mode }; },
+  onTimingChange: () => { timingChangeCount += 1; },
   refreshKeyUI: () => {},
   noteNames: ['C', 'D']
 });
@@ -132,6 +134,14 @@ elements.get('edKey').value = 'G';
 elements.get('edKeyMode').value = 'min';
 elements.get('edKey').onchange();
 assert.deepEqual(appliedKey, { key: 'G', mode: 'min' });
+
+elements.get('edTimeSig').value = '7/8';
+elements.get('edTimeSig').onchange();
+assert.equal(song.timeSignature, '7/8');
+elements.get('edTempo').value = '137';
+elements.get('edTempo').oninput();
+assert.equal(song.tempo, 137);
+assert.equal(timingChangeCount, 2);
 
 assert.equal(service.toggleEditorLock(), true);
 assert.equal(song.editorLocked, true);

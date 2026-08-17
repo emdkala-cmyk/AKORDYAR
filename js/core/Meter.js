@@ -6,6 +6,69 @@
 var Meter = (function() {
   'use strict';
 
+  var DEFAULT_TIME_SIGNATURE = '4/4';
+  var DEFAULT_BPM = 120;
+  var GRID_EPSILON = 1e-9;
+
+  function parseTimeSignature(timeSignature) {
+    var isDefault = timeSignature == null || String(timeSignature).trim() === '';
+    var source = isDefault ? DEFAULT_TIME_SIGNATURE : String(timeSignature).trim();
+    var match = /^(\d+)\s*\/\s*(\d+)$/.exec(source);
+    var numerator = match ? Number(match[1]) : 4;
+    var denominator = match ? Number(match[2]) : 4;
+    var validDenominator =
+      denominator > 0 &&
+      denominator <= 64 &&
+      (denominator & (denominator - 1)) === 0;
+    var isValid =
+      Boolean(match) &&
+      Number.isInteger(numerator) &&
+      numerator > 0 &&
+      validDenominator;
+
+    if (!isValid) {
+      numerator = 4;
+      denominator = 4;
+    }
+
+    return {
+      numerator: numerator,
+      denominator: denominator,
+      timeSignature: numerator + '/' + denominator,
+      isValid: isDefault || isValid
+    };
+  }
+
+  function normalizeBpm(bpm) {
+    var numeric = Number(bpm);
+    return Number.isFinite(numeric) && numeric > 0 ? numeric : DEFAULT_BPM;
+  }
+
+  function getSubdivisionCount(denominator) {
+    switch (denominator) {
+      case 2:
+      case 4:
+        return 4;
+      case 8:
+        return 2;
+      default:
+        return 1;
+    }
+  }
+
+  function getBeatUnit(denominator) {
+    switch (denominator) {
+      case 1: return 'whole';
+      case 2: return 'half';
+      case 4: return 'quarter';
+      case 8: return 'eighth';
+      case 16: return 'sixteenth';
+      case 32: return 'thirty-second';
+      case 64: return 'sixty-fourth';
+      default: return 'quarter';
+    }
+  }
+
   /**
    * Get meter configuration for a time signature and tempo.
    * @param {string} timeSignature - e.g. "4/4", "3/4", "6/8"
@@ -13,34 +76,88 @@ var Meter = (function() {
    * @returns {object} config with numerator, denominator, beatUnit, etc.
    */
   function getMeterConfig(timeSignature, bpm) {
-    bpm = bpm || 120;
-    var parts = (timeSignature || '4/4').split('/');
-    var numerator = parseInt(parts[0]) || 4;
-    var denominator = parseInt(parts[1]) || 4;
-
-    var beatUnit, subdivisionsPerBeat;
-    switch (denominator) {
-      case 2:  beatUnit = 'half';       subdivisionsPerBeat = 4; break;
-      case 4:  beatUnit = 'quarter';    subdivisionsPerBeat = 4; break;
-      case 8:  beatUnit = 'eighth';     subdivisionsPerBeat = 2; break;
-      case 16: beatUnit = 'sixteenth';  subdivisionsPerBeat = 1; break;
-      default: beatUnit = 'quarter';    subdivisionsPerBeat = 4;
-    }
-
-    var baseBeatDur = 60 / bpm;
-    var beatDuration = baseBeatDur * (4 / denominator);
+    var parsed = parseTimeSignature(timeSignature);
+    var normalizedBpm = normalizeBpm(bpm);
+    var numerator = parsed.numerator;
+    var denominator = parsed.denominator;
+    var subdivisionsPerBeat = getSubdivisionCount(denominator);
+    var secondsPerQuarter = 60 / normalizedBpm;
+    var beatDuration = secondsPerQuarter * (4 / denominator);
     var measureDuration = numerator * beatDuration;
 
     return {
+      timeSignature: parsed.timeSignature,
+      isValid: parsed.isValid,
+      bpm: normalizedBpm,
       numerator: numerator,
       denominator: denominator,
-      beatUnit: beatUnit,
+      beatUnit: getBeatUnit(denominator),
       beatsPerMeasure: numerator,
       subdivisionsPerBeat: subdivisionsPerBeat,
-      unitsPerMeasure: numerator,
+      unitsPerMeasure: numerator * subdivisionsPerBeat,
+      secondsPerQuarter: secondsPerQuarter,
       beatDuration: beatDuration,
       measureDuration: measureDuration
     };
+  }
+
+  function resolveConfig(configOrTimeSignature, bpm) {
+    if (
+      configOrTimeSignature &&
+      typeof configOrTimeSignature === 'object' &&
+      Number.isFinite(configOrTimeSignature.beatDuration)
+    ) {
+      return configOrTimeSignature;
+    }
+    return getMeterConfig(configOrTimeSignature, bpm);
+  }
+
+  function snapRatioNearInteger(ratio) {
+    var nearest = Math.round(ratio);
+    return Math.abs(ratio - nearest) <= GRID_EPSILON ? nearest : ratio;
+  }
+
+  function beatIndexAtTime(seconds, configOrTimeSignature, bpm) {
+    var config = resolveConfig(configOrTimeSignature, bpm);
+    var safeSeconds = Math.max(0, Number(seconds) || 0);
+    var ratio = snapRatioNearInteger(safeSeconds / config.beatDuration);
+    return Math.max(0, Math.floor(ratio));
+  }
+
+  function nextBeatIndexAtOrAfter(seconds, configOrTimeSignature, bpm) {
+    var config = resolveConfig(configOrTimeSignature, bpm);
+    var safeSeconds = Math.max(0, Number(seconds) || 0);
+    var ratio = snapRatioNearInteger(safeSeconds / config.beatDuration);
+    return Math.max(0, Math.ceil(ratio));
+  }
+
+  function beatIndexToTime(beatIndex, configOrTimeSignature, bpm) {
+    var config = resolveConfig(configOrTimeSignature, bpm);
+    return Math.max(0, Number(beatIndex) || 0) * config.beatDuration;
+  }
+
+  function getGridStep(configOrTimeSignature, preset, bpm) {
+    var config = resolveConfig(configOrTimeSignature, bpm);
+    var beatDuration = config.beatDuration;
+    var measureDuration = config.measureDuration;
+    switch (preset || '1/4') {
+      case '1/1': return measureDuration;
+      case '1/2': return measureDuration / 2;
+      case '1/4': return beatDuration;
+      case '1/8': return beatDuration / 2;
+      case '1/16': return beatDuration / 4;
+      case '1/32': return beatDuration / 8;
+      case 'triplet': return beatDuration / 3;
+      case 'dotted': return beatDuration * 1.5;
+      default: return beatDuration;
+    }
+  }
+
+  function snapTimeToGrid(seconds, gridStep) {
+    var safeSeconds = Math.max(0, Number(seconds) || 0);
+    var safeStep = Number(gridStep);
+    if (!Number.isFinite(safeStep) || safeStep <= 0) return safeSeconds;
+    return Math.round(safeSeconds / safeStep) * safeStep;
   }
 
   /**
@@ -51,13 +168,11 @@ var Meter = (function() {
    * @returns {{ bar: number, beat: number, beatDur: number, barDur: number, beatsPerBar: number }}
    */
   function timeToBarBeat(seconds, timeSignature, bpm) {
-    bpm = bpm || 120;
-    timeSignature = timeSignature || '4/4';
     var config = getMeterConfig(timeSignature, bpm);
     var beatsPerBar = config.beatsPerMeasure;
     var beatDur = config.beatDuration;
     var barDur = config.measureDuration;
-    var totalBeats = Math.floor(seconds / beatDur);
+    var totalBeats = beatIndexAtTime(seconds, config);
     var bar = Math.floor(totalBeats / beatsPerBar) + 1;
     var beat = (totalBeats % beatsPerBar) + 1;
     return { bar: bar, beat: beat, beatDur: beatDur, barDur: barDur, beatsPerBar: beatsPerBar };
@@ -72,10 +187,11 @@ var Meter = (function() {
    * @returns {number} seconds
    */
   function barBeatToTime(bar, beat, timeSignature, bpm) {
-    bpm = bpm || 120;
-    timeSignature = timeSignature || '4/4';
     var config = getMeterConfig(timeSignature, bpm);
-    return ((bar - 1) * config.measureDuration) + ((beat - 1) * config.beatDuration);
+    var zeroBasedBeat =
+      (Math.max(1, Number(bar) || 1) - 1) * config.beatsPerMeasure +
+      (Math.max(1, Number(beat) || 1) - 1);
+    return beatIndexToTime(zeroBasedBeat, config);
   }
 
   /**
@@ -100,7 +216,14 @@ var Meter = (function() {
   }
 
   return {
+    GRID_EPSILON: GRID_EPSILON,
+    parseTimeSignature: parseTimeSignature,
     getMeterConfig: getMeterConfig,
+    beatIndexAtTime: beatIndexAtTime,
+    nextBeatIndexAtOrAfter: nextBeatIndexAtOrAfter,
+    beatIndexToTime: beatIndexToTime,
+    getGridStep: getGridStep,
+    snapTimeToGrid: snapTimeToGrid,
     timeToBarBeat: timeToBarBeat,
     barBeatToTime: barBeatToTime,
     isStrongBeat: isStrongBeat
@@ -109,4 +232,8 @@ var Meter = (function() {
 
 if (typeof window !== 'undefined') {
   window.Meter = Meter;
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = Meter;
 }

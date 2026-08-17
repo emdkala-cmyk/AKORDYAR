@@ -41,34 +41,10 @@ const MusicTheory = (() => {
   }
 
   function getTimeSignatureGridConfig(timeSignature, bpm) {
-    bpm = bpm || 120;
-    var parts = (timeSignature || '4/4').split('/');
-    var numerator = parseInt(parts[0]) || 4;
-    var denominator = parseInt(parts[1]) || 4;
-
-    var beatUnit, subdivisionsPerBeat;
-    switch (denominator) {
-      case 2:  beatUnit = 'half';       subdivisionsPerBeat = 4; break;
-      case 4:  beatUnit = 'quarter';    subdivisionsPerBeat = 4; break;
-      case 8:  beatUnit = 'eighth';     subdivisionsPerBeat = 2; break;
-      case 16: beatUnit = 'sixteenth';  subdivisionsPerBeat = 1; break;
-      default: beatUnit = 'quarter';    subdivisionsPerBeat = 4;
+    if (typeof globalThis.Meter?.getMeterConfig !== 'function') {
+      throw new Error('Meter must be loaded before time-signature calculations');
     }
-
-    var baseBeatDur = 60 / bpm;
-    var beatDuration = baseBeatDur * (4 / denominator);
-    var measureDuration = numerator * beatDuration;
-
-    return {
-      numerator: numerator,
-      denominator: denominator,
-      beatUnit: beatUnit,
-      beatsPerMeasure: numerator,
-      subdivisionsPerBeat: subdivisionsPerBeat,
-      unitsPerMeasure: numerator,
-      beatDuration: beatDuration,
-      measureDuration: measureDuration
-    };
+    return globalThis.Meter.getMeterConfig(timeSignature, bpm);
   }
 
   return {

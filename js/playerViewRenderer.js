@@ -386,11 +386,10 @@ const PlayerViewRenderer = (() => {
 
     const bpm = vs.tempo || 120;
     const timeSig = vs.timeSignature || '4/4';
-    const _parts = timeSig.split('/');
-    const beatsPerBar = parseInt(_parts[0]) || 4;
-    const denominator = parseInt(_parts[1]) || 4;
-    const beatDur = (60 / bpm) * (4 / denominator);
-    const barDur = beatDur * beatsPerBar;
+    const meter = globalThis.Meter.getMeterConfig(timeSig, bpm);
+    const beatsPerBar = meter.beatsPerMeasure;
+    const beatDur = meter.beatDuration;
+    const barDur = meter.measureDuration;
 
     // Grid container
     const grid = document.createElement('div');
@@ -398,7 +397,12 @@ const PlayerViewRenderer = (() => {
     grid.style.cssText = 'position:absolute;top:0;bottom:0;left:0;right:0;pointer-events:none;z-index:1;';
 
     // خطوط میزان (Bar lines) — پررنگ‌تر
-    for (let t = 0; t <= 300; t += barDur) {
+    const barCount = Math.floor(300 / barDur);
+    for (let bar = 0; bar <= barCount; bar += 1) {
+      const t = globalThis.Meter.beatIndexToTime(
+        bar * beatsPerBar,
+        meter
+      );
       const line = document.createElement('div');
       line.style.cssText = 'position:absolute;top:0;bottom:0;width:1px;background:rgba(63,184,175,0.15);';
       line.style.left = (t / 300 * 100) + '%';
@@ -406,9 +410,10 @@ const PlayerViewRenderer = (() => {
     }
 
     // خطوط ضرب (Beat lines) — کمرنگ‌تر
-    for (let t = 0; t <= 300; t += beatDur) {
-      const isBar = Math.abs(t % barDur) < 0.001;
-      if (isBar) continue;
+    const beatCount = Math.floor(300 / beatDur);
+    for (let beat = 0; beat <= beatCount; beat += 1) {
+      if (beat % beatsPerBar === 0) continue;
+      const t = globalThis.Meter.beatIndexToTime(beat, meter);
       const line = document.createElement('div');
       line.style.cssText = 'position:absolute;top:0;bottom:0;width:1px;background:rgba(255,255,255,0.05);';
       line.style.left = (t / 300 * 100) + '%';

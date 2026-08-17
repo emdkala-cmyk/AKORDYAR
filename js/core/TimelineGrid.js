@@ -36,7 +36,8 @@ var TimelineGrid = (function() {
 
     for (var m = 0; m < measureCount; m++) {
       for (var b = 0; b < config.beatsPerMeasure; b++) {
-        var time = M.barBeatToTime(m + 1, b + 1, sig, bpm);
+        var beatIndex = m * config.beatsPerMeasure + b;
+        var time = M.beatIndexToTime(beatIndex, config);
         beats.push({
           measure: m,
           beat: b,
@@ -46,7 +47,9 @@ var TimelineGrid = (function() {
     }
 
     for (var m2 = 0; m2 < measureCount; m2++) {
-      downbeats.push(m2 * config.measureDuration);
+      downbeats.push(
+        M.beatIndexToTime(m2 * config.beatsPerMeasure, config)
+      );
     }
 
     var measures = [];
@@ -88,7 +91,11 @@ var TimelineGrid = (function() {
     ctx.lineWidth = 1;
     let barCount = 0;
     for (let bar = 1; bar * barDur <= total && barCount < maxLines; bar++) {
-      const x = Math.round(timeToX(bar * barDur)) + 0.5;
+      const barTime = window.Meter.beatIndexToTime(
+        bar * beatsPerBar,
+        config
+      );
+      const x = Math.round(timeToX(barTime)) + 0.5;
       if (x > w) break;
       ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
       barCount++;
@@ -101,7 +108,8 @@ var TimelineGrid = (function() {
       let beatCount = 0;
       for (let beat = 0; beat * beatDur <= total && beatCount < maxLines; beat++) {
         if (beat % beatsPerBar === 0) continue;
-        const x = Math.round(timeToX(beat * beatDur)) + 0.5;
+        const beatTime = window.Meter.beatIndexToTime(beat, config);
+        const x = Math.round(timeToX(beatTime)) + 0.5;
         if (x > w) break;
         ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
         beatCount++;
@@ -183,8 +191,11 @@ var TimelineGrid = (function() {
     var showBeats = pxPerSec > 15;
     var showSubBeats = pxPerSec > 50;
 
-    for (var bar = 1; bar * barDur <= total; bar++) {
-      var x = timeToX((bar - 1) * barDur);
+    for (var bar = 1; (bar - 1) * barDur <= total; bar++) {
+      var barStartBeat = (bar - 1) * beatsPerBar;
+      var barStartTime = window.Meter.beatIndexToTime(barStartBeat, config);
+      var x = timeToX(barStartTime);
+      if (x > cappedWidth) break;
 
       if ((bar - 1) % barStep === 0) {
         var span = document.createElement('span');
@@ -200,7 +211,11 @@ var TimelineGrid = (function() {
 
       if (showBeats) {
         for (var beat = 1; beat < beatsPerBar; beat++) {
-          var bx = x + beat * beatDur * pxPerSec;
+          var beatTime = window.Meter.beatIndexToTime(
+            barStartBeat + beat,
+            config
+          );
+          var bx = timeToX(beatTime);
           if (bx > cappedWidth) break;
           rctx.strokeStyle = 'rgba(55, 65, 81, 0.3)';
           rctx.lineWidth = 1;
@@ -219,12 +234,21 @@ var TimelineGrid = (function() {
       }
 
       if (showSubBeats) {
-        for (var sub = 1; sub < config.subdivisionsPerBeat; sub++) {
-          var sx = x + sub * (beatDur / config.subdivisionsPerBeat) * pxPerSec;
-          if (sx > cappedWidth) break;
-          rctx.strokeStyle = 'rgba(45, 55, 72, 0.25)';
-          rctx.lineWidth = 1;
-          rctx.beginPath(); rctx.moveTo(sx + 0.5, 28); rctx.lineTo(sx + 0.5, 32); rctx.stroke();
+        for (var beatForSub = 0; beatForSub < beatsPerBar; beatForSub++) {
+          var beatStartTime = window.Meter.beatIndexToTime(
+            barStartBeat + beatForSub,
+            config
+          );
+          for (var sub = 1; sub < config.subdivisionsPerBeat; sub++) {
+            var subTime =
+              beatStartTime +
+              sub * (beatDur / config.subdivisionsPerBeat);
+            var sx = timeToX(subTime);
+            if (sx > cappedWidth) break;
+            rctx.strokeStyle = 'rgba(45, 55, 72, 0.25)';
+            rctx.lineWidth = 1;
+            rctx.beginPath(); rctx.moveTo(sx + 0.5, 28); rctx.lineTo(sx + 0.5, 32); rctx.stroke();
+          }
         }
       }
     }

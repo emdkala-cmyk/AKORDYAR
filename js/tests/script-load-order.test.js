@@ -11,6 +11,10 @@ const appBootstrap = fs.readFileSync(
   path.resolve(__dirname, '..', 'app.js'),
   'utf8'
 );
+const syncClientHtml = fs.readFileSync(
+  path.resolve(__dirname, '..', '..', 'sync-client.html'),
+  'utf8'
+);
 
 assert.match(appBootstrap, /createApplicationLoader/);
 assert.match(appBootstrap, /data-loader-mode="document-write"/);
@@ -33,6 +37,22 @@ assert.ok(
 assert.ok(
   scriptIndex('js/core/TransposeService.js') <
     scriptIndex('js/editor/EditorNotationService.js')
+);
+assert.ok(
+  scriptIndex('js/core/Meter.js') <
+    scriptIndex('js/core/MusicTheory.js')
+);
+assert.ok(
+  scriptIndex('js/core/Meter.js') <
+    scriptIndex('js/playerViewRenderer.js?v=20260813-8')
+);
+assert.ok(
+  syncClientHtml.indexOf('src="js/core/Meter.js"') <
+    syncClientHtml.indexOf('src="js/playerViewRenderer.js')
+);
+assert.ok(
+  syncClientHtml.indexOf('src="js/core/Meter.js"') <
+    syncClientHtml.indexOf('src="js/sync/mobileTimeline.js')
 );
 assert.ok(
   scriptIndex('js/editor/EditorNotationService.js') <

@@ -8,6 +8,13 @@
   'use strict';
 
   function gridStepForPreset(config, preset = '1/4') {
+    const meter = typeof globalThis.Meter === 'object'
+      ? globalThis.Meter
+      : null;
+    if (typeof meter?.getGridStep === 'function') {
+      return meter.getGridStep(config, preset);
+    }
+
     const beatDuration = Number(config?.beatDuration) || 0;
     const measureDuration = Number(config?.measureDuration) || 0;
     if (beatDuration <= 0) return 0;
@@ -29,7 +36,7 @@
     clips,
     selectedIds,
     gridStep,
-    { tolerance = 0.001, round = value => Math.round(value * 1000) / 1000 } = {}
+    { tolerance = 1e-9, round = value => value } = {}
   ) {
     if (!Array.isArray(clips) || !selectedIds || !Number.isFinite(gridStep) || gridStep <= 0) {
       return { changed: false, count: 0, selectedCount: 0 };
