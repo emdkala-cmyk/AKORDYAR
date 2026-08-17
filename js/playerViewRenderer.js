@@ -131,6 +131,14 @@ const PlayerViewRenderer = (() => {
     const mobileLineMargin = isMobileLayout
       ? Math.max(2.8, 1.4 + (chordZone / Math.max(1, fontSize)))
       : 1.8;
+    // A wrapped mobile lyric row needs enough baseline distance for the
+    // chord band above the following visual row.  This keeps Range-based
+    // chord ordering/anchors intact without letting a second-row chord
+    // collide with the first row's text.
+    const baseLineHeight = Number(vs.lineHeight) || 2.0;
+    const lineHeight = isMobileLayout
+      ? Math.max(baseLineHeight, 1.35 + (chordZone / Math.max(1, fontSize)))
+      : baseLineHeight;
     const highlightEffect =
       vs.highlightEffect || doc.styles?.highlightEffect || 'depth';
     container.dataset.highlightEffect = highlightEffect;
@@ -139,7 +147,7 @@ const PlayerViewRenderer = (() => {
     // Container styles
     container.style.fontFamily      = fontFamily;
     container.style.fontSize        = fontSize + 'px';
-    container.style.lineHeight      = String(vs.lineHeight || 2.0);
+    container.style.lineHeight      = String(lineHeight);
     container.style.color           = textColor;
     container.style.backgroundColor = backgroundColor;
     container.style.direction       = 'rtl';
@@ -230,7 +238,7 @@ const PlayerViewRenderer = (() => {
       lineEl.dataset.lineIndex = line.index;
       lineEl.style.minHeight    = '1.4em';
       lineEl.style.whiteSpace   = 'pre-wrap';
-      lineEl.style.lineHeight   = String(vs.lineHeight || 2.0);
+      lineEl.style.lineHeight   = String(lineHeight);
       lineEl.style.padding      = '4px 12px';
       lineEl.style.borderRadius = '8px';
       lineEl.style.transition   = 'opacity 0.25s ease, color 0.25s ease, background 0.25s ease, text-shadow 0.25s ease';
@@ -354,13 +362,10 @@ const PlayerViewRenderer = (() => {
 
           const xContainer = xViewport - containerRect.left + container.scrollLeft;
           const yContainer = rect.top - containerRect.top + container.scrollTop;
-          // Mobile text may wrap.  If we use the Range's y-coordinate there,
-          // a chord anchored to a character on the second wrapped row lands
-          // on top of the first row (or on the next line).  Keep every chord
-          // for a line in that line's reserved chord band instead.
-          const chordLineTop = isMobileLayout
-            ? lineEl.offsetTop
-            : yContainer;
+          // Keep the Range's visual-row y-coordinate.  Mobile line-height
+          // above reserves a chord band between wrapped rows, so chords keep
+          // their true anchor/order instead of collapsing into one row.
+          const chordLineTop = yContainer;
           const chordTop = chordLineTop - cSize - GAP;
           const connectorTop = chordLineTop - GAP;
 
