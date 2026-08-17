@@ -483,10 +483,13 @@ const globalScope = isBrowser ? window : global;
         const _originAudio = Number.isFinite(getEditorDAW().playOriginAudio)
           ? getEditorDAW().playOriginAudio
           : _ctxNow - _playhead;
+        const _originTime = Number.isFinite(getEditorDAW().playOriginTime)
+          ? getEditorDAW().playOriginTime
+          : 0;
         scheduler.start({
           bpm: _mbpm,
           timeSignature: _msig,
-          startTime: _originAudio - _playhead,
+          startTime: _originAudio - _originTime,
           soundType: APP_SETTINGS.metroSound || 'classic'
         });
         // Mark the metronome as running so pauseTransport()/stopTransport()
