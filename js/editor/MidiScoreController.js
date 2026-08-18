@@ -366,11 +366,24 @@
         ? viewer.querySelector('.score-viewer-root')
         : null;
       if (selectedMode === 'musicxml' && root && scoreRenderer?.getPlayheadPosition) {
-        const position = scoreRenderer.getPlayheadPosition(currentScore, selectedPartId, activeSeconds, {
-          root,
-          midiScore: midiScore(),
-          activeTick: editorScoreClock()?.secondsToTick?.(activeSeconds)
-        });
+        const clock = editorScoreClock();
+        const position = clock?.positionAt
+          ? clock.positionAt(activeSeconds, {
+              score: currentScore,
+              partId: selectedPartId,
+              root,
+              activeTick: clock.secondsToTick(activeSeconds),
+              loop: {
+                enabled: Boolean(getDAW()?.loopEnabled),
+                start: getDAW()?.loopA,
+                end: getDAW()?.loopB
+              }
+            })
+          : scoreRenderer.getPlayheadPosition(currentScore, selectedPartId, activeSeconds, {
+              root,
+              midiScore: midiScore(),
+              activeTick: clock?.secondsToTick?.(activeSeconds)
+            });
         scoreRenderer.updatePlayhead?.(root, position);
         const now = performance.now();
         if (

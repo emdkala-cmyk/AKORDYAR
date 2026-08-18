@@ -135,6 +135,17 @@
     return { ...layers, size, line };
   }
 
+  function systemOrdinal(osmd, target) {
+    let ordinal = 0;
+    for (const page of osmd?.GraphicSheet?.MusicPages || []) {
+      for (const system of page.MusicSystems || []) {
+        if (system === target) return ordinal;
+        ordinal += 1;
+      }
+    }
+    return number(target?.Id, 0);
+  }
+
   function currentSystemBounds(osmd, system) {
     const staffLines = system?.StaffLines || [];
     const boxes = staffLines.map(staff => staff?.PositionAndShape).filter(Boolean);
@@ -145,7 +156,10 @@
     return {
       yTop: Number.isFinite(top) ? top : 0,
       yBottom: bottom > 0 ? bottom : fallback.height,
-      systemIndex: number(system?.Id, 0)
+      staffTop: Number.isFinite(top) ? top : 0,
+      systemIndex: systemOrdinal(osmd, system),
+      pageIndex: (osmd?.GraphicSheet?.MusicPages || [])
+        .findIndex(page => (page.MusicSystems || []).includes(system))
     };
   }
 
@@ -161,16 +175,38 @@
     const graphic = osmd?.GraphicSheet;
     const fraction = fractionFor(osmd, tick, score);
     if (!graphic || !fraction) {
-      return { tick, x: 0, yTop: 0, yBottom: pageSize(osmd).height, systemIndex: 0, progress: 0 };
+      return {
+        tick,
+        x: 0,
+        yTop: 0,
+        staffTop: 0,
+        yBottom: pageSize(osmd).height,
+        systemIndex: 0,
+        progress: 0,
+        systemChanged: false
+      };
     }
     try {
       const result = graphic.calculateXPositionFromTimestamp(fraction);
       const x = number(result?.[0], 0);
       const system = result?.[1] || graphic.MusicPages?.[0]?.MusicSystems?.[0];
       const bounds = currentSystemBounds(osmd, system);
-      return { tick, x, ...bounds };
+      const nextSystem = bounds.systemIndex;
+      const systemChanged = instance.lastSystemIndex !== -1 &&
+        instance.lastSystemIndex !== nextSystem;
+      instance.lastSystemIndex = nextSystem;
+      return { tick, x, ...bounds, systemChanged };
     } catch (_) {
-      return { tick, x: 0, yTop: 0, yBottom: pageSize(osmd).height, systemIndex: 0, progress: 0 };
+      return {
+        tick,
+        x: 0,
+        yTop: 0,
+        staffTop: 0,
+        yBottom: pageSize(osmd).height,
+        systemIndex: 0,
+        progress: 0,
+        systemChanged: false
+      };
     }
   }
 
@@ -200,7 +236,14 @@
     const key = contentKey(xml, partId || score?.activePartId, zoom);
     let instance = instances.get(root);
     if (!instance || instance.osmdLayer !== layers.osmdLayer) {
-      instance = { root, osmdLayer: layers.osmdLayer, renderToken: 0, osmd: null, key: '' };
+      instance = {
+        root,
+        osmdLayer: layers.osmdLayer,
+        renderToken: 0,
+        osmd: null,
+        key: '',
+        lastSystemIndex: -1
+      };
       instances.set(root, instance);
     }
     if (instance.key === key && instance.osmd) {
@@ -234,6 +277,7 @@
     instance.score = score;
     instance.partId = partId || score?.activePartId || null;
     instance.key = key;
+    instance.lastSystemIndex = -1;
     instance.layers = ensurePlayheadOverlay(root, osmd);
     root.dataset.scoreEngine = 'opensheetmusicdisplay';
     root.dataset.scorePartId = String(instance.partId || '');
@@ -252,7 +296,7 @@
       ? Number(options.activeTick)
       : (clock?.secondsToTick?.(seconds) || 0);
     if (instance?.osmd) return positionFor(instance, tick);
-    return { tick, x: 0, yTop: 0, yBottom: 0, systemIndex: 0 };
+    return { tick, x: 0, yTop: 0, staffTop: 0, yBottom: 0, systemIndex: 0, systemChanged: false };
   }
 
   function updatePlayhead(root, position) {

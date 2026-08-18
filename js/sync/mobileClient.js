@@ -490,14 +490,21 @@
           });
         }
       }
-      const position = useMusicXml
-        ? activeRenderer.getPlayheadPosition(score, activePartId, time, {
+      const position = useMusicXml && scorePlayheadService?.positionAt
+        ? scorePlayheadService.positionAt(time, {
+            score,
+            partId: activePartId,
             root,
-            midiScore,
             activeTick: midiScore?.conversions?.secondsToTick?.(time)
           })
         : {
-            x: activeRenderer.getPlayheadX(score, activePartId, time, { midiScore }),
+            x: useMusicXml
+              ? activeRenderer.getPlayheadPosition(score, activePartId, time, {
+                  root,
+                  midiScore,
+                  activeTick: midiScore?.conversions?.secondsToTick?.(time)
+                }).x
+              : activeRenderer.getPlayheadX(score, activePartId, time, { midiScore }),
             yTop: null,
             yBottom: null,
             systemIndex: 0
