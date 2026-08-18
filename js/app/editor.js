@@ -121,6 +121,7 @@ function getMidiScoreController() {
     edMidiScoreController = window.MidiScoreController.create({
       getSong: getCurrentEditorSong,
       setSong: song => setEditorSong(song),
+      getDAW: () => getEditorDAW(),
       saveSong: () => getEditorSongPersistenceService()?.save?.(),
       onSongChanged: () => {
         try { resetPerformanceSerialization?.(); } catch (_) {}
