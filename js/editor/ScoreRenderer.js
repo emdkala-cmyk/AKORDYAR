@@ -36,12 +36,39 @@
   }
 
   function sourceText(score) {
-    const source = score?.source?.data;
-    if (typeof source === 'string' && source.trim()) return source;
-    if (typeof Document !== 'undefined' && source instanceof Document) {
-      return new XMLSerializer().serializeToString(source);
+    const candidates = [
+      score?.source?.data,
+      score?.sourceText,
+      score?.musicXml,
+      score?.xml,
+      score?.rawMusicXml
+    ];
+    for (const source of candidates) {
+      if (typeof source === 'string' && source.trim()) return source;
+      if (source && typeof source === 'object' &&
+          typeof source.documentElement !== 'undefined' &&
+          typeof XMLSerializer !== 'undefined') {
+        try {
+          const serialized = new XMLSerializer().serializeToString(source);
+          if (serialized.trim()) return serialized;
+        } catch (_) {}
+      }
     }
     return '';
+  }
+
+  function parseXmlDocument(xmlText) {
+    if (typeof DOMParser === 'undefined') return null;
+    const text = String(xmlText || '').replace(/^\uFEFF/, '').trim();
+    if (!text || text[0] !== '<') {
+      throw new Error('MusicXML منبع خام معتبر همراه پروژه نیست.');
+    }
+    const documentNode = new DOMParser().parseFromString(text, 'application/xml');
+    const parserErrors = documentNode?.getElementsByTagName?.('parsererror') || [];
+    if (parserErrors.length || !documentNode?.documentElement) {
+      throw new Error('MusicXML سند قابل خواندن نیست.');
+    }
+    return documentNode;
   }
 
   /**
@@ -50,16 +77,27 @@
    * by rebuilding notes from the normalized model.
    */
   function selectPartXml(xmlText, partId) {
+    if (!xmlText) return '';
     if (!partId || typeof DOMParser === 'undefined' ||
         typeof XMLSerializer === 'undefined') return xmlText;
-    const documentNode = new DOMParser().parseFromString(xmlText, 'application/xml');
-    const parseError = documentNode.querySelector('parsererror');
-    if (parseError) throw new Error('MusicXML سند قابل خواندن نیست.');
+    const documentNode = parseXmlDocument(xmlText);
 
     const wanted = String(partId);
-    const parts = Array.from(documentNode.querySelectorAll('part'));
-    const partList = documentNode.querySelector('part-list');
-    const scoreParts = partList ? Array.from(partList.children) : [];
+    const allPartNodes = typeof documentNode.getElementsByTagNameNS === 'function'
+      ? Array.from(documentNode.getElementsByTagNameNS('*', 'part'))
+      : Array.from(documentNode.getElementsByTagName?.('part') || []);
+    const parts = allPartNodes.filter(part => {
+      const parentName = String(part.parentNode?.localName || part.parentNode?.nodeName || '')
+        .toLowerCase().replace(/^.*:/, '');
+      return parentName === 'score-partwise' || parentName === 'score-timewise';
+    });
+    const partList = typeof documentNode.getElementsByTagNameNS === 'function'
+      ? Array.from(documentNode.getElementsByTagNameNS('*', 'part-list'))[0]
+      : documentNode.getElementsByTagName?.('part-list')?.[0];
+    const scoreParts = partList
+      ? Array.from(partList.children || []).filter(child =>
+          String(child.localName || child.nodeName || '').toLowerCase().replace(/^.*:/, '') === 'score-part')
+      : [];
     parts.forEach(part => {
       if (String(part.getAttribute('id') || '') !== wanted) part.remove();
     });
@@ -68,12 +106,10 @@
         scorePart.remove();
       }
     });
-    // The actual part list was already filtered, so this check deliberately
-    // avoids a dynamic CSS selector (some embedded WebViews lack CSS.escape).
-    const stillThere = Array.from(documentNode.getElementsByTagNameNS
-      ? documentNode.getElementsByTagNameNS('*', 'part')
-      : documentNode.querySelectorAll('part'))
-      .some(part => String(part.getAttribute('id') || '') === wanted);
+    const stillThere = parts.some(part =>
+      String(part.getAttribute('id') || '') === wanted &&
+      part.parentNode
+    );
     if (!stillThere) throw new Error(`پارت MusicXML پیدا نشد: ${wanted}`);
     return new XMLSerializer().serializeToString(documentNode);
   }
@@ -308,17 +344,77 @@
     }
   }
 
+  /**
+   * Draw chord names in a separate DOM layer.  The x position comes from the
+   * same OSMD timestamp calculation used by the playhead, so a chord at the
+   * middle of a measure is rendered at the middle of that measure (and not
+   * merely at the beginning of the system).
+   */
+  function renderChordOverlay(instance, chords, options = {}) {
+    const layer = instance?.layers?.chordLayer ||
+      ensureLayers(instance?.root).chordLayer;
+    if (!layer) return false;
+    layer.replaceChildren();
+    if (options.visible === false || !Array.isArray(chords) || !instance?.osmd) {
+      return true;
+    }
+
+    const graphic = instance.osmd.GraphicSheet;
+    const score = instance.score;
+    const offset = Math.max(8, number(options.offset, 24));
+    const occupied = new Map();
+    const ordered = chords
+      .map((chord, index) => ({
+        chord,
+        index,
+        tick: Number(chord?.tick),
+        text: String(chord?.text || chord?.name || chord?.chord || '').trim()
+      }))
+      .filter(item => item.text && Number.isFinite(item.tick))
+      .sort((a, b) => a.tick - b.tick || a.index - b.index);
+
+    ordered.forEach(item => {
+      try {
+        const fraction = fractionFor(instance.osmd, item.tick, score);
+        if (!fraction) return;
+        const result = graphic.calculateXPositionFromTimestamp(fraction);
+        const x = number(result?.[0], 0);
+        const system = result?.[1] ||
+          graphic.MusicPages?.[0]?.MusicSystems?.[0];
+        if (!system) return;
+        const bounds = currentSystemBounds(instance.osmd, system);
+        const point = osmdPointToRoot(instance, x, bounds.yTop);
+        const systemKey = String(bounds.systemIndex);
+        const lastX = occupied.get(systemKey);
+        const minGap = Math.max(18, item.text.length * 7 + 8);
+        const adjustedX = Number.isFinite(lastX) && point.x - lastX < minGap
+          ? lastX + minGap
+          : point.x;
+        occupied.set(systemKey, adjustedX);
+
+        const label = instance.root.ownerDocument.createElement('span');
+        label.className = 'score-chord-label';
+        label.textContent = item.text;
+        label.dataset.tick = String(item.tick);
+        label.dataset.system = String(bounds.systemIndex);
+        label.style.left = `${adjustedX}px`;
+        label.style.top = `${Math.max(2, point.y - offset)}px`;
+        layer.appendChild(label);
+      } catch (_) {
+        // A chord outside the rendered range should not prevent the score
+        // or playhead from being displayed.
+      }
+    });
+    return true;
+  }
+
   function contentKey(xml, partId, zoom) {
     return `${String(partId || '')}|${number(zoom, 1)}|${xml}`;
   }
 
   function osmdContent(xml) {
     if (typeof DOMParser === 'undefined') return xml;
-    const documentNode = new DOMParser().parseFromString(xml, 'application/xml');
-    if (documentNode.querySelector('parsererror')) {
-      throw new Error('MusicXML سند قابل خواندن نیست.');
-    }
-    return documentNode;
+    return parseXmlDocument(xml);
   }
 
   async function renderInto(root, score, partId, options = {}) {
@@ -345,7 +441,13 @@
       instances.set(root, instance);
     }
     if (instance.key === key && instance.osmd) {
-      ensurePlayheadOverlay(root, instance.osmd);
+      instance.score = score;
+      instance.partId = partId || score?.activePartId || null;
+      instance.layers = ensurePlayheadOverlay(root, instance.osmd);
+      renderChordOverlay(instance, options.chords || [], {
+        visible: options.showChords !== false,
+        offset: options.chordOffset
+      });
       return instance;
     }
 
@@ -377,6 +479,10 @@
     instance.key = key;
     instance.lastSystemIndex = -1;
     instance.layers = ensurePlayheadOverlay(root, osmd);
+    renderChordOverlay(instance, options.chords || [], {
+      visible: options.showChords !== false,
+      offset: options.chordOffset
+    });
     root.dataset.scoreEngine = 'opensheetmusicdisplay';
     root.dataset.scorePartId = String(instance.partId || '');
     root.dataset.scoreReady = 'true';
@@ -434,6 +540,7 @@
   const api = Object.freeze({
     engine: 'opensheetmusicdisplay',
     renderInto,
+    renderChordOverlay,
     ticksToWholeNotes,
     getPlayheadPosition,
     updatePlayhead,

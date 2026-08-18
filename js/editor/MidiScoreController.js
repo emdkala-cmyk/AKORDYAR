@@ -106,10 +106,56 @@
       render();
     }
 
+    function chordVisibility(partId, currentScore = musicXmlScore()) {
+      const song = getSong();
+      const settings = song?.liveScoreSettings?.chordLineVisibility;
+      if (settings && Object.prototype.hasOwnProperty.call(settings, partId)) {
+        return settings[partId] !== false;
+      }
+      const part = musicXmlModel?.getPart?.(currentScore, partId);
+      return part?.showChords !== false;
+    }
+
+    function setChordVisibility(partId, visible) {
+      const song = getSong();
+      const currentScore = musicXmlScore();
+      if (!song || !currentScore || !partId) return false;
+      const next = musicXmlModel?.assignPart
+        ? musicXmlModel.assignPart(currentScore, partId, { showChords: visible })
+        : currentScore;
+      song.musicXmlScore = musicXmlModel.serialize(next);
+      song.liveScoreSettings = {
+        ...(song.liveScoreSettings || {}),
+        chordLineVisibility: {
+          ...(song.liveScoreSettings?.chordLineVisibility || {}),
+          [partId]: Boolean(visible)
+        }
+      };
+      setSong(song);
+      saveSong();
+      onSongChanged(song, next);
+      render();
+      return true;
+    }
+
     function renderParts(currentScore) {
       const partsElement = element('midiScoreParts');
       if (!partsElement) return;
       partsElement.replaceChildren();
+
+      if (selectedMode === 'musicxml' && selectedPartId) {
+        const chordToggle = documentRef.createElement('button');
+        chordToggle.type = 'button';
+        chordToggle.className = 'midi-score-part-btn midi-score-chord-toggle';
+        const visible = chordVisibility(selectedPartId, currentScore);
+        chordToggle.textContent = `آکوردها: ${visible ? 'روشن' : 'خاموش'}`;
+        chordToggle.setAttribute('aria-pressed', String(visible));
+        chordToggle.title = 'نمایش یا مخفی‌کردن آکوردها روی میزان‌ها';
+        chordToggle.addEventListener('click', () => {
+          setChordVisibility(selectedPartId, !chordVisibility(selectedPartId, musicXmlScore()));
+        });
+        partsElement.appendChild(chordToggle);
+      }
 
       const modes = [];
       if (musicXmlScore()) modes.push({ id: 'musicxml', label: 'MusicXML' });
@@ -138,10 +184,27 @@
       const song = getSong();
       const midi = midiScore();
       const conversions = midi?.conversions;
-      return (song?.rawChords || song?.chords || [])
+      const dawClips = getDAW()?.clips?.filter(clip =>
+        clip && clip.type === 'chord' && String(clip.name || '').trim()
+      ) || [];
+      const storedClips = Array.isArray(song?.chordLineClips)
+        ? song.chordLineClips.filter(clip => String(clip?.name || '').trim())
+        : [];
+      const source = dawClips.length
+        ? dawClips
+        : (storedClips.length ? storedClips : (song?.rawChords || song?.chords || []));
+      return source
         .map(chord => {
-          const seconds = Number(chord?.time ?? chord?.start ?? chord?.startTime);
-          const text = chord?.name || chord?.text || chord?.chord || '';
+          const seconds = Number(
+            chord?.start ??
+            chord?.time ??
+            chord?.startTime ??
+            chord?.seconds ??
+            chord?.startSeconds
+          );
+          const text = String(chord?.name || chord?.text || chord?.chord || '')
+            .replace(/^\[|\]$/g, '')
+            .trim();
           if (!text || !Number.isFinite(seconds)) return null;
           return {
             tick: conversions?.secondsToTick ? conversions.secondsToTick(seconds) : seconds,
@@ -213,7 +276,9 @@
           root.setAttribute('aria-label', `${part?.name || 'Score'} score`);
           viewer.appendChild(root);
           Promise.resolve(scoreRenderer.renderInto(root, normalized, selectedPartId, {
-            zoom: 1
+            zoom: 1,
+            chords: chordOverlay(),
+            showChords: chordVisibility(selectedPartId, normalized)
           })).then(instance => {
             if (token !== renderToken || !instance) return;
             viewer.classList.remove('score-render-pending');

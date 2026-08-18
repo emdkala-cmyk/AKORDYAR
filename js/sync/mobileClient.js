@@ -156,6 +156,23 @@
       return score;
     }
 
+    function scoreChordOverlay() {
+      const conversions = normalizedMidiScore()?.conversions;
+      return (timeline?.clips || [])
+        .filter(clip => clip?.type === 'chord' && String(clip?.name || '').trim())
+        .map(clip => {
+          const seconds = Number(clip.start);
+          if (!Number.isFinite(seconds)) return null;
+          return {
+            tick: conversions?.secondsToTick
+              ? conversions.secondsToTick(seconds)
+              : seconds,
+            text: String(clip.name || '').trim()
+          };
+        })
+        .filter(Boolean);
+    }
+
     function scoreIdentity(score) {
       if (!score) return '';
       const source = score.source || {};
@@ -685,7 +702,11 @@
         container.appendChild(shell);
       }
       if (useMusicXml) {
-        activeRenderer.renderInto(canvas, score, partId, { zoom: 1 })
+        activeRenderer.renderInto(canvas, score, partId, {
+          zoom: 1,
+          chords: scoreChordOverlay(),
+          showChords: localOverride.showChords !== false && part?.showChords !== false
+        })
           .then(() => {
             const renderedPlayhead = canvas.querySelector('[data-score-playhead]');
             if (renderedPlayhead) renderedPlayhead.setAttribute('data-mobile-score-playhead', 'true');

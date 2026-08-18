@@ -158,6 +158,21 @@ body.color-tool-eyedropper .chord { cursor: cell !important; }
   inset: 0;
   pointer-events: none;
 }
+.score-chords-overlay { z-index: 1; }
+.score-chord-label {
+  position: absolute;
+  display: block;
+  transform: translateX(-50%);
+  padding: 1px 4px;
+  color: #000;
+  background: rgba(255,255,255,.94);
+  border-radius: 3px;
+  font: 700 13px/1.15 'JetBrains Mono', 'Segoe UI', monospace;
+  white-space: nowrap;
+  direction: ltr;
+  pointer-events: none;
+  user-select: none;
+}
 .score-playhead-overlay {
   z-index: 2;
 }

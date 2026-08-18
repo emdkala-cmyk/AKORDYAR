@@ -139,6 +139,25 @@
   // MusicXML is the notation/layout authority.  Broadcast only a compact
   // part catalogue by default; the requesting phone receives its own part's
   // measures/notes through the targeted payload below.
+  function musicXmlSourceData(score) {
+    const source = score?.source?.data;
+    if (typeof source === 'string' && source.trim()) return source;
+    if (source && typeof source === 'object' &&
+        typeof XMLSerializer !== 'undefined' &&
+        typeof source.documentElement !== 'undefined') {
+      try {
+        const serialized = new XMLSerializer().serializeToString(source);
+        if (serialized.trim()) return serialized;
+      } catch (_) {}
+    }
+    return [
+      score?.sourceText,
+      score?.musicXml,
+      score?.xml,
+      score?.rawMusicXml
+    ].find(value => typeof value === 'string' && value.trim()) || null;
+  }
+
   function buildMusicXmlScorePayload(scoreState, requestedPartId = null, includePart = false) {
     const score = scoreState?.score;
     if (!score || typeof score !== 'object') {
@@ -219,7 +238,10 @@
         fileName: score.source.fileName || '',
         mimeType: score.source.mimeType || 'application/vnd.recordare.musicxml+xml',
         size: Number(score.source.size) || 0,
-        data: null
+        // The catalogue intentionally omits the raw XML.  It is included only
+        // in the targeted part response so the phone can let OSMD parse the
+        // original notation instead of trying to reconstruct MusicXML.
+        data: includePart ? musicXmlSourceData(score) : null
       } : null
     };
     if (compactPart) {
