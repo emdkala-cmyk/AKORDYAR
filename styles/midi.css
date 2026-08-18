@@ -51,3 +51,130 @@ body.color-tool-eyedropper .chord { cursor: cell !important; }
 .midi-status-dot.disconnected { background: #F85149; }
 .midi-monitor .midi-chord-info { background: #1C2333; border: 1px solid #30363D; border-radius: 4px; padding: 6px 10px; margin: 4px 6px; text-align: center; }
 .midi-monitor .midi-chord-info .chord-name { font-size: 18px; font-weight: 900; color: #00F2FE; }
+
+/* ===== Read-only MIDI score / performer part view ===== */
+.midi-score-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 7000;
+  display: none;
+  align-items: stretch;
+  justify-content: center;
+  background: rgba(5, 8, 16, 0.82);
+  backdrop-filter: blur(8px);
+}
+.midi-score-modal.show { display: flex; }
+.midi-score-panel {
+  display: flex;
+  flex-direction: column;
+  width: min(1180px, 96vw);
+  height: min(900px, 94vh);
+  margin: auto;
+  overflow: hidden;
+  color: #e2e8f0;
+  background: #0f131e;
+  border: 1px solid #2d3748;
+  border-radius: 14px;
+  box-shadow: 0 24px 90px rgba(0,0,0,.56);
+}
+.midi-score-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 18px;
+  background: linear-gradient(180deg, #1c2333, #161b26);
+  border-bottom: 1px solid #2d3748;
+}
+.midi-score-title { color: #00f2fe; font-size: 1.08rem; font-weight: 800; }
+.midi-score-meta { margin-top: 4px; color: #8b949e; font-size: .75rem; }
+.midi-score-header-actions { display: flex; align-items: center; gap: 6px; }
+.midi-score-action,
+.midi-score-close {
+  border: 1px solid #3b465a;
+  border-radius: 7px;
+  color: #e2e8f0;
+  background: #202838;
+  cursor: pointer;
+}
+.midi-score-action { padding: 6px 10px; font-size: .76rem; }
+.midi-score-action:hover { border-color: #00f2fe; color: #00f2fe; }
+.midi-score-close { width: 30px; height: 30px; font-size: 1.25rem; line-height: 1; }
+.midi-score-close:hover { border-color: #f85149; color: #f85149; }
+.midi-score-body { display: flex; flex: 1; min-height: 0; flex-direction: column; }
+.midi-score-parts {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 7px;
+  overflow-x: auto;
+  padding: 10px 14px;
+  border-bottom: 1px solid #232b3e;
+  scrollbar-width: thin;
+}
+.midi-score-part-btn {
+  flex: 0 0 auto;
+  padding: 7px 11px;
+  border: 1px solid #303b50;
+  border-radius: 7px;
+  color: #aab6ca;
+  background: #171e2b;
+  cursor: pointer;
+  font: inherit;
+  font-size: .76rem;
+  white-space: nowrap;
+}
+.midi-score-part-btn:hover { border-color: #3fb8af; color: #e2e8f0; }
+.midi-score-part-btn.active { border-color: #3fb8af; color: #071014; background: #3fb8af; }
+.midi-score-viewer {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 18px;
+  background:
+    linear-gradient(rgba(255,255,255,.015) 1px, transparent 1px),
+    #0b1019;
+  background-size: 100% 26px;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+.midi-score-svg {
+  display: block;
+  min-width: var(--midi-score-width, 720px);
+  height: auto;
+  margin: 0 auto;
+  color: #d8dee9;
+  overflow: visible;
+}
+.midi-score-staff-line { stroke: #91a0b8; stroke-width: 1.35; opacity: .92; }
+.midi-score-ledger-line { stroke: #aebbd0; stroke-width: 1.25; opacity: .88; }
+.midi-score-barline { stroke: #d0d9e8; stroke-width: 1.35; opacity: .9; }
+.midi-score-final-barline { stroke-width: 2.6; }
+.midi-score-measure-number,
+.midi-score-time-signature {
+  fill: #9aa8bf;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  text-anchor: middle;
+}
+.midi-score-system-label { fill: #dbe6f7; font: 600 13px 'JetBrains Mono', monospace; }
+.midi-score-clef { fill: none; stroke: #f0f5ff; stroke-width: 4.2; stroke-linecap: round; stroke-linejoin: round; }
+.midi-score-key-symbol,
+.midi-score-accidental { fill: none; stroke: #f5c96a; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.midi-score-notehead { fill: #00cdbd; stroke: #d7fffa; stroke-width: 1.15; }
+.midi-score-notehead-open { fill: #0b1019; stroke-width: 1.8; }
+.midi-score-stem { stroke: #00cdbd; stroke-width: 1.8; stroke-linecap: round; }
+.midi-score-flag { fill: none; stroke: #00cdbd; stroke-width: 1.8; stroke-linecap: round; }
+.midi-score-note-active .midi-score-notehead { fill: #ff2e93; stroke: #ffd3e7; filter: drop-shadow(0 0 6px rgba(255,46,147,.85)); }
+.midi-score-note-active .midi-score-stem,
+.midi-score-note-active .midi-score-flag { stroke: #ff2e93; }
+.midi-score-rest rect { fill: #a9b7cc; }
+.midi-score-rest line { stroke: #a9b7cc; stroke-width: 1; }
+.midi-score-playhead { stroke: #00f2fe; stroke-width: 2; opacity: .88; filter: drop-shadow(0 0 6px rgba(0,242,254,.9)); pointer-events: none; }
+@media (max-width: 720px) {
+  .midi-score-panel { width: 100vw; height: 100dvh; border-radius: 0; }
+  .midi-score-header { align-items: flex-start; padding: 10px 12px; }
+  .midi-score-header-actions { flex-wrap: wrap; justify-content: flex-end; }
+  .midi-score-action { padding: 5px 7px; font-size: .68rem; }
+  .midi-score-viewer { padding: 12px 8px; }
+  .midi-score-svg { min-width: 700px; }
+}

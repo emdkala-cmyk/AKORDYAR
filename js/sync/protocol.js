@@ -31,12 +31,14 @@
 
     // ===== از Master به Hub =====
     DOC:      'doc',          // ساختار ترانه (موقع تعویض/تغییر آهنگ): { doc, keyState }
+    MIDI_SCORE:'midi-score',  // serialized MIDI score + selected performer part
     PLAYHEAD: 'playhead',     // وضعیت پخش هر فریم: { time, isPlaying }
     HIGHLIGHT:'highlight',    // هایلایت خط فعال: { activeLineId, doneLines }
     VIEW:     'view',         // viewState پیش‌فرض مستر (برای اولین رندر اسلیو)
     TIMELINE: 'timeline',     // آینه‌ی تایم‌لاین آکوردها
     SEEK_REQUEST: 'seek-request', // درخواست جابه‌جایی تایم‌لاین از گوشی
     TRANSPORT_REQUEST: 'transport-request', // play/pause/stop از گوشی
+    MIDI_SCORE_REQUEST: 'midi-score-request', // درخواست پارت MIDI برای یک گوشی
 
     // ===== از Hub به Slave =====
     SNAPSHOT: 'snapshot',     // ارسال کل وضعیت فعلی به اسلیو تازه‌وارد
@@ -86,7 +88,10 @@
     if (!msg || msg.magic !== MAGIC) {
       return { ok: false, reason: ERROR_CODE.BAD_PROTOCOL, message: 'bad magic' };
     }
-    if (typeof msg.t !== 'string' || !MSG[msg.t.toUpperCase()]) {
+    const msgKey = typeof msg.t === 'string'
+      ? msg.t.toUpperCase().replace(/-/g, '_')
+      : '';
+    if (!msgKey || !MSG[msgKey]) {
       return { ok: false, reason: ERROR_CODE.BAD_PROTOCOL, message: 'unknown msg type' };
     }
     return { ok: true, reason: null, message: msg };

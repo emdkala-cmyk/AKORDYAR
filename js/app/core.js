@@ -1113,7 +1113,10 @@ const requestRenderSyncLyrics = debounce(() => { renderSyncLyrics(); }, 120);
         getTransportClockSnapshot,
         getNode: id => $(id),
         timeToX: t => t * getEditorDAW().pxPerSecond,
-        formatTime
+        formatTime,
+        onPlayheadTime: displayTime => {
+          try { window.__midiScorePlayhead?.(displayTime); } catch (_) {}
+        }
       });
     const scheduleAllFromPlayhead = (...args) =>
       playbackTimelineController?.scheduleAllFromPlayhead?.(...args);

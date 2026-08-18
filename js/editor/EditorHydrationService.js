@@ -32,6 +32,17 @@
     const normalized = repaired && typeof repaired === 'object' ? repaired : song;
 
     ensureSongParsed?.(normalized);
+    if (normalized.midiScore && globalScope.MidiScoreModel?.normalize) {
+      try {
+        normalized.midiScore = globalScope.MidiScoreModel.serialize(
+          globalScope.MidiScoreModel.normalize(normalized.midiScore)
+        );
+      } catch (error) {
+        // Keep legacy/project loading resilient if a partial MIDI snapshot is
+        // encountered; the original field remains available for diagnostics.
+        globalScope.console?.warn?.('[MIDI Score] Hydration skipped:', error);
+      }
+    }
     if (!normalized.styles) normalized.styles = {};
     if (!normalized.lineColors) normalized.lineColors = [];
     if (!normalized.chordVersions) normalized.chordVersions = [];

@@ -85,6 +85,7 @@
  * @property {string} mode
  * @property {string} rawLyrics
  * @property {Array<Object>} rawChords   edCur.chords خام
+ * @property {Object|null} midiScore      serialized Standard MIDI score
  * @property {SongLine[]} lines
  * @property {SongSection[]} sections
  * @property {SongCue[]} cues
@@ -105,6 +106,7 @@ const SongDocumentModel = (() => {
         id: '', title: '', artist: '',
         originalKey: 'C', currentKey: 'C', transpose: 0, mode: 'major',
         rawLyrics: '', rawChords: [],
+        midiScore: null,
         styles: {},
         lines: [], sections: [], cues: []
       };
@@ -139,6 +141,7 @@ const SongDocumentModel = (() => {
       mode:         ed.keyMode || 'major',
       rawLyrics:    rawLyrics,
       rawChords:    rawChords,
+      midiScore:    ed.midiScore || null,
       styles:       ed.styles || {},
       lines:        lines,
       sections:     [],
@@ -182,6 +185,7 @@ const SongDocumentModel = (() => {
     ed.lyrics    = doc.rawLyrics;
     ed.chords    = doc.rawChords.map(ch => ({ ...ch }));
     ed.syncTimes = doc.cues.map(c => c.time);
+    if (doc.midiScore) ed.midiScore = clone(doc.midiScore);
     if (doc.originalKey) ed.originalKey = doc.originalKey;
   }
 

@@ -111,6 +111,32 @@ function getEditorSongImportService() {
   return edSongImportService;
 }
 
+let edMidiScoreController = null;
+function getMidiScoreController() {
+  if (
+    !edMidiScoreController &&
+    typeof window.MidiScoreController?.create === 'function'
+  ) {
+    edMidiScoreController = window.MidiScoreController.create({
+      getSong: getCurrentEditorSong,
+      setSong: song => setEditorSong(song),
+      saveSong: () => getEditorSongPersistenceService()?.save?.(),
+      onSongChanged: () => {
+        try { resetPerformanceSerialization?.(); } catch (_) {}
+        try { rebuildSongDocumentFromEdCur?.(); } catch (_) {}
+        try { edSyncToolbar?.(); } catch (_) {}
+        try { edRenderEditor?.(true); } catch (_) {}
+        try { renderAll?.(); } catch (_) {}
+      },
+      toast,
+      logger: console
+    });
+    window.__midiScorePlayhead = seconds =>
+      edMidiScoreController?.updatePlayhead?.(seconds);
+  }
+  return edMidiScoreController;
+}
+
     /**
      * همگام‌سازی UI بعد از تغییر آهنگ — فراخوانی مشترک بین loadArrSong و hotSwapToNextSong
      */
@@ -5339,6 +5365,10 @@ if ($('edDoBoth')) {
       'autoImportOpen': openAutoImportModal,
       'chordImportOpen': openImportChordModal,
       'projectImport': edImportProject,
+      'midiScoreOpen': () => getMidiScoreController()?.open?.(),
+      'midiScoreImport': () => getMidiScoreController()?.openImporter?.(),
+      'midiScoreClose': () => getMidiScoreController()?.close?.(),
+      'midiScoreClear': () => getMidiScoreController()?.clearScore?.(),
       'arrangerOpen': openArrangerModal,
       'songPrint': () => window.printSong(),
       'shortcutsOpen': openShortcutModal,

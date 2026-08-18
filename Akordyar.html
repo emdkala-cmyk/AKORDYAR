@@ -51,6 +51,7 @@
 
       <div class="nav-list">
         <div class="nav-item" data-command="arrangerOpen"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg> <span data-i18n="arranger">ارنجر ترک</span></div>
+        <div class="nav-item" data-command="midiScoreOpen" title="ورود و نمایش نت MIDI"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19V5"/><path d="M4 5h12v10"/><circle cx="8" cy="19" r="3"/><circle cx="16" cy="15" r="3"/><path d="M16 5v10"/></svg> <span>MIDI Score</span></div>
         <div class="nav-item" data-command="songPrint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> <span data-i18n="print">چاپ</span></div>
         <div class="nav-item" data-command="shortcutsOpen"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><line x1="6" y1="8" x2="6.01" y2="8"/><line x1="10" y1="8" x2="10.01" y2="8"/><line x1="14" y1="8" x2="14.01" y2="8"/><line x1="18" y1="8" x2="18.01" y2="8"/><line x1="8" y1="12" x2="8.01" y2="12"/><line x1="12" y1="12" x2="12.01" y2="12"/><line x1="16" y1="12" x2="16.01" y2="12"/><line x1="7" y1="16" x2="17" y2="16"/></svg> شرتکات</div>
       </div>
@@ -544,6 +545,7 @@
   >🎛 تایم‌لاین</button>
 
   <input type="file" id="audio-file-input" accept="audio/*,.mp3,.wav,.ogg,.m4a,.flac,.aac">
+  <input type="file" id="midi-file-input" accept=".mid,.midi,audio/midi,audio/x-midi" style="display:none;">
   <div class="toast" id="toast"></div>
 
   <!-- Icon Picker Modal -->
@@ -563,6 +565,26 @@
       <button data-action="toggleMidiMonitorAutoScroll">📜 اسکرول خودکار</button>
       <button data-action="toggleMidiSync">🎛️ Sync: <span id="midiSyncLabel">OFF</span></button>
       <button data-action="toggleMIDITab">🎹 MIDI: <span id="midiStatusLabel">OFF</span></button>
+    </div>
+  </div>
+  <!-- Read-only MIDI score / performer part view -->
+  <div class="midi-score-modal" id="midiScoreModal" data-inline-actions aria-hidden="true">
+    <div class="midi-score-panel" role="dialog" aria-modal="true" aria-labelledby="midiScoreTitle">
+      <div class="midi-score-header">
+        <div>
+          <div id="midiScoreTitle" class="midi-score-title">🎼 MIDI Score</div>
+          <div id="midiScoreMeta" class="midi-score-meta"></div>
+        </div>
+        <div class="midi-score-header-actions">
+          <button type="button" class="midi-score-action" data-action="midiScoreImport">📥 ورود MIDI</button>
+          <button type="button" class="midi-score-action" data-action="midiScoreClear">🗑 حذف</button>
+          <button type="button" class="midi-score-close" data-action="midiScoreClose" aria-label="بستن">×</button>
+        </div>
+      </div>
+      <div class="midi-score-body">
+        <div class="midi-score-parts" id="midiScoreParts" role="tablist" aria-label="پارت‌ها"></div>
+        <div class="midi-score-viewer" id="midiScoreViewer" aria-live="polite"></div>
+      </div>
     </div>
   </div>
     <div class="icon-picker-overlay" id="iconPickerOverlay">
@@ -1027,6 +1049,9 @@
   <script src="js/editor/EditorKeyboardService.js"></script>
 <script src="js/core/PlayheadMath.js"></script>
 <script src="js/core/Meter.js"></script>
+<script src="js/core/MidiFileParser.js"></script>
+<script src="js/core/MidiScoreModel.js"></script>
+<script src="js/core/MidiScoreRenderer.js"></script>
 <script src="js/core/MusicTheory.js"></script>
 <script src="js/core/MetronomeEngine.js"></script>
 <script src="js/core/AudioContextService.js"></script>
@@ -1076,6 +1101,8 @@
   <script src="js/editor/EditorSongTransitionService.js"></script>
   <script src="js/editor/EditorProjectExportService.js"></script>
   <script src="js/editor/EditorSongImportService.js"></script>
+  <script src="js/editor/MidiScoreImportService.js"></script>
+  <script src="js/editor/MidiScoreController.js"></script>
   <script src="js/editor/EditorLifecycleService.js"></script>
   <script src="js/editor/AudioDropImportService.js"></script>
 <script src="js/core/WaveformService.js"></script>

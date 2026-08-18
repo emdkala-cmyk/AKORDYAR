@@ -72,6 +72,15 @@
       song._dawSections = timeline.sections;
       song._dawLoop = timeline.loop;
       song._audioPaths = timeline.audioPaths;
+      if (song.midiScore && globalScope.MidiScoreModel?.normalize) {
+        try {
+          song.midiScore = globalScope.MidiScoreModel.serialize(
+            globalScope.MidiScoreModel.normalize(song.midiScore)
+          );
+        } catch (error) {
+          logger?.warn?.('[MIDI Score] Persistence normalization skipped:', error);
+        }
+      }
 
       try {
         storage?.setItem?.(storageKey, JSON.stringify(song));

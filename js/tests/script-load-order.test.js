@@ -43,12 +43,28 @@ assert.ok(
     scriptIndex('js/core/MusicTheory.js')
 );
 assert.ok(
+  scriptIndex('js/core/MidiFileParser.js') <
+    scriptIndex('js/core/MidiScoreModel.js')
+);
+assert.ok(
+  scriptIndex('js/core/MidiScoreModel.js') <
+    scriptIndex('js/core/MidiScoreRenderer.js')
+);
+assert.ok(
+  scriptIndex('js/core/MidiScoreRenderer.js') <
+    scriptIndex('js/app/core.js')
+);
+assert.ok(
   scriptIndex('js/core/Meter.js') <
   scriptIndex('js/playerViewRenderer.js?v=20260817-10')
 );
 assert.ok(
   syncClientHtml.indexOf('src="js/core/Meter.js"') <
     syncClientHtml.indexOf('src="js/playerViewRenderer.js')
+);
+assert.ok(
+  syncClientHtml.indexOf('src="js/core/MidiFileParser.js"') <
+    syncClientHtml.indexOf('src="js/core/MidiScoreRenderer.js"')
 );
 assert.ok(
   syncClientHtml.indexOf('src="js/core/Meter.js"') <
@@ -97,6 +113,14 @@ assert.ok(
 assert.ok(
   scriptIndex('js/editor/EditorSongImportService.js') <
     scriptIndex('js/app/core.js')
+);
+assert.ok(
+  scriptIndex('js/editor/MidiScoreImportService.js') <
+    scriptIndex('js/app/core.js')
+);
+assert.ok(
+  scriptIndex('js/editor/MidiScoreController.js') <
+    scriptIndex('js/app/editor.js')
 );
 assert.ok(
   scriptIndex('js/editor/EditorChordVersionService.js') <

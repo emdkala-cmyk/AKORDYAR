@@ -2,7 +2,7 @@
  * syncHub.js — مرکز سینک WebSocket (Node side)
  *
  * مدل: یک Master (لپ‌تاپ) و چندین Slave (گوشی).
- *  - Master مجاز است پیام‌های doc / playhead / highlight / view بفرستد.
+ *  - Master مجاز است پیام‌های doc / midi-score / playhead / highlight / view بفرستد.
  *  - Hub این پیام‌ها را بلافاصله به همه Slaveها broadcast می‌کند.
  *  - Slave فقط اجازه دارد hello / pong بفرستد؛ اگر state بفرستد رد می‌شود.
  *
@@ -135,10 +135,19 @@ function createSyncHub(httpServer, options = {}) {
     // فقط پیام‌های مجاز مستر را عبور بده
     if (type === Protocol.MSG.SNAPSHOT ||
         type === Protocol.MSG.DOC ||
+        type === Protocol.MSG.MIDI_SCORE ||
         type === Protocol.MSG.PLAYHEAD ||
         type === Protocol.MSG.HIGHLIGHT ||
         type === Protocol.MSG.VIEW ||
         type === Protocol.MSG.TIMELINE) {
+      const targetPeerId = message.m && message.m.targetPeerId;
+      if (type === Protocol.MSG.MIDI_SCORE && targetPeerId) {
+        const target = peers.get(String(targetPeerId));
+        if (target && target.role === Protocol.ROLE.SLAVE) {
+          send(target.ws, type, message.p, message.m);
+        }
+        return;
+      }
       // به‌روزرسانی snapshot داخلی برای اسلیوهای بعدی
       if (type === Protocol.MSG.SNAPSHOT) {
         lastSnapshot = message.p;
@@ -150,6 +159,13 @@ function createSyncHub(httpServer, options = {}) {
         if (message.p.timeline) {
           lastSnapshot.timeline = message.p.timeline;
         }
+        if (Object.prototype.hasOwnProperty.call(message.p, 'midiScore')) {
+          lastSnapshot.midiScore = message.p.midiScore;
+        }
+      } else if (type === Protocol.MSG.MIDI_SCORE) {
+        lastSnapshot = Object.assign({}, lastSnapshot, {
+          midiScore: message.p
+        });
       } else if (type === Protocol.MSG.HIGHLIGHT) {
         lastSnapshot = Object.assign({}, lastSnapshot, { highlight: message.p });
       } else if (type === Protocol.MSG.PLAYHEAD) {
@@ -165,12 +181,16 @@ function createSyncHub(httpServer, options = {}) {
 
   function handleSlaveMessage(peer, message) {
     if (message.t !== Protocol.MSG.SEEK_REQUEST &&
-        message.t !== Protocol.MSG.TRANSPORT_REQUEST) {
+        message.t !== Protocol.MSG.TRANSPORT_REQUEST &&
+        message.t !== Protocol.MSG.MIDI_SCORE_REQUEST) {
       return;
     }
     if (!masterId || !peers.has(masterId)) return;
     const master = peers.get(masterId);
-    send(master.ws, message.t, message.p, message.m);
+    const meta = Object.assign({}, message.m || {}, {
+      requesterId: peer.id
+    });
+    send(master.ws, message.t, message.p, meta);
   }
 
   function handlePong(peer) {
@@ -199,6 +219,7 @@ function createSyncHub(httpServer, options = {}) {
           handlePong(peer);
           break;
         case Protocol.MSG.DOC:
+        case Protocol.MSG.MIDI_SCORE:
         case Protocol.MSG.PLAYHEAD:
         case Protocol.MSG.HIGHLIGHT:
         case Protocol.MSG.VIEW:
@@ -213,6 +234,7 @@ function createSyncHub(httpServer, options = {}) {
           break;
         case Protocol.MSG.SEEK_REQUEST:
         case Protocol.MSG.TRANSPORT_REQUEST:
+        case Protocol.MSG.MIDI_SCORE_REQUEST:
           if (peer.role !== Protocol.ROLE.SLAVE) {
             send(ws, 'welcome', { ok: false, error: Protocol.ERROR_CODE.FORBIDDEN });
             return;

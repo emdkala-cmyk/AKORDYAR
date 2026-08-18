@@ -15,7 +15,8 @@
     getTransportClockSnapshot,
     getNode,
     timeToX,
-    formatTime
+    formatTime,
+    onPlayheadTime = () => {}
   } = {}) {
     if (typeof getDAW !== 'function') throw new TypeError('PlaybackTimelineController requires getDAW');
     if (typeof ensureAudioCtx !== 'function') throw new TypeError('PlaybackTimelineController requires ensureAudioCtx');
@@ -89,6 +90,7 @@
     function updatePlayheadUI({ performanceTime = performance.now() } = {}) {
       const renderNodes = getRenderNodes();
       const displayTime = getDisplayPlayheadTime(performanceTime);
+      onPlayheadTime(displayTime);
       const x = timeToX(displayTime);
       if (
         renderNodes.main &&

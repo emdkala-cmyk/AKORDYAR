@@ -21,6 +21,7 @@
 
   const MobileClient = (() => {
     const MOBILE_VIEW_STORAGE_KEY = 'akord_mobile_view_v3';
+    const MOBILE_PART_STORAGE_KEY = 'akord_mobile_midi_part_v1';
     const DEFAULT_MOBILE_VIEW = {
       fontSize: 20,
       showQuantizeGrid: false,
@@ -46,6 +47,17 @@
     let highlight = {
       activeLineId: null, activeTokenId: null, activeChordId: null, doneLines: new Set()
     };
+    let midiScoreState = {
+      score: null,
+      activePartId: null,
+      scoreVersion: 0,
+      scoreIdentity: ''
+    };
+    let normalizedScoreCache = { raw: null, version: 0, score: null };
+    let pendingPartRequest = null;
+    let lastScorePositionKey = '';
+    let lastScoreAutoScrollAt = 0;
+    let scoreMode = false;
     let lastRenderedHighlightKey = '';
     let localOverride = Object.assign({}, DEFAULT_MOBILE_VIEW); // تنظیمات محلی گوشی
 
@@ -82,6 +94,285 @@
       return Object.assign(base, {
         time: duration > 0 ? Math.min(duration, time) : time
       });
+    }
+
+    function normalizedMidiScore() {
+      if (!midiScoreState?.score) return null;
+      if (
+        normalizedScoreCache.raw === midiScoreState.score &&
+        normalizedScoreCache.version === midiScoreState.scoreVersion &&
+        normalizedScoreCache.score
+      ) {
+        return normalizedScoreCache.score;
+      }
+      const score = globalScope.MidiScoreModel?.normalize?.(midiScoreState.score) ||
+        midiScoreState.score;
+      normalizedScoreCache = {
+        raw: midiScoreState.score,
+        version: midiScoreState.scoreVersion,
+        score
+      };
+      return score;
+    }
+
+    function scoreIdentity(score) {
+      if (!score) return '';
+      const source = score.source || {};
+      const parts = (score.parts || [])
+        .map(part => `${part.id}:${part.trackId}`)
+        .join(',');
+      return [
+        source.fileName || '',
+        source.lastModified || '',
+        score.endTick || 0,
+        parts
+      ].join('|');
+    }
+
+    function readStoredPart(identity) {
+      if (!identity) return null;
+      try {
+        const stored = JSON.parse(
+          globalScope.localStorage?.getItem(MOBILE_PART_STORAGE_KEY) || '{}'
+        );
+        return stored && typeof stored === 'object'
+          ? stored[identity] || null
+          : null;
+      } catch (_) {
+        return null;
+      }
+    }
+
+    function storePart(identity, partId) {
+      if (!identity || !partId) return;
+      try {
+        const stored = JSON.parse(
+          globalScope.localStorage?.getItem(MOBILE_PART_STORAGE_KEY) || '{}'
+        );
+        stored[identity] = partId;
+        globalScope.localStorage?.setItem(
+          MOBILE_PART_STORAGE_KEY,
+          JSON.stringify(stored)
+        );
+      } catch (_) {}
+    }
+
+    function hasPart(score, partId) {
+      return Boolean(partId && score?.parts?.some(part => part.id === partId));
+    }
+
+    function hasPartTrack(score, partId) {
+      const part = score?.parts?.find(candidate => candidate.id === partId);
+      return Boolean(part && score?.tracks?.some(track => track.id === part.trackId));
+    }
+
+    function requestScorePart(partId) {
+      const score = normalizedMidiScore();
+      if (!score || !hasPart(score, partId)) return false;
+      pendingPartRequest = partId;
+      send(Protocol.MSG.MIDI_SCORE_REQUEST, {
+        partId,
+        scoreVersion: midiScoreState.scoreVersion,
+        scoreIdentity: midiScoreState.scoreIdentity || scoreIdentity(score)
+      });
+      return true;
+    }
+
+    function applyMidiScore(payload) {
+      if (!payload) return;
+      const rawScore = payload.score || null;
+      const incomingVersion = Number(
+        payload.scoreVersion || rawScore?.schemaVersion || 0
+      );
+      if (!rawScore) {
+        midiScoreState = {
+          score: null,
+          activePartId: null,
+          scoreVersion: incomingVersion,
+          scoreIdentity: ''
+        };
+        normalizedScoreCache = { raw: null, version: 0, score: null };
+        pendingPartRequest = null;
+        if (scoreMode) renderFull();
+        return;
+      }
+      normalizedScoreCache = { raw: null, version: 0, score: null };
+      const normalized = globalScope.MidiScoreModel?.normalize?.(rawScore) || rawScore;
+      const identity = scoreIdentity(normalized);
+      const preservePrevious =
+        midiScoreState.scoreIdentity === identity &&
+        hasPart(normalized, midiScoreState.activePartId);
+      const storedPartId = readStoredPart(identity);
+      const activePartId = preservePrevious
+        ? midiScoreState.activePartId
+        : hasPart(normalized, storedPartId)
+          ? storedPartId
+          : [
+              payload.activePartId,
+              normalized.activePartId,
+              normalized.parts?.[0]?.id
+            ].find(partId => hasPart(normalized, partId)) || null;
+      midiScoreState = {
+        score: rawScore,
+        activePartId,
+        scoreVersion: incomingVersion,
+        scoreIdentity: identity
+      };
+      normalizedScoreCache = {
+        raw: rawScore,
+        version: incomingVersion,
+        score: normalized
+      };
+      storePart(identity, activePartId);
+      if (activePartId && !hasPartTrack(normalized, activePartId)) {
+        requestScorePart(activePartId);
+      } else if (pendingPartRequest === activePartId) {
+        pendingPartRequest = null;
+      }
+      if (scoreMode) renderFull();
+    }
+
+    function selectMidiPart(partId) {
+      const score = normalizedMidiScore();
+      if (!hasPart(score, partId)) return false;
+      midiScoreState.activePartId = partId;
+      storePart(midiScoreState.scoreIdentity || scoreIdentity(score), partId);
+      if (hasPartTrack(score, partId)) {
+        pendingPartRequest = null;
+      } else {
+        requestScorePart(partId);
+      }
+      if (scoreMode) renderFull();
+      return true;
+    }
+
+    function ensureScorePlayheadVisible(x) {
+      if (!container || !scoreMode) return;
+      const now = performance.now();
+      if (now - lastScoreAutoScrollAt < 300) return;
+      const canvas = container.querySelector('.mobile-midi-score-canvas');
+      if (!canvas) return;
+      const containerRect = container.getBoundingClientRect();
+      const canvasRect = canvas.getBoundingClientRect();
+      const targetX = canvasRect.left + x;
+      const margin = Math.min(120, container.clientWidth * 0.2);
+      if (
+        targetX >= containerRect.left + margin &&
+        targetX <= containerRect.right - margin
+      ) return;
+      const maxScroll = Math.max(0, container.scrollWidth - container.clientWidth);
+      const desired = Math.max(
+        0,
+        Math.min(
+          maxScroll,
+          container.scrollLeft + targetX -
+            (containerRect.left + container.clientWidth / 2)
+        )
+      );
+      if (Math.abs(desired - container.scrollLeft) < 8) return;
+      lastScoreAutoScrollAt = now;
+      try {
+        container.scrollTo({ left: desired, behavior: 'smooth' });
+      } catch (_) {
+        container.scrollLeft = desired;
+      }
+    }
+
+    function renderScorePlayhead(time = getRenderedPlayback().time) {
+      if (!scoreMode || !container) return;
+      const score = normalizedMidiScore();
+      if (!score || !globalScope.MidiScoreRenderer?.getPlayheadX) return;
+      const playhead = container.querySelector('[data-mobile-score-playhead]');
+      if (!playhead) return;
+      const x = globalScope.MidiScoreRenderer.getPlayheadX(
+        score,
+        midiScoreState.activePartId || score.activePartId,
+        time
+      );
+      playhead.setAttribute('x1', String(x));
+      playhead.setAttribute('x2', String(x));
+      ensureScorePlayheadVisible(x);
+      const barBeat = score.conversions?.tickToBarBeat &&
+        score.conversions?.secondsToTick
+        ? score.conversions.tickToBarBeat(score.conversions.secondsToTick(time))
+        : null;
+      const positionKey = barBeat ? `${barBeat.bar}:${barBeat.beat}` : '';
+      if (positionKey !== lastScorePositionKey) {
+        lastScorePositionKey = positionKey;
+        const positionEl = container.querySelector('[data-mobile-score-position]');
+        if (positionEl) {
+          positionEl.textContent = barBeat
+            ? `میزان ${barBeat.bar} · ضرب ${barBeat.beat}`
+            : '';
+        }
+      }
+    }
+
+    function renderScoreFull() {
+      const score = normalizedMidiScore();
+      if (!container || !score || !globalScope.MidiScoreRenderer?.renderSvg) return false;
+      const partId = midiScoreState.activePartId || score.activePartId || score.parts?.[0]?.id;
+      if (!partId) return false;
+      const time = getRenderedPlayback().time;
+      const hasTrack = hasPartTrack(score, partId);
+      const svg = hasTrack
+        ? globalScope.MidiScoreRenderer.renderSvg(score, partId, {
+            activeTime: time,
+            ariaLabel: 'MIDI performer score'
+          })
+        : '';
+      const documentRef = container.ownerDocument || globalScope.document;
+      if (!documentRef) return false;
+      const part = score.parts?.find(p => p.id === partId);
+      const shell = documentRef.createElement('div');
+      shell.className = 'mobile-midi-score-shell';
+      container.classList.add('midi-score-active');
+      const toolbar = documentRef.createElement('div');
+      toolbar.className = 'mobile-midi-score-toolbar';
+      const title = documentRef.createElement('span');
+      title.textContent = '🎼 ' + String(part?.name || 'MIDI Score');
+      const position = documentRef.createElement('span');
+      position.dataset.mobileScorePosition = 'true';
+      position.textContent = '';
+      const partSelect = documentRef.createElement('select');
+      partSelect.id = 'mobile-score-part';
+      partSelect.className = 'mobile-midi-score-part-select';
+      (score.parts || []).forEach(candidate => {
+        const option = documentRef.createElement('option');
+        option.value = candidate.id;
+        option.textContent = `${candidate.name} · ${candidate.roleLabel}`;
+        option.selected = candidate.id === partId;
+        partSelect.appendChild(option);
+      });
+      partSelect.addEventListener('change', () => selectMidiPart(partSelect.value));
+      const exitButton = documentRef.createElement('button');
+      exitButton.type = 'button';
+      exitButton.id = 'mobile-score-exit';
+      exitButton.textContent = 'بازگشت';
+      const canvas = documentRef.createElement('div');
+      canvas.className = 'mobile-midi-score-canvas';
+      // SVG is generated by MidiScoreRenderer and contains escaped model data.
+      canvas.innerHTML = svg ||
+        '<div class="mobile-midi-score-loading">در حال دریافت پارت نوازنده…</div>';
+      toolbar.append(title, position, partSelect, exitButton);
+      shell.append(toolbar, canvas);
+      if (typeof container.replaceChildren === 'function') {
+        container.replaceChildren(shell);
+      } else {
+        container.innerHTML = '';
+        container.appendChild(shell);
+      }
+      const renderedPlayhead = container.querySelector('[data-score-playhead]');
+      if (renderedPlayhead) {
+        renderedPlayhead.setAttribute('data-mobile-score-playhead', 'true');
+      }
+      lastScorePositionKey = '';
+      renderScorePlayhead(time);
+      container.querySelector('#mobile-score-exit')?.addEventListener('click', () => {
+        scoreMode = false;
+        renderFull();
+      });
+      return true;
     }
 
     function setPlaybackState(next) {
@@ -135,7 +426,16 @@
     }
 
     function renderFull() {
-      if (!container || !currentDoc) { if (typeof dbg === 'function') dbg('renderFull skip: container=' + !!container + ' doc=' + !!currentDoc); return; }
+      if (!container) return;
+      if (scoreMode && renderScoreFull()) {
+        lastRenderedHighlightKey = '';
+        return;
+      }
+      container.classList.remove('midi-score-active');
+      if (!currentDoc) {
+        if (typeof dbg === 'function') dbg('renderFull skip: doc=' + !!currentDoc);
+        return;
+      }
       if (globalScope.PlayerViewRenderer) {
         try {
           globalScope.PlayerViewRenderer.renderPlayerView(
@@ -154,7 +454,7 @@
     }
 
     function renderHighlight(force = false) {
-      if (!container) return;
+      if (!container || scoreMode) return;
       const nextHighlight = getRenderedHighlight();
       const key = highlightKey(nextHighlight);
       if (!force && key === lastRenderedHighlightKey) return;
@@ -176,7 +476,8 @@
     function renderPlaybackFrame() {
       const nextPlayback = getRenderedPlayback();
       renderTimeline(nextPlayback);
-      renderHighlight();
+      if (scoreMode) renderScorePlayhead(nextPlayback.time);
+      else renderHighlight();
       playbackRafId = requestAnimationFrame(renderPlaybackFrame);
     }
 
@@ -213,12 +514,18 @@
         const msg = res.message;
         const p = msg.p || {};
         switch (msg.t) {
+          case Protocol.MSG.WELCOME:
+            if (p.ok && pendingPartRequest) {
+              requestScorePart(pendingPartRequest);
+            }
+            break;
           case Protocol.MSG.PING:
             send(Protocol.MSG.PONG, {});
             break;
           case Protocol.MSG.SNAPSHOT:
             currentDoc = p.doc || null;
             currentKey = p.keyState || null;
+            applyMidiScore(p.midiScore);
             remoteView = p.view || null;
             playback = { time: 0, isPlaying: false, duration: 0 };
             setPlaybackState(p.playback || {});
@@ -230,6 +537,7 @@
           case Protocol.MSG.DOC:
             currentDoc = p.doc || null;
             currentKey = p.keyState || null;
+            if (p.midiScore) applyMidiScore(p.midiScore);
             if (p.timeline) timeline = p.timeline;
             renderFull();
             renderTimeline();
@@ -245,6 +553,9 @@
           case Protocol.MSG.PLAYHEAD:
             setPlaybackState(p);
             renderTimeline();
+            break;
+          case Protocol.MSG.MIDI_SCORE:
+            applyMidiScore(p);
             break;
           case Protocol.MSG.TIMELINE:
             timeline = p;
@@ -283,6 +594,13 @@
     function requestTransport(action) {
       if (!['play', 'pause', 'stop'].includes(action)) return;
       send(Protocol.MSG.TRANSPORT_REQUEST, { action });
+    }
+
+    function toggleScoreMode() {
+      if (!normalizedMidiScore()) return false;
+      scoreMode = !scoreMode;
+      renderFull();
+      return scoreMode;
     }
 
     /**
@@ -331,6 +649,8 @@
       getLocalView,
       seek,
       requestTransport,
+      toggleScoreMode,
+      getMidiScoreState: () => midiScoreState,
       isConnected
     };
   })();

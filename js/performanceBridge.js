@@ -284,6 +284,7 @@ function wirePerformanceBroadcasts() {
   const store = getRuntimePerformanceStore();
   if (!store) return;
   store.subscribe('contentUpdated', publishPerformanceState);
+  store.subscribe('midiScoreChanged', publishPerformanceState);
   store.subscribe('keyChanged', publishPerformanceState);
   store.subscribe('playbackStateChanged', publishPerformanceState);
   store.subscribe('highlightChanged', publishPerformanceState);

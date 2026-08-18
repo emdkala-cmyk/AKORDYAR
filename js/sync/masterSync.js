@@ -61,15 +61,100 @@
     };
   }
 
+  // Mobile performers need the processed musical state, never the original
+  // binary source bytes.  Broadcast only the part catalogue; note data is
+  // returned privately to the requesting phone.
+  function buildMidiScorePayload(scoreState, requestedPartId = null, includeTrack = false) {
+    const score = scoreState?.score;
+    if (!score || typeof score !== 'object') {
+      return { score: null, activePartId: null, scoreVersion: 0 };
+    }
+    const activePartId =
+      requestedPartId ||
+      scoreState.activePartId ||
+      score.activePartId ||
+      score.parts?.[0]?.id ||
+      null;
+    const activePart = score.parts?.find(part => part.id === activePartId) ||
+      score.parts?.[0] ||
+      null;
+    const track = activePart
+      ? score.tracks?.find(candidate => candidate.id === activePart.trackId)
+      : score.tracks?.[0];
+    const compactScore = {
+      schemaVersion: score.schemaVersion || 1,
+      format: score.format,
+      division: score.division,
+      endTick: score.endTick,
+      durationSeconds: score.durationSeconds,
+      tempoMap: score.tempoMap,
+      meterMap: score.meterMap,
+      keySignatures: score.keySignatures || [],
+      markers: score.markers || [],
+      parts: (score.parts || []).map(part => ({
+        id: part.id,
+        trackId: part.trackId,
+        index: part.index,
+        name: part.name,
+        role: part.role,
+        roleLabel: part.roleLabel,
+        enabled: part.enabled,
+        visible: part.visible,
+        transpose: part.transpose || 0
+      })),
+      tracks: includeTrack && track ? [{
+        id: track.id,
+        index: track.index,
+        name: track.name,
+        instrumentName: track.instrumentName,
+        channel: track.channel,
+        channels: Array.isArray(track.channels) ? [...track.channels] : [],
+        programs: Array.isArray(track.programs)
+          ? track.programs.map(program => ({ ...program }))
+          : [],
+        durationTicks: track.durationTicks,
+        notes: Array.isArray(track.notes)
+          ? track.notes.map(note => ({ ...note }))
+          : []
+      }] : [],
+      activePartId,
+      source: score.source ? {
+        fileName: score.source.fileName || '',
+        mimeType: score.source.mimeType || 'audio/midi',
+        size: Number(score.source.size) || 0,
+        lastModified: score.source.lastModified || null,
+        data: null
+      } : null
+    };
+    if (compactScore.tracks[0]) delete compactScore.tracks[0].events;
+    return {
+      score: compactScore,
+      activePartId,
+      scoreVersion: Number(scoreState.scoreVersion || score.schemaVersion || 1)
+    };
+  }
+
+  function sanitizeDocumentForSync(doc) {
+    if (!doc || typeof doc !== 'object') return doc;
+    const safe = { ...doc };
+    // The original MIDI byte stream is persisted locally/project-side only.
+    // It is never needed by a lyric/chord client and must not cross the hub.
+    if (Object.prototype.hasOwnProperty.call(safe, 'midiScore')) {
+      safe.midiScore = undefined;
+    }
+    return safe;
+  }
+
   function buildSnapshot() {
     const store = getStore();
     if (!store) return null;
     const st = store.getSerializableState();
     return {
-      doc: st.songDocument,
+      doc: sanitizeDocumentForSync(st.songDocument),
       keyState: st.keyState,
       view: st.viewStates && st.viewStates.playerView,
       playback: st.playbackState,
+      midiScore: buildMidiScorePayload(st.midiScoreState, null, false),
       highlight: st.highlightState,
       timeline: buildTimeline()
     };
@@ -82,6 +167,7 @@
     let _unsubs = [];
     let _lastHighlightKey = '';
     let _lastTimelineKey = '';
+    let _lastMidiScoreKey = '';
 
     function url() {
       const proto = location.protocol === 'https:' ? 'wss' : 'ws';
@@ -105,12 +191,37 @@
       const st = store.getState();
       const timeline = buildTimeline();
       send(Protocol.MSG.DOC, {
-        doc: st.songDocument,
+        doc: sanitizeDocumentForSync(st.songDocument),
         keyState: st.keyState,
+        midiScore: buildMidiScorePayload(st.midiScoreState, null, false),
         timeline
       });
       _lastTimelineKey = JSON.stringify(timeline);
       send(Protocol.MSG.VIEW, { view: st.viewStates && st.viewStates.playerView });
+      pushMidiScore();
+    }
+
+    function pushMidiScore(force = false) {
+      const store = getStore();
+      if (!store) return;
+      const payload = buildMidiScorePayload(store.getState().midiScoreState);
+      const key = JSON.stringify(payload);
+      if (!force && key === _lastMidiScoreKey) return;
+      _lastMidiScoreKey = key;
+      send(Protocol.MSG.MIDI_SCORE, payload);
+    }
+
+    function pushMidiScoreForPeer(peerId, partId) {
+      const store = getStore();
+      if (!store || !peerId) return;
+      const score = store.getState().midiScoreState?.score;
+      if (!score?.parts?.some(part => String(part.id) === String(partId))) return;
+      const payload = buildMidiScorePayload(
+        store.getState().midiScoreState,
+        partId,
+        true
+      );
+      send(Protocol.MSG.MIDI_SCORE, payload, { targetPeerId: peerId });
     }
 
     function pushTimelineIfChanged() {
@@ -157,13 +268,17 @@
     function onPeerJoin() {
       // یک اسلیو جدید وصل شد → snapshot کامل بفرست
       const snap = buildSnapshot();
-      if (snap) send(Protocol.MSG.SNAPSHOT, snap);
+      if (snap) {
+        send(Protocol.MSG.SNAPSHOT, snap);
+        pushMidiScore(true);
+      }
     }
 
     function wireStore() {
       const store = getStore();
       if (!store) return;
       _unsubs.push(store.subscribe('contentUpdated', pushDoc));
+      _unsubs.push(store.subscribe('midiScoreChanged', () => pushMidiScore()));
       _unsubs.push(store.subscribe('keyChanged', pushDoc));
       _unsubs.push(store.subscribe('viewStateChanged', (ev) => {
         if (!ev || ev.viewId === 'playerView' || !ev.viewId) pushDoc();
@@ -236,7 +351,7 @@
           if (Number.isFinite(time) && typeof globalScope.seekTransport === 'function') {
             globalScope.seekTransport(time, false, true);
           }
-        } else if (t === Protocol.MSG.TRANSPORT_REQUEST) {
+      } else if (t === Protocol.MSG.TRANSPORT_REQUEST) {
           const action = res.message.p && res.message.p.action;
           if (action === 'play' && typeof globalScope.startTransport === 'function') {
             globalScope.startTransport();
@@ -244,6 +359,12 @@
             globalScope.pauseTransport();
           } else if (action === 'stop' && typeof globalScope.stopTransport === 'function') {
             globalScope.stopTransport();
+          }
+        } else if (t === Protocol.MSG.MIDI_SCORE_REQUEST) {
+          const requesterId = res.message.m && res.message.m.requesterId;
+          const partId = res.message.p && res.message.p.partId;
+          if (requesterId && partId) {
+            pushMidiScoreForPeer(requesterId, String(partId));
           }
         }
       };
@@ -287,6 +408,7 @@
       ws = null;
       connected = false;
       _lastTimelineKey = '';
+      _lastMidiScoreKey = '';
     }
 
     return { connect, disconnect, isConnected, ensureConnected, resendSnapshot };

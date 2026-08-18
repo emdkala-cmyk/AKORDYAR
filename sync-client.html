@@ -11,6 +11,7 @@
     html, body { height: 100%; min-height: 100%; background: #0F131E !important; color: #E2E8F0; font-family: 'Vazirmatn', sans-serif; overflow: hidden; }
     body { margin: 0; }
     #pv-container { width: 100%; height: 100vh; overflow-y: auto; background: #0F131E !important; color: #E2E8F0; }
+    #pv-container.midi-score-active { overflow: auto; direction: ltr; padding-bottom: 118px; }
     #status-bar {
       position: fixed; top: 0; left: 0; right: 0; z-index: 50;
       display: flex; align-items: center; justify-content: space-between;
@@ -92,6 +93,26 @@
       z-index: 20; transform: translateX(-1px); pointer-events: none;
       background: #00F2FE; box-shadow: 0 0 10px rgba(0,242,254,0.8);
     }
+    .mobile-midi-score-shell { min-width: 720px; padding: 10px 8px 130px; direction: ltr; }
+    .mobile-midi-score-toolbar {
+      position: sticky; top: 0; z-index: 4; display: flex; align-items: center;
+      justify-content: space-between; gap: 8px; padding: 7px 10px; margin-bottom: 10px;
+      color: #d8dee9; background: rgba(15,19,30,.96); border: 1px solid #30364a;
+      border-radius: 8px; font-size: 12px; direction: rtl;
+    }
+    .mobile-midi-score-toolbar > span { min-width: 0; }
+    .mobile-midi-score-toolbar > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .mobile-midi-score-part-select {
+      max-width: 38vw; min-width: 100px; border: 1px solid #3fb8af; border-radius: 6px;
+      padding: 5px 7px; color: #d8dee9; background: #18232d; font-family: inherit;
+    }
+    .mobile-midi-score-toolbar button {
+      border: 1px solid #3fb8af; border-radius: 6px; padding: 5px 9px;
+      color: #0f131e; background: #3fb8af; font-family: inherit; cursor: pointer;
+    }
+    .mobile-midi-score-canvas { overflow: visible; }
+    .mobile-midi-score-canvas .midi-score-svg { min-width: 700px; }
+    .mobile-midi-score-loading { min-width: 700px; padding: 48px 20px; color: #94a3b8; text-align: center; }
     .hint { text-align: center; color: #64748b; margin-top: 20vh; font-size: 14px; padding: 0 20px; }
   </style>
 </head>
@@ -109,6 +130,10 @@
     <div class="row">
       <label>نمایش آکوردها</label>
       <input id="set-showChords" class="switch" type="checkbox" checked />
+    </div>
+    <div class="row">
+      <label>MIDI Score</label>
+      <button id="set-scoreMode" type="button" style="border:1px solid #3FB8AF;border-radius:6px;padding:5px 9px;color:#0F131E;background:#3FB8AF;font-family:inherit;cursor:pointer;">Score</button>
     </div>
   </div>
 
@@ -131,6 +156,9 @@
   <script src="js/sync/protocol.js?v=20260813-9"></script>
   <!-- رندرر نوازنده (همان پنل F9 دسکتاپ) -->
   <script src="js/core/Meter.js"></script>
+  <script src="js/core/MidiFileParser.js"></script>
+  <script src="js/core/MidiScoreModel.js"></script>
+  <script src="js/core/MidiScoreRenderer.js"></script>
   <script src="js/sharedEngine.js"></script>
   <script src="js/playerViewRenderer.js?v=20260817-10"></script>
   <script src="js/sync/mobileTimeline.js?v=20260813-9"></script>
@@ -218,6 +246,14 @@
       String(initialMobileView.fontSize || 20);
     document.getElementById('set-showChords').checked =
       initialMobileView.showChords !== false;
+    const scoreModeButton = document.getElementById('set-scoreMode');
+    if (scoreModeButton) {
+      scoreModeButton.addEventListener('click', () => {
+        const active = window.AkordMobileClient?.toggleScoreMode?.();
+        scoreModeButton.textContent = active ? 'Lyrics' : 'Score';
+        settingsPanel.classList.remove('open');
+      });
+    }
 
     // ===== تنظیمات محلی گوشی (فقط روی این دستگاه) =====
     settingsBtn.addEventListener('click', (event) => {
