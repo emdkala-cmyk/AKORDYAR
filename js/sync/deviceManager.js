@@ -17,9 +17,11 @@
     const PANEL_POSITION_KEY = 'akordyar.syncPanelPosition.v1';
     let panelEl = null;
     let qrCanvas = null;
+    let qrGridEl = null;
     let listEl = null;
     let statusEl = null;
     let _pollTimer = null;
+    let connectionService = null;
 
     function el(id) { return document.getElementById(id); }
 
@@ -81,10 +83,8 @@
         </div>
         <div id="akord-sync-body" style="padding:12px;">
           <div id="akord-sync-status" style="color:#7dd3fc;margin-bottom:8px;">در حال اتصال…</div>
-          <div style="text-align:center;margin:6px 0;">
-            <canvas id="akord-sync-qr" width="180" height="180" style="background:#fff;border-radius:8px;"></canvas>
-          </div>
-          <div style="text-align:center;color:#94a3b8;font-size:11px;margin-bottom:4px;">با گوشی اسکن کنید</div>
+          <div style="text-align:center;color:#64748b;font-size:11px;margin-bottom:4px;">QR اختصاصی هر پارت را اسکن کنید</div>
+          <div id="akord-sync-qr-grid" class="live-score-qr-grid"></div>
           <div id="akord-sync-url" style="text-align:center;color:#00F2FE;font-size:12px;word-break:break-all;margin-bottom:6px;"></div>
           <div id="akord-sync-ips" style="text-align:center;color:#64748b;font-size:10px;word-break:break-all;margin-bottom:6px;"></div>
           <div style="text-align:center;margin-bottom:8px;">
@@ -102,8 +102,12 @@
       panelEl = root;
       loadPanelPosition(root);
       qrCanvas = el('akord-sync-qr');
+      qrGridEl = el('akord-sync-qr-grid');
       listEl = el('akord-sync-list');
       statusEl = el('akord-sync-status');
+      connectionService = globalScope.LiveScoreConnectionService?.create?.({
+        onChange: () => renderConnectionList()
+      }) || null;
 
       const headerEl = el('akord-sync-header');
       const bodyEl = el('akord-sync-body');
@@ -162,7 +166,7 @@
         title.style.display = hidden ? 'inline' : 'none';
         toggle.style.display = hidden ? 'inline' : 'none';
         toggle.textContent = hidden ? '⌃' : '⌄';
-        root.style.width = hidden ? '340px' : '58px';
+        root.style.width = hidden ? '520px' : '58px';
         root.style.height = hidden ? 'auto' : '58px';
         root.style.borderRadius = hidden ? '18px' : '50%';
         root.style.overflow = hidden ? 'hidden' : 'visible';
@@ -287,6 +291,44 @@
       } catch (e) { console.error('[DeviceManager] QR error', e); }
     }
 
+    function currentScoreParts() {
+      const score = globalScope.PerformanceStore?.getState?.()?.musicXmlScoreState?.score ||
+        globalScope.EdCurAdapter?.getEdCur?.()?.musicXmlScore || null;
+      const normalized = globalScope.MusicXmlScoreModel?.normalize?.(score) || score;
+      return {
+        parts: normalized?.parts || [],
+        mappings: globalScope.PerformanceStore?.getState?.()?.musicXmlScoreState?.mappings ||
+          globalScope.EdCurAdapter?.getEdCur?.()?.scorePartMappings || []
+      };
+    }
+
+    function renderPartQrs(info) {
+      if (!qrGridEl || !globalScope.LiveScoreQrService) return;
+      const source = currentScoreParts();
+      const payloads = globalScope.LiveScoreQrService.buildPayloads({
+        baseUrl: info?.clientUrl || '',
+        parts: source.parts,
+        mappings: source.mappings
+      });
+      globalScope.LiveScoreQrService.renderCards(qrGridEl, payloads, {
+        connectionService
+      });
+      if (connectionService) {
+        payloads.forEach(payload => connectionService.setState(payload.partId, connectionService.getState(payload.partId)));
+      }
+    }
+
+    function renderConnectionList() {
+      if (!listEl || !connectionService) return;
+      listEl.replaceChildren();
+      connectionService.getStates().forEach(peer => {
+        const row = document.createElement('div');
+        row.style.cssText = 'padding:4px 6px;margin:3px 0;border-radius:6px;background:#f3f4f6;display:flex;justify-content:space-between;color:#111827;';
+        row.innerHTML = `<span>${peer.name || peer.partId}</span><span>${peer.status} · ${peer.ip || ''}</span>`;
+        listEl.appendChild(row);
+      });
+    }
+
     async     function refreshInfo() {
       try {
         const resp = await fetch('/api/sync/info?' + Date.now());
@@ -300,7 +342,8 @@
         } else if (ipsEl) {
           ipsEl.textContent = '';
         }
-        renderQR(info.clientUrl || '');
+        renderPartQrs(info);
+        connectionService?.updateFromInfo?.(info);
       } catch (e) { /* ignore */ }
     }
 
@@ -319,8 +362,8 @@
       if (!listEl) return;
       const row = document.createElement('div');
       row.id = 'peer-' + peer.id;
-      row.style.cssText = 'padding:4px 6px;margin:3px 0;border-radius:6px;background:rgba(0,242,254,0.08);display:flex;justify-content:space-between;';
-      row.innerHTML = `<span>${peer.name || 'گوشی'}</span><span style="color:#94a3b8;">${peer.ip || ''}</span>`;
+      row.style.cssText = 'padding:4px 6px;margin:3px 0;border-radius:6px;background:#f3f4f6;display:flex;justify-content:space-between;color:#111827;';
+      row.innerHTML = `<span>${peer.name || 'گوشی'}${peer.partId ? ` · ${peer.partId}` : ''}</span><span>${peer.ip || ''}</span>`;
       listEl.appendChild(row);
     }
 
@@ -340,6 +383,7 @@
       }
 
       refreshInfo();
+      connectionService?.start?.(2500);
       _pollTimer = setInterval(() => {
         const connected = Master ? Master.isConnected() : false;
         // تعداد اسلیو از طریق API
@@ -351,8 +395,19 @@
 
       // گوش دادن به رویدادهای هاب از طریق یک کانال ساده (در صورت وجود)
       if (globalScope.AkordMasterSyncEvents) {
-        globalScope.AkordMasterSyncEvents.onJoin = addDevice;
-        globalScope.AkordMasterSyncEvents.onLeave = removeDevice;
+        globalScope.AkordMasterSyncEvents.onJoin = peer => {
+          addDevice(peer);
+          connectionService?.setState?.(peer.partId || peer.role || peer.id, {
+            status: 'connected',
+            ip: peer.ip,
+            peerId: peer.id,
+            name: peer.name
+          });
+        };
+        globalScope.AkordMasterSyncEvents.onLeave = peer => {
+          removeDevice(peer.id);
+          connectionService?.setState?.(peer.partId || peer.role || peer.id, { status: 'disconnected' });
+        };
       }
     }
 

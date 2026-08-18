@@ -95,7 +95,19 @@
         song.liveScoreSettings = {
           ...song.liveScoreSettings,
           readOnly: true,
-          countInMeasures: Math.max(0, Number(song.liveScoreSettings.countInMeasures) || 0)
+          countInMeasures: Math.max(0, Number(song.liveScoreSettings.countInMeasures) || 0),
+          mapping: Array.isArray(song.liveScoreSettings.mapping)
+            ? song.liveScoreSettings.mapping
+            : song.scorePartMappings,
+          ipAssignments: song.liveScoreSettings.ipAssignments &&
+            typeof song.liveScoreSettings.ipAssignments === 'object'
+            ? song.liveScoreSettings.ipAssignments : {},
+          transpositionSettings: song.liveScoreSettings.transpositionSettings &&
+            typeof song.liveScoreSettings.transpositionSettings === 'object'
+            ? song.liveScoreSettings.transpositionSettings : {},
+          chordLineVisibility: song.liveScoreSettings.chordLineVisibility &&
+            typeof song.liveScoreSettings.chordLineVisibility === 'object'
+            ? song.liveScoreSettings.chordLineVisibility : {}
         };
       }
 

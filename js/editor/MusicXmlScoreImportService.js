@@ -44,13 +44,18 @@
       serializable.mappings = finalMappings;
       song.musicXmlScore = model.serialize(serializable);
       song.musicXmlScoreVersion = serializable.schemaVersion || 1;
+      mappingService.persistToSong?.(song, finalMappings);
       song.scorePartMappings = finalMappings;
       song.liveScoreSettings = {
         ...(song.liveScoreSettings || {}),
         enabled: true,
         readOnly: true,
         countInEnabled: song.liveScoreSettings?.countInEnabled !== false,
-        countInMeasures: Math.max(0, Number(song.liveScoreSettings?.countInMeasures) || 0)
+        countInMeasures: Math.max(0, Number(song.liveScoreSettings?.countInMeasures) || 0),
+        mapping: finalMappings,
+        ipAssignments: song.liveScoreSettings?.ipAssignments || {},
+        transpositionSettings: song.liveScoreSettings?.transpositionSettings || {},
+        chordLineVisibility: song.liveScoreSettings?.chordLineVisibility || {}
       };
       return song;
     }

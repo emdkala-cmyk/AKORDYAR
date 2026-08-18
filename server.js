@@ -174,7 +174,8 @@ app.get('/api/sync/info', (req, res) => {
       clientUrl: `http://${primary}:${PORT}/sync-client.html`,
       slaves: _syncHub ? _syncHub.getSlaveCount() : 0,
       masters: _syncHub ? (_syncHub.getPeerCount() - _syncHub.getSlaveCount()) : 0,
-      total: _syncHub ? _syncHub.getPeerCount() : 0
+      total: _syncHub ? _syncHub.getPeerCount() : 0,
+      peers: _syncHub?.getPeers?.() || []
     });
   } catch (e) {
     res.status(500).json({ error: e.message });

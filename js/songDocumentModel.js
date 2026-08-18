@@ -112,7 +112,16 @@ const SongDocumentModel = (() => {
         midiScore: null,
         musicXmlScore: null,
         scorePartMappings: [],
-        liveScoreSettings: { enabled: false, readOnly: true, countInEnabled: true, countInMeasures: 0 },
+        liveScoreSettings: {
+          enabled: false,
+          readOnly: true,
+          countInEnabled: true,
+          countInMeasures: 0,
+          mapping: [],
+          ipAssignments: {},
+          transpositionSettings: {},
+          chordLineVisibility: {}
+        },
         styles: {},
         lines: [], sections: [], cues: []
       };
@@ -154,7 +163,11 @@ const SongDocumentModel = (() => {
          enabled: false,
          readOnly: true,
          countInEnabled: true,
-         countInMeasures: 0
+         countInMeasures: 0,
+         mapping: [],
+         ipAssignments: {},
+         transpositionSettings: {},
+         chordLineVisibility: {}
        },
        styles:       ed.styles || {},
       lines:        lines,
@@ -185,14 +198,30 @@ const SongDocumentModel = (() => {
         enabled: Boolean(result.musicXmlScore),
         readOnly: true,
         countInEnabled: true,
-        countInMeasures: 0
+        countInMeasures: 0,
+        mapping: [],
+        ipAssignments: {},
+        transpositionSettings: {},
+        chordLineVisibility: {}
       };
     } else {
       result.liveScoreSettings = {
         enabled: result.liveScoreSettings.enabled !== false,
         readOnly: true,
         countInEnabled: result.liveScoreSettings.countInEnabled !== false,
-        countInMeasures: Math.max(0, Number(result.liveScoreSettings.countInMeasures) || 0)
+        countInMeasures: Math.max(0, Number(result.liveScoreSettings.countInMeasures) || 0),
+        mapping: Array.isArray(result.liveScoreSettings.mapping)
+          ? result.liveScoreSettings.mapping
+          : (Array.isArray(result.scorePartMappings) ? result.scorePartMappings : []),
+        ipAssignments: result.liveScoreSettings.ipAssignments &&
+          typeof result.liveScoreSettings.ipAssignments === 'object'
+          ? result.liveScoreSettings.ipAssignments : {},
+        transpositionSettings: result.liveScoreSettings.transpositionSettings &&
+          typeof result.liveScoreSettings.transpositionSettings === 'object'
+          ? result.liveScoreSettings.transpositionSettings : {},
+        chordLineVisibility: result.liveScoreSettings.chordLineVisibility &&
+          typeof result.liveScoreSettings.chordLineVisibility === 'object'
+          ? result.liveScoreSettings.chordLineVisibility : {}
       };
     }
 

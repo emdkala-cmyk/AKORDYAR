@@ -104,6 +104,7 @@ function getEditorSongImportService() {
     edSongImportService = window.EditorSongImportService.create({
       getSong: getCurrentEditorSong,
       setSong: song => setEditorSong(song),
+      getDAW: () => getEditorDAW(),
       createBlankSong: edBlankSong,
       isValidNote: note => typeof etIsValidNote !== 'function' || etIsValidNote(note)
     });

@@ -141,6 +141,31 @@
       .find(item => item.musicXmlPartId === String(musicXmlPartId)) || null;
   }
 
+  function persistToSong(song, mappings) {
+    if (!song || typeof song !== 'object') return song;
+    const normalized = normalizeMappings(mappings);
+    song.scorePartMappings = normalized;
+    song.liveScoreSettings = {
+      ...(song.liveScoreSettings || {}),
+      enabled: song.liveScoreSettings?.enabled !== false,
+      readOnly: true,
+      mapping: normalized,
+      ipAssignments: normalized.reduce((acc, item) => {
+        if (item.ip) acc[item.musicXmlPartId] = item.ip;
+        return acc;
+      }, { ...(song.liveScoreSettings?.ipAssignments || {}) }),
+      transpositionSettings: normalized.reduce((acc, item) => {
+        if (item.transposeSemitones != null) acc[item.musicXmlPartId] = item.transposeSemitones;
+        return acc;
+      }, { ...(song.liveScoreSettings?.transpositionSettings || {}) }),
+      chordLineVisibility: normalized.reduce((acc, item) => {
+        acc[item.musicXmlPartId] = item.showChords !== false;
+        return acc;
+      }, { ...(song.liveScoreSettings?.chordLineVisibility || {}) })
+    };
+    return song;
+  }
+
   const api = Object.freeze({
     INSTRUMENTS,
     normalizeMapping,
@@ -148,7 +173,8 @@
     autoMap,
     merge,
     assign,
-    forPart
+    forPart,
+    persistToSong
   });
 
   globalScope.ScorePartMappingService = api;

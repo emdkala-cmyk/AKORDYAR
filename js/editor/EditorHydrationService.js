@@ -58,7 +58,11 @@
         enabled: Boolean(normalized.musicXmlScore),
         readOnly: true,
         countInEnabled: true,
-        countInMeasures: 0
+        countInMeasures: 0,
+        mapping: [],
+        ipAssignments: {},
+        transpositionSettings: {},
+        chordLineVisibility: {}
       };
     } else {
       normalized.liveScoreSettings = {
@@ -66,7 +70,19 @@
         readOnly: true,
         enabled: normalized.liveScoreSettings.enabled !== false,
         countInEnabled: normalized.liveScoreSettings.countInEnabled !== false,
-        countInMeasures: Math.max(0, Number(normalized.liveScoreSettings.countInMeasures) || 0)
+        countInMeasures: Math.max(0, Number(normalized.liveScoreSettings.countInMeasures) || 0),
+        mapping: Array.isArray(normalized.liveScoreSettings.mapping)
+          ? normalized.liveScoreSettings.mapping
+          : normalized.scorePartMappings,
+        ipAssignments: normalized.liveScoreSettings.ipAssignments &&
+          typeof normalized.liveScoreSettings.ipAssignments === 'object'
+          ? normalized.liveScoreSettings.ipAssignments : {},
+        transpositionSettings: normalized.liveScoreSettings.transpositionSettings &&
+          typeof normalized.liveScoreSettings.transpositionSettings === 'object'
+          ? normalized.liveScoreSettings.transpositionSettings : {},
+        chordLineVisibility: normalized.liveScoreSettings.chordLineVisibility &&
+          typeof normalized.liveScoreSettings.chordLineVisibility === 'object'
+          ? normalized.liveScoreSettings.chordLineVisibility : {}
       };
     }
     if (!normalized.styles) normalized.styles = {};

@@ -23,7 +23,7 @@ function createSyncHub(httpServer, options = {}) {
 
   const wss = new WebSocketServer({ server: httpServer, path });
 
-  /** @type {Map<string, {ws: any, role: string, name: string, ip: string, lastSeen: number}>} */
+  /** @type {Map<string, {ws: any, role: string, name: string, ip: string, partId: string|null, lastSeen: number}>} */
   const peers = new Map();
   let masterId = null;
   let peerSeq = 0;
@@ -69,7 +69,7 @@ function createSyncHub(httpServer, options = {}) {
     const list = [];
     for (const [id, peer] of peers) {
       if (id === masterId) continue; // مستر را در لیست دستگاه‌ها نشان نمی‌دهیم
-      list.push({ id, role: peer.role, name: peer.name, ip: peer.ip });
+      list.push({ id, role: peer.role, name: peer.name, ip: peer.ip, partId: peer.partId || null });
     }
     return list;
   }
@@ -83,6 +83,9 @@ function createSyncHub(httpServer, options = {}) {
   function handleHello(peer, message) {
     const role = message.p && message.p.role;
     const name = (message.p && message.p.name) || (role === Protocol.ROLE.MASTER ? 'Laptop' : 'Phone');
+    const partId = role === Protocol.ROLE.SLAVE
+      ? String(message.p?.partId || message.p?.part || '').trim() || null
+      : null;
 
     if (!Protocol.isValidRole(role)) {
       send(peer.ws, 'welcome', { ok: false, error: Protocol.ERROR_CODE.UNKNOWN_ROLE });
@@ -108,18 +111,19 @@ function createSyncHub(httpServer, options = {}) {
 
     peer.role = role;
     peer.name = name;
+    peer.partId = partId;
     peer.lastSeen = Date.now();
 
     send(peer.ws, 'welcome', {
       ok: true,
-      you: { id: peer.id, role, name },
+      you: { id: peer.id, role, name, partId },
       protocolVersion: Protocol.PROTOCOL_VERSION,
       localIp: getLocalIp(),
       port: options.port || (httpServer && httpServer.address() ? httpServer.address().port : null)
     });
 
     // به بقیه اطلاع بده که دستگاه جدیدی آمده
-    broadcast('peer-join', { id: peer.id, role, name, ip: peer.ip }, null, peer.id);
+    broadcast('peer-join', { id: peer.id, role, name, ip: peer.ip, partId }, null, peer.id);
 
     // اگر اسلیو تازه‌وارد است و snapshot قبلی داریم، بلافاصله بفرست
     if (role === Protocol.ROLE.SLAVE && lastSnapshot) {
@@ -216,7 +220,7 @@ function createSyncHub(httpServer, options = {}) {
   wss.on('connection', (ws, req) => {
     const ip = (req && req.socket && req.socket.remoteAddress) || 'unknown';
     const id = assignId('pending');
-    const peer = { id, ws, role: 'pending', name: 'pending', ip, lastSeen: Date.now() };
+    const peer = { id, ws, role: 'pending', name: 'pending', ip, partId: null, lastSeen: Date.now() };
     peers.set(id, peer);
 
     ws.on('message', (raw) => {
@@ -269,7 +273,13 @@ function createSyncHub(httpServer, options = {}) {
       const wasMaster = peer.id === masterId;
       if (wasMaster) masterId = null;
       peers.delete(peer.id);
-      broadcast('peer-leave', { id: peer.id, role: peer.role });
+      broadcast('peer-leave', {
+        id: peer.id,
+        role: peer.role,
+        name: peer.name,
+        ip: peer.ip,
+        partId: peer.partId || null
+      });
       log('peer', `${peer.name} (${peer.role}) disconnected code=${code} reason=${reason ? reason.toString() : ''} — total ${peers.size}`);
     });
 
@@ -303,6 +313,7 @@ function createSyncHub(httpServer, options = {}) {
       for (const [, p] of peers) if (p.role === Protocol.ROLE.SLAVE) n++;
       return n;
     },
+    getPeers: () => peersSnapshot(),
     getLocalIp,
     /** ارسال snapshot کامل فعلی به یک اسلیو تازه‌وارد (از سمت مستر فراخوانی می‌شود) */
     broadcastSnapshot: (snapshot) => broadcast(Protocol.MSG.SNAPSHOT, snapshot),

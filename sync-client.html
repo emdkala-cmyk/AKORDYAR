@@ -6,6 +6,7 @@
   <meta name="theme-color" content="#0F131E" />
   <title>Akordyar — نمای نوازنده (گوشی)</title>
   <link rel="stylesheet" href="fonts/Vazirmatn.css" />
+  <link rel="stylesheet" href="styles/midi.css" />
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html, body { height: 100%; min-height: 100%; background: #0F131E !important; color: #E2E8F0; font-family: 'Vazirmatn', sans-serif; overflow: hidden; }
@@ -113,6 +114,13 @@
     .mobile-midi-score-canvas { overflow: visible; }
     .mobile-midi-score-canvas .midi-score-svg { min-width: 700px; }
     .mobile-midi-score-loading { min-width: 700px; padding: 48px 20px; color: #94a3b8; text-align: center; }
+    #pv-container.midi-score-active { background: #fff !important; color: #000; }
+    #pv-container.midi-score-active .mobile-midi-score-toolbar { color: #000; background: #fff; border-color: #d1d5db; }
+    #pv-container.midi-score-active .mobile-midi-score-part-select { color: #000; background: #fff; border-color: #9ca3af; }
+    #pv-container.midi-score-active .mobile-midi-score-canvas { background: #fff; }
+    #pv-container.midi-score-active .midi-score-staff-line,
+    #pv-container.midi-score-active .midi-score-ledger-line,
+    #pv-container.midi-score-active .midi-score-barline { stroke: #000; }
     .hint { text-align: center; color: #64748b; margin-top: 20vh; font-size: 14px; padding: 0 20px; }
   </style>
 </head>
@@ -163,8 +171,10 @@
   <script src="js/core/MusicXmlScoreModel.js"></script>
   <script src="js/core/InstrumentTranspositionService.js"></script>
   <script src="js/core/ScorePartMappingService.js"></script>
-  <script src="js/core/ScorePlayheadService.js"></script>
-  <script src="js/core/MusicXmlScoreRenderer.js"></script>
+    <script src="js/core/ScorePlayheadService.js"></script>
+    <script src="js/core/MusicXmlScoreRenderer.js"></script>
+    <script src="js/editor/ScoreRenderer.js"></script>
+    <script src="js/editor/ScorePlayheadService.js"></script>
   <script src="js/sharedEngine.js"></script>
   <script src="js/playerViewRenderer.js?v=20260817-10"></script>
   <script src="js/sync/mobileTimeline.js?v=20260813-9"></script>

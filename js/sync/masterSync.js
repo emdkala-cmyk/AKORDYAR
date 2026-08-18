@@ -19,6 +19,8 @@
   'use strict';
 
   const Protocol = globalScope.AkordSyncProtocol;
+  const MasterSyncEvents = globalScope.AkordMasterSyncEvents || {};
+  globalScope.AkordMasterSyncEvents = MasterSyncEvents;
 
   function getStore() {
     return globalScope.PerformanceStore || null;
@@ -481,7 +483,10 @@
           const snap = buildSnapshot();
           if (snap) send(Protocol.MSG.SNAPSHOT, snap);
         } else if (t === Protocol.MSG.PEER_JOIN) {
+          try { MasterSyncEvents.onJoin?.(res.message.p || {}); } catch (_) {}
           onPeerJoin();
+        } else if (t === Protocol.MSG.PEER_LEAVE) {
+          try { MasterSyncEvents.onLeave?.(res.message.p || {}); } catch (_) {}
         } else if (t === Protocol.MSG.SEEK_REQUEST) {
           const time = Number(res.message.p && res.message.p.time);
           if (Number.isFinite(time) && typeof globalScope.seekTransport === 'function') {

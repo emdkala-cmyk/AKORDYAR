@@ -60,8 +60,8 @@ body.color-tool-eyedropper .chord { cursor: cell !important; }
   display: none;
   align-items: stretch;
   justify-content: center;
-  background: rgba(5, 8, 16, 0.82);
-  backdrop-filter: blur(8px);
+  background: rgba(15, 23, 42, 0.34);
+  backdrop-filter: blur(4px);
 }
 .midi-score-modal.show { display: flex; }
 .midi-score-panel {
@@ -71,9 +71,9 @@ body.color-tool-eyedropper .chord { cursor: cell !important; }
   height: min(900px, 94vh);
   margin: auto;
   overflow: hidden;
-  color: #e2e8f0;
-  background: #0f131e;
-  border: 1px solid #2d3748;
+  color: #000;
+  background: #fff;
+  border: 1px solid #d1d5db;
   border-radius: 14px;
   box-shadow: 0 24px 90px rgba(0,0,0,.56);
 }
@@ -83,24 +83,24 @@ body.color-tool-eyedropper .chord { cursor: cell !important; }
   justify-content: space-between;
   gap: 14px;
   padding: 14px 18px;
-  background: linear-gradient(180deg, #1c2333, #161b26);
-  border-bottom: 1px solid #2d3748;
+  background: #fff;
+  border-bottom: 1px solid #d1d5db;
 }
-.midi-score-title { color: #00f2fe; font-size: 1.08rem; font-weight: 800; }
-.midi-score-meta { margin-top: 4px; color: #8b949e; font-size: .75rem; }
+.midi-score-title { color: #000; font-size: 1.08rem; font-weight: 800; }
+.midi-score-meta { margin-top: 4px; color: #4b5563; font-size: .75rem; }
 .midi-score-header-actions { display: flex; align-items: center; gap: 6px; }
 .midi-score-action,
 .midi-score-close {
-  border: 1px solid #3b465a;
+  border: 1px solid #9ca3af;
   border-radius: 7px;
-  color: #e2e8f0;
-  background: #202838;
+  color: #000;
+  background: #fff;
   cursor: pointer;
 }
 .midi-score-action { padding: 6px 10px; font-size: .76rem; }
-.midi-score-action:hover { border-color: #00f2fe; color: #00f2fe; }
+.midi-score-action:hover { border-color: #000; color: #000; }
 .midi-score-close { width: 30px; height: 30px; font-size: 1.25rem; line-height: 1; }
-.midi-score-close:hover { border-color: #f85149; color: #f85149; }
+.midi-score-close:hover { border-color: #000; color: #000; }
 .midi-score-body { display: flex; flex: 1; min-height: 0; flex-direction: column; }
 .midi-score-parts {
   display: flex;
@@ -108,32 +108,29 @@ body.color-tool-eyedropper .chord { cursor: cell !important; }
   gap: 7px;
   overflow-x: auto;
   padding: 10px 14px;
-  border-bottom: 1px solid #232b3e;
+  border-bottom: 1px solid #d1d5db;
   scrollbar-width: thin;
 }
 .midi-score-part-btn {
   flex: 0 0 auto;
   padding: 7px 11px;
-  border: 1px solid #303b50;
+  border: 1px solid #9ca3af;
   border-radius: 7px;
-  color: #aab6ca;
-  background: #171e2b;
+  color: #000;
+  background: #fff;
   cursor: pointer;
   font: inherit;
   font-size: .76rem;
   white-space: nowrap;
 }
-.midi-score-part-btn:hover { border-color: #3fb8af; color: #e2e8f0; }
-.midi-score-part-btn.active { border-color: #3fb8af; color: #071014; background: #3fb8af; }
+.midi-score-part-btn:hover { border-color: #000; color: #000; }
+.midi-score-part-btn.active { border-color: #000; color: #fff; background: #000; }
 .midi-score-viewer {
   flex: 1;
   min-height: 0;
   overflow: auto;
   padding: 18px;
-  background:
-    linear-gradient(rgba(255,255,255,.015) 1px, transparent 1px),
-    #0b1019;
-  background-size: 100% 26px;
+  background: #fff;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
 }
@@ -142,42 +139,51 @@ body.color-tool-eyedropper .chord { cursor: cell !important; }
   min-width: var(--midi-score-width, 720px);
   height: auto;
   margin: 0 auto;
-  color: #d8dee9;
+  color: #000;
   overflow: visible;
 }
-.midi-score-staff-line { stroke: #91a0b8; stroke-width: 1.35; opacity: .92; }
-.midi-score-ledger-line { stroke: #aebbd0; stroke-width: 1.25; opacity: .88; }
-.midi-score-barline { stroke: #d0d9e8; stroke-width: 1.35; opacity: .9; }
+.midi-score-staff-line { stroke: #000; stroke-width: 1.15; opacity: 1; }
+.midi-score-ledger-line { stroke: #000; stroke-width: 1.05; opacity: 1; }
+.midi-score-barline { stroke: #000; stroke-width: 1.15; opacity: 1; }
 .midi-score-final-barline { stroke-width: 2.6; }
 .midi-score-measure-number,
 .midi-score-time-signature {
-  fill: #9aa8bf;
+  fill: #000;
   font-family: 'JetBrains Mono', monospace;
   font-size: 10px;
   text-anchor: middle;
 }
-.midi-score-system-label { fill: #dbe6f7; font: 600 13px 'JetBrains Mono', monospace; }
-.midi-score-clef { fill: none; stroke: #f0f5ff; stroke-width: 4.2; stroke-linecap: round; stroke-linejoin: round; }
+.midi-score-system-label { fill: #000; font: 600 13px 'JetBrains Mono', monospace; }
+.midi-score-clef { fill: none; stroke: #000; stroke-width: 3.2; stroke-linecap: round; stroke-linejoin: round; }
 .midi-score-key-symbol,
-.midi-score-accidental { fill: none; stroke: #f5c96a; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-.midi-score-notehead { fill: #00cdbd; stroke: #d7fffa; stroke-width: 1.15; }
-.midi-score-notehead-open { fill: #0b1019; stroke-width: 1.8; }
-.midi-score-stem { stroke: #00cdbd; stroke-width: 1.8; stroke-linecap: round; }
-.midi-score-flag { fill: none; stroke: #00cdbd; stroke-width: 1.8; stroke-linecap: round; }
-.midi-score-beam { stroke: #00cdbd; stroke-width: 5; stroke-linecap: square; }
+.midi-score-accidental { fill: none; stroke: #000; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.midi-score-notehead { fill: #000; stroke: #000; stroke-width: 1; }
+.midi-score-notehead-open { fill: #fff; stroke-width: 1.55; }
+.midi-score-stem { stroke: #000; stroke-width: 1.55; stroke-linecap: round; }
+.midi-score-flag { fill: none; stroke: #000; stroke-width: 1.55; stroke-linecap: round; }
+.midi-score-beam { stroke: #000; stroke-width: 4.6; stroke-linecap: square; }
 .midi-score-tie,
-.midi-score-slur { fill: none; stroke: #9fb2c9; stroke-width: 1.5; }
-.midi-score-dot { fill: #00cdbd; }
-.midi-score-rest-shape { fill: #a9b7cc; }
-.midi-score-rest-path { fill: none; stroke: #a9b7cc; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-.midi-score-accidental-text { fill: #f5c96a; font: 20px 'Bravura', 'Segoe UI Symbol', serif; }
-.midi-score-chord-label { fill: #e6aa28; font: 600 12px 'JetBrains Mono', monospace; text-anchor: middle; }
-.midi-score-note-active .midi-score-notehead { fill: #ff2e93; stroke: #ffd3e7; filter: drop-shadow(0 0 6px rgba(255,46,147,.85)); }
+.midi-score-slur { fill: none; stroke: #000; stroke-width: 1.25; }
+.midi-score-dot { fill: #000; }
+.midi-score-rest-shape { fill: #000; }
+.midi-score-rest-path { fill: none; stroke: #000; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.midi-score-accidental-text { fill: #000; font: 20px 'Bravura', 'Segoe UI Symbol', serif; }
+.midi-score-chord-label { fill: #000; font: 600 12px 'JetBrains Mono', monospace; text-anchor: middle; }
+.midi-score-note-active .midi-score-notehead { fill: #000; stroke: #000; }
 .midi-score-note-active .midi-score-stem,
-.midi-score-note-active .midi-score-flag { stroke: #ff2e93; }
-.midi-score-rest rect { fill: #a9b7cc; }
-.midi-score-rest line { stroke: #a9b7cc; stroke-width: 1; }
-.midi-score-playhead { stroke: #00f2fe; stroke-width: 2; opacity: .88; filter: drop-shadow(0 0 6px rgba(0,242,254,.9)); pointer-events: none; }
+.midi-score-note-active .midi-score-flag { stroke: #000; }
+.midi-score-rest rect { fill: #000; }
+.midi-score-rest line { stroke: #000; stroke-width: 1; }
+.midi-score-playhead { stroke: #b42318; stroke-width: 1.8; opacity: .92; pointer-events: none; }
+
+.live-score-qr-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
+.live-score-qr-card { display: grid; gap: 6px; padding: 10px; color: #111827; background: #fff; border: 1px solid #d1d5db; border-radius: 10px; }
+.live-score-qr-canvas { width: 160px; height: 160px; justify-self: center; image-rendering: pixelated; background: #fff; }
+.live-score-qr-card code { display: block; overflow-wrap: anywhere; color: #374151; font-size: 10px; }
+.live-score-connection-status { justify-self: start; padding: 2px 7px; border-radius: 999px; font-size: 11px; }
+.live-score-connection-status.connected { color: #166534; background: #dcfce7; }
+.live-score-connection-status.disconnected { color: #991b1b; background: #fee2e2; }
+.live-score-connection-status.re-syncing { color: #92400e; background: #fef3c7; }
 @media (max-width: 720px) {
   .midi-score-panel { width: 100vw; height: 100dvh; border-radius: 0; }
   .midi-score-header { align-items: flex-start; padding: 10px 12px; }

@@ -70,11 +70,23 @@
     let scoreMode = false;
     let lastRenderedHighlightKey = '';
     let localOverride = Object.assign({}, DEFAULT_MOBILE_VIEW); // تنظیمات محلی گوشی
+    let scorePlayheadService = null;
 
     function url() {
       const proto = location.protocol === 'https:' ? 'wss' : 'ws';
       return `${proto}://${location.host}/sync`;
     }
+
+    function requestedPart() {
+      try {
+        const params = new URLSearchParams(globalScope.location?.search || '');
+        return params.get('partId') || params.get('part') || null;
+      } catch (_) {
+        return null;
+      }
+    }
+
+    const lockedPartId = requestedPart();
 
     function mergedView() {
       // ترکیب view مستر + تنظیمات محلی گوشی (محلی اولویت دارد)
@@ -399,6 +411,16 @@
       return selectMidiPart(partId);
     }
 
+    function applyLockedPart() {
+      if (!lockedPartId) return;
+      const score = normalizedMusicXmlScore() || normalizedMidiScore();
+      const candidate = score?.parts?.find(part =>
+        String(part.id) === String(lockedPartId) ||
+        String(part.role || '').toLowerCase() === String(lockedPartId).toLowerCase()
+      );
+      if (candidate) selectScorePart(candidate.id);
+    }
+
     function ensureScorePlayheadVisible(x) {
       if (!container || !scoreMode) return;
       const now = performance.now();
@@ -438,7 +460,7 @@
       const useMusicXml = Boolean(xmlScore);
       const score = useMusicXml ? xmlScore : midiScore;
       const activeRenderer = useMusicXml
-        ? globalScope.MusicXmlScoreRenderer
+        ? (globalScope.ScoreRenderer || globalScope.MusicXmlScoreRenderer)
         : globalScope.MidiScoreRenderer;
       if (!score || !activeRenderer?.getPlayheadX) return;
       const playhead = container.querySelector('[data-mobile-score-playhead]');
@@ -446,14 +468,36 @@
       const activePartId = useMusicXml
         ? (musicXmlScoreState.activePartId || score.activePartId)
         : (midiScoreState.activePartId || score.activePartId);
-      const x = activeRenderer.getPlayheadX(
-        score,
-        activePartId,
-        time,
-        { midiScore }
-      );
+      if (useMusicXml && globalScope.EditorScorePlayheadService?.create) {
+        if (!scorePlayheadService) {
+          scorePlayheadService = globalScope.EditorScorePlayheadService.create({
+            midiScore,
+            musicXmlScore: score,
+            partId: activePartId,
+            renderer: activeRenderer
+          });
+        } else {
+          scorePlayheadService.setScores?.({
+            midiScore,
+            musicXmlScore: score,
+            partId: activePartId
+          });
+        }
+      }
+      const position = useMusicXml && scorePlayheadService?.positionAt
+        ? scorePlayheadService.positionAt(time, { score, partId: activePartId })
+        : {
+            x: activeRenderer.getPlayheadX(score, activePartId, time, { midiScore }),
+            yTop: null,
+            yBottom: null,
+            systemIndex: 0
+          };
+      const x = position.x;
       playhead.setAttribute('x1', String(x));
       playhead.setAttribute('x2', String(x));
+      if (Number.isFinite(position.yTop)) playhead.setAttribute('y1', String(position.yTop));
+      if (Number.isFinite(position.yBottom)) playhead.setAttribute('y2', String(position.yBottom));
+      playhead.dataset.system = String(position.systemIndex || 0);
       ensureScorePlayheadVisible(x);
       const barBeat = useMusicXml
         ? globalScope.MusicXmlScoreModel?.tickToMeasureBeat?.(
@@ -516,6 +560,7 @@
         partSelect.appendChild(option);
       });
       partSelect.addEventListener('change', () => selectMidiPart(partSelect.value));
+      if (lockedPartId) partSelect.hidden = true;
       const exitButton = documentRef.createElement('button');
       exitButton.type = 'button';
       exitButton.id = 'mobile-score-exit';
@@ -552,7 +597,7 @@
       const useMusicXml = Boolean(xmlScore);
       const score = useMusicXml ? xmlScore : midi;
       const activeRenderer = useMusicXml
-        ? globalScope.MusicXmlScoreRenderer
+        ? (globalScope.ScoreRenderer || globalScope.MusicXmlScoreRenderer)
         : globalScope.MidiScoreRenderer;
       if (!container || !score || !activeRenderer?.renderSvg) return false;
       const partId = useMusicXml
@@ -594,6 +639,7 @@
         partSelect.appendChild(option);
       });
       partSelect.addEventListener('change', () => selectScorePart(partSelect.value));
+      if (lockedPartId) partSelect.hidden = true;
       const exitButton = documentRef.createElement('button');
       exitButton.type = 'button';
       exitButton.id = 'mobile-score-exit';
@@ -746,7 +792,12 @@
 
       ws.onopen = () => {
         connected = true;
-        send(Protocol.MSG.HELLO, { role: Protocol.ROLE.SLAVE, name: 'Phone', clientVersion: Protocol.PROTOCOL_VERSION });
+        send(Protocol.MSG.HELLO, {
+          role: Protocol.ROLE.SLAVE,
+          name: 'Phone',
+          partId: lockedPartId,
+          clientVersion: Protocol.PROTOCOL_VERSION
+        });
         if (typeof updateStatus === 'function') updateStatus(true);
       };
 
@@ -781,6 +832,7 @@
             setPlaybackState(p.playback || {});
             timeline = p.timeline || timeline;
             if (p.highlight) applyHighlight(p.highlight);
+            applyLockedPart();
             renderFull();
             renderTimeline();
             break;
@@ -790,6 +842,7 @@
             if (p.midiScore) applyMidiScore(p.midiScore);
             if (p.musicXmlScore) applyMusicXmlScore(p.musicXmlScore);
             if (p.timeline) timeline = p.timeline;
+            applyLockedPart();
             renderFull();
             renderTimeline();
             break;
@@ -810,6 +863,7 @@
             break;
           case Protocol.MSG.MUSICXML_SCORE:
             applyMusicXmlScore(p);
+            applyLockedPart();
             break;
           case Protocol.MSG.TIMELINE:
             timeline = p;
@@ -886,6 +940,9 @@
     function init(el) {
       container = el;
       loadLocalView();
+      // A QR target is a performer-part route, not the shared lyric mirror.
+      // Open directly in score mode and keep the part selector locked.
+      scoreMode = Boolean(lockedPartId);
       startPlaybackRenderLoop();
       connect();
     }

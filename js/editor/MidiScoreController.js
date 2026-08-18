@@ -15,12 +15,15 @@
     saveSong = () => {},
     onSongChanged = () => {},
     toast = () => {},
+    getDAW = () => null,
     importService = globalScope.MidiScoreImportService,
     model = globalScope.MidiScoreModel,
     renderer = globalScope.MidiScoreRenderer,
     musicXmlImportService = globalScope.MusicXmlScoreImportService,
     musicXmlModel = globalScope.MusicXmlScoreModel,
-    musicXmlRenderer = globalScope.MusicXmlScoreRenderer
+    musicXmlRenderer = globalScope.ScoreRenderer || globalScope.MusicXmlScoreRenderer,
+    scoreRenderer = globalScope.ScoreRenderer || musicXmlRenderer,
+    scorePlayheadService = globalScope.EditorScorePlayheadService
   } = {}) {
     if (!importService?.create) {
       throw new TypeError('ScoreController requires MidiScoreImportService');
@@ -35,6 +38,9 @@
     let selectedMode = 'musicxml';
     let activeSeconds = 0;
     let bound = false;
+    let scoreClockService = null;
+    let lastPlayheadSystem = -1;
+    let lastAutoScrollAt = 0;
 
     function element(id) {
       return documentRef?.getElementById?.(id) || null;
@@ -61,6 +67,22 @@
         midiScore: midiScore(),
         musicXmlScore: musicXmlScore()
       }) || null;
+    }
+
+    function editorScoreClock() {
+      if (!scoreClockService) {
+        scoreClockService = scorePlayheadService?.create?.({
+          midiScore: midiScore(),
+          musicXmlScore: musicXmlScore(),
+          renderer: scoreRenderer
+        }) || null;
+      } else {
+        scoreClockService.setScores?.({
+          midiScore: midiScore(),
+          musicXmlScore: musicXmlScore()
+        });
+      }
+      return scoreClockService;
     }
 
     function close() {
@@ -178,7 +200,7 @@
 
       const viewer = element('midiScoreViewer');
       if (viewer) {
-        const activeRenderer = selectedMode === 'musicxml' ? musicXmlRenderer : renderer;
+        const activeRenderer = selectedMode === 'musicxml' ? scoreRenderer : renderer;
         const part = selectedMode === 'musicxml'
           ? musicXmlModel.getPart(normalized, selectedPartId)
           : model.getPart(normalized, selectedPartId);
@@ -309,13 +331,54 @@
       if (!viewer || !currentScore || !selectedPartId) return;
       const playhead = viewer.querySelector('[data-score-playhead]');
       if (playhead) {
-        const activeRenderer = selectedMode === 'musicxml' ? musicXmlRenderer : renderer;
-        const x = activeRenderer.getPlayheadX(currentScore, selectedPartId, activeSeconds, {
-          midiScore: midiScore(),
-          activeTick: scoreClock()?.secondsToTick?.(activeSeconds)
-        });
+        const activeRenderer = selectedMode === 'musicxml' ? scoreRenderer : renderer;
+        const position = selectedMode === 'musicxml' && editorScoreClock()?.positionAt
+          ? editorScoreClock().positionAt(activeSeconds, {
+              score: currentScore,
+              partId: selectedPartId,
+              activeTick: editorScoreClock().secondsToTick(activeSeconds),
+              loop: {
+                enabled: Boolean(getDAW()?.loopEnabled),
+                start: getDAW()?.loopA,
+                end: getDAW()?.loopB
+              }
+            })
+          : {
+              x: activeRenderer.getPlayheadX(currentScore, selectedPartId, activeSeconds, {
+                midiScore: midiScore(),
+                activeTick: scoreClock()?.secondsToTick?.(activeSeconds)
+              }),
+              yTop: 0,
+              yBottom: 0,
+              systemIndex: 0
+            };
+        const x = position.x;
         playhead.setAttribute('x1', String(x));
         playhead.setAttribute('x2', String(x));
+        if (Number.isFinite(position.yTop)) playhead.setAttribute('y1', String(position.yTop));
+        if (Number.isFinite(position.yBottom)) playhead.setAttribute('y2', String(position.yBottom));
+        playhead.dataset.system = String(position.systemIndex || 0);
+
+        const viewer = element('midiScoreViewer');
+        const now = performance.now();
+        if (
+          viewer &&
+          selectedMode === 'musicxml' &&
+          position.systemChanged &&
+          now - lastAutoScrollAt > 180
+        ) {
+          const target = editorScoreClock()?.viewportTarget?.(position, viewer);
+          if (target) {
+            lastAutoScrollAt = now;
+            try {
+              viewer.scrollTo({ left: target.left, top: target.top, behavior: 'smooth' });
+            } catch (_) {
+              viewer.scrollLeft = target.left;
+              viewer.scrollTop = target.top;
+            }
+          }
+        }
+        lastPlayheadSystem = position.systemIndex;
       } else {
         render();
       }
