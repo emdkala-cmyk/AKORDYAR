@@ -64,7 +64,10 @@
       throw new Error('MusicXML منبع خام معتبر همراه پروژه نیست.');
     }
     const documentNode = new DOMParser().parseFromString(text, 'application/xml');
-    const parserErrors = documentNode?.getElementsByTagName?.('parsererror') || [];
+    const parserErrors = [
+      ...Array.from(documentNode?.getElementsByTagName?.('parsererror') || []),
+      ...Array.from(documentNode?.getElementsByTagNameNS?.('*', 'parsererror') || [])
+    ];
     if (parserErrors.length || !documentNode?.documentElement) {
       throw new Error('MusicXML سند قابل خواندن نیست.');
     }

@@ -184,6 +184,9 @@
       const song = getSong();
       const midi = midiScore();
       const conversions = midi?.conversions;
+      const secondsToTick = conversions?.secondsToTick ||
+        scoreClock()?.secondsToTick ||
+        (seconds => seconds);
       const dawClips = getDAW()?.clips?.filter(clip =>
         clip && clip.type === 'chord' && String(clip.name || '').trim()
       ) || [];
@@ -207,7 +210,7 @@
             .trim();
           if (!text || !Number.isFinite(seconds)) return null;
           return {
-            tick: conversions?.secondsToTick ? conversions.secondsToTick(seconds) : seconds,
+            tick: secondsToTick(seconds),
             text
           };
         })

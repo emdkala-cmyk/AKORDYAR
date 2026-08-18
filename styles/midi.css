@@ -242,7 +242,15 @@ body.color-tool-eyedropper .chord { cursor: cell !important; }
 .midi-score-rest line { stroke: #000; stroke-width: 1; }
 .midi-score-playhead { stroke: #b42318; stroke-width: 1.8; opacity: .92; pointer-events: none; }
 
-.live-score-qr-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
+.live-score-qr-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 12px;
+  max-height: min(560px, calc(100vh - 250px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 2px 4px 8px 2px;
+}
 .live-score-qr-card { display: grid; gap: 6px; padding: 10px; color: #111827; background: #fff; border: 1px solid #d1d5db; border-radius: 10px; }
 .live-score-qr-canvas { width: 160px; height: 160px; justify-self: center; image-rendering: pixelated; background: #fff; }
 .live-score-qr-card code { display: block; overflow-wrap: anywhere; color: #374151; font-size: 10px; }

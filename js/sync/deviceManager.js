@@ -26,8 +26,8 @@
     function el(id) { return document.getElementById(id); }
 
     function clampPanelPosition(root, left, top) {
-      const width = root.offsetWidth || 58;
-      const height = root.offsetHeight || 58;
+      const width = root.offsetWidth || 36;
+      const height = root.offsetHeight || 36;
       return {
         left: Math.max(0, Math.min(Number(left) || 0, Math.max(0, window.innerWidth - width))),
         top: Math.max(0, Math.min(Number(top) || 0, Math.max(0, window.innerHeight - height)))
@@ -69,7 +69,8 @@
       root.title = 'اشتراک‌گذاری گروه‌نوازی';
       root.style.cssText = [
         'position:fixed', 'left:14px', 'top:14px', 'z-index:99999',
-        'width:58px', 'height:58px', 'background:rgba(19,28,43,0.78)', 'color:#E2E8F0',
+        'width:36px', 'height:36px', 'max-height:calc(100vh - 20px)',
+        'background:rgba(19,28,43,0.78)', 'color:#E2E8F0',
         'border:1px solid rgba(0,242,254,0.48)', 'border-radius:50%',
         'font-family:Vazirmatn,sans-serif', 'font-size:13px', 'box-shadow:0 8px 30px rgba(0,0,0,0.5)',
         'backdrop-filter:blur(16px)', 'overflow:visible', 'direction:rtl',
@@ -114,12 +115,12 @@
       if (headerEl) {
         headerEl.innerHTML = `
           <span id="akord-sync-icon" aria-hidden="true">
-            <svg viewBox="0 0 32 32" width="20" height="20" fill="none"
-              stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="8" cy="16" r="3.2"></circle>
-              <circle cx="24" cy="8" r="3.2"></circle>
-              <circle cx="24" cy="24" r="3.2"></circle>
-              <path d="M10.8 14.6 21.1 9.5M10.8 17.4l10.3 5.1"></path>
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none"
+              stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="6" height="6"></rect>
+              <rect x="15" y="3" width="6" height="6"></rect>
+              <rect x="3" y="15" width="6" height="6"></rect>
+              <path d="M15 15h3v3h-3zM18 18h3v3h-3zM15 21h3"></path>
             </svg>
           </span>
           <span id="akord-sync-title">اشتراک‌گذاری گروه‌نوازی</span>
@@ -135,7 +136,12 @@
       }
       const toggleEl = el('akord-sync-toggle');
       const titleEl = el('akord-sync-title');
-      if (bodyEl) bodyEl.style.display = 'none';
+      if (bodyEl) {
+        bodyEl.style.display = 'none';
+        bodyEl.style.maxHeight = 'calc(100vh - 82px)';
+        bodyEl.style.overflowY = 'auto';
+        bodyEl.style.overscrollBehavior = 'contain';
+      }
       if (titleEl) titleEl.style.display = 'none';
       if (toggleEl) toggleEl.style.display = 'none';
       if (qrCanvas) {
@@ -166,8 +172,9 @@
         title.style.display = hidden ? 'inline' : 'none';
         toggle.style.display = hidden ? 'inline' : 'none';
         toggle.textContent = hidden ? '⌃' : '⌄';
-        root.style.width = hidden ? '520px' : '58px';
-        root.style.height = hidden ? 'auto' : '58px';
+        root.style.width = hidden ? 'min(520px, calc(100vw - 20px))' : '36px';
+        root.style.height = hidden ? 'auto' : '36px';
+        root.style.maxHeight = hidden ? 'calc(100vh - 20px)' : '36px';
         root.style.borderRadius = hidden ? '18px' : '50%';
         root.style.overflow = hidden ? 'hidden' : 'visible';
         root.style.boxShadow = hidden
@@ -175,6 +182,10 @@
           : '0 8px 30px rgba(0,0,0,.5)';
         headerEl.style.justifyContent = hidden ? 'space-between' : 'center';
         headerEl.style.padding = hidden ? '10px 14px' : '8px';
+        if (body) {
+          body.style.maxHeight = hidden ? 'calc(100vh - 82px)' : '0';
+          body.style.overflowY = hidden ? 'auto' : 'hidden';
+        }
         root.setAttribute('aria-expanded', String(hidden));
       };
       let suppressHeaderClick = false;

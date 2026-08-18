@@ -157,16 +157,22 @@
     }
 
     function scoreChordOverlay() {
-      const conversions = normalizedMidiScore()?.conversions;
+      const midi = normalizedMidiScore();
+      const xml = normalizedMusicXmlScore();
+      const conversions = midi?.conversions;
+      const secondsToTick = conversions?.secondsToTick ||
+        globalScope.ScorePlayheadService?.create?.({
+          midiScore: midi,
+          musicXmlScore: xml
+        })?.secondsToTick ||
+        (seconds => seconds);
       return (timeline?.clips || [])
         .filter(clip => clip?.type === 'chord' && String(clip?.name || '').trim())
         .map(clip => {
           const seconds = Number(clip.start);
           if (!Number.isFinite(seconds)) return null;
           return {
-            tick: conversions?.secondsToTick
-              ? conversions.secondsToTick(seconds)
-              : seconds,
+            tick: secondsToTick(seconds),
             text: String(clip.name || '').trim()
           };
         })
