@@ -27,5 +27,10 @@ assert.match(svg, /midi-score-clef/);
 assert.match(svg, /midi-score-time-signature/);
 assert.match(svg, /midi-score-notehead/);
 assert.ok(MidiScoreRenderer.getPlayheadX(score, partId, 0.25) > 0);
+const explicitPosition = MidiScoreRenderer.getPlayheadPosition(score, partId, 0, {
+  activeTick: 240
+});
+assert.equal(explicitPosition.tick, 240);
+assert.equal(explicitPosition.systemIndex, 0);
 
 console.log('MidiScoreRenderer tests passed');

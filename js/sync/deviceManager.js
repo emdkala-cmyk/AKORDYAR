@@ -15,12 +15,19 @@
 
   const DeviceManager = (() => {
     const PANEL_POSITION_KEY = 'akordyar.syncPanelPosition.v1';
+    const QR_PART_STORAGE_KEY = 'akordyar.syncQrPart.v1';
     let panelEl = null;
     let qrCanvas = null;
+    let qrTabsEl = null;
     let qrGridEl = null;
     let listEl = null;
     let statusEl = null;
+    let qrPayloads = [];
+    let qrSelectedPartId = '';
+    let qrRequestedPartId = '';
     let _pollTimer = null;
+    let unsubscribeScoreChanges = null;
+    let lastSyncInfo = null;
     let connectionService = null;
 
     function el(id) { return document.getElementById(id); }
@@ -84,7 +91,8 @@
         </div>
         <div id="akord-sync-body" style="padding:12px;">
           <div id="akord-sync-status" style="color:#7dd3fc;margin-bottom:8px;">در حال اتصال…</div>
-          <div style="text-align:center;color:#64748b;font-size:11px;margin-bottom:4px;">QR اختصاصی هر پارت را اسکن کنید</div>
+          <div style="text-align:center;color:#64748b;font-size:11px;margin-bottom:4px;">هر تب یک پارت واردشده است؛ برای سازهای دیگر فایل چندپارتی MIDI/MusicXML وارد کنید</div>
+          <div id="akord-sync-qr-tabs" class="live-score-qr-tabs" role="tablist" aria-label="QR part selector"></div>
           <div id="akord-sync-qr-grid" class="live-score-qr-grid"></div>
           <div id="akord-sync-url" style="text-align:center;color:#00F2FE;font-size:12px;word-break:break-all;margin-bottom:6px;"></div>
           <div id="akord-sync-ips" style="text-align:center;color:#64748b;font-size:10px;word-break:break-all;margin-bottom:6px;"></div>
@@ -103,6 +111,7 @@
       panelEl = root;
       loadPanelPosition(root);
       qrCanvas = el('akord-sync-qr');
+      qrTabsEl = el('akord-sync-qr-tabs');
       qrGridEl = el('akord-sync-qr-grid');
       listEl = el('akord-sync-list');
       statusEl = el('akord-sync-status');
@@ -303,30 +312,124 @@
     }
 
     function currentScoreParts() {
-      const score = globalScope.PerformanceStore?.getState?.()?.musicXmlScoreState?.score ||
+      const state = globalScope.PerformanceStore?.getState?.() || {};
+      const xmlScore = state.musicXmlScoreState?.score ||
         globalScope.EdCurAdapter?.getEdCur?.()?.musicXmlScore || null;
-      const normalized = globalScope.MusicXmlScoreModel?.normalize?.(score) || score;
+      const midiScore = state.midiScoreState?.score ||
+        globalScope.EdCurAdapter?.getEdCur?.()?.midiScore || null;
+      const score = xmlScore || midiScore;
+      const normalized = xmlScore
+        ? (globalScope.MusicXmlScoreModel?.normalize?.(score) || score)
+        : (globalScope.MidiScoreModel?.normalize?.(score) || score);
       return {
         parts: normalized?.parts || [],
-        mappings: globalScope.PerformanceStore?.getState?.()?.musicXmlScoreState?.mappings ||
+        mappings: state.musicXmlScoreState?.mappings ||
           globalScope.EdCurAdapter?.getEdCur?.()?.scorePartMappings || []
       };
+    }
+
+    function loadSelectedQrPart() {
+      try {
+        return String(globalScope.localStorage?.getItem(QR_PART_STORAGE_KEY) || '');
+      } catch (_) {
+        return '';
+      }
+    }
+
+    function saveSelectedQrPart(partId) {
+      try {
+        globalScope.localStorage?.setItem(QR_PART_STORAGE_KEY, String(partId || ''));
+      } catch (_) {
+        // Selection persistence is best effort.
+      }
+    }
+
+    function renderQrTabs() {
+      if (!qrTabsEl || !globalScope.document) return;
+      qrTabsEl.replaceChildren();
+
+      const allButton = document.createElement('button');
+      allButton.type = 'button';
+      allButton.className = `live-score-qr-tab${qrSelectedPartId ? '' : ' active'}`;
+      allButton.dataset.partId = '';
+      allButton.setAttribute('role', 'tab');
+      allButton.setAttribute('aria-selected', String(!qrSelectedPartId));
+      allButton.textContent = 'همهٔ سازها';
+      allButton.addEventListener('click', () => selectPartQr(''));
+      qrTabsEl.appendChild(allButton);
+
+      qrPayloads.forEach(payload => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = `live-score-qr-tab${String(payload.partId) === String(qrSelectedPartId) ? ' active' : ''}`;
+        button.dataset.partId = payload.partId;
+        button.setAttribute('role', 'tab');
+        button.setAttribute('aria-selected', String(String(payload.partId) === String(qrSelectedPartId)));
+        button.textContent = payload.label || payload.role || payload.partId;
+        button.addEventListener('click', () => selectPartQr(payload.partId));
+        qrTabsEl.appendChild(button);
+      });
+    }
+
+    function renderSelectedQr() {
+      if (!qrGridEl || !globalScope.LiveScoreQrService) return;
+      const selected = qrSelectedPartId
+        ? qrPayloads.filter(payload => String(payload.partId) === String(qrSelectedPartId))
+        : qrPayloads;
+      globalScope.LiveScoreQrService.renderCards(qrGridEl, selected, {
+        connectionService,
+        onScan: payload => selectPartQr(payload.partId)
+      });
+    }
+
+    function expandPanel() {
+      const body = el('akord-sync-body');
+      if (body && body.style.display === 'none') {
+        el('akord-sync-header')?.click();
+      }
+    }
+
+    function selectPartQr(partId = '', { open = true } = {}) {
+      if (!panelEl) buildPanel();
+      const value = String(partId || '');
+      const hasPayload = !value ||
+        qrPayloads.some(payload => String(payload.partId) === value);
+      qrRequestedPartId = hasPayload ? '' : value;
+      qrSelectedPartId = hasPayload ? value : '';
+      saveSelectedQrPart(qrSelectedPartId);
+      renderQrTabs();
+      renderSelectedQr();
+      if (!hasPayload) refreshInfo();
+      if (open) expandPanel();
+      return true;
     }
 
     function renderPartQrs(info) {
       if (!qrGridEl || !globalScope.LiveScoreQrService) return;
       const source = currentScoreParts();
-      const payloads = globalScope.LiveScoreQrService.buildPayloads({
+      qrPayloads = globalScope.LiveScoreQrService.buildPayloads({
         baseUrl: info?.clientUrl || '',
         parts: source.parts,
         mappings: source.mappings
       });
-      globalScope.LiveScoreQrService.renderCards(qrGridEl, payloads, {
-        connectionService
-      });
+      const savedPartId = qrRequestedPartId || loadSelectedQrPart();
+      const hasSavedPart = qrPayloads.some(payload =>
+        String(payload.partId) === savedPartId
+      );
+      qrSelectedPartId = hasSavedPart ? savedPartId : '';
+      if (hasSavedPart) qrRequestedPartId = '';
+      renderQrTabs();
+      renderSelectedQr();
       if (connectionService) {
-        payloads.forEach(payload => connectionService.setState(payload.partId, connectionService.getState(payload.partId)));
+        qrPayloads.forEach(payload => connectionService.setState(
+          payload.partId,
+          connectionService.getState(payload.partId)
+        ));
       }
+    }
+
+    function refresh() {
+      return refreshInfo();
     }
 
     function renderConnectionList() {
@@ -345,6 +448,7 @@
         const resp = await fetch('/api/sync/info?' + Date.now());
         if (!resp.ok) return;
         const info = await resp.json();
+        lastSyncInfo = info;
         const urlEl = el('akord-sync-url');
         if (urlEl) urlEl.textContent = info.clientUrl || '';
         const ipsEl = el('akord-sync-ips');
@@ -385,6 +489,21 @@
 
     function start() {
       buildPanel();
+      if (!unsubscribeScoreChanges) {
+        const store = globalScope.PerformanceStore;
+        const onScoreChanged = () => {
+          if (lastSyncInfo) renderPartQrs(lastSyncInfo);
+          else refreshInfo();
+        };
+        const unsubXml = store?.subscribe?.('musicXmlScoreChanged', onScoreChanged);
+        const unsubMidi = store?.subscribe?.('midiScoreChanged', onScoreChanged);
+        if (unsubXml || unsubMidi) {
+          unsubscribeScoreChanges = () => {
+            unsubXml?.();
+            unsubMidi?.();
+          };
+        }
+      }
       // توجه: masterSync.js خودش در DOMContentLoaded متصل می‌شود؛
       // اینجا فقط بررسی می‌کنیم (برای جلوگیری از دو اتصال همزمان که
       // باعث حلقه connect/disconnect در هاب می‌شود)
@@ -424,13 +543,25 @@
 
     function stop() {
       if (_pollTimer) clearInterval(_pollTimer);
+      unsubscribeScoreChanges?.();
+      unsubscribeScoreChanges = null;
       const Master = globalScope.AkordMasterSync;
       if (Master) Master.disconnect();
       if (panelEl && panelEl.parentNode) panelEl.parentNode.removeChild(panelEl);
       panelEl = null;
     }
 
-    return { start, stop, buildPanel, addDevice, removeDevice, setStatus };
+    return {
+      start,
+      stop,
+      buildPanel,
+      addDevice,
+      removeDevice,
+      setStatus,
+      selectPartQr,
+      refresh,
+      getQrPayloads: () => qrPayloads.slice()
+    };
   })();
 
   globalScope.AkordDeviceManager = DeviceManager;

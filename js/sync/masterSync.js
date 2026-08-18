@@ -160,8 +160,27 @@
 
   function buildMusicXmlScorePayload(scoreState, requestedPartId = null, includePart = false) {
     const score = scoreState?.score;
+    const song = globalScope.EdCurAdapter?.getEdCur?.() || null;
+    const projectTempo = Math.max(
+      1,
+      Number(song?.tempo) || Number(
+        globalScope.RuntimeStateAdapter?.getDAW?.()?.tempo
+      ) || 120
+    );
+    const chordLineVisibility =
+      song?.liveScoreSettings?.chordLineVisibility &&
+      typeof song.liveScoreSettings.chordLineVisibility === 'object'
+        ? { ...song.liveScoreSettings.chordLineVisibility }
+        : {};
     if (!score || typeof score !== 'object') {
-      return { score: null, activePartId: null, mappings: [], scoreVersion: 0 };
+      return {
+        score: null,
+        activePartId: null,
+        mappings: [],
+        chordLineVisibility,
+        projectTempo,
+        scoreVersion: 0
+      };
     }
     const activePartId =
       requestedPartId ||
@@ -255,6 +274,8 @@
       mappings: Array.isArray(scoreState.mappings)
         ? scoreState.mappings.map(mapping => ({ ...mapping, ip: null }))
         : (Array.isArray(score.mappings) ? score.mappings.map(mapping => ({ ...mapping, ip: null })) : []),
+      chordLineVisibility,
+      projectTempo,
       scoreVersion: Number(scoreState.scoreVersion || score.schemaVersion || 1)
     };
   }

@@ -59,6 +59,8 @@
       score: null,
       activePartId: null,
       mappings: [],
+      chordLineVisibility: {},
+      projectTempo: 120,
       scoreVersion: 0,
       scoreIdentity: ''
     };
@@ -71,6 +73,11 @@
     let lastRenderedHighlightKey = '';
     let localOverride = Object.assign({}, DEFAULT_MOBILE_VIEW); // تنظیمات محلی گوشی
     let scorePlayheadService = null;
+
+    function projectTempo() {
+      const value = Number(timeline?.tempo) || Number(musicXmlScoreState?.projectTempo) || 120;
+      return value > 0 ? value : 120;
+    }
 
     function url() {
       const proto = location.protocol === 'https:' ? 'wss' : 'ws';
@@ -159,11 +166,10 @@
     function scoreChordOverlay() {
       const midi = normalizedMidiScore();
       const xml = normalizedMusicXmlScore();
-      const conversions = midi?.conversions;
-      const secondsToTick = conversions?.secondsToTick ||
-        globalScope.ScorePlayheadService?.create?.({
+      const secondsToTick = globalScope.ScorePlayheadService?.create?.({
           midiScore: midi,
-          musicXmlScore: xml
+          musicXmlScore: xml,
+          projectTempo: projectTempo()
         })?.secondsToTick ||
         (seconds => seconds);
       return (timeline?.clips || [])
@@ -272,6 +278,80 @@
       return Boolean(part?.measures?.some(measure => Array.isArray(measure.notes)));
     }
 
+    function mergeMusicXmlScoreData(previousScore, incomingScore) {
+      if (!previousScore || !incomingScore) return incomingScore;
+      const previousParts = Array.isArray(previousScore.parts)
+        ? previousScore.parts : [];
+      const incomingParts = Array.isArray(incomingScore.parts)
+        ? incomingScore.parts : [];
+      const parts = incomingParts.map(part => {
+        const previous = previousParts.find(candidate =>
+          String(candidate.id) === String(part.id)
+        );
+        if (!previous) return part;
+        const incomingHasData = hasMusicXmlPartData(incomingScore, part.id);
+        return incomingHasData
+          ? { ...previous, ...part }
+          : {
+              ...previous,
+              ...part,
+              measures: Array.isArray(previous.measures)
+                ? previous.measures
+                : (part.measures || [])
+            };
+      });
+      const previousSource = previousScore.source || {};
+      const incomingSource = incomingScore.source || {};
+      return {
+        ...previousScore,
+        ...incomingScore,
+        measures: Array.isArray(incomingScore.measures) &&
+          incomingScore.measures.length
+          ? incomingScore.measures
+          : previousScore.measures,
+        parts,
+        source: {
+          ...previousSource,
+          ...incomingSource,
+          data: incomingSource.data || previousSource.data || null
+        }
+      };
+    }
+
+    function renderScoreInPlace() {
+      if (!scoreMode || !container) return false;
+      const score = normalizedMusicXmlScore();
+      const renderer = globalScope.ScoreRenderer || globalScope.MusicXmlScoreRenderer;
+      const canvas = container.querySelector(
+        '.mobile-midi-score-canvas.score-viewer-root'
+      );
+      const partId = musicXmlScoreState.activePartId || score?.activePartId;
+      const part = score?.parts?.find(candidate =>
+        String(candidate.id) === String(partId)
+      );
+      if (
+        !score ||
+        !partId ||
+        !canvas ||
+        !hasMusicXmlPartData(score, partId) ||
+        !renderer?.renderInto
+      ) return false;
+      Promise.resolve(renderer.renderInto(canvas, score, partId, {
+        zoom: 1,
+        chords: scoreChordOverlay(),
+        showChords: showChordsForPart(partId, part)
+      })).then(() => {
+        const renderedPlayhead = canvas.querySelector('[data-score-playhead]');
+        if (renderedPlayhead) {
+          renderedPlayhead.setAttribute('data-mobile-score-playhead', 'true');
+        }
+        renderScorePlayhead(getRenderedPlayback().time);
+      }).catch(error => {
+        console.error('[MobileClient] in-place MusicXML update failed:', error);
+      });
+      return true;
+    }
+
     function requestScorePart(partId) {
       const score = normalizedMidiScore();
       if (!score || !hasPart(score, partId)) return false;
@@ -361,6 +441,8 @@
           score: null,
           activePartId: null,
           mappings: [],
+          chordLineVisibility: {},
+          projectTempo: Number(payload.projectTempo) || 120,
           scoreVersion: incomingVersion,
           scoreIdentity: ''
         };
@@ -370,8 +452,18 @@
         return;
       }
       normalizedMusicXmlCache = { raw: null, version: 0, score: null };
-      const normalized = globalScope.MusicXmlScoreModel?.normalize?.(rawScore) || rawScore;
-      const identity = musicXmlScoreIdentity(normalized);
+      const incomingNormalized =
+        globalScope.MusicXmlScoreModel?.normalize?.(rawScore) || rawScore;
+      const identity = musicXmlScoreIdentity(incomingNormalized);
+      const sameIdentity = Boolean(
+        musicXmlScoreState.score &&
+        musicXmlScoreState.scoreIdentity === identity
+      );
+      const scoreData = sameIdentity
+        ? mergeMusicXmlScoreData(musicXmlScoreState.score, rawScore)
+        : rawScore;
+      const normalized =
+        globalScope.MusicXmlScoreModel?.normalize?.(scoreData) || scoreData;
       const previousPart = musicXmlScoreState.activePartId;
       const storedPartId = readStoredMusicXmlPart(identity);
       const activePartId =
@@ -385,14 +477,21 @@
                 normalized.parts?.[0]?.id
               ].find(partId => hasMusicXmlPart(normalized, partId)) || null;
       musicXmlScoreState = {
-        score: rawScore,
+        score: scoreData,
         activePartId,
         mappings: Array.isArray(payload.mappings) ? payload.mappings : (rawScore.mappings || []),
+        chordLineVisibility: payload.chordLineVisibility &&
+          typeof payload.chordLineVisibility === 'object'
+          ? { ...payload.chordLineVisibility }
+          : (musicXmlScoreState.chordLineVisibility || {}),
+        projectTempo: Number(payload.projectTempo) > 0
+          ? Number(payload.projectTempo)
+          : projectTempo(),
         scoreVersion: incomingVersion,
         scoreIdentity: identity
       };
       normalizedMusicXmlCache = {
-        raw: rawScore,
+        raw: scoreData,
         version: incomingVersion,
         score: normalized
       };
@@ -402,7 +501,12 @@
       } else if (pendingMusicXmlPartRequest === activePartId) {
         pendingMusicXmlPartRequest = null;
       }
-      if (scoreMode) renderFull();
+      if (scoreMode) {
+        const updatedInPlace = sameIdentity && renderScoreInPlace();
+        if (!updatedInPlace) renderFull();
+        return updatedInPlace;
+      }
+      return false;
     }
 
     function selectMidiPart(partId) {
@@ -444,7 +548,7 @@
       if (candidate) selectScorePart(candidate.id);
     }
 
-    function ensureScorePlayheadVisible(x) {
+    function ensureScorePlayheadVisible(position) {
       if (!container || !scoreMode) return;
       const now = performance.now();
       if (now - lastScoreAutoScrollAt < 300) return;
@@ -452,27 +556,68 @@
       if (!canvas) return;
       const containerRect = container.getBoundingClientRect();
       const canvasRect = canvas.getBoundingClientRect();
-      const targetX = canvasRect.left + x;
-      const margin = Math.min(120, container.clientWidth * 0.2);
-      if (
-        targetX >= containerRect.left + margin &&
-        targetX <= containerRect.right - margin
-      ) return;
-      const maxScroll = Math.max(0, container.scrollWidth - container.clientWidth);
-      const desired = Math.max(
-        0,
-        Math.min(
-          maxScroll,
-          container.scrollLeft + targetX -
-            (containerRect.left + container.clientWidth / 2)
-        )
+      const scoreX = Number(position?.x);
+      const scoreYTop = Number.isFinite(Number(position?.staffTop))
+        ? Number(position.staffTop)
+        : Number(position?.yTop);
+      const scoreYBottom = Number(position?.yBottom);
+      const scoreY = Number.isFinite(scoreYTop)
+        ? scoreYTop + (
+            Number.isFinite(scoreYBottom) && scoreYBottom > scoreYTop
+              ? Math.min(48, (scoreYBottom - scoreYTop) / 2)
+              : 0
+          )
+        : null;
+      const targetX = Number.isFinite(scoreX) ? canvasRect.left + scoreX : null;
+      const targetY = Number.isFinite(scoreY) ? canvasRect.top + scoreY : null;
+      const horizontalMargin = Math.min(120, container.clientWidth * 0.2);
+      const verticalMargin = Math.min(96, container.clientHeight * 0.2);
+      const needsHorizontal = Number.isFinite(targetX) && (
+        targetX < containerRect.left + horizontalMargin ||
+        targetX > containerRect.right - horizontalMargin
       );
-      if (Math.abs(desired - container.scrollLeft) < 8) return;
+      const needsVertical = Number.isFinite(targetY) && (
+        targetY < containerRect.top + verticalMargin ||
+        targetY > containerRect.bottom - verticalMargin
+      );
+      if (!needsHorizontal && !needsVertical) return;
+
+      const maxScrollLeft = Math.max(0, container.scrollWidth - container.clientWidth);
+      const maxScrollTop = Math.max(0, container.scrollHeight - container.clientHeight);
+      const desiredLeft = needsHorizontal
+        ? Math.max(
+            0,
+            Math.min(
+              maxScrollLeft,
+              container.scrollLeft + targetX -
+                (containerRect.left + container.clientWidth / 2)
+            )
+          )
+        : container.scrollLeft;
+      const desiredTop = needsVertical
+        ? Math.max(
+            0,
+            Math.min(
+              maxScrollTop,
+              container.scrollTop + targetY -
+                (containerRect.top + container.clientHeight / 2)
+            )
+          )
+        : container.scrollTop;
+      if (
+        Math.abs(desiredLeft - container.scrollLeft) < 8 &&
+        Math.abs(desiredTop - container.scrollTop) < 8
+      ) return;
       lastScoreAutoScrollAt = now;
       try {
-        container.scrollTo({ left: desired, behavior: 'smooth' });
+        container.scrollTo({
+          left: desiredLeft,
+          top: desiredTop,
+          behavior: 'smooth'
+        });
       } catch (_) {
-        container.scrollLeft = desired;
+        container.scrollLeft = desiredLeft;
+        container.scrollTop = desiredTop;
       }
     }
 
@@ -497,41 +642,54 @@
         : null;
       if (useMusicXml && !root) return;
       if (!useMusicXml && !playhead) return;
+      const projectClock = globalScope.ScorePlayheadService?.create?.({
+        midiScore,
+        musicXmlScore: score,
+        projectTempo: projectTempo()
+      });
       if (useMusicXml && globalScope.EditorScorePlayheadService?.create) {
         if (!scorePlayheadService) {
           scorePlayheadService = globalScope.EditorScorePlayheadService.create({
             midiScore,
             musicXmlScore: score,
             partId: activePartId,
+            projectTempo: projectTempo(),
             renderer: activeRenderer
           });
         } else {
           scorePlayheadService.setScores?.({
             midiScore,
             musicXmlScore: score,
-            partId: activePartId
+            partId: activePartId,
+            projectTempo: projectTempo()
           });
         }
       }
+      const activeTick = scorePlayheadService?.secondsToTick
+        ? scorePlayheadService.secondsToTick(time)
+        : projectClock?.secondsToTick?.(time);
       const position = useMusicXml && scorePlayheadService?.positionAt
         ? scorePlayheadService.positionAt(time, {
             score,
             partId: activePartId,
             root,
-            activeTick: midiScore?.conversions?.secondsToTick?.(time)
+            activeTick
           })
-        : {
-            x: useMusicXml
-              ? activeRenderer.getPlayheadPosition(score, activePartId, time, {
-                  root,
-                  midiScore,
-                  activeTick: midiScore?.conversions?.secondsToTick?.(time)
-                }).x
-              : activeRenderer.getPlayheadX(score, activePartId, time, { midiScore }),
-            yTop: null,
-            yBottom: null,
-            systemIndex: 0
-          };
+        : (activeRenderer.getPlayheadPosition
+          ? activeRenderer.getPlayheadPosition(score, activePartId, time, {
+              root,
+              midiScore,
+              activeTick
+            })
+          : {
+              x: activeRenderer.getPlayheadX(score, activePartId, time, {
+                midiScore,
+                activeTick
+              }),
+              yTop: null,
+              yBottom: null,
+              systemIndex: 0
+            });
       const x = position.x;
       if (useMusicXml) {
         activeRenderer.updatePlayhead?.(root, position);
@@ -542,18 +700,16 @@
         if (Number.isFinite(position.yBottom)) playhead.setAttribute('y2', String(position.yBottom));
         playhead.dataset.system = String(position.systemIndex || 0);
       }
-      ensureScorePlayheadVisible(x);
+      ensureScorePlayheadVisible(position);
       const barBeat = useMusicXml
         ? globalScope.MusicXmlScoreModel?.tickToMeasureBeat?.(
             score,
-            midiScore?.conversions?.secondsToTick
-              ? midiScore.conversions.secondsToTick(time)
-              : 0,
+            Number.isFinite(Number(position?.tick)) ? position.tick : (activeTick || 0),
             activePartId
           )
         : score.conversions?.tickToBarBeat &&
-          score.conversions?.secondsToTick
-          ? score.conversions.tickToBarBeat(score.conversions.secondsToTick(time))
+          Number.isFinite(Number(activeTick))
+          ? score.conversions.tickToBarBeat(activeTick)
           : null;
       const positionKey = barBeat ? `${barBeat.bar}:${barBeat.beat}` : '';
       if (positionKey !== lastScorePositionKey) {
@@ -574,9 +730,14 @@
       if (!partId) return false;
       const time = getRenderedPlayback().time;
       const hasTrack = hasPartTrack(score, partId);
+      const activeTick = globalScope.ScorePlayheadService?.create?.({
+        midiScore: score,
+        projectTempo: projectTempo()
+      })?.secondsToTick?.(time);
       const svg = hasTrack
         ? globalScope.MidiScoreRenderer.renderSvg(score, partId, {
             activeTime: time,
+            activeTick,
             ariaLabel: 'MIDI performer score'
           })
         : '';
@@ -635,6 +796,17 @@
       return true;
     }
 
+    function showChordsForPart(partId, part) {
+      const visibility = musicXmlScoreState.chordLineVisibility;
+      if (
+        visibility &&
+        Object.prototype.hasOwnProperty.call(visibility, partId)
+      ) {
+        return visibility[partId] !== false;
+      }
+      return localOverride.showChords !== false && part?.showChords !== false;
+    }
+
     function renderScoreFull() {
       const xmlScore = normalizedMusicXmlScore();
       const midi = normalizedMidiScore();
@@ -687,8 +859,13 @@
       const canvas = documentRef.createElement('div');
       canvas.className = 'mobile-midi-score-canvas';
       if (!useMusicXml) {
+        const activeTick = globalScope.ScorePlayheadService?.create?.({
+          midiScore: midi,
+          projectTempo: projectTempo()
+        })?.secondsToTick?.(time);
         canvas.innerHTML = activeRenderer.renderSvg(score, partId, {
           activeTime: time,
+          activeTick,
           midiScore: midi,
           ariaLabel: 'MIDI performer score'
         });
@@ -711,7 +888,7 @@
         activeRenderer.renderInto(canvas, score, partId, {
           zoom: 1,
           chords: scoreChordOverlay(),
-          showChords: localOverride.showChords !== false && part?.showChords !== false
+          showChords: showChordsForPart(partId, part)
         })
           .then(() => {
             const renderedPlayhead = canvas.querySelector('[data-score-playhead]');
@@ -896,25 +1073,29 @@
           case Protocol.MSG.SNAPSHOT:
             currentDoc = p.doc || null;
             currentKey = p.keyState || null;
+            timeline = p.timeline || timeline;
             applyMidiScore(p.midiScore);
-            applyMusicXmlScore(p.musicXmlScore || { score: null });
+            const snapshotScoreUpdatedInPlace = applyMusicXmlScore(
+              p.musicXmlScore || { score: null }
+            );
             remoteView = p.view || null;
             playback = { time: 0, isPlaying: false, duration: 0 };
             setPlaybackState(p.playback || {});
-            timeline = p.timeline || timeline;
             if (p.highlight) applyHighlight(p.highlight);
             applyLockedPart();
-            renderFull();
+            if (!snapshotScoreUpdatedInPlace) renderFull();
             renderTimeline();
             break;
           case Protocol.MSG.DOC:
             currentDoc = p.doc || null;
             currentKey = p.keyState || null;
-            if (p.midiScore) applyMidiScore(p.midiScore);
-            if (p.musicXmlScore) applyMusicXmlScore(p.musicXmlScore);
             if (p.timeline) timeline = p.timeline;
+            if (p.midiScore) applyMidiScore(p.midiScore);
+            const scoreUpdatedInPlace = p.musicXmlScore
+              ? applyMusicXmlScore(p.musicXmlScore)
+              : false;
             applyLockedPart();
-            renderFull();
+            if (!scoreUpdatedInPlace) renderFull();
             renderTimeline();
             break;
           case Protocol.MSG.VIEW:

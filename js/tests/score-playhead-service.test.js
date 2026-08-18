@@ -18,6 +18,23 @@ const clock = ScorePlayhead.create({ musicXmlScore: score });
 assert.equal(clock.secondsToTick(0.25), 120);
 assert.equal(clock.tickToSeconds(120), 0.25);
 assert.equal(clock.tickToMeasureBeat(240, 'P1').beat, 2);
+
+const slowerClock = ScorePlayhead.create({
+  musicXmlScore: score,
+  projectTempo: 60
+});
+assert.equal(slowerClock.secondsToTick(1), 480);
+assert.equal(slowerClock.secondsToTick(2), 960);
+assert.equal(slowerClock.tickToSeconds(480), 1);
+
+const fasterClock = ScorePlayhead.create({
+  musicXmlScore: score,
+  projectTempo: 180
+});
+assert.equal(fasterClock.secondsToTick(1), 1440);
+fasterClock.setScores({ projectTempo: 90 });
+assert.equal(fasterClock.secondsToTick(1), 720);
+
 assert.equal(ScoreRenderer.ticksToWholeNotes(480, score), 0.25);
 assert.equal(ScoreRenderer.ticksToWholeNotes(1920, score), 1);
 

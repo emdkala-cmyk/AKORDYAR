@@ -622,9 +622,11 @@
     const layout = getCachedLayout(score, partId, options);
     if (!layout) return 0;
     const midiScore = options.midiScore;
-    const tick = midiScore?.conversions?.secondsToTick
-      ? midiScore.conversions.secondsToTick(seconds)
-      : number(options.activeTick, 0);
+    const tick = Number.isFinite(Number(options.activeTick))
+      ? Number(options.activeTick)
+      : midiScore?.conversions?.secondsToTick
+        ? midiScore.conversions.secondsToTick(seconds)
+        : number(options.activeTick, 0);
     return tickToX(layout, tick);
   }
 

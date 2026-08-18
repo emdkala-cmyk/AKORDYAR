@@ -517,15 +517,21 @@
     return measure.x + ratio * measure.width;
   }
 
+  function activeTickFor(score, seconds, options = {}) {
+    const explicitTick = Number(options.activeTick);
+    if (Number.isFinite(explicitTick)) return explicitTick;
+    const activeTime = Number(seconds);
+    return Number.isFinite(activeTime) && score.conversions?.secondsToTick
+      ? score.conversions.secondsToTick(activeTime)
+      : null;
+  }
+
   function renderSvg(scoreInput, partId, options = {}) {
     const score = normalizeScore(scoreInput);
     if (!score) return '';
     const layout = getCachedLayout(score, partId, options);
     if (!layout) return '';
-    const activeTime = Number(options.activeTime);
-    const activeTick = Number.isFinite(activeTime) && score.conversions?.secondsToTick
-      ? score.conversions.secondsToTick(activeTime)
-      : null;
+    const activeTick = activeTickFor(score, options.activeTime, options);
     const parts = [
       `<svg class="midi-score-svg" xmlns="http://www.w3.org/2000/svg" ` +
       `viewBox="0 0 ${layout.width} ${layout.height}" ` +
@@ -570,10 +576,38 @@
 
   function getPlayheadX(scoreInput, partId, seconds, options = {}) {
     const score = normalizeScore(scoreInput);
-    if (!score?.conversions?.secondsToTick) return 0;
+    if (!score) return 0;
     const layout = getCachedLayout(score, partId, options);
     if (!layout) return 0;
-    return tickToX(layout, score.conversions.secondsToTick(seconds));
+    return tickToX(layout, activeTickFor(score, seconds, options));
+  }
+
+  function getPlayheadPosition(scoreInput, partId, seconds, options = {}) {
+    const score = normalizeScore(scoreInput);
+    const layout = score ? getCachedLayout(score, partId, options) : null;
+    const tick = score ? activeTickFor(score, seconds, options) : null;
+    if (!layout || !Number.isFinite(tick)) {
+      return {
+        tick: Number.isFinite(tick) ? tick : 0,
+        x: LEFT_PADDING,
+        yTop: TOP_PADDING - 24,
+        staffTop: TOP_PADDING,
+        yBottom: TOP_PADDING + STAFF_SPACING * 4 + 24,
+        systemIndex: 0,
+        systemChanged: false
+      };
+    }
+    const measure = measureForTick(layout.measures, tick);
+    const staffTop = measure?.staffTop || TOP_PADDING;
+    return {
+      tick,
+      x: tickToX(layout, tick),
+      yTop: staffTop - 24,
+      staffTop,
+      yBottom: staffTop + layout.staffSpacing * 4 + 24,
+      systemIndex: measure?.systemIndex || 0,
+      systemChanged: false
+    };
   }
 
   function clearCache() {
@@ -585,6 +619,7 @@
     getCachedLayout,
     renderSvg,
     getPlayheadX,
+    getPlayheadPosition,
     getKeySignatureLabel,
     clearCache
   });

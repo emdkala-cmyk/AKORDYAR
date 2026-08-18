@@ -15,11 +15,18 @@
   function create({
     midiScore = null,
     musicXmlScore = null,
+    projectTempo = null,
+    tempo = null,
     partId = null,
     renderer = globalScope.ScoreRenderer || globalScope.MusicXmlScoreRenderer,
     core = globalScope.ScorePlayheadService
   } = {}) {
-    const clock = core?.create?.({ midiScore, musicXmlScore }) || null;
+    let activeProjectTempo = Number(projectTempo ?? tempo);
+    const clock = core?.create?.({
+      midiScore,
+      musicXmlScore,
+      projectTempo: activeProjectTempo
+    }) || null;
     let currentPartId = partId;
     let lastSystemIndex = -1;
 
@@ -28,9 +35,20 @@
         ? next.midiScore : midiScore;
       musicXmlScore = Object.prototype.hasOwnProperty.call(next, 'musicXmlScore')
         ? next.musicXmlScore : musicXmlScore;
+      if (
+        Object.prototype.hasOwnProperty.call(next, 'projectTempo') ||
+        Object.prototype.hasOwnProperty.call(next, 'tempo')
+      ) {
+        const nextTempo = next.projectTempo ?? next.tempo;
+        activeProjectTempo = Number(nextTempo);
+      }
       currentPartId = Object.prototype.hasOwnProperty.call(next, 'partId')
         ? next.partId : currentPartId;
-      clock?.setScores?.({ midiScore, musicXmlScore });
+      clock?.setScores?.({
+        midiScore,
+        musicXmlScore,
+        projectTempo: activeProjectTempo
+      });
       return api;
     }
 

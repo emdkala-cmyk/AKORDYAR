@@ -125,6 +125,8 @@ body.color-tool-eyedropper .chord { cursor: cell !important; }
 }
 .midi-score-part-btn:hover { border-color: #000; color: #000; }
 .midi-score-part-btn.active { border-color: #000; color: #fff; background: #000; }
+.midi-score-qr-btn { min-width: 42px; padding-inline: 8px; }
+.midi-score-qr-btn:hover { border-color: #2563eb; color: #1d4ed8; }
 .midi-score-viewer {
   flex: 1;
   min-height: 0;
@@ -250,6 +252,33 @@ body.color-tool-eyedropper .chord { cursor: cell !important; }
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 2px 4px 8px 2px;
+}
+.live-score-qr-tabs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior: contain;
+  padding: 4px 2px 8px;
+  scrollbar-width: thin;
+}
+.live-score-qr-tab {
+  flex: 0 0 auto;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  padding: 5px 10px;
+  color: #334155;
+  background: #f8fafc;
+  cursor: pointer;
+  font: 600 11px/1.2 'Vazirmatn', sans-serif;
+  white-space: nowrap;
+}
+.live-score-qr-tab:hover { border-color: #0f172a; color: #0f172a; }
+.live-score-qr-tab.active {
+  border-color: #0f172a;
+  color: #fff;
+  background: #0f172a;
 }
 .live-score-qr-card { display: grid; gap: 6px; padding: 10px; color: #111827; background: #fff; border: 1px solid #d1d5db; border-radius: 10px; }
 .live-score-qr-canvas { width: 160px; height: 160px; justify-self: center; image-rendering: pixelated; background: #fff; }

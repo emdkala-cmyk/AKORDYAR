@@ -73,27 +73,79 @@
     return tick + remaining / ((60 / bpm) / quarterFactor) * ppqn;
   }
 
+  function scorePpqn(score) {
+    const division = score?.division;
+    return Math.max(
+      1,
+      number(
+        score?.ticksPerQuarter,
+        number(division?.ticksPerQuarter, number(division?.ppqn, 480))
+      )
+    );
+  }
+
+  /**
+   * Convert project wall-clock seconds to musical ticks using the current
+   * project tempo.  MIDI files carry their own tempo map, but the editor
+   * transport is allowed to change `song.tempo` after import.  In that case
+   * the live score must follow the project tempo rather than the import-time
+   * conversion table.
+   */
+  function projectSecondsToTick(score, seconds, projectTempo) {
+    const bpm = Number(projectTempo);
+    if (!(bpm > 0)) return null;
+    return Math.max(0, number(seconds, 0)) * bpm / 60 * scorePpqn(score);
+  }
+
+  function projectTickToSeconds(score, tick, projectTempo) {
+    const bpm = Number(projectTempo);
+    if (!(bpm > 0)) return null;
+    return Math.max(0, number(tick, 0)) / scorePpqn(score) * 60 / bpm;
+  }
+
   function create({
     midiScore = null,
     musicXmlScore = null,
+    projectTempo = null,
+    tempo = null,
     midiModel = globalScope.MidiScoreModel,
     musicXmlModel = globalScope.MusicXmlScoreModel
   } = {}) {
     let midi = midiScore;
     let xml = musicXmlScore;
+    let activeProjectTempo = Number(projectTempo ?? tempo);
 
     function setScores(next = {}) {
       if (Object.prototype.hasOwnProperty.call(next, 'midiScore')) midi = next.midiScore;
       if (Object.prototype.hasOwnProperty.call(next, 'musicXmlScore')) xml = next.musicXmlScore;
+      if (
+        Object.prototype.hasOwnProperty.call(next, 'projectTempo') ||
+        Object.prototype.hasOwnProperty.call(next, 'tempo')
+      ) {
+        const nextTempo = next.projectTempo ?? next.tempo;
+        activeProjectTempo = Number(nextTempo);
+      }
       return api;
     }
 
     function secondsToTick(seconds) {
+      const projectTick = projectSecondsToTick(
+        midi || xml,
+        seconds,
+        activeProjectTempo
+      );
+      if (projectTick != null) return projectTick;
       if (midi?.conversions?.secondsToTick) return midi.conversions.secondsToTick(seconds);
       return musicXmlSecondsToTick(xml, seconds);
     }
 
     function tickToSeconds(tick) {
+      const projectSeconds = projectTickToSeconds(
+        midi || xml,
+        tick,
+        activeProjectTempo
+      );
+      if (projectSeconds != null) return projectSeconds;
       if (midi?.conversions?.tickToSeconds) return midi.conversions.tickToSeconds(tick);
       return musicXmlTickToSeconds(xml, tick);
     }
@@ -139,7 +191,13 @@
     return Object.freeze(api);
   }
 
-  const api = Object.freeze({ create, musicXmlTickToSeconds, musicXmlSecondsToTick });
+  const api = Object.freeze({
+    create,
+    musicXmlTickToSeconds,
+    musicXmlSecondsToTick,
+    projectSecondsToTick,
+    projectTickToSeconds
+  });
   globalScope.ScorePlayheadService = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

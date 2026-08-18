@@ -15,7 +15,11 @@
     saveSong = () => {},
     onSongChanged = () => {},
     toast = () => {},
-    getDAW = () => null,
+    getDAW = () =>
+      globalScope.EditorRuntimeAdapter?.getDAW?.() ||
+      globalScope.RuntimeStateAdapter?.getDAW?.() ||
+      globalScope.DAW ||
+      null,
     importService = globalScope.MidiScoreImportService,
     model = globalScope.MidiScoreModel,
     renderer = globalScope.MidiScoreRenderer,
@@ -47,6 +51,10 @@
       return documentRef?.getElementById?.(id) || null;
     }
 
+    function refreshQrParts() {
+      globalScope.AkordDeviceManager?.refresh?.();
+    }
+
     function midiScore() {
       const song = getSong();
       return song?.midiScore ? model.normalize(song.midiScore) : null;
@@ -63,10 +71,18 @@
       return selectedMode === 'musicxml' ? musicXmlScore() : midiScore();
     }
 
+    function projectTempo() {
+      const song = getSong();
+      const daw = getDAW();
+      const value = Number(song?.tempo) || Number(daw?.tempo) || 120;
+      return value > 0 ? value : 120;
+    }
+
     function scoreClock() {
       return globalScope.ScorePlayheadService?.create?.({
         midiScore: midiScore(),
-        musicXmlScore: musicXmlScore()
+        musicXmlScore: musicXmlScore(),
+        projectTempo: projectTempo()
       }) || null;
     }
 
@@ -75,12 +91,14 @@
         scoreClockService = scorePlayheadService?.create?.({
           midiScore: midiScore(),
           musicXmlScore: musicXmlScore(),
+          projectTempo: projectTempo(),
           renderer: scoreRenderer
         }) || null;
       } else {
         scoreClockService.setScores?.({
           midiScore: midiScore(),
-          musicXmlScore: musicXmlScore()
+          musicXmlScore: musicXmlScore(),
+          projectTempo: projectTempo()
         });
       }
       return scoreClockService;
@@ -134,6 +152,7 @@
       setSong(song);
       saveSong();
       onSongChanged(song, next);
+      refreshQrParts();
       render();
       return true;
     }
@@ -177,21 +196,39 @@
         button.textContent = `${part.name || part.id}${part.roleLabel ? ` · ${part.roleLabel}` : ''}`;
         button.addEventListener('click', () => choosePart(part.id));
         partsElement.appendChild(button);
+        const qrButton = documentRef.createElement('button');
+        qrButton.type = 'button';
+        qrButton.className = 'midi-score-part-btn midi-score-qr-btn';
+        qrButton.textContent = 'QR';
+        qrButton.title = 'نمایش QR اختصاصی همین پارت';
+        qrButton.setAttribute('aria-label', `QR ${part.name || part.id}`);
+        qrButton.addEventListener('click', event => {
+          event.stopPropagation();
+          const deviceManager = globalScope.AkordDeviceManager;
+          if (deviceManager?.selectPartQr?.(part.id)) {
+            toast(`QR پارت «${part.name || part.id}» انتخاب شد`);
+          } else {
+            toast('پنل QR هنوز آماده نیست؛ ابتدا اشتراک‌گذاری را باز کنید');
+          }
+        });
+        partsElement.appendChild(qrButton);
       });
     }
 
     function chordOverlay() {
       const song = getSong();
       const midi = midiScore();
-      const conversions = midi?.conversions;
-      const secondsToTick = conversions?.secondsToTick ||
-        scoreClock()?.secondsToTick ||
+      const secondsToTick = scoreClock()?.secondsToTick ||
         (seconds => seconds);
       const dawClips = getDAW()?.clips?.filter(clip =>
-        clip && clip.type === 'chord' && String(clip.name || '').trim()
+        clip &&
+        clip.type === 'chord' &&
+        String(clip.name || clip.label || clip.text || '').trim()
       ) || [];
       const storedClips = Array.isArray(song?.chordLineClips)
-        ? song.chordLineClips.filter(clip => String(clip?.name || '').trim())
+        ? song.chordLineClips.filter(clip =>
+            String(clip?.name || clip?.label || clip?.text || '').trim()
+          )
         : [];
       const source = dawClips.length
         ? dawClips
@@ -205,7 +242,13 @@
             chord?.seconds ??
             chord?.startSeconds
           );
-          const text = String(chord?.name || chord?.text || chord?.chord || '')
+          const text = String(
+            chord?.name ||
+            chord?.label ||
+            chord?.text ||
+            chord?.chord ||
+            ''
+          )
             .replace(/^\[|\]$/g, '')
             .trim();
           if (!text || !Number.isFinite(seconds)) return null;
@@ -330,6 +373,7 @@
         selectedMode = musicXmlScore() ? 'musicxml' : 'midi';
         selectedPartId = parsed.activePartId || parsed.parts?.[0]?.id || null;
         onSongChanged(song, parsed);
+        refreshQrParts();
         saveSong();
         render();
         toast(`MIDI وارد شد: ${parsed.parts.length} پارت، ${model.getSummary(parsed).noteCount} نت`);
@@ -365,6 +409,7 @@
         selectedMode = 'musicxml';
         selectedPartId = parsed.activePartId || parsed.parts?.[0]?.id || null;
         onSongChanged(song, parsed);
+        refreshQrParts();
         saveSong();
         render();
         toast(`MusicXML وارد شد: ${parsed.parts.length} پارت`);
@@ -472,15 +517,20 @@
         }
         lastPlayheadSystem = position.systemIndex;
       } else if (playhead) {
-        const position = {
-          x: renderer.getPlayheadX(currentScore, selectedPartId, activeSeconds, {
-            midiScore: midiScore(),
-            activeTick: scoreClock()?.secondsToTick?.(activeSeconds)
-          }),
-          yTop: 0,
-          yBottom: 0,
-          systemIndex: 0
-        };
+        const position = renderer.getPlayheadPosition
+          ? renderer.getPlayheadPosition(currentScore, selectedPartId, activeSeconds, {
+              midiScore: midiScore(),
+              activeTick: scoreClock()?.secondsToTick?.(activeSeconds)
+            })
+          : {
+              x: renderer.getPlayheadX(currentScore, selectedPartId, activeSeconds, {
+                midiScore: midiScore(),
+                activeTick: scoreClock()?.secondsToTick?.(activeSeconds)
+              }),
+              yTop: 0,
+              yBottom: 0,
+              systemIndex: 0
+            };
         const x = position.x;
         playhead.setAttribute('x1', String(x));
         playhead.setAttribute('x2', String(x));
@@ -499,6 +549,7 @@
       midiService.removeFromSong(song);
       setSong(song);
       onSongChanged(song, null);
+      refreshQrParts();
       saveSong();
       close();
       toast('اطلاعات MIDI حذف شد');
@@ -511,6 +562,7 @@
       xmlService.removeFromSong(song);
       setSong(song);
       onSongChanged(song, null);
+      refreshQrParts();
       saveSong();
       close();
       toast('اطلاعات MusicXML حذف شد');
