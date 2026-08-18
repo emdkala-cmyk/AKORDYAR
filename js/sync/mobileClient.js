@@ -462,12 +462,18 @@
       const activeRenderer = useMusicXml
         ? (globalScope.ScoreRenderer || globalScope.MusicXmlScoreRenderer)
         : globalScope.MidiScoreRenderer;
-      if (!score || !activeRenderer?.getPlayheadX) return;
+      if (!score || (useMusicXml
+        ? !activeRenderer?.getPlayheadPosition
+        : !activeRenderer?.getPlayheadX)) return;
       const playhead = container.querySelector('[data-mobile-score-playhead]');
-      if (!playhead) return;
       const activePartId = useMusicXml
         ? (musicXmlScoreState.activePartId || score.activePartId)
         : (midiScoreState.activePartId || score.activePartId);
+      const root = useMusicXml
+        ? container.querySelector('.mobile-midi-score-canvas.score-viewer-root')
+        : null;
+      if (useMusicXml && !root) return;
+      if (!useMusicXml && !playhead) return;
       if (useMusicXml && globalScope.EditorScorePlayheadService?.create) {
         if (!scorePlayheadService) {
           scorePlayheadService = globalScope.EditorScorePlayheadService.create({
@@ -484,8 +490,12 @@
           });
         }
       }
-      const position = useMusicXml && scorePlayheadService?.positionAt
-        ? scorePlayheadService.positionAt(time, { score, partId: activePartId })
+      const position = useMusicXml
+        ? activeRenderer.getPlayheadPosition(score, activePartId, time, {
+            root,
+            midiScore,
+            activeTick: midiScore?.conversions?.secondsToTick?.(time)
+          })
         : {
             x: activeRenderer.getPlayheadX(score, activePartId, time, { midiScore }),
             yTop: null,
@@ -493,11 +503,15 @@
             systemIndex: 0
           };
       const x = position.x;
-      playhead.setAttribute('x1', String(x));
-      playhead.setAttribute('x2', String(x));
-      if (Number.isFinite(position.yTop)) playhead.setAttribute('y1', String(position.yTop));
-      if (Number.isFinite(position.yBottom)) playhead.setAttribute('y2', String(position.yBottom));
-      playhead.dataset.system = String(position.systemIndex || 0);
+      if (useMusicXml) {
+        activeRenderer.updatePlayhead?.(root, position);
+      } else {
+        playhead.setAttribute('x1', String(x));
+        playhead.setAttribute('x2', String(x));
+        if (Number.isFinite(position.yTop)) playhead.setAttribute('y1', String(position.yTop));
+        if (Number.isFinite(position.yBottom)) playhead.setAttribute('y2', String(position.yBottom));
+        playhead.dataset.system = String(position.systemIndex || 0);
+      }
       ensureScorePlayheadVisible(x);
       const barBeat = useMusicXml
         ? globalScope.MusicXmlScoreModel?.tickToMeasureBeat?.(
@@ -599,7 +613,9 @@
       const activeRenderer = useMusicXml
         ? (globalScope.ScoreRenderer || globalScope.MusicXmlScoreRenderer)
         : globalScope.MidiScoreRenderer;
-      if (!container || !score || !activeRenderer?.renderSvg) return false;
+      if (!container || !score || (useMusicXml
+        ? !activeRenderer?.renderInto
+        : !activeRenderer?.renderSvg)) return false;
       const partId = useMusicXml
         ? (musicXmlScoreState.activePartId || score.activePartId || score.parts?.[0]?.id)
         : (midiScoreState.activePartId || score.activePartId || score.parts?.[0]?.id);
@@ -608,13 +624,7 @@
       const hasData = useMusicXml
         ? hasMusicXmlPartData(score, partId)
         : hasPartTrack(score, partId);
-      const svg = hasData
-        ? activeRenderer.renderSvg(score, partId, {
-            activeTime: time,
-            midiScore: midi,
-            ariaLabel: useMusicXml ? 'MusicXML performer score' : 'MIDI performer score'
-          })
-        : '';
+      if (!hasData) return false;
       const documentRef = container.ownerDocument || globalScope.document;
       if (!documentRef) return false;
       const part = score.parts?.find(candidate => String(candidate.id) === String(partId));
@@ -646,8 +656,19 @@
       exitButton.textContent = 'بازگشت';
       const canvas = documentRef.createElement('div');
       canvas.className = 'mobile-midi-score-canvas';
-      canvas.innerHTML = svg ||
-        '<div class="mobile-midi-score-loading">در حال دریافت پارت نوازنده…</div>';
+      if (!useMusicXml) {
+        canvas.innerHTML = activeRenderer.renderSvg(score, partId, {
+          activeTime: time,
+          midiScore: midi,
+          ariaLabel: 'MIDI performer score'
+        });
+      } else {
+        canvas.classList.add('score-viewer-root');
+        const loading = documentRef.createElement('div');
+        loading.className = 'mobile-midi-score-loading';
+        loading.textContent = 'در حال آماده‌سازی نت استاندارد…';
+        canvas.appendChild(loading);
+      }
       toolbar.append(title, position, partSelect, exitButton);
       shell.append(toolbar, canvas);
       if (typeof container.replaceChildren === 'function') {
@@ -656,8 +677,24 @@
         container.innerHTML = '';
         container.appendChild(shell);
       }
-      const renderedPlayhead = container.querySelector('[data-score-playhead]');
-      if (renderedPlayhead) renderedPlayhead.setAttribute('data-mobile-score-playhead', 'true');
+      if (useMusicXml) {
+        activeRenderer.renderInto(canvas, score, partId, { zoom: 1 })
+          .then(() => {
+            const renderedPlayhead = canvas.querySelector('[data-score-playhead]');
+            if (renderedPlayhead) renderedPlayhead.setAttribute('data-mobile-score-playhead', 'true');
+            renderScorePlayhead(time);
+          })
+          .catch(error => {
+            canvas.replaceChildren();
+            const message = documentRef.createElement('div');
+            message.className = 'mobile-midi-score-loading';
+            message.textContent = `خطا در نمایش MusicXML: ${error?.message || 'رندر OSMD ناموفق بود'}`;
+            canvas.appendChild(message);
+          });
+      } else {
+        const renderedPlayhead = container.querySelector('[data-score-playhead]');
+        if (renderedPlayhead) renderedPlayhead.setAttribute('data-mobile-score-playhead', 'true');
+      }
       lastScorePositionKey = '';
       renderScorePlayhead(time);
       container.querySelector('#mobile-score-exit')?.addEventListener('click', () => {

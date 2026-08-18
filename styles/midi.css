@@ -134,6 +134,51 @@ body.color-tool-eyedropper .chord { cursor: cell !important; }
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
 }
+.score-viewer-root {
+  position: relative;
+  min-width: 720px;
+  min-height: 420px;
+  background: #fff;
+  color: #000;
+}
+.score-osmd-layer {
+  position: relative;
+  min-width: 720px;
+  background: #fff;
+}
+.score-osmd-layer svg {
+  display: block;
+  width: auto;
+  height: auto;
+  margin: 0 auto;
+}
+.score-chords-overlay,
+.score-playhead-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.score-playhead-overlay {
+  z-index: 2;
+}
+.score-playhead-overlay line {
+  stroke: #b42318;
+  stroke-width: 1.8;
+  opacity: .92;
+}
+.score-render-pending {
+  background: #fff;
+}
+.score-render-error {
+  margin: 24px auto;
+  max-width: 680px;
+  padding: 16px;
+  color: #991b1b;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  direction: rtl;
+}
 .midi-score-svg {
   display: block;
   min-width: var(--midi-score-width, 720px);

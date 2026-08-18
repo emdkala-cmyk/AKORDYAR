@@ -25,6 +25,7 @@
   "dependencies": {
     "express": "^4.18.2",
     "jsdom": "^24.0.0",
+    "opensheetmusicdisplay": "^2.1.2",
     "qrcode": "^1.5.4",
     "qrcode-generator": "^1.5.2",
     "ws": "^8.21.1"
@@ -58,6 +59,7 @@
       "build/icon.ico",
       "node_modules/express/**/*",
       "node_modules/jsdom/**/*",
+      "node_modules/opensheetmusicdisplay/**/*",
       "node_modules/ws/**/*"
     ],
     "asar": false,

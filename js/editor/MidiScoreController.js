@@ -41,6 +41,7 @@
     let scoreClockService = null;
     let lastPlayheadSystem = -1;
     let lastAutoScrollAt = 0;
+    let renderToken = 0;
 
     function element(id) {
       return documentRef?.getElementById?.(id) || null;
@@ -200,19 +201,50 @@
 
       const viewer = element('midiScoreViewer');
       if (viewer) {
-        const activeRenderer = selectedMode === 'musicxml' ? scoreRenderer : renderer;
         const part = selectedMode === 'musicxml'
           ? musicXmlModel.getPart(normalized, selectedPartId)
           : model.getPart(normalized, selectedPartId);
-        viewer.innerHTML = activeRenderer.renderSvg(normalized, selectedPartId, {
-          activeTime: activeSeconds,
-          activeTick: scoreClock()?.secondsToTick?.(activeSeconds),
-          midiScore: midiScore(),
-          chords: selectedMode === 'musicxml' ? chordOverlay() : null,
-          ariaLabel: `${part?.name || 'Score'} score`
-        });
-        const svg = viewer.querySelector('svg');
-        if (svg) viewer.style.setProperty('--midi-score-width', `${svg.getAttribute('width') || 0}px`);
+        if (selectedMode === 'musicxml') {
+          const token = ++renderToken;
+          viewer.classList.add('score-render-pending');
+          viewer.replaceChildren();
+          const root = documentRef.createElement('div');
+          root.className = 'score-viewer-root';
+          root.setAttribute('aria-label', `${part?.name || 'Score'} score`);
+          viewer.appendChild(root);
+          Promise.resolve(scoreRenderer.renderInto(root, normalized, selectedPartId, {
+            zoom: 1
+          })).then(instance => {
+            if (token !== renderToken || !instance) return;
+            viewer.classList.remove('score-render-pending');
+            const position = scoreRenderer.getPlayheadPosition(normalized, selectedPartId, activeSeconds, {
+              root,
+              midiScore: midiScore(),
+              activeTick: scoreClock()?.secondsToTick?.(activeSeconds)
+            });
+            scoreRenderer.updatePlayhead?.(root, position);
+          }).catch(error => {
+            if (token !== renderToken) return;
+            viewer.classList.remove('score-render-pending');
+            const message = documentRef.createElement('div');
+            message.className = 'score-render-error';
+            message.setAttribute('role', 'alert');
+            message.textContent = `خطا در نمایش استاندارد MusicXML: ${error?.message || 'رندر OSMD ناموفق بود'}`;
+            root.replaceChildren(message);
+            console.error('[ScoreRenderer] OSMD render failed:', error);
+          });
+        } else {
+          const activeRenderer = renderer;
+          viewer.innerHTML = activeRenderer.renderSvg(normalized, selectedPartId, {
+            activeTime: activeSeconds,
+            activeTick: scoreClock()?.secondsToTick?.(activeSeconds),
+            midiScore: midiScore(),
+            chords: null,
+            ariaLabel: `${part?.name || 'Score'} score`
+          });
+          const svg = viewer.querySelector('svg');
+          if (svg) viewer.style.setProperty('--midi-score-width', `${svg.getAttribute('width') || 0}px`);
+        }
       }
       modal.classList.add('show');
       modal.setAttribute('aria-hidden', 'false');
@@ -330,40 +362,19 @@
       const currentScore = score();
       if (!viewer || !currentScore || !selectedPartId) return;
       const playhead = viewer.querySelector('[data-score-playhead]');
-      if (playhead) {
-        const activeRenderer = selectedMode === 'musicxml' ? scoreRenderer : renderer;
-        const position = selectedMode === 'musicxml' && editorScoreClock()?.positionAt
-          ? editorScoreClock().positionAt(activeSeconds, {
-              score: currentScore,
-              partId: selectedPartId,
-              activeTick: editorScoreClock().secondsToTick(activeSeconds),
-              loop: {
-                enabled: Boolean(getDAW()?.loopEnabled),
-                start: getDAW()?.loopA,
-                end: getDAW()?.loopB
-              }
-            })
-          : {
-              x: activeRenderer.getPlayheadX(currentScore, selectedPartId, activeSeconds, {
-                midiScore: midiScore(),
-                activeTick: scoreClock()?.secondsToTick?.(activeSeconds)
-              }),
-              yTop: 0,
-              yBottom: 0,
-              systemIndex: 0
-            };
-        const x = position.x;
-        playhead.setAttribute('x1', String(x));
-        playhead.setAttribute('x2', String(x));
-        if (Number.isFinite(position.yTop)) playhead.setAttribute('y1', String(position.yTop));
-        if (Number.isFinite(position.yBottom)) playhead.setAttribute('y2', String(position.yBottom));
-        playhead.dataset.system = String(position.systemIndex || 0);
-
-        const viewer = element('midiScoreViewer');
+      const root = selectedMode === 'musicxml'
+        ? viewer.querySelector('.score-viewer-root')
+        : null;
+      if (selectedMode === 'musicxml' && root && scoreRenderer?.getPlayheadPosition) {
+        const position = scoreRenderer.getPlayheadPosition(currentScore, selectedPartId, activeSeconds, {
+          root,
+          midiScore: midiScore(),
+          activeTick: editorScoreClock()?.secondsToTick?.(activeSeconds)
+        });
+        scoreRenderer.updatePlayhead?.(root, position);
         const now = performance.now();
         if (
           viewer &&
-          selectedMode === 'musicxml' &&
           position.systemChanged &&
           now - lastAutoScrollAt > 180
         ) {
@@ -378,6 +389,23 @@
             }
           }
         }
+        lastPlayheadSystem = position.systemIndex;
+      } else if (playhead) {
+        const position = {
+          x: renderer.getPlayheadX(currentScore, selectedPartId, activeSeconds, {
+            midiScore: midiScore(),
+            activeTick: scoreClock()?.secondsToTick?.(activeSeconds)
+          }),
+          yTop: 0,
+          yBottom: 0,
+          systemIndex: 0
+        };
+        const x = position.x;
+        playhead.setAttribute('x1', String(x));
+        playhead.setAttribute('x2', String(x));
+        if (Number.isFinite(position.yTop)) playhead.setAttribute('y1', String(position.yTop));
+        if (Number.isFinite(position.yBottom)) playhead.setAttribute('y2', String(position.yBottom));
+        playhead.dataset.system = String(position.systemIndex || 0);
         lastPlayheadSystem = position.systemIndex;
       } else {
         render();
