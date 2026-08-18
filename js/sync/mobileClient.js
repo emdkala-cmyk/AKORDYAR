@@ -20,7 +20,7 @@
   const Protocol = globalScope.AkordSyncProtocol;
 
   const MobileClient = (() => {
-    const MOBILE_VIEW_STORAGE_KEY = 'akord_mobile_view_v3';
+    const MOBILE_VIEW_STORAGE_KEY = 'akord_mobile_view_v4';
     const MOBILE_PART_STORAGE_KEY = 'akord_mobile_midi_part_v1';
     const MOBILE_MUSICXML_PART_STORAGE_KEY = 'akord_mobile_musicxml_part_v1';
     const DEFAULT_MOBILE_VIEW = {
@@ -28,7 +28,8 @@
       showQuantizeGrid: false,
       mobileLayout: true,
       textColor: '#0fa966',
-      chordColor: '#e6aa28'
+      chordColor: '#9F7AEA',
+      showChords: false
     };
     let ws = null;
     let connected = false;
@@ -105,7 +106,7 @@
         {
           backgroundColor: '#0F131E',
           textColor: '#0fa966',
-          chordColor: '#e6aa28',
+          chordColor: '#9F7AEA',
           highlightColor: '#FF2E93',
           showQuantizeGrid: false,
           mobileLayout: true
@@ -804,7 +805,7 @@
       ) {
         return visibility[partId] !== false;
       }
-      return localOverride.showChords !== false && part?.showChords !== false;
+      return localOverride.showChords === true && part?.showChords === true;
     }
 
     function renderScoreFull() {

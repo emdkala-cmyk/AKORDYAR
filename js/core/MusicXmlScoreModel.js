@@ -67,7 +67,7 @@
       roleLabel: ROLE_LABELS[role] || ROLE_LABELS.other,
       enabled: part?.enabled !== false,
       visible: part?.visible !== false,
-      showChords: part?.showChords !== false,
+      showChords: part?.showChords === true,
       midiTrackId: part?.midiTrackId || null,
       midiPartId: part?.midiPartId || null,
       deviceIds: Array.isArray(part?.deviceIds) ? [...part.deviceIds] : [],

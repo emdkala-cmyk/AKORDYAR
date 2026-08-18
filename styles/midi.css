@@ -165,11 +165,13 @@ body.color-tool-eyedropper .chord { cursor: cell !important; }
   position: absolute;
   display: block;
   transform: translateX(-50%);
-  padding: 1px 4px;
-  color: #000;
-  background: rgba(255,255,255,.94);
-  border-radius: 3px;
-  font: 700 13px/1.15 'JetBrains Mono', 'Segoe UI', monospace;
+  padding: 2px 7px;
+  color: #9F7AEA;
+  background: rgba(255,255,255,.97);
+  border: 1px solid rgba(159,122,234,.38);
+  border-radius: 5px;
+  font: 800 15px/1.15 'JetBrains Mono', 'Segoe UI', monospace;
+  text-shadow: 0 1px 0 rgba(255,255,255,.85);
   white-space: nowrap;
   direction: ltr;
   pointer-events: none;
@@ -202,6 +204,23 @@ body.color-tool-eyedropper .chord { cursor: cell !important; }
   border-radius: 8px;
   direction: rtl;
 }
+.midi-score-empty-state {
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+  max-width: 620px;
+  margin: 72px auto;
+  padding: 34px 24px;
+  color: #111827;
+  text-align: center;
+  background: #f8fafc;
+  border: 1px solid #d1d5db;
+  border-radius: 14px;
+  direction: rtl;
+}
+.midi-score-empty-state strong { font-size: 1.2rem; }
+.midi-score-empty-state p { max-width: 520px; color: #4b5563; line-height: 1.9; }
+.midi-score-empty-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
 .midi-score-svg {
   display: block;
   min-width: var(--midi-score-width, 720px);
@@ -236,7 +255,7 @@ body.color-tool-eyedropper .chord { cursor: cell !important; }
 .midi-score-rest-shape { fill: #000; }
 .midi-score-rest-path { fill: none; stroke: #000; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .midi-score-accidental-text { fill: #000; font: 20px 'Bravura', 'Segoe UI Symbol', serif; }
-.midi-score-chord-label { fill: #000; font: 600 12px 'JetBrains Mono', monospace; text-anchor: middle; }
+.midi-score-chord-label { fill: #9F7AEA; font: 800 13px 'JetBrains Mono', monospace; text-anchor: middle; }
 .midi-score-note-active .midi-score-notehead { fill: #000; stroke: #000; }
 .midi-score-note-active .midi-score-stem,
 .midi-score-note-active .midi-score-flag { stroke: #000; }

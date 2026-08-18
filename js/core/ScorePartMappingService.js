@@ -37,7 +37,7 @@
         ? mapping.deviceIds.map(value => string(value)).filter(Boolean)
         : [],
       ip: mapping?.ip ? string(mapping.ip) : null,
-      showChords: mapping?.showChords !== false,
+      showChords: mapping?.showChords === true,
       visible: mapping?.visible !== false,
       enabled: mapping?.enabled !== false,
       status: ['connected', 'connecting', 'disconnected', 'waiting-sync'].includes(mapping?.status)

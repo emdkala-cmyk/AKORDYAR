@@ -131,7 +131,7 @@
         return settings[partId] !== false;
       }
       const part = musicXmlModel?.getPart?.(currentScore, partId);
-      return part?.showChords !== false;
+      return part?.showChords === true;
     }
 
     function setChordVisibility(partId, visible) {
@@ -215,6 +215,45 @@
       });
     }
 
+    function renderEmptyState() {
+      const modal = element('midiScoreModal');
+      const partsElement = element('midiScoreParts');
+      const viewer = element('midiScoreViewer');
+      const meta = element('midiScoreMeta');
+      if (!modal || !viewer) return;
+
+      partsElement?.replaceChildren();
+      if (meta) {
+        meta.textContent = 'ابتدا یک فایل چندپارتی MIDI یا MusicXML وارد کنید';
+      }
+      viewer.replaceChildren();
+      const state = documentRef.createElement('div');
+      state.className = 'midi-score-empty-state';
+      const title = documentRef.createElement('strong');
+      title.textContent = 'محیط نت‌خوان آماده است';
+      const description = documentRef.createElement('p');
+      description.textContent =
+        'پس از ورود فایل، هر ساز به‌صورت یک تب جدا نمایش داده می‌شود؛ ' +
+        'با انتخاب تب، نت همان ساز را می‌بینید.';
+      const actions = documentRef.createElement('div');
+      actions.className = 'midi-score-empty-actions';
+      const midiButton = documentRef.createElement('button');
+      midiButton.type = 'button';
+      midiButton.className = 'midi-score-action';
+      midiButton.textContent = '📥 ورود MIDI چندپارتی';
+      midiButton.addEventListener('click', openImporter);
+      const xmlButton = documentRef.createElement('button');
+      xmlButton.type = 'button';
+      xmlButton.className = 'midi-score-action';
+      xmlButton.textContent = '📄 ورود MusicXML چندپارتی';
+      xmlButton.addEventListener('click', openMusicXmlImporter);
+      actions.append(midiButton, xmlButton);
+      state.append(title, description, actions);
+      viewer.appendChild(state);
+      modal.classList.add('show');
+      modal.setAttribute('aria-hidden', 'false');
+    }
+
     function chordOverlay() {
       const song = getSong();
       const midi = midiScore();
@@ -269,7 +308,11 @@
     function render() {
       const modal = element('midiScoreModal');
       const currentScore = score();
-      if (!modal || !currentScore) return;
+      if (!modal) return;
+      if (!currentScore) {
+        renderEmptyState();
+        return;
+      }
       ensureSelectedPart(currentScore);
 
       const normalized = selectedMode === 'musicxml'
@@ -465,7 +508,7 @@
         selectedMode = 'midi';
         render();
       } else {
-        openMusicXmlImporter();
+        renderEmptyState();
       }
     }
 
