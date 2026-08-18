@@ -164,6 +164,14 @@ body.color-tool-eyedropper .chord { cursor: cell !important; }
 .midi-score-notehead-open { fill: #0b1019; stroke-width: 1.8; }
 .midi-score-stem { stroke: #00cdbd; stroke-width: 1.8; stroke-linecap: round; }
 .midi-score-flag { fill: none; stroke: #00cdbd; stroke-width: 1.8; stroke-linecap: round; }
+.midi-score-beam { stroke: #00cdbd; stroke-width: 5; stroke-linecap: square; }
+.midi-score-tie,
+.midi-score-slur { fill: none; stroke: #9fb2c9; stroke-width: 1.5; }
+.midi-score-dot { fill: #00cdbd; }
+.midi-score-rest-shape { fill: #a9b7cc; }
+.midi-score-rest-path { fill: none; stroke: #a9b7cc; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.midi-score-accidental-text { fill: #f5c96a; font: 20px 'Bravura', 'Segoe UI Symbol', serif; }
+.midi-score-chord-label { fill: #e6aa28; font: 600 12px 'JetBrains Mono', monospace; text-anchor: middle; }
 .midi-score-note-active .midi-score-notehead { fill: #ff2e93; stroke: #ffd3e7; filter: drop-shadow(0 0 6px rgba(255,46,147,.85)); }
 .midi-score-note-active .midi-score-stem,
 .midi-score-note-active .midi-score-flag { stroke: #ff2e93; }

@@ -22,6 +22,7 @@
   const MobileClient = (() => {
     const MOBILE_VIEW_STORAGE_KEY = 'akord_mobile_view_v3';
     const MOBILE_PART_STORAGE_KEY = 'akord_mobile_midi_part_v1';
+    const MOBILE_MUSICXML_PART_STORAGE_KEY = 'akord_mobile_musicxml_part_v1';
     const DEFAULT_MOBILE_VIEW = {
       fontSize: 20,
       showQuantizeGrid: false,
@@ -54,7 +55,16 @@
       scoreIdentity: ''
     };
     let normalizedScoreCache = { raw: null, version: 0, score: null };
+    let musicXmlScoreState = {
+      score: null,
+      activePartId: null,
+      mappings: [],
+      scoreVersion: 0,
+      scoreIdentity: ''
+    };
+    let normalizedMusicXmlCache = { raw: null, version: 0, score: null };
     let pendingPartRequest = null;
+    let pendingMusicXmlPartRequest = null;
     let lastScorePositionKey = '';
     let lastScoreAutoScrollAt = 0;
     let scoreMode = false;
@@ -115,6 +125,25 @@
       return score;
     }
 
+    function normalizedMusicXmlScore() {
+      if (!musicXmlScoreState?.score) return null;
+      if (
+        normalizedMusicXmlCache.raw === musicXmlScoreState.score &&
+        normalizedMusicXmlCache.version === musicXmlScoreState.scoreVersion &&
+        normalizedMusicXmlCache.score
+      ) {
+        return normalizedMusicXmlCache.score;
+      }
+      const score = globalScope.MusicXmlScoreModel?.normalize?.(musicXmlScoreState.score) ||
+        musicXmlScoreState.score;
+      normalizedMusicXmlCache = {
+        raw: musicXmlScoreState.score,
+        version: musicXmlScoreState.scoreVersion,
+        score
+      };
+      return score;
+    }
+
     function scoreIdentity(score) {
       if (!score) return '';
       const source = score.source || {};
@@ -127,6 +156,13 @@
         score.endTick || 0,
         parts
       ].join('|');
+    }
+
+    function musicXmlScoreIdentity(score) {
+      if (!score) return '';
+      const source = score.source || {};
+      const parts = (score.parts || []).map(part => `${part.id}:${part.name || ''}`).join(',');
+      return [source.fileName || '', source.size || '', score.endTick || 0, parts].join('|');
     }
 
     function readStoredPart(identity) {
@@ -157,6 +193,32 @@
       } catch (_) {}
     }
 
+    function readStoredMusicXmlPart(identity) {
+      if (!identity) return null;
+      try {
+        const stored = JSON.parse(
+          globalScope.localStorage?.getItem(MOBILE_MUSICXML_PART_STORAGE_KEY) || '{}'
+        );
+        return stored && typeof stored === 'object' ? stored[identity] || null : null;
+      } catch (_) {
+        return null;
+      }
+    }
+
+    function storeMusicXmlPart(identity, partId) {
+      if (!identity || !partId) return;
+      try {
+        const stored = JSON.parse(
+          globalScope.localStorage?.getItem(MOBILE_MUSICXML_PART_STORAGE_KEY) || '{}'
+        );
+        stored[identity] = partId;
+        globalScope.localStorage?.setItem(
+          MOBILE_MUSICXML_PART_STORAGE_KEY,
+          JSON.stringify(stored)
+        );
+      } catch (_) {}
+    }
+
     function hasPart(score, partId) {
       return Boolean(partId && score?.parts?.some(part => part.id === partId));
     }
@@ -164,6 +226,15 @@
     function hasPartTrack(score, partId) {
       const part = score?.parts?.find(candidate => candidate.id === partId);
       return Boolean(part && score?.tracks?.some(track => track.id === part.trackId));
+    }
+
+    function hasMusicXmlPart(score, partId) {
+      return Boolean(partId && score?.parts?.some(part => String(part.id) === String(partId)));
+    }
+
+    function hasMusicXmlPartData(score, partId) {
+      const part = score?.parts?.find(candidate => String(candidate.id) === String(partId));
+      return Boolean(part?.measures?.some(measure => Array.isArray(measure.notes)));
     }
 
     function requestScorePart(partId) {
@@ -174,6 +245,18 @@
         partId,
         scoreVersion: midiScoreState.scoreVersion,
         scoreIdentity: midiScoreState.scoreIdentity || scoreIdentity(score)
+      });
+      return true;
+    }
+
+    function requestMusicXmlPart(partId) {
+      const score = normalizedMusicXmlScore();
+      if (!score || !hasMusicXmlPart(score, partId)) return false;
+      pendingMusicXmlPartRequest = partId;
+      send(Protocol.MSG.MUSICXML_SCORE_REQUEST, {
+        partId,
+        scoreVersion: musicXmlScoreState.scoreVersion,
+        scoreIdentity: musicXmlScoreState.scoreIdentity || musicXmlScoreIdentity(score)
       });
       return true;
     }
@@ -232,6 +315,61 @@
       if (scoreMode) renderFull();
     }
 
+    function applyMusicXmlScore(payload) {
+      if (!payload) return;
+      const rawScore = payload.score || null;
+      const incomingVersion = Number(
+        payload.scoreVersion || rawScore?.schemaVersion || 0
+      );
+      if (!rawScore) {
+        musicXmlScoreState = {
+          score: null,
+          activePartId: null,
+          mappings: [],
+          scoreVersion: incomingVersion,
+          scoreIdentity: ''
+        };
+        normalizedMusicXmlCache = { raw: null, version: 0, score: null };
+        pendingMusicXmlPartRequest = null;
+        if (scoreMode) renderFull();
+        return;
+      }
+      normalizedMusicXmlCache = { raw: null, version: 0, score: null };
+      const normalized = globalScope.MusicXmlScoreModel?.normalize?.(rawScore) || rawScore;
+      const identity = musicXmlScoreIdentity(normalized);
+      const previousPart = musicXmlScoreState.activePartId;
+      const storedPartId = readStoredMusicXmlPart(identity);
+      const activePartId =
+        identity === musicXmlScoreState.scoreIdentity && hasMusicXmlPart(normalized, previousPart)
+          ? previousPart
+          : hasMusicXmlPart(normalized, storedPartId)
+            ? storedPartId
+            : [
+                payload.activePartId,
+                normalized.activePartId,
+                normalized.parts?.[0]?.id
+              ].find(partId => hasMusicXmlPart(normalized, partId)) || null;
+      musicXmlScoreState = {
+        score: rawScore,
+        activePartId,
+        mappings: Array.isArray(payload.mappings) ? payload.mappings : (rawScore.mappings || []),
+        scoreVersion: incomingVersion,
+        scoreIdentity: identity
+      };
+      normalizedMusicXmlCache = {
+        raw: rawScore,
+        version: incomingVersion,
+        score: normalized
+      };
+      storeMusicXmlPart(identity, activePartId);
+      if (activePartId && !hasMusicXmlPartData(normalized, activePartId)) {
+        requestMusicXmlPart(activePartId);
+      } else if (pendingMusicXmlPartRequest === activePartId) {
+        pendingMusicXmlPartRequest = null;
+      }
+      if (scoreMode) renderFull();
+    }
+
     function selectMidiPart(partId) {
       const score = normalizedMidiScore();
       if (!hasPart(score, partId)) return false;
@@ -244,6 +382,21 @@
       }
       if (scoreMode) renderFull();
       return true;
+    }
+
+    function selectScorePart(partId) {
+      if (normalizedMusicXmlScore() && hasMusicXmlPart(normalizedMusicXmlScore(), partId)) {
+        musicXmlScoreState.activePartId = partId;
+        storeMusicXmlPart(musicXmlScoreState.scoreIdentity || musicXmlScoreIdentity(normalizedMusicXmlScore()), partId);
+        if (hasMusicXmlPartData(normalizedMusicXmlScore(), partId)) {
+          pendingMusicXmlPartRequest = null;
+        } else {
+          requestMusicXmlPart(partId);
+        }
+        if (scoreMode) renderFull();
+        return true;
+      }
+      return selectMidiPart(partId);
     }
 
     function ensureScorePlayheadVisible(x) {
@@ -280,35 +433,53 @@
 
     function renderScorePlayhead(time = getRenderedPlayback().time) {
       if (!scoreMode || !container) return;
-      const score = normalizedMidiScore();
-      if (!score || !globalScope.MidiScoreRenderer?.getPlayheadX) return;
+      const xmlScore = normalizedMusicXmlScore();
+      const midiScore = normalizedMidiScore();
+      const useMusicXml = Boolean(xmlScore);
+      const score = useMusicXml ? xmlScore : midiScore;
+      const activeRenderer = useMusicXml
+        ? globalScope.MusicXmlScoreRenderer
+        : globalScope.MidiScoreRenderer;
+      if (!score || !activeRenderer?.getPlayheadX) return;
       const playhead = container.querySelector('[data-mobile-score-playhead]');
       if (!playhead) return;
-      const x = globalScope.MidiScoreRenderer.getPlayheadX(
+      const activePartId = useMusicXml
+        ? (musicXmlScoreState.activePartId || score.activePartId)
+        : (midiScoreState.activePartId || score.activePartId);
+      const x = activeRenderer.getPlayheadX(
         score,
-        midiScoreState.activePartId || score.activePartId,
-        time
+        activePartId,
+        time,
+        { midiScore }
       );
       playhead.setAttribute('x1', String(x));
       playhead.setAttribute('x2', String(x));
       ensureScorePlayheadVisible(x);
-      const barBeat = score.conversions?.tickToBarBeat &&
-        score.conversions?.secondsToTick
-        ? score.conversions.tickToBarBeat(score.conversions.secondsToTick(time))
-        : null;
+      const barBeat = useMusicXml
+        ? globalScope.MusicXmlScoreModel?.tickToMeasureBeat?.(
+            score,
+            midiScore?.conversions?.secondsToTick
+              ? midiScore.conversions.secondsToTick(time)
+              : 0,
+            activePartId
+          )
+        : score.conversions?.tickToBarBeat &&
+          score.conversions?.secondsToTick
+          ? score.conversions.tickToBarBeat(score.conversions.secondsToTick(time))
+          : null;
       const positionKey = barBeat ? `${barBeat.bar}:${barBeat.beat}` : '';
       if (positionKey !== lastScorePositionKey) {
         lastScorePositionKey = positionKey;
         const positionEl = container.querySelector('[data-mobile-score-position]');
         if (positionEl) {
           positionEl.textContent = barBeat
-            ? `میزان ${barBeat.bar} · ضرب ${barBeat.beat}`
+            ? `میزان ${barBeat.bar || barBeat.measureNumber} · ضرب ${barBeat.beat}`
             : '';
         }
       }
     }
 
-    function renderScoreFull() {
+    function renderLegacyMidiScoreFull() {
       const score = normalizedMidiScore();
       if (!container || !score || !globalScope.MidiScoreRenderer?.renderSvg) return false;
       const partId = midiScoreState.activePartId || score.activePartId || score.parts?.[0]?.id;
@@ -366,6 +537,81 @@
       if (renderedPlayhead) {
         renderedPlayhead.setAttribute('data-mobile-score-playhead', 'true');
       }
+      lastScorePositionKey = '';
+      renderScorePlayhead(time);
+      container.querySelector('#mobile-score-exit')?.addEventListener('click', () => {
+        scoreMode = false;
+        renderFull();
+      });
+      return true;
+    }
+
+    function renderScoreFull() {
+      const xmlScore = normalizedMusicXmlScore();
+      const midi = normalizedMidiScore();
+      const useMusicXml = Boolean(xmlScore);
+      const score = useMusicXml ? xmlScore : midi;
+      const activeRenderer = useMusicXml
+        ? globalScope.MusicXmlScoreRenderer
+        : globalScope.MidiScoreRenderer;
+      if (!container || !score || !activeRenderer?.renderSvg) return false;
+      const partId = useMusicXml
+        ? (musicXmlScoreState.activePartId || score.activePartId || score.parts?.[0]?.id)
+        : (midiScoreState.activePartId || score.activePartId || score.parts?.[0]?.id);
+      if (!partId) return false;
+      const time = getRenderedPlayback().time;
+      const hasData = useMusicXml
+        ? hasMusicXmlPartData(score, partId)
+        : hasPartTrack(score, partId);
+      const svg = hasData
+        ? activeRenderer.renderSvg(score, partId, {
+            activeTime: time,
+            midiScore: midi,
+            ariaLabel: useMusicXml ? 'MusicXML performer score' : 'MIDI performer score'
+          })
+        : '';
+      const documentRef = container.ownerDocument || globalScope.document;
+      if (!documentRef) return false;
+      const part = score.parts?.find(candidate => String(candidate.id) === String(partId));
+      const shell = documentRef.createElement('div');
+      shell.className = 'mobile-midi-score-shell';
+      container.classList.add('midi-score-active');
+      const toolbar = documentRef.createElement('div');
+      toolbar.className = 'mobile-midi-score-toolbar';
+      const title = documentRef.createElement('span');
+      title.textContent = '🎼 ' + String(part?.name || (useMusicXml ? 'MusicXML Score' : 'MIDI Score'));
+      const position = documentRef.createElement('span');
+      position.dataset.mobileScorePosition = 'true';
+      position.textContent = '';
+      const partSelect = documentRef.createElement('select');
+      partSelect.id = 'mobile-score-part';
+      partSelect.className = 'mobile-midi-score-part-select';
+      (score.parts || []).forEach(candidate => {
+        const option = documentRef.createElement('option');
+        option.value = candidate.id;
+        option.textContent = `${candidate.name} · ${candidate.roleLabel || ''}`;
+        option.selected = String(candidate.id) === String(partId);
+        partSelect.appendChild(option);
+      });
+      partSelect.addEventListener('change', () => selectScorePart(partSelect.value));
+      const exitButton = documentRef.createElement('button');
+      exitButton.type = 'button';
+      exitButton.id = 'mobile-score-exit';
+      exitButton.textContent = 'بازگشت';
+      const canvas = documentRef.createElement('div');
+      canvas.className = 'mobile-midi-score-canvas';
+      canvas.innerHTML = svg ||
+        '<div class="mobile-midi-score-loading">در حال دریافت پارت نوازنده…</div>';
+      toolbar.append(title, position, partSelect, exitButton);
+      shell.append(toolbar, canvas);
+      if (typeof container.replaceChildren === 'function') {
+        container.replaceChildren(shell);
+      } else {
+        container.innerHTML = '';
+        container.appendChild(shell);
+      }
+      const renderedPlayhead = container.querySelector('[data-score-playhead]');
+      if (renderedPlayhead) renderedPlayhead.setAttribute('data-mobile-score-playhead', 'true');
       lastScorePositionKey = '';
       renderScorePlayhead(time);
       container.querySelector('#mobile-score-exit')?.addEventListener('click', () => {
@@ -518,6 +764,9 @@
             if (p.ok && pendingPartRequest) {
               requestScorePart(pendingPartRequest);
             }
+            if (p.ok && pendingMusicXmlPartRequest) {
+              requestMusicXmlPart(pendingMusicXmlPartRequest);
+            }
             break;
           case Protocol.MSG.PING:
             send(Protocol.MSG.PONG, {});
@@ -526,6 +775,7 @@
             currentDoc = p.doc || null;
             currentKey = p.keyState || null;
             applyMidiScore(p.midiScore);
+            applyMusicXmlScore(p.musicXmlScore || { score: null });
             remoteView = p.view || null;
             playback = { time: 0, isPlaying: false, duration: 0 };
             setPlaybackState(p.playback || {});
@@ -538,6 +788,7 @@
             currentDoc = p.doc || null;
             currentKey = p.keyState || null;
             if (p.midiScore) applyMidiScore(p.midiScore);
+            if (p.musicXmlScore) applyMusicXmlScore(p.musicXmlScore);
             if (p.timeline) timeline = p.timeline;
             renderFull();
             renderTimeline();
@@ -556,6 +807,9 @@
             break;
           case Protocol.MSG.MIDI_SCORE:
             applyMidiScore(p);
+            break;
+          case Protocol.MSG.MUSICXML_SCORE:
+            applyMusicXmlScore(p);
             break;
           case Protocol.MSG.TIMELINE:
             timeline = p;
@@ -597,7 +851,7 @@
     }
 
     function toggleScoreMode() {
-      if (!normalizedMidiScore()) return false;
+      if (!normalizedMidiScore() && !normalizedMusicXmlScore()) return false;
       scoreMode = !scoreMode;
       renderFull();
       return scoreMode;
@@ -651,6 +905,7 @@
       requestTransport,
       toggleScoreMode,
       getMidiScoreState: () => midiScoreState,
+      getMusicXmlScoreState: () => musicXmlScoreState,
       isConnected
     };
   })();

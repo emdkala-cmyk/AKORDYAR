@@ -134,6 +134,107 @@
     };
   }
 
+  // MusicXML is the notation/layout authority.  Broadcast only a compact
+  // part catalogue by default; the requesting phone receives its own part's
+  // measures/notes through the targeted payload below.
+  function buildMusicXmlScorePayload(scoreState, requestedPartId = null, includePart = false) {
+    const score = scoreState?.score;
+    if (!score || typeof score !== 'object') {
+      return { score: null, activePartId: null, mappings: [], scoreVersion: 0 };
+    }
+    const activePartId =
+      requestedPartId ||
+      scoreState.activePartId ||
+      score.activePartId ||
+      score.parts?.[0]?.id ||
+      null;
+    const part = score.parts?.find(candidate => String(candidate.id) === String(activePartId)) || null;
+    const compactPart = part ? {
+      id: part.id,
+      name: part.name,
+      abbreviation: part.abbreviation,
+      role: part.role,
+      roleLabel: part.roleLabel,
+      enabled: part.enabled,
+      visible: part.visible,
+      showChords: part.showChords,
+      midiPartId: part.midiPartId || null,
+      midiTrackId: part.midiTrackId || null,
+      transposition: part.transposition || null,
+      instruments: part.instruments || [],
+      midiInstruments: part.midiInstruments || [],
+      endTick: part.endTick || 0,
+      measures: includePart
+        ? (part.measures || []).map(measure => ({
+            ...measure,
+            notes: (measure.notes || []).map(note => ({ ...note }))
+          }))
+        : []
+    } : null;
+    const compactScore = {
+      schemaVersion: score.schemaVersion || 1,
+      format: score.format || 'score-partwise',
+      title: score.title || '',
+      creators: score.creators || {},
+      ticksPerQuarter: score.ticksPerQuarter || 480,
+      endTick: score.endTick || 0,
+      measures: (score.measures || []).map(measure => ({
+        index: measure.index,
+        number: measure.number,
+        startTick: measure.startTick,
+        endTick: measure.endTick,
+        durationTicks: measure.durationTicks,
+        numerator: measure.numerator,
+        denominator: measure.denominator,
+        beatTicks: measure.beatTicks,
+        time: measure.time,
+        key: measure.key,
+        clefs: measure.clefs,
+        staves: measure.staves,
+        width: measure.width,
+        layout: measure.layout,
+        barlines: measure.barlines
+      })),
+      meterMap: score.meterMap,
+      keyMap: score.keyMap,
+      tempoMap: score.tempoMap,
+      parts: (score.parts || []).map(candidate => ({
+        id: candidate.id,
+        name: candidate.name,
+        abbreviation: candidate.abbreviation,
+        role: candidate.role,
+        roleLabel: candidate.roleLabel,
+        enabled: candidate.enabled,
+        visible: candidate.visible,
+        showChords: candidate.showChords,
+        midiPartId: candidate.midiPartId || null,
+        midiTrackId: candidate.midiTrackId || null,
+        transposition: candidate.transposition || null,
+        endTick: candidate.endTick || 0
+      })),
+      activePartId,
+      source: score.source ? {
+        fileName: score.source.fileName || '',
+        mimeType: score.source.mimeType || 'application/vnd.recordare.musicxml+xml',
+        size: Number(score.source.size) || 0,
+        data: null
+      } : null
+    };
+    if (compactPart) {
+      const targetIndex = compactScore.parts.findIndex(candidate => candidate.id === compactPart.id);
+      if (targetIndex >= 0) compactScore.parts[targetIndex] = compactPart;
+      else compactScore.parts.push(compactPart);
+    }
+    return {
+      score: compactScore,
+      activePartId,
+      mappings: Array.isArray(scoreState.mappings)
+        ? scoreState.mappings.map(mapping => ({ ...mapping, ip: null }))
+        : (Array.isArray(score.mappings) ? score.mappings.map(mapping => ({ ...mapping, ip: null })) : []),
+      scoreVersion: Number(scoreState.scoreVersion || score.schemaVersion || 1)
+    };
+  }
+
   function sanitizeDocumentForSync(doc) {
     if (!doc || typeof doc !== 'object') return doc;
     const safe = { ...doc };
@@ -141,6 +242,12 @@
     // It is never needed by a lyric/chord client and must not cross the hub.
     if (Object.prototype.hasOwnProperty.call(safe, 'midiScore')) {
       safe.midiScore = undefined;
+    }
+    if (Object.prototype.hasOwnProperty.call(safe, 'musicXmlScore')) {
+      safe.musicXmlScore = undefined;
+    }
+    if (Object.prototype.hasOwnProperty.call(safe, 'scorePartMappings')) {
+      safe.scorePartMappings = undefined;
     }
     return safe;
   }
@@ -155,6 +262,7 @@
       view: st.viewStates && st.viewStates.playerView,
       playback: st.playbackState,
       midiScore: buildMidiScorePayload(st.midiScoreState, null, false),
+      musicXmlScore: buildMusicXmlScorePayload(st.musicXmlScoreState, null, false),
       highlight: st.highlightState,
       timeline: buildTimeline()
     };
@@ -168,6 +276,7 @@
     let _lastHighlightKey = '';
     let _lastTimelineKey = '';
     let _lastMidiScoreKey = '';
+    let _lastMusicXmlScoreKey = '';
 
     function url() {
       const proto = location.protocol === 'https:' ? 'wss' : 'ws';
@@ -194,11 +303,13 @@
         doc: sanitizeDocumentForSync(st.songDocument),
         keyState: st.keyState,
         midiScore: buildMidiScorePayload(st.midiScoreState, null, false),
+        musicXmlScore: buildMusicXmlScorePayload(st.musicXmlScoreState, null, false),
         timeline
       });
       _lastTimelineKey = JSON.stringify(timeline);
       send(Protocol.MSG.VIEW, { view: st.viewStates && st.viewStates.playerView });
       pushMidiScore();
+      pushMusicXmlScore();
     }
 
     function pushMidiScore(force = false) {
@@ -209,6 +320,16 @@
       if (!force && key === _lastMidiScoreKey) return;
       _lastMidiScoreKey = key;
       send(Protocol.MSG.MIDI_SCORE, payload);
+    }
+
+    function pushMusicXmlScore(force = false) {
+      const store = getStore();
+      if (!store) return;
+      const payload = buildMusicXmlScorePayload(store.getState().musicXmlScoreState);
+      const key = JSON.stringify(payload);
+      if (!force && key === _lastMusicXmlScoreKey) return;
+      _lastMusicXmlScoreKey = key;
+      send(Protocol.MSG.MUSICXML_SCORE, payload);
     }
 
     function pushMidiScoreForPeer(peerId, partId) {
@@ -222,6 +343,19 @@
         true
       );
       send(Protocol.MSG.MIDI_SCORE, payload, { targetPeerId: peerId });
+    }
+
+    function pushMusicXmlScoreForPeer(peerId, partId) {
+      const store = getStore();
+      if (!store || !peerId) return;
+      const score = store.getState().musicXmlScoreState?.score;
+      if (!score?.parts?.some(part => String(part.id) === String(partId))) return;
+      const payload = buildMusicXmlScorePayload(
+        store.getState().musicXmlScoreState,
+        partId,
+        true
+      );
+      send(Protocol.MSG.MUSICXML_SCORE, payload, { targetPeerId: peerId });
     }
 
     function pushTimelineIfChanged() {
@@ -271,6 +405,7 @@
       if (snap) {
         send(Protocol.MSG.SNAPSHOT, snap);
         pushMidiScore(true);
+        pushMusicXmlScore(true);
       }
     }
 
@@ -279,6 +414,7 @@
       if (!store) return;
       _unsubs.push(store.subscribe('contentUpdated', pushDoc));
       _unsubs.push(store.subscribe('midiScoreChanged', () => pushMidiScore()));
+      _unsubs.push(store.subscribe('musicXmlScoreChanged', () => pushMusicXmlScore()));
       _unsubs.push(store.subscribe('keyChanged', pushDoc));
       _unsubs.push(store.subscribe('viewStateChanged', (ev) => {
         if (!ev || ev.viewId === 'playerView' || !ev.viewId) pushDoc();
@@ -366,6 +502,12 @@
           if (requesterId && partId) {
             pushMidiScoreForPeer(requesterId, String(partId));
           }
+        } else if (t === Protocol.MSG.MUSICXML_SCORE_REQUEST) {
+          const requesterId = res.message.m && res.message.m.requesterId;
+          const partId = res.message.p && res.message.p.partId;
+          if (requesterId && partId) {
+            pushMusicXmlScoreForPeer(requesterId, String(partId));
+          }
         }
       };
 
@@ -409,6 +551,7 @@
       connected = false;
       _lastTimelineKey = '';
       _lastMidiScoreKey = '';
+      _lastMusicXmlScoreKey = '';
     }
 
     return { connect, disconnect, isConnected, ensureConnected, resendSnapshot };

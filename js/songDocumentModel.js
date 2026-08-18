@@ -86,6 +86,9 @@
  * @property {string} rawLyrics
  * @property {Array<Object>} rawChords   edCur.chords خام
  * @property {Object|null} midiScore      serialized Standard MIDI score
+ * @property {Object|null} musicXmlScore  serialized read-only MusicXML score
+ * @property {Array<Object>} scorePartMappings MusicXML↔MIDI↔device mappings
+ * @property {Object} liveScoreSettings  read-only Live Score settings
  * @property {SongLine[]} lines
  * @property {SongSection[]} sections
  * @property {SongCue[]} cues
@@ -107,6 +110,9 @@ const SongDocumentModel = (() => {
         originalKey: 'C', currentKey: 'C', transpose: 0, mode: 'major',
         rawLyrics: '', rawChords: [],
         midiScore: null,
+        musicXmlScore: null,
+        scorePartMappings: [],
+        liveScoreSettings: { enabled: false, readOnly: true, countInEnabled: true, countInMeasures: 0 },
         styles: {},
         lines: [], sections: [], cues: []
       };
@@ -139,10 +145,18 @@ const SongDocumentModel = (() => {
       currentKey:   ed.key || 'C',
       transpose:    ed.transpose || 0,
       mode:         ed.keyMode || 'major',
-      rawLyrics:    rawLyrics,
-      rawChords:    rawChords,
-      midiScore:    ed.midiScore || null,
-      styles:       ed.styles || {},
+       rawLyrics:    rawLyrics,
+       rawChords:    rawChords,
+       midiScore:    ed.midiScore || null,
+       musicXmlScore: ed.musicXmlScore || null,
+       scorePartMappings: Array.isArray(ed.scorePartMappings) ? ed.scorePartMappings : [],
+       liveScoreSettings: ed.liveScoreSettings || {
+         enabled: false,
+         readOnly: true,
+         countInEnabled: true,
+         countInMeasures: 0
+       },
+       styles:       ed.styles || {},
       lines:        lines,
       sections:     [],
       cues:         cues,
@@ -159,6 +173,28 @@ const SongDocumentModel = (() => {
     if (!doc) return doc;
     const version = doc.schemaVersion || 0;
     let result = doc;
+
+    if (!Object.prototype.hasOwnProperty.call(result, 'musicXmlScore')) {
+      result.musicXmlScore = null;
+    }
+    if (!Array.isArray(result.scorePartMappings)) {
+      result.scorePartMappings = [];
+    }
+    if (!result.liveScoreSettings || typeof result.liveScoreSettings !== 'object') {
+      result.liveScoreSettings = {
+        enabled: Boolean(result.musicXmlScore),
+        readOnly: true,
+        countInEnabled: true,
+        countInMeasures: 0
+      };
+    } else {
+      result.liveScoreSettings = {
+        enabled: result.liveScoreSettings.enabled !== false,
+        readOnly: true,
+        countInEnabled: result.liveScoreSettings.countInEnabled !== false,
+        countInMeasures: Math.max(0, Number(result.liveScoreSettings.countInMeasures) || 0)
+      };
+    }
 
     // Version 0 → 1: add schemaVersion, ensure lines have id/index
     if (version < 1) {
@@ -186,6 +222,9 @@ const SongDocumentModel = (() => {
     ed.chords    = doc.rawChords.map(ch => ({ ...ch }));
     ed.syncTimes = doc.cues.map(c => c.time);
     if (doc.midiScore) ed.midiScore = clone(doc.midiScore);
+    if (doc.musicXmlScore) ed.musicXmlScore = clone(doc.musicXmlScore);
+    if (Array.isArray(doc.scorePartMappings)) ed.scorePartMappings = clone(doc.scorePartMappings);
+    if (doc.liveScoreSettings) ed.liveScoreSettings = clone(doc.liveScoreSettings);
     if (doc.originalKey) ed.originalKey = doc.originalKey;
   }
 

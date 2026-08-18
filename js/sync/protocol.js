@@ -32,6 +32,7 @@
     // ===== از Master به Hub =====
     DOC:      'doc',          // ساختار ترانه (موقع تعویض/تغییر آهنگ): { doc, keyState }
     MIDI_SCORE:'midi-score',  // serialized MIDI score + selected performer part
+    MUSICXML_SCORE:'musicxml-score', // MusicXML notation catalogue/assigned part
     PLAYHEAD: 'playhead',     // وضعیت پخش هر فریم: { time, isPlaying }
     HIGHLIGHT:'highlight',    // هایلایت خط فعال: { activeLineId, doneLines }
     VIEW:     'view',         // viewState پیش‌فرض مستر (برای اولین رندر اسلیو)
@@ -39,6 +40,7 @@
     SEEK_REQUEST: 'seek-request', // درخواست جابه‌جایی تایم‌لاین از گوشی
     TRANSPORT_REQUEST: 'transport-request', // play/pause/stop از گوشی
     MIDI_SCORE_REQUEST: 'midi-score-request', // درخواست پارت MIDI برای یک گوشی
+    MUSICXML_SCORE_REQUEST: 'musicxml-score-request', // درخواست پارت MusicXML برای یک گوشی
 
     // ===== از Hub به Slave =====
     SNAPSHOT: 'snapshot',     // ارسال کل وضعیت فعلی به اسلیو تازه‌وارد

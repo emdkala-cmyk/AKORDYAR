@@ -92,6 +92,40 @@ function openClient(port, role) {
       message => message.t === Protocol.MSG.MIDI_SCORE_REQUEST
     );
     assert.equal(requestAtMaster.m.requesterId, targetPeerId);
+
+    const musicXmlPayload = {
+      score: {
+        parts: [{ id: 'P2', name: 'Alto Sax', measures: [{ notes: [{ id: 'n1' }] }] }]
+      },
+      activePartId: 'P2',
+      scoreVersion: 2
+    };
+    master.ws.send(JSON.stringify(Protocol.pack(
+      Protocol.MSG.MUSICXML_SCORE,
+      musicXmlPayload,
+      { targetPeerId }
+    )));
+    const targetedMusicXml = await waitForMessage(
+      phoneA.ws,
+      message => message.t === Protocol.MSG.MUSICXML_SCORE
+    );
+    assert.equal(targetedMusicXml.p.activePartId, 'P2');
+    const leakedMusicXml = await waitForMessage(
+      phoneB.ws,
+      message => message.t === Protocol.MSG.MUSICXML_SCORE,
+      350
+    ).then(() => true).catch(() => false);
+    assert.equal(leakedMusicXml, false);
+
+    phoneA.ws.send(JSON.stringify(Protocol.pack(
+      Protocol.MSG.MUSICXML_SCORE_REQUEST,
+      { partId: 'P3' }
+    )));
+    const xmlRequestAtMaster = await waitForMessage(
+      master.ws,
+      message => message.t === Protocol.MSG.MUSICXML_SCORE_REQUEST
+    );
+    assert.equal(xmlRequestAtMaster.m.requesterId, targetPeerId);
   } finally {
     [master?.ws, phoneA?.ws, phoneB?.ws].forEach(ws => {
       try { ws?.close(); } catch (_) {}

@@ -16,6 +16,7 @@ const PerformanceStore = (() => {
     keyChanged:            [],
     playbackStateChanged:  [],
     midiScoreChanged:      [],
+    musicXmlScoreChanged: [],
     highlightChanged:      [],
     viewStateChanged:      []
   };
@@ -64,6 +65,13 @@ const PerformanceStore = (() => {
     midiScoreState: {
       score: null,
       activePartId: null,
+      scoreVersion: 0
+    },
+
+    musicXmlScoreState: {
+      score: null,
+      activePartId: null,
+      mappings: [],
       scoreVersion: 0
     },
 
@@ -162,6 +170,16 @@ const PerformanceStore = (() => {
     state.midiScoreState.activePartId = score?.activePartId || score?.parts?.[0]?.id || null;
     state.midiScoreState.scoreVersion = Number(doc?.midiScoreVersion || score?.schemaVersion || 0);
     emit('midiScoreChanged', state.midiScoreState);
+    const musicXmlScore = doc?.musicXmlScore || null;
+    state.musicXmlScoreState.score = musicXmlScore;
+    state.musicXmlScoreState.activePartId =
+      musicXmlScore?.activePartId || musicXmlScore?.parts?.[0]?.id || null;
+    state.musicXmlScoreState.mappings = Array.isArray(doc?.scorePartMappings)
+      ? doc.scorePartMappings
+      : (musicXmlScore?.mappings || []);
+    state.musicXmlScoreState.scoreVersion =
+      Number(doc?.musicXmlScoreVersion || musicXmlScore?.schemaVersion || 0);
+    emit('musicXmlScoreChanged', state.musicXmlScoreState);
     emit('contentUpdated', doc);
   }
 
@@ -192,6 +210,22 @@ const PerformanceStore = (() => {
         null;
     }
     emit('midiScoreChanged', state.midiScoreState);
+  }
+
+  function setMusicXmlScoreState(partialState = {}) {
+    Object.assign(state.musicXmlScoreState, partialState);
+    if (state.musicXmlScoreState.score) {
+      state.musicXmlScoreState.activePartId =
+        state.musicXmlScoreState.activePartId ||
+        state.musicXmlScoreState.score.activePartId ||
+        state.musicXmlScoreState.score.parts?.[0]?.id ||
+        null;
+      state.musicXmlScoreState.mappings =
+        state.musicXmlScoreState.mappings?.length
+          ? state.musicXmlScoreState.mappings
+          : (state.musicXmlScoreState.score.mappings || []);
+    }
+    emit('musicXmlScoreChanged', state.musicXmlScoreState);
   }
 
   function sameSet(a, b) {
@@ -253,6 +287,12 @@ const PerformanceStore = (() => {
         activePartId: st.midiScoreState.activePartId,
         scoreVersion: st.midiScoreState.scoreVersion
       },
+      musicXmlScoreState: {
+        score: st.musicXmlScoreState.score,
+        activePartId: st.musicXmlScoreState.activePartId,
+        mappings: st.musicXmlScoreState.mappings,
+        scoreVersion: st.musicXmlScoreState.scoreVersion
+      },
       highlightState: {
         activeLineId:  st.highlightState.activeLineId,
         activeTokenId: st.highlightState.activeTokenId,
@@ -294,6 +334,23 @@ const PerformanceStore = (() => {
         Number(payload.songDocument.midiScoreVersion || payload.songDocument.midiScore.schemaVersion || 0);
       emit('midiScoreChanged', state.midiScoreState);
     }
+    if (payload.musicXmlScoreState) {
+      Object.assign(state.musicXmlScoreState, payload.musicXmlScoreState);
+      emit('musicXmlScoreChanged', state.musicXmlScoreState);
+    } else if (payload.songDocument?.musicXmlScore) {
+      state.musicXmlScoreState.score = payload.songDocument.musicXmlScore;
+      state.musicXmlScoreState.activePartId =
+        payload.songDocument.musicXmlScore.activePartId ||
+        payload.songDocument.musicXmlScore.parts?.[0]?.id ||
+        null;
+      state.musicXmlScoreState.mappings = Array.isArray(payload.songDocument.scorePartMappings)
+        ? payload.songDocument.scorePartMappings
+        : (payload.songDocument.musicXmlScore.mappings || []);
+      state.musicXmlScoreState.scoreVersion =
+        Number(payload.songDocument.musicXmlScoreVersion ||
+          payload.songDocument.musicXmlScore.schemaVersion || 0);
+      emit('musicXmlScoreChanged', state.musicXmlScoreState);
+    }
     if (payload.highlightState) {
       const hs = payload.highlightState;
       const hlChanged = state.highlightState.activeLineId !== hs.activeLineId;
@@ -320,6 +377,12 @@ const PerformanceStore = (() => {
     Object.assign(state.keyState, { originalKey: 'C', currentKey: 'C', transpose: 0, mode: 'major' });
     Object.assign(state.playbackState, { time: 0, isPlaying: false, duration: 0 });
     Object.assign(state.midiScoreState, { score: null, activePartId: null, scoreVersion: 0 });
+    Object.assign(state.musicXmlScoreState, {
+      score: null,
+      activePartId: null,
+      mappings: [],
+      scoreVersion: 0
+    });
     Object.assign(state.highlightState, { activeLineId: null, activeTokenId: null, activeChordId: null, doneLines: new Set() });
   }
 
@@ -335,6 +398,7 @@ const PerformanceStore = (() => {
     setKeyState,
     setPlaybackState,
     setMidiScoreState,
+    setMusicXmlScoreState,
     setHighlightState,
     setViewState,
     getViewState,

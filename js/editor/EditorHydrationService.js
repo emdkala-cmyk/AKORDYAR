@@ -43,6 +43,32 @@
         globalScope.console?.warn?.('[MIDI Score] Hydration skipped:', error);
       }
     }
+    if (normalized.musicXmlScore && globalScope.MusicXmlScoreModel?.normalize) {
+      try {
+        normalized.musicXmlScore = globalScope.MusicXmlScoreModel.serialize(
+          globalScope.MusicXmlScoreModel.normalize(normalized.musicXmlScore)
+        );
+      } catch (error) {
+        globalScope.console?.warn?.('[MusicXML Score] Hydration skipped:', error);
+      }
+    }
+    if (!Array.isArray(normalized.scorePartMappings)) normalized.scorePartMappings = [];
+    if (!normalized.liveScoreSettings || typeof normalized.liveScoreSettings !== 'object') {
+      normalized.liveScoreSettings = {
+        enabled: Boolean(normalized.musicXmlScore),
+        readOnly: true,
+        countInEnabled: true,
+        countInMeasures: 0
+      };
+    } else {
+      normalized.liveScoreSettings = {
+        ...normalized.liveScoreSettings,
+        readOnly: true,
+        enabled: normalized.liveScoreSettings.enabled !== false,
+        countInEnabled: normalized.liveScoreSettings.countInEnabled !== false,
+        countInMeasures: Math.max(0, Number(normalized.liveScoreSettings.countInMeasures) || 0)
+      };
+    }
     if (!normalized.styles) normalized.styles = {};
     if (!normalized.lineColors) normalized.lineColors = [];
     if (!normalized.chordVersions) normalized.chordVersions = [];

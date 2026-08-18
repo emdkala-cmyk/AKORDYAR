@@ -81,6 +81,23 @@
           logger?.warn?.('[MIDI Score] Persistence normalization skipped:', error);
         }
       }
+      if (song.musicXmlScore && globalScope.MusicXmlScoreModel?.normalize) {
+        try {
+          song.musicXmlScore = globalScope.MusicXmlScoreModel.serialize(
+            globalScope.MusicXmlScoreModel.normalize(song.musicXmlScore)
+          );
+        } catch (error) {
+          logger?.warn?.('[MusicXML Score] Persistence normalization skipped:', error);
+        }
+      }
+      if (!Array.isArray(song.scorePartMappings)) song.scorePartMappings = [];
+      if (song.liveScoreSettings && typeof song.liveScoreSettings === 'object') {
+        song.liveScoreSettings = {
+          ...song.liveScoreSettings,
+          readOnly: true,
+          countInMeasures: Math.max(0, Number(song.liveScoreSettings.countInMeasures) || 0)
+        };
+      }
 
       try {
         storage?.setItem?.(storageKey, JSON.stringify(song));

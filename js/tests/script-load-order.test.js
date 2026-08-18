@@ -51,7 +51,23 @@ assert.ok(
     scriptIndex('js/core/MidiScoreRenderer.js')
 );
 assert.ok(
+  scriptIndex('js/core/MusicXmlScoreParser.js') <
+    scriptIndex('js/core/MusicXmlScoreModel.js')
+);
+assert.ok(
+  scriptIndex('js/core/MusicXmlScoreModel.js') <
+    scriptIndex('js/core/MusicXmlScoreRenderer.js')
+);
+assert.ok(
+  scriptIndex('js/core/ScorePartMappingService.js') <
+    scriptIndex('js/core/MusicXmlScoreRenderer.js')
+);
+assert.ok(
   scriptIndex('js/core/MidiScoreRenderer.js') <
+    scriptIndex('js/app/core.js')
+);
+assert.ok(
+  scriptIndex('js/core/MusicXmlScoreRenderer.js') <
     scriptIndex('js/app/core.js')
 );
 assert.ok(
@@ -116,6 +132,10 @@ assert.ok(
 );
 assert.ok(
   scriptIndex('js/editor/MidiScoreImportService.js') <
+    scriptIndex('js/app/core.js')
+);
+assert.ok(
+  scriptIndex('js/editor/MusicXmlScoreImportService.js') <
     scriptIndex('js/app/core.js')
 );
 assert.ok(
