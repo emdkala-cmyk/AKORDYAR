@@ -111,27 +111,17 @@
   function ensurePlayheadOverlay(root, osmd) {
     const layers = ensureLayers(root);
     const size = pageSize(osmd);
-    let svg = layers.playheadLayer.querySelector('svg[data-score-playhead-layer]');
-    if (!svg) {
-      svg = root.ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'svg');
-      svg.setAttribute('data-score-playhead-layer', 'true');
-      svg.setAttribute('aria-hidden', 'true');
-      svg.setAttribute('preserveAspectRatio', 'none');
-      const line = root.ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'line');
-      line.setAttribute('data-score-playhead', 'true');
-      line.setAttribute('vector-effect', 'non-scaling-stroke');
-      line.setAttribute('x1', '0');
-      line.setAttribute('x2', '0');
-      line.setAttribute('y1', '0');
-      line.setAttribute('y2', String(size.height));
-      svg.appendChild(line);
-      layers.playheadLayer.replaceChildren(svg);
+    layers.playheadLayer.style.inset = '0';
+    layers.playheadLayer.style.width = 'auto';
+    layers.playheadLayer.style.height = 'auto';
+    let line = layers.playheadLayer.querySelector('[data-score-playhead]');
+    if (!line || line.namespaceURI === 'http://www.w3.org/2000/svg') {
+      line = root.ownerDocument.createElement('div');
+      line.className = 'score-playhead-indicator';
+      line.dataset.scorePlayhead = 'true';
+      line.setAttribute('aria-hidden', 'true');
+      layers.playheadLayer.replaceChildren(line);
     }
-    svg.setAttribute('viewBox', `0 0 ${size.width} ${size.height}`);
-    svg.setAttribute('width', String(size.width));
-    svg.setAttribute('height', String(size.height));
-    const line = svg.querySelector('[data-score-playhead]');
-    if (line) line.setAttribute('y2', String(size.height));
     return { ...layers, size, line };
   }
 
@@ -148,10 +138,20 @@
 
   function currentSystemBounds(osmd, system) {
     const staffLines = system?.StaffLines || [];
-    const boxes = staffLines.map(staff => staff?.PositionAndShape).filter(Boolean);
-    const top = boxes.reduce((value, box) => Math.min(value, number(box?.AbsolutePosition?.y, value)), Infinity);
-    const bottom = boxes.reduce((value, box) =>
-      Math.max(value, number(box?.AbsolutePosition?.y, value) + number(box?.Size?.height, 0)), 0);
+    const firstStaff = staffLines[0] || null;
+    const lastStaff = staffLines[staffLines.length - 1] || firstStaff;
+    const systemY = number(system?.PositionAndShape?.AbsolutePosition?.y, 0);
+    // Mirror OSMD Cursor.update() exactly. Relative staff positions and the
+    // official StaffHeight describe the visible carrier, without including
+    // slurs, dynamics or the whitespace between two systems.
+    const top = firstStaff
+      ? systemY + number(firstStaff?.PositionAndShape?.RelativePosition?.y, 0)
+      : Infinity;
+    const bottom = lastStaff
+      ? systemY +
+        number(lastStaff?.PositionAndShape?.RelativePosition?.y, 0) +
+        number(lastStaff?.StaffHeight, 4)
+      : 0;
     const fallback = pageSize(osmd);
     return {
       yTop: Number.isFinite(top) ? top : 0,
@@ -163,17 +163,100 @@
     };
   }
 
+  function osmdPointToRoot(instance, x, y) {
+    const graphic = instance.osmd?.GraphicSheet;
+    const PointF2D = getOsmdPackage()?.PointF2D;
+    const rootRect = instance.root?.getBoundingClientRect?.();
+    if (graphic?.svgToDom && typeof PointF2D === 'function' && rootRect) {
+      try {
+        // OSMD's graphical coordinates use 1/10 of an SVG unit.
+        const domPoint = graphic.svgToDom(new PointF2D(number(x) * 10, number(y) * 10));
+        return {
+          x: number(domPoint?.x) - rootRect.left,
+          y: number(domPoint?.y) - rootRect.top
+        };
+      } catch (_) {
+        // Fall through to proportional mapping below.
+      }
+    }
+    const page = pageSize(instance.osmd);
+    const svg = instance.osmdLayer?.querySelector?.('svg');
+    const svgRect = svg?.getBoundingClientRect?.();
+    const layerRect = instance.osmdLayer?.getBoundingClientRect?.();
+    const width = number(svgRect?.width, layerRect?.width || page.width);
+    const height = number(svgRect?.height, layerRect?.height || page.height);
+    const left = rootRect && svgRect ? svgRect.left - rootRect.left : 0;
+    const top = rootRect && svgRect ? svgRect.top - rootRect.top : 0;
+    return {
+      x: left + number(x) / page.width * width,
+      y: top + number(y) / page.height * height
+    };
+  }
+
+  function ticksToWholeNotes(tick, score) {
+    const ppqn = Math.max(1, number(score?.ticksPerQuarter, 480));
+    return Math.max(0, number(tick)) / (ppqn * 4);
+  }
+
   function fractionFor(osmd, tick, score) {
     const Fraction = getOsmdPackage()?.Fraction;
     const ppqn = Math.max(1, number(score?.ticksPerQuarter, 480));
     if (typeof Fraction !== 'function') return null;
-    return new Fraction(Math.max(0, Math.round(number(tick))), ppqn);
+    // OSMD timestamps are fractions of a WHOLE note:
+    //   quarter note = 1/4, a complete 4/4 measure = 1.
+    // MIDI/project ticks are PPQN (ticks per QUARTER note), therefore the
+    // denominator must be PPQN * 4. Using PPQN alone made every 4/4 measure
+    // pass in one beat.
+    return new Fraction(Math.max(0, Math.round(number(tick))), ppqn * 4);
+  }
+
+  function sourceTickForPlaybackTick(instance, playbackTick) {
+    const model = globalScope.MusicXmlScoreModel;
+    const notes = model?.getNotes?.(instance.score, instance.partId) ||
+      instance.score?.parts?.find(part => String(part.id) === String(instance.partId))
+        ?.measures?.flatMap(measure => measure.notes || []) || [];
+    const pairs = notes
+      .filter(note => !note?.rest && note?.timing &&
+        Number.isFinite(Number(note.timing.startTick)) &&
+        Number.isFinite(Number(note.startTick)))
+      .map(note => ({
+        playback: Number(note.timing.startTick),
+        source: Number(note.startTick)
+      }))
+      .sort((a, b) => a.playback - b.playback);
+    if (!pairs.length) return playbackTick;
+    if (pairs.length === 1) {
+      return pairs[0].source + (playbackTick - pairs[0].playback);
+    }
+    let left = pairs[0];
+    let right = pairs[1];
+    if (playbackTick <= left.playback) {
+      right = pairs[1];
+    } else {
+      for (let index = 1; index < pairs.length; index += 1) {
+        if (playbackTick <= pairs[index].playback) {
+          left = pairs[index - 1];
+          right = pairs[index];
+          break;
+        }
+        left = pairs[index - 1];
+        right = pairs[index];
+      }
+      if (playbackTick > right.playback) {
+        left = pairs[pairs.length - 2];
+        right = pairs[pairs.length - 1];
+      }
+    }
+    const denominator = right.playback - left.playback;
+    const ratio = denominator ? (playbackTick - left.playback) / denominator : 0;
+    return left.source + ratio * (right.source - left.source);
   }
 
   function positionFor(instance, tick) {
     const { osmd, score } = instance;
     const graphic = osmd?.GraphicSheet;
-    const fraction = fractionFor(osmd, tick, score);
+    const sourceTick = sourceTickForPlaybackTick(instance, tick);
+    const fraction = fractionFor(osmd, sourceTick, score);
     if (!graphic || !fraction) {
       return {
         tick,
@@ -191,11 +274,26 @@
       const x = number(result?.[0], 0);
       const system = result?.[1] || graphic.MusicPages?.[0]?.MusicSystems?.[0];
       const bounds = currentSystemBounds(osmd, system);
+      const domTop = osmdPointToRoot(instance, x, bounds.yTop);
+      const domBottom = osmdPointToRoot(instance, x, bounds.yBottom);
       const nextSystem = bounds.systemIndex;
       const systemChanged = instance.lastSystemIndex !== -1 &&
         instance.lastSystemIndex !== nextSystem;
       instance.lastSystemIndex = nextSystem;
-      return { tick, x, ...bounds, systemChanged };
+      return {
+        tick,
+        sourceTick,
+        sourceX: x,
+        sourceYTop: bounds.yTop,
+        sourceYBottom: bounds.yBottom,
+        x: domTop.x,
+        yTop: domTop.y,
+        staffTop: domTop.y,
+        yBottom: domBottom.y,
+        systemIndex: bounds.systemIndex,
+        pageIndex: bounds.pageIndex,
+        systemChanged
+      };
     } catch (_) {
       return {
         tick,
@@ -303,10 +401,11 @@
     const instance = root ? instances.get(root) : null;
     const line = instance?.layers?.line || root?.querySelector?.('[data-score-playhead]');
     if (!line) return false;
-    line.setAttribute('x1', String(number(position?.x, 0)));
-    line.setAttribute('x2', String(number(position?.x, 0)));
-    line.setAttribute('y1', String(number(position?.yTop, 0)));
-    line.setAttribute('y2', String(number(position?.yBottom, instance?.layers?.size?.height || 0)));
+    const x = number(position?.x, 0);
+    const yTop = number(position?.yTop, 0);
+    const yBottom = Math.max(yTop + 1, number(position?.yBottom, yTop + 1));
+    line.style.transform = `translate3d(${x}px, ${yTop}px, 0)`;
+    line.style.height = `${yBottom - yTop}px`;
     line.dataset.system = String(number(position?.systemIndex, 0));
     return true;
   }
@@ -335,6 +434,7 @@
   const api = Object.freeze({
     engine: 'opensheetmusicdisplay',
     renderInto,
+    ticksToWholeNotes,
     getPlayheadPosition,
     updatePlayhead,
     setZoom,

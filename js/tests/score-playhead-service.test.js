@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 const ScorePlayhead = require('../core/ScorePlayheadService');
 const MusicXmlParser = require('../core/MusicXmlScoreParser');
 const MusicXmlModel = require('../core/MusicXmlScoreModel');
+const ScoreRenderer = require('../editor/ScoreRenderer');
 
 const score = MusicXmlModel.normalize(MusicXmlParser.parse(
   `<score-partwise><part-list><score-part id="P1"><part-name>Flute</part-name></score-part></part-list>` +
@@ -17,5 +18,7 @@ const clock = ScorePlayhead.create({ musicXmlScore: score });
 assert.equal(clock.secondsToTick(0.25), 120);
 assert.equal(clock.tickToSeconds(120), 0.25);
 assert.equal(clock.tickToMeasureBeat(240, 'P1').beat, 2);
+assert.equal(ScoreRenderer.ticksToWholeNotes(480, score), 0.25);
+assert.equal(ScoreRenderer.ticksToWholeNotes(1920, score), 1);
 
 console.log('ScorePlayheadService tests passed');

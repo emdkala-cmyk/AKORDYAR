@@ -161,10 +161,16 @@ body.color-tool-eyedropper .chord { cursor: cell !important; }
 .score-playhead-overlay {
   z-index: 2;
 }
-.score-playhead-overlay line {
-  stroke: #b42318;
-  stroke-width: 1.8;
+.score-playhead-indicator {
+  position: absolute;
+  top: 0;
+  left: -1px;
+  width: 2px;
+  min-height: 1px;
+  background: #b42318;
   opacity: .92;
+  pointer-events: none;
+  will-change: transform, height;
 }
 .score-render-pending {
   background: #fff;
