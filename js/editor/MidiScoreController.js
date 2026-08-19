@@ -78,6 +78,29 @@
       return value > 0 ? value : 120;
     }
 
+    function playheadMode() {
+      return globalScope.ScoreRenderer?.normalizePlayheadMode?.(
+        getSong()?.liveScoreSettings?.playheadMode
+      ) || (getSong()?.liveScoreSettings?.playheadMode === 'measure' ? 'measure' : 'line');
+    }
+
+    function setPlayheadMode(value) {
+      const song = getSong();
+      if (!song) return false;
+      const nextMode = String(value || '').toLowerCase() === 'measure'
+        ? 'measure'
+        : 'line';
+      song.liveScoreSettings = {
+        ...(song.liveScoreSettings || {}),
+        playheadMode: nextMode
+      };
+      setSong(song);
+      saveSong();
+      onSongChanged(song, musicXmlScore() || midiScore());
+      render();
+      return true;
+    }
+
     function scoreClock() {
       return globalScope.ScorePlayheadService?.create?.({
         midiScore: midiScore(),
@@ -187,6 +210,24 @@
         button.addEventListener('click', () => chooseMode(mode.id));
         partsElement.appendChild(button);
       });
+
+      const playheadSelect = documentRef.createElement('select');
+      playheadSelect.className = 'midi-score-playhead-mode-select';
+      playheadSelect.setAttribute('aria-label', 'حالت پلی‌هد');
+      [
+        { value: 'line', label: 'پلی‌هد: خط' },
+        { value: 'measure', label: 'پلی‌هد: هایلایت میزان' }
+      ].forEach(optionData => {
+        const option = documentRef.createElement('option');
+        option.value = optionData.value;
+        option.textContent = optionData.label;
+        option.selected = optionData.value === playheadMode();
+        playheadSelect.appendChild(option);
+      });
+      playheadSelect.addEventListener('change', () => {
+        setPlayheadMode(playheadSelect.value);
+      });
+      partsElement.appendChild(playheadSelect);
 
       (currentScore?.parts || []).forEach(part => {
         const button = documentRef.createElement('button');
@@ -367,7 +408,8 @@
           Promise.resolve(scoreRenderer.renderInto(root, normalized, selectedPartId, {
             zoom: 1,
             chords: chordOverlay(),
-            showChords: chordVisibility(selectedPartId, normalized)
+            showChords: chordVisibility(selectedPartId, normalized),
+            playheadMode: playheadMode()
           })).then(instance => {
             if (token !== renderToken || !instance) return;
             viewer.classList.remove('score-render-pending');
@@ -376,7 +418,10 @@
               midiScore: midiScore(),
               activeTick: scoreClock()?.secondsToTick?.(activeSeconds)
             });
-            scoreRenderer.updatePlayhead?.(root, position);
+            scoreRenderer.updatePlayhead?.(root, {
+              ...position,
+              playheadMode: playheadMode()
+            });
           }).catch(error => {
             if (token !== renderToken) return;
             viewer.classList.remove('score-render-pending');
@@ -394,7 +439,8 @@
             activeTick: scoreClock()?.secondsToTick?.(activeSeconds),
             midiScore: midiScore(),
             chords: null,
-            ariaLabel: `${part?.name || 'Score'} score`
+            ariaLabel: `${part?.name || 'Score'} score`,
+            playheadMode: playheadMode()
           });
           const svg = viewer.querySelector('svg');
           if (svg) viewer.style.setProperty('--midi-score-width', `${svg.getAttribute('width') || 0}px`);
@@ -540,7 +586,10 @@
               midiScore: midiScore(),
               activeTick: clock?.secondsToTick?.(activeSeconds)
             });
-        scoreRenderer.updatePlayhead?.(root, position);
+        scoreRenderer.updatePlayhead?.(root, {
+          ...position,
+          playheadMode: playheadMode()
+        });
         const now = performance.now();
         if (
           viewer &&
@@ -559,7 +608,7 @@
           }
         }
         lastPlayheadSystem = position.systemIndex;
-      } else if (playhead) {
+      } else if (playhead || renderer.updatePlayhead) {
         const position = renderer.getPlayheadPosition
           ? renderer.getPlayheadPosition(currentScore, selectedPartId, activeSeconds, {
               midiScore: midiScore(),
@@ -574,12 +623,19 @@
               yBottom: 0,
               systemIndex: 0
             };
-        const x = position.x;
-        playhead.setAttribute('x1', String(x));
-        playhead.setAttribute('x2', String(x));
-        if (Number.isFinite(position.yTop)) playhead.setAttribute('y1', String(position.yTop));
-        if (Number.isFinite(position.yBottom)) playhead.setAttribute('y2', String(position.yBottom));
-        playhead.dataset.system = String(position.systemIndex || 0);
+        if (renderer.updatePlayhead) {
+          renderer.updatePlayhead(viewer, {
+            ...position,
+            playheadMode: playheadMode()
+          });
+        } else if (playhead) {
+          const x = position.x;
+          playhead.setAttribute('x1', String(x));
+          playhead.setAttribute('x2', String(x));
+          if (Number.isFinite(position.yTop)) playhead.setAttribute('y1', String(position.yTop));
+          if (Number.isFinite(position.yBottom)) playhead.setAttribute('y2', String(position.yBottom));
+          playhead.dataset.system = String(position.systemIndex || 0);
+        }
         lastPlayheadSystem = position.systemIndex;
       } else {
         render();
@@ -627,7 +683,9 @@
       getScore: score,
       getMidiScore: midiScore,
       getMusicXmlScore: musicXmlScore,
-      chooseMode
+      chooseMode,
+      getPlayheadMode: playheadMode,
+      setPlayheadMode
     });
   }
 

@@ -120,7 +120,8 @@ const SongDocumentModel = (() => {
           mapping: [],
           ipAssignments: {},
           transpositionSettings: {},
-          chordLineVisibility: {}
+          chordLineVisibility: {},
+          playheadMode: 'line'
         },
         styles: {},
         lines: [], sections: [], cues: []
@@ -159,7 +160,7 @@ const SongDocumentModel = (() => {
        midiScore:    ed.midiScore || null,
        musicXmlScore: ed.musicXmlScore || null,
        scorePartMappings: Array.isArray(ed.scorePartMappings) ? ed.scorePartMappings : [],
-       liveScoreSettings: ed.liveScoreSettings || {
+       liveScoreSettings: {
          enabled: false,
          readOnly: true,
          countInEnabled: true,
@@ -167,7 +168,14 @@ const SongDocumentModel = (() => {
          mapping: [],
          ipAssignments: {},
          transpositionSettings: {},
-         chordLineVisibility: {}
+         chordLineVisibility: {},
+         playheadMode: 'line',
+         ...(ed.liveScoreSettings && typeof ed.liveScoreSettings === 'object'
+           ? ed.liveScoreSettings
+           : {}),
+         playheadMode: ed.liveScoreSettings?.playheadMode === 'measure'
+           ? 'measure'
+           : 'line'
        },
        styles:       ed.styles || {},
       lines:        lines,
@@ -202,7 +210,8 @@ const SongDocumentModel = (() => {
         mapping: [],
         ipAssignments: {},
         transpositionSettings: {},
-        chordLineVisibility: {}
+        chordLineVisibility: {},
+        playheadMode: 'line'
       };
     } else {
       result.liveScoreSettings = {
@@ -221,7 +230,10 @@ const SongDocumentModel = (() => {
           ? result.liveScoreSettings.transpositionSettings : {},
         chordLineVisibility: result.liveScoreSettings.chordLineVisibility &&
           typeof result.liveScoreSettings.chordLineVisibility === 'object'
-          ? result.liveScoreSettings.chordLineVisibility : {}
+          ? result.liveScoreSettings.chordLineVisibility : {},
+        playheadMode: result.liveScoreSettings.playheadMode === 'measure'
+          ? 'measure'
+          : 'line'
       };
     }
 

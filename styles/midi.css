@@ -127,6 +127,22 @@ body.color-tool-eyedropper .chord { cursor: cell !important; }
 .midi-score-part-btn.active { border-color: #000; color: #fff; background: #000; }
 .midi-score-qr-btn { min-width: 42px; padding-inline: 8px; }
 .midi-score-qr-btn:hover { border-color: #2563eb; color: #1d4ed8; }
+.midi-score-playhead-mode-select {
+  flex: 0 0 auto;
+  min-height: 32px;
+  padding: 6px 9px;
+  border: 1px solid #9ca3af;
+  border-radius: 7px;
+  color: #000;
+  background: #fff;
+  cursor: pointer;
+  font: inherit;
+  font-size: .76rem;
+}
+.midi-score-playhead-mode-select:focus {
+  outline: 2px solid rgba(37, 99, 235, .25);
+  outline-offset: 1px;
+}
 .midi-score-viewer {
   flex: 1;
   min-height: 0;
@@ -192,6 +208,31 @@ body.color-tool-eyedropper .chord { cursor: cell !important; }
   opacity: .92;
   pointer-events: none;
   will-change: transform, height;
+}
+.score-measure-highlight {
+  position: absolute;
+  display: none;
+  box-sizing: border-box;
+  border: 1px solid rgba(126, 87, 194, .42);
+  border-radius: 2px;
+  background: rgba(159, 122, 234, .17);
+  mix-blend-mode: multiply;
+  pointer-events: none;
+  transition: opacity .08s linear;
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 9px,
+    #000 calc(100% - 9px),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 9px,
+    #000 calc(100% - 9px),
+    transparent 100%
+  );
 }
 .score-render-pending {
   background: #fff;
@@ -271,6 +312,28 @@ body.color-tool-eyedropper .chord { cursor: cell !important; }
 .midi-score-rest rect { fill: #000; }
 .midi-score-rest line { stroke: #000; stroke-width: 1; }
 .midi-score-playhead { stroke: #b42318; stroke-width: 1.8; opacity: .92; pointer-events: none; }
+.midi-score-measure-highlight {
+  fill: rgba(159, 122, 234, .17);
+  stroke: rgba(126, 87, 194, .42);
+  stroke-width: 1;
+  rx: 3;
+  ry: 3;
+  pointer-events: none;
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 9px,
+    #000 calc(100% - 9px),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 9px,
+    #000 calc(100% - 9px),
+    transparent 100%
+  );
+}
 
 .live-score-qr-grid {
   display: grid;

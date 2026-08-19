@@ -20,6 +20,13 @@
   const Protocol = globalScope.AkordSyncProtocol;
 
   const MobileClient = (() => {
+    function normalizePlayheadMode(value) {
+      const mode = String(value || '').trim().toLowerCase();
+      return mode === 'measure' || mode === 'measure-highlight' || mode === 'highlight'
+        ? 'measure'
+        : 'line';
+    }
+
     const MOBILE_VIEW_STORAGE_KEY = 'akord_mobile_view_v5';
     const MOBILE_PART_STORAGE_KEY = 'akord_mobile_midi_part_v1';
     const MOBILE_MUSICXML_PART_STORAGE_KEY = 'akord_mobile_musicxml_part_v1';
@@ -53,7 +60,8 @@
       score: null,
       activePartId: null,
       scoreVersion: 0,
-      scoreIdentity: ''
+      scoreIdentity: '',
+      playheadMode: 'line'
     };
     let normalizedScoreCache = { raw: null, version: 0, score: null };
     let musicXmlScoreState = {
@@ -63,7 +71,8 @@
       chordLineVisibility: {},
       projectTempo: 120,
       scoreVersion: 0,
-      scoreIdentity: ''
+      scoreIdentity: '',
+      playheadMode: 'line'
     };
     let normalizedMusicXmlCache = { raw: null, version: 0, score: null };
     let pendingPartRequest = null;
@@ -351,7 +360,8 @@
       Promise.resolve(renderer.renderInto(canvas, score, partId, {
         zoom: mobileScoreZoom(),
         chords: scoreChordOverlay(),
-        showChords: showChordsForPart(partId, part)
+        showChords: showChordsForPart(partId, part),
+        playheadMode: musicXmlScoreState.playheadMode
       })).then(() => {
         const renderedPlayhead = canvas.querySelector('[data-score-playhead]');
         if (renderedPlayhead) {
@@ -399,7 +409,10 @@
           score: null,
           activePartId: null,
           scoreVersion: incomingVersion,
-          scoreIdentity: ''
+          scoreIdentity: '',
+          playheadMode: normalizePlayheadMode(
+            payload.playheadMode ?? midiScoreState.playheadMode
+          )
         };
         normalizedScoreCache = { raw: null, version: 0, score: null };
         pendingPartRequest = null;
@@ -426,7 +439,10 @@
         score: rawScore,
         activePartId,
         scoreVersion: incomingVersion,
-        scoreIdentity: identity
+        scoreIdentity: identity,
+        playheadMode: normalizePlayheadMode(
+          payload.playheadMode ?? midiScoreState.playheadMode
+        )
       };
       normalizedScoreCache = {
         raw: rawScore,
@@ -456,7 +472,10 @@
           chordLineVisibility: {},
           projectTempo: Number(payload.projectTempo) || 120,
           scoreVersion: incomingVersion,
-          scoreIdentity: ''
+          scoreIdentity: '',
+          playheadMode: normalizePlayheadMode(
+            payload.playheadMode ?? musicXmlScoreState.playheadMode
+          )
         };
         normalizedMusicXmlCache = { raw: null, version: 0, score: null };
         pendingMusicXmlPartRequest = null;
@@ -500,7 +519,10 @@
           ? Number(payload.projectTempo)
           : projectTempo(),
         scoreVersion: incomingVersion,
-        scoreIdentity: identity
+        scoreIdentity: identity,
+        playheadMode: normalizePlayheadMode(
+          payload.playheadMode ?? musicXmlScoreState.playheadMode
+        )
       };
       normalizedMusicXmlCache = {
         raw: scoreData,
@@ -646,6 +668,10 @@
         ? !activeRenderer?.getPlayheadPosition
         : !activeRenderer?.getPlayheadX)) return;
       const playhead = container.querySelector('[data-mobile-score-playhead]');
+      const measureHighlight = container.querySelector('[data-score-measure-highlight]');
+      const playheadMode = normalizePlayheadMode(
+        useMusicXml ? musicXmlScoreState.playheadMode : midiScoreState.playheadMode
+      );
       const activePartId = useMusicXml
         ? (musicXmlScoreState.activePartId || score.activePartId)
         : (midiScoreState.activePartId || score.activePartId);
@@ -653,7 +679,7 @@
         ? container.querySelector('.mobile-midi-score-canvas.score-viewer-root')
         : null;
       if (useMusicXml && !root) return;
-      if (!useMusicXml && !playhead) return;
+      if (!useMusicXml && !playhead && !measureHighlight) return;
       const projectClock = globalScope.ScorePlayheadService?.create?.({
         midiScore,
         musicXmlScore: score,
@@ -685,13 +711,15 @@
             score,
             partId: activePartId,
             root,
-            activeTick
+            activeTick,
+            playheadMode
           })
         : (activeRenderer.getPlayheadPosition
           ? activeRenderer.getPlayheadPosition(score, activePartId, time, {
               root,
               midiScore,
-              activeTick
+              activeTick,
+              playheadMode
             })
           : {
               x: activeRenderer.getPlayheadX(score, activePartId, time, {
@@ -704,13 +732,23 @@
             });
       const x = position.x;
       if (useMusicXml) {
-        activeRenderer.updatePlayhead?.(root, position);
+        activeRenderer.updatePlayhead?.(root, {
+          ...position,
+          playheadMode
+        });
       } else {
-        playhead.setAttribute('x1', String(x));
-        playhead.setAttribute('x2', String(x));
-        if (Number.isFinite(position.yTop)) playhead.setAttribute('y1', String(position.yTop));
-        if (Number.isFinite(position.yBottom)) playhead.setAttribute('y2', String(position.yBottom));
-        playhead.dataset.system = String(position.systemIndex || 0);
+        if (activeRenderer.updatePlayhead) {
+          activeRenderer.updatePlayhead(container, {
+            ...position,
+            playheadMode
+          });
+        } else if (playhead) {
+          playhead.setAttribute('x1', String(x));
+          playhead.setAttribute('x2', String(x));
+          if (Number.isFinite(position.yTop)) playhead.setAttribute('y1', String(position.yTop));
+          if (Number.isFinite(position.yBottom)) playhead.setAttribute('y2', String(position.yBottom));
+          playhead.dataset.system = String(position.systemIndex || 0);
+        }
       }
       ensureScorePlayheadVisible(position);
       const barBeat = useMusicXml
@@ -748,9 +786,10 @@
       })?.secondsToTick?.(time);
       const svg = hasTrack
         ? globalScope.MidiScoreRenderer.renderSvg(score, partId, {
-            activeTime: time,
-            activeTick,
-            ariaLabel: 'MIDI performer score'
+          activeTime: time,
+          activeTick,
+          playheadMode: midiScoreState.playheadMode,
+          ariaLabel: 'MIDI performer score'
           })
         : '';
       const documentRef = container.ownerDocument || globalScope.document;
@@ -873,6 +912,7 @@
           activeTime: time,
           activeTick,
           midiScore: midi,
+          playheadMode: midiScoreState.playheadMode,
           ariaLabel: 'MIDI performer score'
         });
       } else {
@@ -894,7 +934,8 @@
         activeRenderer.renderInto(canvas, score, partId, {
           zoom: mobileScoreZoom(),
           chords: scoreChordOverlay(),
-          showChords: showChordsForPart(partId, part)
+          showChords: showChordsForPart(partId, part),
+          playheadMode: musicXmlScoreState.playheadMode
         })
           .then(() => {
             const renderedPlayhead = canvas.querySelector('[data-score-playhead]');

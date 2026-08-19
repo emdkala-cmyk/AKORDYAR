@@ -68,8 +68,17 @@
   // returned privately to the requesting phone.
   function buildMidiScorePayload(scoreState, requestedPartId = null, includeTrack = false) {
     const score = scoreState?.score;
+    const song = globalScope.EdCurAdapter?.getEdCur?.() || null;
+    const playheadMode = song?.liveScoreSettings?.playheadMode === 'measure'
+      ? 'measure'
+      : 'line';
     if (!score || typeof score !== 'object') {
-      return { score: null, activePartId: null, scoreVersion: 0 };
+      return {
+        score: null,
+        activePartId: null,
+        scoreVersion: 0,
+        playheadMode
+      };
     }
     const activePartId =
       requestedPartId ||
@@ -132,7 +141,8 @@
     return {
       score: compactScore,
       activePartId,
-      scoreVersion: Number(scoreState.scoreVersion || score.schemaVersion || 1)
+      scoreVersion: Number(scoreState.scoreVersion || score.schemaVersion || 1),
+      playheadMode
     };
   }
 
@@ -172,6 +182,9 @@
       typeof song.liveScoreSettings.chordLineVisibility === 'object'
         ? { ...song.liveScoreSettings.chordLineVisibility }
         : {};
+    const playheadMode = song?.liveScoreSettings?.playheadMode === 'measure'
+      ? 'measure'
+      : 'line';
     if (!score || typeof score !== 'object') {
       return {
         score: null,
@@ -179,7 +192,8 @@
         mappings: [],
         chordLineVisibility,
         projectTempo,
-        scoreVersion: 0
+        scoreVersion: 0,
+        playheadMode
       };
     }
     const activePartId =
@@ -276,7 +290,8 @@
         : (Array.isArray(score.mappings) ? score.mappings.map(mapping => ({ ...mapping, ip: null })) : []),
       chordLineVisibility,
       projectTempo,
-      scoreVersion: Number(scoreState.scoreVersion || score.schemaVersion || 1)
+      scoreVersion: Number(scoreState.scoreVersion || score.schemaVersion || 1),
+      playheadMode
     };
   }
 

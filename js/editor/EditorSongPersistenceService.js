@@ -107,7 +107,10 @@
             ? song.liveScoreSettings.transpositionSettings : {},
           chordLineVisibility: song.liveScoreSettings.chordLineVisibility &&
             typeof song.liveScoreSettings.chordLineVisibility === 'object'
-            ? song.liveScoreSettings.chordLineVisibility : {}
+            ? song.liveScoreSettings.chordLineVisibility : {},
+          playheadMode: song.liveScoreSettings.playheadMode === 'measure'
+            ? 'measure'
+            : 'line'
         };
       }
 

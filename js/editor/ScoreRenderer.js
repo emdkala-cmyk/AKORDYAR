@@ -25,6 +25,13 @@
     return Math.max(min, Math.min(max, value));
   }
 
+  function normalizePlayheadMode(value) {
+    const mode = String(value || '').trim().toLowerCase();
+    return mode === 'measure' || mode === 'measure-highlight' || mode === 'highlight'
+      ? 'measure'
+      : 'line';
+  }
+
   function getOsmdConstructor() {
     return globalScope.opensheetmusicdisplay?.OpenSheetMusicDisplay ||
       globalScope.OpenSheetMusicDisplay ||
@@ -161,7 +168,17 @@
       line.setAttribute('aria-hidden', 'true');
       layers.playheadLayer.replaceChildren(line);
     }
-    return { ...layers, size, line };
+    let measureHighlight = layers.playheadLayer.querySelector(
+      '[data-score-measure-highlight]'
+    );
+    if (!measureHighlight || measureHighlight.namespaceURI === 'http://www.w3.org/2000/svg') {
+      measureHighlight = root.ownerDocument.createElement('div');
+      measureHighlight.className = 'score-measure-highlight';
+      measureHighlight.dataset.scoreMeasureHighlight = 'true';
+      measureHighlight.setAttribute('aria-hidden', 'true');
+      layers.playheadLayer.insertBefore(measureHighlight, line);
+    }
+    return { ...layers, size, line, measureHighlight };
   }
 
   function systemOrdinal(osmd, target) {
@@ -304,6 +321,7 @@
         staffTop: 0,
         yBottom: pageSize(osmd).height,
         systemIndex: 0,
+        playheadMode: normalizePlayheadMode(instance.playheadMode),
         progress: 0,
         systemChanged: false
       };
@@ -315,6 +333,7 @@
       const bounds = currentSystemBounds(osmd, system);
       const domTop = osmdPointToRoot(instance, x, bounds.yTop);
       const domBottom = osmdPointToRoot(instance, x, bounds.yBottom);
+      const measure = measureBoundsFor(instance, tick);
       const nextSystem = bounds.systemIndex;
       const systemChanged = instance.lastSystemIndex !== -1 &&
         instance.lastSystemIndex !== nextSystem;
@@ -331,6 +350,13 @@
         yBottom: domBottom.y,
         systemIndex: bounds.systemIndex,
         pageIndex: bounds.pageIndex,
+        measureIndex: measure?.measureIndex ?? null,
+        measureNumber: measure?.measureNumber ?? null,
+        measureLeft: measure?.left ?? domTop.x,
+        measureRight: measure?.right ?? domTop.x + 1,
+        measureTop: measure?.top ?? domTop.y,
+        measureBottom: measure?.bottom ?? domBottom.y,
+        playheadMode: normalizePlayheadMode(instance.playheadMode),
         systemChanged
       };
     } catch (_) {
@@ -341,9 +367,137 @@
         staffTop: 0,
         yBottom: pageSize(osmd).height,
         systemIndex: 0,
+        playheadMode: normalizePlayheadMode(instance.playheadMode),
         progress: 0,
         systemChanged: false
       };
+    }
+  }
+
+  function measureBoundsFor(instance, playbackTick) {
+    const score = instance?.score;
+    const measures = globalScope.MusicXmlScoreModel?.getMeasures?.(
+      score,
+      instance?.partId
+    ) || score?.parts?.find(part =>
+      String(part.id) === String(instance?.partId)
+    )?.measures || score?.measures || [];
+    if (!measures.length || !instance?.osmd?.GraphicSheet) return null;
+
+    const sourceTick = sourceTickForPlaybackTick(instance, playbackTick);
+    const measureIndex = Math.max(0, measures.findIndex((measure, index) => {
+      const last = index === measures.length - 1;
+      return sourceTick >= number(measure.startTick) &&
+        (sourceTick < number(measure.endTick) || last);
+    }));
+    const measure = measures[measureIndex] || measures[measures.length - 1];
+    const graphic = instance.osmd.GraphicSheet;
+    const startFraction = fractionFor(instance.osmd, number(measure.startTick), score);
+    const endTick = Math.max(
+      number(measure.startTick),
+      number(measure.endTick, number(measure.startTick) + 1) - 1
+    );
+    const endFraction = fractionFor(instance.osmd, endTick, score);
+    if (!startFraction || !endFraction) return null;
+
+    try {
+      const startResult = graphic.calculateXPositionFromTimestamp(startFraction);
+      const startSystem = startResult?.[1] ||
+        graphic.MusicPages?.[0]?.MusicSystems?.[0];
+      if (!startSystem) return null;
+      const endResult = graphic.calculateXPositionFromTimestamp(endFraction);
+      const bounds = currentSystemBounds(instance.osmd, startSystem);
+      const graphicalMeasures = (startSystem.GraphicalMeasures || [])
+        .flatMap(row => Array.isArray(row) ? row : []);
+      const graphicalMeasure = graphicalMeasures.find(candidate => {
+        const source = candidate?.ParentSourceMeasure;
+        return source === measure ||
+          Number(source?.measureListIndex) === Number(measure.index ?? measureIndex) ||
+          Number(source?.MeasureNumber) === Number(measure.number);
+      });
+      const graphicalBox = graphicalMeasure?.PositionAndShape;
+      const graphicalX = number(graphicalBox?.AbsolutePosition?.x, NaN);
+      const graphicalWidth = number(graphicalBox?.Size?.width, 0);
+      if (Number.isFinite(graphicalX) && graphicalWidth > 0) {
+        const firstStaffMeasures = Array.isArray(startSystem.GraphicalMeasures?.[0])
+          ? startSystem.GraphicalMeasures[0]
+          : [];
+        const graphicalIndex = firstStaffMeasures.indexOf(graphicalMeasure);
+        const nextGraphicalMeasure = graphicalIndex >= 0
+          ? firstStaffMeasures[graphicalIndex + 1]
+          : null;
+        const systemLines = Array.isArray(startSystem.SystemLines)
+          ? startSystem.SystemLines
+          : [];
+        const lineX = line => number(
+          line?.PositionAndShape?.AbsolutePosition?.x,
+          NaN
+        );
+        const beginLine = systemLines.find(line =>
+          line?.topMeasure === graphicalMeasure &&
+          Number(line?.linePosition) === 0 &&
+          Number.isFinite(lineX(line))
+        );
+        const endLine = systemLines.find(line =>
+          line?.topMeasure === graphicalMeasure &&
+          Number(line?.linePosition) === 1 &&
+          Number.isFinite(lineX(line))
+        ) || (nextGraphicalMeasure && systemLines.find(line =>
+          line?.topMeasure === nextGraphicalMeasure &&
+          Number(line?.linePosition) === 0 &&
+          Number.isFinite(lineX(line))
+        ));
+        const exactLeft = lineX(beginLine);
+        const exactRight = lineX(endLine);
+        const leftSourceX = Number.isFinite(exactLeft) ? exactLeft : graphicalX;
+        const rightSourceX = Number.isFinite(exactRight)
+          ? exactRight
+          : graphicalX + graphicalWidth;
+        const leftPoint = osmdPointToRoot(instance, leftSourceX, bounds.yTop);
+        const rightPoint = osmdPointToRoot(
+          instance,
+          rightSourceX,
+          bounds.yBottom
+        );
+        return {
+          measureIndex: measure.index ?? measureIndex,
+          measureNumber: measure.number ?? String(measureIndex + 1),
+          left: Math.min(leftPoint.x, rightPoint.x),
+          right: Math.max(leftPoint.x + 1, rightPoint.x),
+          top: leftPoint.y,
+          bottom: rightPoint.y,
+          systemIndex: bounds.systemIndex
+        };
+      }
+      const startPoint = osmdPointToRoot(
+        instance,
+        number(startResult?.[0], 0),
+        bounds.yTop
+      );
+      const endSystem = endResult?.[1] || startSystem;
+      const endBounds = bounds;
+      const endX = endSystem === startSystem
+        ? number(endResult?.[0], number(startResult?.[0], 0))
+        : number(startSystem?.PositionAndShape?.AbsolutePosition?.x, 0) +
+          number(startSystem?.PositionAndShape?.Size?.width, 0);
+      const endPoint = osmdPointToRoot(
+        instance,
+        endX,
+        endBounds.yBottom
+      );
+      const left = Math.min(startPoint.x, endPoint.x);
+      const right = Math.max(left + 1, endPoint.x);
+      return {
+        measureIndex: measure.index ?? measureIndex,
+        measureNumber: measure.number ?? String(measureIndex + 1),
+        left,
+        right,
+        top: startPoint.y,
+        bottom: endPoint.y,
+        systemIndex: bounds.systemIndex
+      };
+    } catch (_) {
+      return null;
     }
   }
 
@@ -439,10 +593,12 @@
         renderToken: 0,
         osmd: null,
         key: '',
-        lastSystemIndex: -1
+        lastSystemIndex: -1,
+        playheadMode: normalizePlayheadMode(options.playheadMode)
       };
       instances.set(root, instance);
     }
+    instance.playheadMode = normalizePlayheadMode(options.playheadMode || instance.playheadMode);
     if (instance.key === key && instance.osmd) {
       instance.score = score;
       instance.partId = partId || score?.activePartId || null;
@@ -503,19 +659,49 @@
       ? Number(options.activeTick)
       : (clock?.secondsToTick?.(seconds) || 0);
     if (instance?.osmd) return positionFor(instance, tick);
-    return { tick, x: 0, yTop: 0, staffTop: 0, yBottom: 0, systemIndex: 0, systemChanged: false };
+    return {
+      tick,
+      x: 0,
+      yTop: 0,
+      staffTop: 0,
+      yBottom: 0,
+      systemIndex: 0,
+      playheadMode: normalizePlayheadMode(options.playheadMode),
+      systemChanged: false
+    };
   }
 
   function updatePlayhead(root, position) {
     const instance = root ? instances.get(root) : null;
     const line = instance?.layers?.line || root?.querySelector?.('[data-score-playhead]');
-    if (!line) return false;
-    const x = number(position?.x, 0);
-    const yTop = number(position?.yTop, 0);
-    const yBottom = Math.max(yTop + 1, number(position?.yBottom, yTop + 1));
-    line.style.transform = `translate3d(${x}px, ${yTop}px, 0)`;
-    line.style.height = `${yBottom - yTop}px`;
-    line.dataset.system = String(number(position?.systemIndex, 0));
+    const measureHighlight = instance?.layers?.measureHighlight ||
+      root?.querySelector?.('[data-score-measure-highlight]');
+    if (!line && !measureHighlight) return false;
+    const mode = normalizePlayheadMode(position?.playheadMode || instance?.playheadMode);
+    if (line) line.style.display = mode === 'measure' ? 'none' : 'block';
+    if (measureHighlight) {
+      const validMeasure = mode === 'measure' &&
+        Number.isFinite(Number(position?.measureLeft)) &&
+        Number.isFinite(Number(position?.measureRight));
+      measureHighlight.style.display = validMeasure ? 'block' : 'none';
+      if (validMeasure) {
+        measureHighlight.style.left = `${number(position.measureLeft)}px`;
+        measureHighlight.style.top = `${number(position.measureTop)}px`;
+        measureHighlight.style.width = `${Math.max(1, number(position.measureRight) - number(position.measureLeft))}px`;
+        measureHighlight.style.height = `${Math.max(1, number(position.measureBottom) - number(position.measureTop))}px`;
+        measureHighlight.dataset.measure = String(
+          position.measureNumber ?? position.measureIndex ?? ''
+        );
+      }
+    }
+    if (line) {
+      const x = number(position?.x, 0);
+      const yTop = number(position?.yTop, 0);
+      const yBottom = Math.max(yTop + 1, number(position?.yBottom, yTop + 1));
+      line.style.transform = `translate3d(${x}px, ${yTop}px, 0)`;
+      line.style.height = `${yBottom - yTop}px`;
+      line.dataset.system = String(number(position?.systemIndex, 0));
+    }
     return true;
   }
 
@@ -545,6 +731,7 @@
     renderInto,
     renderChordOverlay,
     ticksToWholeNotes,
+    normalizePlayheadMode,
     getPlayheadPosition,
     updatePlayhead,
     setZoom,

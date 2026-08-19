@@ -62,7 +62,8 @@
         mapping: [],
         ipAssignments: {},
         transpositionSettings: {},
-        chordLineVisibility: {}
+        chordLineVisibility: {},
+        playheadMode: 'line'
       };
     } else {
       normalized.liveScoreSettings = {
@@ -82,7 +83,10 @@
           ? normalized.liveScoreSettings.transpositionSettings : {},
         chordLineVisibility: normalized.liveScoreSettings.chordLineVisibility &&
           typeof normalized.liveScoreSettings.chordLineVisibility === 'object'
-          ? normalized.liveScoreSettings.chordLineVisibility : {}
+          ? normalized.liveScoreSettings.chordLineVisibility : {},
+        playheadMode: normalized.liveScoreSettings.playheadMode === 'measure'
+          ? 'measure'
+          : 'line'
       };
     }
     if (!normalized.styles) normalized.styles = {};

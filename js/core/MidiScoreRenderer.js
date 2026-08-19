@@ -73,6 +73,13 @@
     return globalScope.MidiScoreModel?.normalize?.(score) || score;
   }
 
+  function normalizePlayheadMode(value) {
+    const mode = String(value || '').trim().toLowerCase();
+    return mode === 'measure' || mode === 'measure-highlight' || mode === 'highlight'
+      ? 'measure'
+      : 'line';
+  }
+
   function inferKeySignature(score) {
     const histogram = Array(12).fill(0);
     let noteCount = 0;
@@ -568,7 +575,22 @@
       const measure = measureForTick(layout.measures, activeTick);
       const x = tickToX(layout, activeTick);
       const staffTop = measure?.staffTop || TOP_PADDING;
-      parts.push(`<line x1="${x}" y1="${staffTop - 24}" x2="${x}" y2="${staffTop + layout.staffSpacing * 4 + 24}" class="midi-score-playhead" data-score-playhead="true"/>`);
+      const playheadMode = normalizePlayheadMode(options.playheadMode);
+      const measureX = Number(measure?.x) || x;
+      const measureWidth = Math.max(12, Number(measure?.width) || 12);
+      const measureY = staffTop - 5;
+      const measureHeight = layout.staffSpacing * 4 + 11;
+      parts.push(
+        `<rect x="${measureX}" y="${measureY}" width="${measureWidth}" height="${measureHeight}" ` +
+        `rx="3" ry="3" ` +
+        `class="midi-score-measure-highlight" data-score-measure-highlight="true" ` +
+        `style="display:${playheadMode === 'measure' ? 'block' : 'none'}"/>`
+      );
+      parts.push(
+        `<line x1="${x}" y1="${staffTop - 24}" x2="${x}" y2="${staffTop + layout.staffSpacing * 4 + 24}" ` +
+        `class="midi-score-playhead" data-score-playhead="true" ` +
+        `style="display:${playheadMode === 'measure' ? 'none' : 'block'}"/>`
+      );
     }
     parts.push('</svg>');
     return parts.join('');
@@ -605,9 +627,59 @@
       yTop: staffTop - 24,
       staffTop,
       yBottom: staffTop + layout.staffSpacing * 4 + 24,
-      systemIndex: measure?.systemIndex || 0,
+      systemIndex: measure?.systemIndex ?? 0,
+      measureIndex: measure?.index ?? layout.measures.indexOf(measure),
+      measureNumber: measure?.number ?? null,
+      measureLeft: Number(measure?.x) || tickToX(layout, tick),
+      measureRight: (Number(measure?.x) || tickToX(layout, tick)) +
+        Math.max(12, Number(measure?.width) || 12),
+      measureTop: staffTop - 5,
+      measureBottom: staffTop + layout.staffSpacing * 4 + 6,
+      playheadMode: normalizePlayheadMode(options.playheadMode),
       systemChanged: false
     };
+  }
+
+  function updatePlayhead(root, position) {
+    const line = root?.querySelector?.('[data-score-playhead]');
+    const highlight = root?.querySelector?.('[data-score-measure-highlight]');
+    if (!line && !highlight) return false;
+    const mode = normalizePlayheadMode(position?.playheadMode);
+    if (line) {
+      line.style.display = mode === 'measure' ? 'none' : 'block';
+      const x = Number(position?.x);
+      if (Number.isFinite(x)) {
+        line.setAttribute('x1', String(x));
+        line.setAttribute('x2', String(x));
+      }
+      if (Number.isFinite(Number(position?.yTop))) {
+        line.setAttribute('y1', String(position.yTop));
+      }
+      if (Number.isFinite(Number(position?.yBottom))) {
+        line.setAttribute('y2', String(position.yBottom));
+      }
+      line.dataset.system = String(position?.systemIndex ?? 0);
+    }
+    if (highlight) {
+      const left = Number(position?.measureLeft);
+      const right = Number(position?.measureRight);
+      const top = Number(position?.measureTop);
+      const bottom = Number(position?.measureBottom);
+      const valid = mode === 'measure' &&
+        Number.isFinite(left) && Number.isFinite(right) &&
+        Number.isFinite(top) && Number.isFinite(bottom);
+      highlight.style.display = valid ? 'block' : 'none';
+      if (valid) {
+        highlight.setAttribute('x', String(left));
+        highlight.setAttribute('y', String(top));
+        highlight.setAttribute('width', String(Math.max(1, right - left)));
+        highlight.setAttribute('height', String(Math.max(1, bottom - top)));
+        highlight.dataset.measure = String(
+          position?.measureNumber ?? position?.measureIndex ?? ''
+        );
+      }
+    }
+    return true;
   }
 
   function clearCache() {
@@ -620,6 +692,8 @@
     renderSvg,
     getPlayheadX,
     getPlayheadPosition,
+    updatePlayhead,
+    normalizePlayheadMode,
     getKeySignatureLabel,
     clearCache
   });
