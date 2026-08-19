@@ -59,6 +59,10 @@ assert.ok(
     scriptIndex('js/core/MusicXmlScoreRenderer.js')
 );
 assert.ok(
+  scriptIndex('js/core/ScoreTransposeService.js') <
+    scriptIndex('js/editor/MidiScoreController.js')
+);
+assert.ok(
   scriptIndex('js/core/ScorePartMappingService.js') <
     scriptIndex('js/core/MusicXmlScoreRenderer.js')
 );

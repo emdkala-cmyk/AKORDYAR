@@ -27,6 +27,7 @@
     musicXmlModel = globalScope.MusicXmlScoreModel,
     musicXmlRenderer = globalScope.ScoreRenderer || globalScope.MusicXmlScoreRenderer,
     scoreRenderer = globalScope.ScoreRenderer || musicXmlRenderer,
+    transposeService = globalScope.ScoreTransposeService,
     scorePlayheadService = globalScope.EditorScorePlayheadService
   } = {}) {
     if (!importService?.create) {
@@ -98,6 +99,45 @@
       saveSong();
       onSongChanged(song, musicXmlScore() || midiScore());
       render();
+      return true;
+    }
+
+    function syncScoresToProjectKey() {
+      const song = getSong();
+      if (!song || !transposeService) return false;
+      const targetKey = song.key || song.originalKey || 'C';
+      const targetMode = song.keyMode || song.originalKeyMode || 'major';
+      let changed = false;
+      if (song.midiScore) {
+        song.midiScore = model.serialize(
+          transposeService.transposeMidiScore(song.midiScore, targetKey, targetMode)
+        );
+        changed = true;
+      }
+      if (song.musicXmlScore && musicXmlModel?.serialize) {
+        song.musicXmlScore = musicXmlModel.serialize(
+          transposeService.transposeMusicXmlScore(song.musicXmlScore, targetKey, targetMode)
+        );
+        changed = true;
+      }
+      if (!changed) {
+        toast('ابتدا یک فایل MIDI یا MusicXML وارد کنید');
+        return false;
+      }
+      song.liveScoreSettings = {
+        ...(song.liveScoreSettings || {}),
+        scoreKeySync: {
+          key: targetKey,
+          mode: targetMode,
+          updatedAt: new Date().toISOString()
+        }
+      };
+      setSong(song);
+      saveSong();
+      onSongChanged(song, musicXmlScore() || midiScore());
+      refreshQrParts();
+      render();
+      toast(`نت‌های سازها با گام پروژه (${targetKey}${String(targetMode).startsWith('min') ? 'm' : ''}) همگام شد`);
       return true;
     }
 
@@ -184,6 +224,14 @@
       const partsElement = element('midiScoreParts');
       if (!partsElement) return;
       partsElement.replaceChildren();
+
+      const syncButton = documentRef.createElement('button');
+      syncButton.type = 'button';
+      syncButton.className = 'midi-score-part-btn midi-score-sync-btn';
+      syncButton.textContent = '🎼 همگام‌سازی با گام پروژه';
+      syncButton.title = 'ترنسپوز نت‌های همه سازها و بازسازی علامت گام در ابتدای میزان‌ها';
+      syncButton.addEventListener('click', syncScoresToProjectKey);
+      partsElement.appendChild(syncButton);
 
       if (selectedMode === 'musicxml' && selectedPartId) {
         const chordToggle = documentRef.createElement('button');
@@ -680,6 +728,7 @@
       updatePlayhead,
       clearScore,
       clearMusicXmlScore,
+      syncScoresToProjectKey,
       getScore: score,
       getMidiScore: midiScore,
       getMusicXmlScore: musicXmlScore,
