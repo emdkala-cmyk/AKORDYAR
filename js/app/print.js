@@ -37,7 +37,7 @@ function printSong() {
     const hdr = document.createElement('div'); hdr.className = 'print-header';
     const ttl = document.createElement('div'); ttl.className = 'title';
     const sub = document.createElement('div'); sub.className = 'sub';
-    const dk = song.transpose ? (edTransposeKeyName(song.originalKey || song.key, song.transpose) || song.key) : song.key;
+    const dk = song.key || song.originalKey || 'C';
     const ks = dk + (song.keyMode === 'min' ? 'm' : '');
     const sp = [];
     if (song.artist) sp.push(song.artist);

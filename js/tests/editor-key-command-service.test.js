@@ -12,10 +12,35 @@ const context = {};
 vm.runInNewContext(source, context);
 
 const ensuredSongs = [];
+const testKeySemitones = {
+  C: 0,
+  'C#': 1,
+  D: 2,
+  'D#': 3,
+  E: 4,
+  F: 5,
+  'F#': 6,
+  G: 7,
+  'G#': 8,
+  A: 9,
+  'A#': 10,
+  B: 11
+};
+const testKeyNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 const service = context.EditorKeyCommandService.create({
   transposeChord: (name, semitones) => semitones ? `${name}+${semitones}` : name,
-  transposeKey: (key, semitones) => semitones ? `${key}+${semitones}` : key,
-  keyDelta: (fromKey, toKey) => ({ C: 0, D: 2 }[toKey] - { C: 0, D: 2 }[fromKey]),
+  transposeKey: (key, semitones) => {
+    const index = testKeySemitones[key];
+    if (index == null) return key;
+    return testKeyNames[((index + semitones) % 12 + 12) % 12];
+  },
+  keyDelta: (fromKey, toKey) => {
+    const from = testKeySemitones[fromKey];
+    const to = testKeySemitones[toKey];
+    if (from == null || to == null) return NaN;
+    const delta = ((to - from) % 12 + 12) % 12;
+    return delta > 6 ? delta - 12 : delta;
+  },
   ensureBaseChordNamesAligned: song => {
     ensuredSongs.push(song);
     if (!Array.isArray(song.baseChordNames)) song.baseChordNames = [];
@@ -32,7 +57,7 @@ assert.equal(service.keyToSemi('Bb'), 10);
 assert.equal(service.keyToSemi('unknown'), -1);
 assert.equal(service.keyDelta('C', 'D'), 2);
 assert.equal(service.keyDelta('D', 'C'), -2);
-assert.equal(service.transposeKeyName('C', 2, true), 'C+2');
+assert.equal(service.transposeKeyName('C', 2, true), 'D');
 
 const song = {
   originalKey: 'C',
@@ -47,8 +72,9 @@ const song = {
 assert.equal(service.applyTranspose(song, 2).changed, true);
 assert.equal(song.chords[0].name, 'C+2');
 assert.equal(song.chords[1].name, 'Am+2');
-assert.equal(song.key, 'C+2');
+assert.equal(song.key, 'D');
 assert.equal(song.transpose, 2);
+assert.equal(service.getTransposeBaseKey(song), 'C');
 
 assert.equal(service.applyKeyChange(song, 'D', 'maj').delta, 2);
 assert.equal(song.chords[0].name, 'C+2');
@@ -89,6 +115,39 @@ assert.equal(editableSong.chords[1].name, 'Bm');
 assert.equal(editableSong.baseChordNames[0], 'C+4');
 assert.equal(editableSong.baseChordNames[1], 'Am+4');
 assert.equal(editableSong.transpose, 0);
+
+const projectReferenceSong = {
+  originalKey: 'A',
+  originalKeyMode: 'maj',
+  key: 'G',
+  keyMode: 'maj',
+  transpose: 0,
+  chords: [{ name: 'G' }, { name: 'Em' }],
+  baseChordNames: ['A', 'F#m']
+};
+
+assert.equal(service.applyTranspose(projectReferenceSong, 1).changed, true);
+assert.equal(projectReferenceSong.key, 'G#');
+assert.equal(projectReferenceSong.transpose, 1);
+assert.equal(projectReferenceSong.originalKey, 'A');
+assert.equal(service.getTransposeBaseKey(projectReferenceSong), 'G');
+assert.equal(projectReferenceSong.chords[0].name, 'A+-2+1');
+
+assert.equal(service.applyTranspose(projectReferenceSong, 2).changed, true);
+assert.equal(projectReferenceSong.key, 'A');
+assert.equal(projectReferenceSong.transpose, 2);
+assert.equal(projectReferenceSong.chords[0].name, 'A+-2+2');
+
+assert.equal(service.applyKeyChange(projectReferenceSong, 'F', 'maj').changed, true);
+assert.equal(projectReferenceSong.key, 'F');
+assert.equal(projectReferenceSong.transpose, 0);
+assert.equal(projectReferenceSong.originalKey, 'A');
+assert.equal(projectReferenceSong.chords[0].name, 'A+-4');
+
+assert.equal(service.applyTranspose(projectReferenceSong, 1).changed, true);
+assert.equal(projectReferenceSong.key, 'F#');
+assert.equal(projectReferenceSong.transpose, 1);
+assert.equal(projectReferenceSong.chords[0].name, 'A+-4+1');
 
 const syncedSong = {
   originalKey: 'E',

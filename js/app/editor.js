@@ -3663,12 +3663,7 @@ function edBlankSong() {
             statLineCount: $('statLineCount'),
             titleFallback: t('untitled'),
             buildSubtext: song => {
-              const displayKey = song.transpose
-                ? (edTransposeKeyName(
-                    song.originalKey || song.key,
-                    song.transpose
-                  ) || song.key)
-                : song.key;
+              const displayKey = song.key || song.originalKey;
               const keyStr =
                 displayKey + (song.keyMode === 'min' ? 'm' : '');
               return [

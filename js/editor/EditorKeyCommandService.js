@@ -74,6 +74,17 @@
       return transposeKey(key, semitones, preferSharp) || key;
     }
 
+    // `song.key` is the currently displayed project key. When a transpose is
+    // already active, recover the project key before that transpose so a new
+    // absolute transpose is always based on the project key, not originalKey.
+    function getTransposeBaseKey(song, preferSharp) {
+      if (!song) return '';
+      const currentKey = song.key || song.originalKey || '';
+      const currentTranspose = Number(song.transpose) || 0;
+      if (!currentKey || !currentTranspose) return currentKey;
+      return transposeKeyName(currentKey, -currentTranspose, preferSharp) || currentKey;
+    }
+
     function transposeChordNamesInPlace(chords, semitones) {
       if (!Array.isArray(chords) || !chords.length || !semitones) return 0;
       let changed = 0;
@@ -91,16 +102,24 @@
     function applyTranspose(song, newTranspose, preferSharp) {
       if (!song || song.editorLocked) return { changed: false };
       const names = ensureBaseNames(song);
+      const projectKey = getTransposeBaseKey(song, preferSharp) ||
+        song.originalKey ||
+        song.key;
+      const originalKey = song.originalKey || projectKey;
+      const projectDelta = keyDelta(originalKey, projectKey);
+      const projectNames = names.map(name =>
+        name ? transposeChord(name, projectDelta) : name
+      );
       (song.chords || []).forEach((chord, index) => {
-        const baseName = index < names.length ? names[index] : chord.name;
+        const baseName = index < projectNames.length
+          ? projectNames[index]
+          : chord.name;
         if (baseName) chord.name = transposeChord(baseName, newTranspose);
       });
       song.transpose = newTranspose;
-      song.key = transposeKeyName(
-        song.originalKey || song.key,
-        newTranspose,
-        preferSharp
-      ) || song.key;
+      song.key = transposeKeyName(projectKey, newTranspose, preferSharp) ||
+        projectKey ||
+        song.key;
       song.keyMode = song.keyMode || 'maj';
       return { changed: true };
     }
@@ -172,6 +191,7 @@
       keyToSemi,
       keyDelta,
       transposeKeyName,
+      getTransposeBaseKey,
       transposeChordNamesInPlace,
       applyTranspose,
       applyKeyChange,
