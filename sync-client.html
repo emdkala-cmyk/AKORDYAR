@@ -6,22 +6,21 @@
   <meta name="theme-color" content="#0F131E" />
   <title>Akordyar — نمای نوازنده (گوشی)</title>
   <link rel="stylesheet" href="fonts/Vazirmatn.css" />
-  <link rel="stylesheet" href="styles/midi.css?v=20260819-15" />
+  <link rel="stylesheet" href="styles/midi.css?v=20260819-16" />
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html, body { height: 100%; min-height: 100%; background: #0F131E !important; color: #E2E8F0; font-family: 'Vazirmatn', sans-serif; overflow: hidden; }
     body { margin: 0; }
     #pv-container { width: 100%; height: 100vh; overflow-y: auto; background: #0F131E !important; color: #E2E8F0; }
     #pv-container.midi-score-active {
-      height: calc(100vh - 146px);
-      max-height: calc(100vh - 146px);
-      height: calc(100dvh - 146px);
-      max-height: calc(100dvh - 146px);
-      margin-top: 146px;
+      height: calc(100vh - 104px);
+      max-height: calc(100vh - 104px);
+      height: calc(100dvh - 104px);
+      max-height: calc(100dvh - 104px);
       overflow-y: auto;
       overflow-x: hidden;
       direction: ltr;
-      padding-top: 0;
+      padding-top: 42px;
       padding-bottom: 0;
       overscroll-behavior: contain;
     }
@@ -63,10 +62,6 @@
       background: #0D1017; border-top: 1px solid #30364A;
       box-shadow: 0 -5px 18px rgba(0,0,0,0.32);
       touch-action: none;
-    }
-    #timeline-bar.score-mode-top {
-      top: 42px; bottom: auto;
-      box-shadow: 0 5px 18px rgba(0,0,0,0.32);
     }
     #timeline-controls { display: none; }
     #mobile-chord-timeline {
@@ -123,12 +118,12 @@
     .mobile-midi-score-shell {
       width: 100%;
       min-width: 0;
-      padding: 10px 8px 24px;
+      padding: 58px 8px 24px;
       direction: ltr;
       overflow: visible;
     }
     .mobile-midi-score-toolbar {
-      position: sticky; top: 0; z-index: 4; display: flex; align-items: center;
+      position: relative; top: auto; z-index: 4; display: flex; align-items: center;
       justify-content: space-between; gap: 8px; padding: 7px 10px; margin-bottom: 10px;
       color: #d8dee9; background: rgba(15,19,30,.96); border: 1px solid #30364a;
       border-radius: 8px; font-size: 12px; direction: rtl;
@@ -160,6 +155,16 @@
     .mobile-midi-score-loading { width: 100%; min-width: 0; padding: 48px 20px; color: #94a3b8; text-align: center; }
     #pv-container.midi-score-active { background: #fff !important; color: #000; }
     #pv-container.midi-score-active .mobile-midi-score-toolbar { color: #000; background: #fff; border-color: #d1d5db; }
+    #pv-container.midi-score-active .mobile-midi-score-toolbar {
+      position: fixed;
+      top: 42px;
+      left: 8px;
+      right: 8px;
+      z-index: 45;
+      margin: 0;
+      min-height: 48px;
+      box-shadow: 0 2px 8px rgba(0,0,0,.16);
+    }
     #pv-container.midi-score-active .mobile-midi-score-part-select { color: #000; background: #fff; border-color: #9ca3af; }
     #pv-container.midi-score-active .mobile-midi-score-canvas { background: #fff; }
     #pv-container.midi-score-active .midi-score-staff-line,
@@ -167,14 +172,13 @@
     #pv-container.midi-score-active .midi-score-barline { stroke: #000; }
     @media (orientation: landscape) and (max-height: 620px) {
       #pv-container.midi-score-active {
-        margin-top: 134px;
-        height: calc(100vh - 134px);
-        max-height: calc(100vh - 134px);
-        height: calc(100dvh - 134px);
-        max-height: calc(100dvh - 134px);
+        height: calc(100vh - 92px);
+        max-height: calc(100vh - 92px);
+        height: calc(100dvh - 92px);
+        max-height: calc(100dvh - 92px);
+        padding-top: 42px;
       }
       #timeline-bar { height: 92px; }
-      #timeline-bar.score-mode-top { top: 42px; }
       .mobile-timeline-ruler { height: 20px; line-height: 20px; }
       .mobile-timeline-viewport,
       .mobile-timeline-track,
@@ -241,7 +245,6 @@
     const statusText = document.getElementById('status-text');
     const showChordsToggle = document.getElementById('set-showChords');
     const scoreModeButton = document.getElementById('set-scoreMode');
-    const timelineBar = document.getElementById('timeline-bar');
     const timelineRange = document.getElementById('timeline-range');
     const timelinePlay = document.getElementById('timeline-play');
     const timelineStop = document.getElementById('timeline-stop');
@@ -327,7 +330,6 @@
         scoreModeButton.textContent = enabled ? 'MIDI SCORE ✓' : 'MIDI SCORE';
         scoreModeButton.setAttribute('aria-pressed', String(enabled));
       }
-      timelineBar?.classList.toggle('score-mode-top', enabled);
     }
     syncScoreModeUi(window.AkordMobileClient.isScoreMode?.());
     scoreModeButton?.addEventListener('click', () => {

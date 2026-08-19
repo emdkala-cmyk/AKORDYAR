@@ -170,8 +170,10 @@ body.color-tool-eyedropper .chord { cursor: cell !important; }
   background: transparent;
   border: 0;
   border-radius: 0;
-  font: 900 16px/1.15 'JetBrains Mono', 'Segoe UI', monospace;
-  text-shadow: 0 1px 0 rgba(255,255,255,.95), 0 0 2px rgba(255,255,255,.85);
+  font: 900 18px/1.05 'Arial Black', 'Segoe UI', sans-serif;
+  letter-spacing: -.2px;
+  -webkit-text-stroke: .3px currentColor;
+  text-shadow: 0 1px 0 rgba(255,255,255,.98), 0 0 3px rgba(255,255,255,.9);
   white-space: nowrap;
   direction: ltr;
   pointer-events: none;
@@ -255,7 +257,14 @@ body.color-tool-eyedropper .chord { cursor: cell !important; }
 .midi-score-rest-shape { fill: #000; }
 .midi-score-rest-path { fill: none; stroke: #000; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .midi-score-accidental-text { fill: #000; font: 20px 'Bravura', 'Segoe UI Symbol', serif; }
-.midi-score-chord-label { fill: #9F7AEA; font: 800 13px 'JetBrains Mono', monospace; text-anchor: middle; }
+.midi-score-chord-label {
+  fill: #9F7AEA;
+  font: 900 16px 'Arial Black', 'Segoe UI', sans-serif;
+  paint-order: stroke;
+  stroke: #9F7AEA;
+  stroke-width: .25px;
+  text-anchor: middle;
+}
 .midi-score-note-active .midi-score-notehead { fill: #000; stroke: #000; }
 .midi-score-note-active .midi-score-stem,
 .midi-score-note-active .midi-score-flag { stroke: #000; }
