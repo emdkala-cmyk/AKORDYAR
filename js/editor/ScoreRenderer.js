@@ -409,11 +409,32 @@
       const bounds = currentSystemBounds(instance.osmd, startSystem);
       const graphicalMeasures = (startSystem.GraphicalMeasures || [])
         .flatMap(row => Array.isArray(row) ? row : []);
+      const measureListIndex = Number.isFinite(Number(measure?.index))
+        ? Number(measure.index)
+        : measureIndex;
+      const sourceMeasureMatches = source => {
+        if (!source) return false;
+        if (source === measure) return true;
+        const candidateIndex = source.measureListIndex ?? source.index;
+        if (candidateIndex !== undefined && candidateIndex !== null &&
+            Number(candidateIndex) === measureListIndex) {
+          return true;
+        }
+        const candidateNumber = source.MeasureNumber ??
+          source.measureNumber ??
+          source.number;
+        return measure.number !== undefined &&
+          measure.number !== null &&
+          candidateNumber !== undefined &&
+          candidateNumber !== null &&
+          String(candidateNumber) === String(measure.number);
+      };
+      const graphicalSourceMeasure = candidate =>
+        candidate?.ParentSourceMeasure ||
+        candidate?.parentSourceMeasure ||
+        candidate;
       const graphicalMeasure = graphicalMeasures.find(candidate => {
-        const source = candidate?.ParentSourceMeasure;
-        return source === measure ||
-          Number(source?.measureListIndex) === Number(measure.index ?? measureIndex) ||
-          Number(source?.MeasureNumber) === Number(measure.number);
+        return sourceMeasureMatches(graphicalSourceMeasure(candidate));
       });
       const graphicalBox = graphicalMeasure?.PositionAndShape;
       const graphicalX = number(graphicalBox?.AbsolutePosition?.x, NaN);
@@ -422,9 +443,41 @@
         const firstStaffMeasures = Array.isArray(startSystem.GraphicalMeasures?.[0])
           ? startSystem.GraphicalMeasures[0]
           : [];
-        const graphicalIndex = firstStaffMeasures.indexOf(graphicalMeasure);
+        const graphicalMeasureMatches = (candidate, target) => {
+          if (!candidate || !target) return false;
+          if (candidate === target) return true;
+          const candidateSource = graphicalSourceMeasure(candidate);
+          const targetSource = graphicalSourceMeasure(target);
+          if (candidateSource === targetSource) return true;
+          const candidateIndex = candidateSource.measureListIndex ??
+            candidateSource.index;
+          const targetIndex = targetSource.measureListIndex ??
+            targetSource.index;
+          if (candidateIndex !== undefined && candidateIndex !== null &&
+              targetIndex !== undefined && targetIndex !== null &&
+              Number(candidateIndex) === Number(targetIndex)) {
+            return true;
+          }
+          const candidateNumber = candidateSource.MeasureNumber ??
+            candidateSource.measureNumber ??
+            candidateSource.number;
+          const targetNumber = targetSource.MeasureNumber ??
+            targetSource.measureNumber ??
+            targetSource.number;
+          return candidateNumber !== undefined &&
+            candidateNumber !== null &&
+            targetNumber !== undefined &&
+            targetNumber !== null &&
+            String(candidateNumber) === String(targetNumber);
+        };
+        const graphicalIndex = firstStaffMeasures.findIndex(candidate =>
+          graphicalMeasureMatches(candidate, graphicalMeasure)
+        );
         const nextGraphicalMeasure = graphicalIndex >= 0
           ? firstStaffMeasures[graphicalIndex + 1]
+          : null;
+        const previousGraphicalMeasure = graphicalIndex > 0
+          ? firstStaffMeasures[graphicalIndex - 1]
           : null;
         const systemLines = Array.isArray(startSystem.SystemLines)
           ? startSystem.SystemLines
@@ -433,23 +486,38 @@
           line?.PositionAndShape?.AbsolutePosition?.x,
           NaN
         );
-        const beginLine = systemLines.find(line =>
-          line?.topMeasure === graphicalMeasure &&
-          Number(line?.linePosition) === 0 &&
+        const linePosition = line => {
+          const raw = line?.linePosition;
+          const numeric = Number(raw);
+          if (numeric === 0) return 'begin';
+          if (numeric === 1) return 'end';
+          const text = String(raw ?? '').toLowerCase();
+          if (text.includes('begin')) return 'begin';
+          if (text.includes('end')) return 'end';
+          return '';
+        };
+        const findSystemLine = (target, position) => systemLines.find(line =>
+          graphicalMeasureMatches(line?.topMeasure, target) &&
+          linePosition(line) === position &&
           Number.isFinite(lineX(line))
         );
-        const endLine = systemLines.find(line =>
-          line?.topMeasure === graphicalMeasure &&
-          Number(line?.linePosition) === 1 &&
-          Number.isFinite(lineX(line))
-        ) || (nextGraphicalMeasure && systemLines.find(line =>
-          line?.topMeasure === nextGraphicalMeasure &&
-          Number(line?.linePosition) === 0 &&
-          Number.isFinite(lineX(line))
-        ));
+        const beginLine = findSystemLine(graphicalMeasure, 'begin');
+        const currentEndLine = findSystemLine(graphicalMeasure, 'end');
+        const nextBeginLine = nextGraphicalMeasure
+          ? findSystemLine(nextGraphicalMeasure, 'begin')
+          : null;
+        const previousEndLine = previousGraphicalMeasure
+          ? findSystemLine(previousGraphicalMeasure, 'end')
+          : null;
+        const endLine = currentEndLine || nextBeginLine;
         const exactLeft = lineX(beginLine);
         const exactRight = lineX(endLine);
-        const leftSourceX = Number.isFinite(exactLeft) ? exactLeft : graphicalX;
+        const previousBoundaryX = lineX(previousEndLine);
+        const leftSourceX = Number.isFinite(exactLeft)
+          ? exactLeft
+          : Number.isFinite(previousBoundaryX)
+            ? previousBoundaryX
+            : graphicalX;
         const rightSourceX = Number.isFinite(exactRight)
           ? exactRight
           : graphicalX + graphicalWidth;
