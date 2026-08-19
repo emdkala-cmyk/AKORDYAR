@@ -205,7 +205,7 @@
         qrButton.addEventListener('click', event => {
           event.stopPropagation();
           const deviceManager = globalScope.AkordDeviceManager;
-          if (deviceManager?.selectPartQr?.(part.id)) {
+          if (deviceManager?.selectPartQr?.(part.id, { toggleIfOpen: true })) {
             toast(`QR پارت «${part.name || part.id}» انتخاب شد`);
           } else {
             toast('پنل QR هنوز آماده نیست؛ ابتدا اشتراک‌گذاری را باز کنید');

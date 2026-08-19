@@ -29,6 +29,7 @@
     let unsubscribeScoreChanges = null;
     let lastSyncInfo = null;
     let connectionService = null;
+    let panelToggle = null;
 
     function el(id) { return document.getElementById(id); }
 
@@ -197,6 +198,7 @@
         }
         root.setAttribute('aria-expanded', String(hidden));
       };
+      panelToggle = togglePanel;
       let suppressHeaderClick = false;
       let dragSession = null;
       const finishHeaderDrag = (event, persist = true) => {
@@ -389,11 +391,18 @@
       }
     }
 
-    function selectPartQr(partId = '', { open = true } = {}) {
+    function selectPartQr(partId = '', { open = true, toggleIfOpen = false } = {}) {
       if (!panelEl) buildPanel();
       const value = String(partId || '');
       const hasPayload = !value ||
         qrPayloads.some(payload => String(payload.partId) === value);
+      const body = el('akord-sync-body');
+      const panelIsOpen = body && body.style.display !== 'none';
+      const sameSelection = hasPayload && String(qrSelectedPartId) === value;
+      if (open && toggleIfOpen && panelIsOpen && sameSelection) {
+        panelToggle?.();
+        return true;
+      }
       qrRequestedPartId = hasPayload ? '' : value;
       qrSelectedPartId = hasPayload ? value : '';
       saveSelectedQrPart(qrSelectedPartId);
