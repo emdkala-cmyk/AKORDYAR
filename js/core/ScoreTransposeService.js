@@ -17,8 +17,10 @@
     6: 6, 7: 1, 8: -4, 9: 3, 10: -2, 11: 5
   });
   const MINOR_ROOT_TO_FIFTHS = Object.freeze({
-    0: 0, 1: -5, 2: 2, 3: -3, 4: 4, 5: -1,
-    6: 6, 7: 1, 8: -4, 9: 3, 10: -2, 11: 5
+    // Minor keys use the signature of their relative major:
+    // Am=C, Em=G, Bm=D, F#m=A, C#m=E, G#m=B, D#m=F#.
+    0: -3, 1: 4, 2: -1, 3: 6, 4: 1, 5: -4,
+    6: 3, 7: -2, 8: 5, 9: 0, 10: 7, 11: 2
   });
   const MAJOR_FIFTHS_TO_ROOT = Object.freeze([
     11, 6, 1, 8, 3, 10, 5, 0, 7, 2, 9, 4, 11, 6, 1
@@ -92,9 +94,25 @@
       Number(signature?.fifths ?? signature?.sharpsFlats) || 0
     )));
     const index = fifths + 7;
-    const minor = String(signature?.mode || '').toLowerCase() === 'minor' || Boolean(signature?.minor);
+    const minor = String(signature?.mode || '').toLowerCase().startsWith('min') ||
+      Boolean(signature?.minor);
     const root = (minor ? MINOR_FIFTHS_TO_ROOT : MAJOR_FIFTHS_TO_ROOT)[index] ?? 0;
-    return { mode: minor ? 'minor' : 'major', semitone: root };
+    return {
+      mode: minor ? 'minor' : 'major',
+      semitone: root,
+      fifths
+    };
+  }
+
+  /**
+   * Relative major/minor keys share a key signature and therefore do not
+   * require moving the actual pitches (C major ↔ A minor).
+   */
+  function musicalDelta(source, target) {
+    const sourceSignature = signatureFor(source);
+    const targetSignature = signatureFor(target);
+    if (sourceSignature.fifths === targetSignature.fifths) return 0;
+    return signedDelta(source.semitone, target.semitone);
   }
 
   function inferKeyFromPitches(pitches) {
@@ -206,7 +224,7 @@
 
       const sourceKey = keyFromSignature(partSourceKey(part));
       const targetKey = targetProject;
-      const delta = signedDelta(sourceKey.semitone, targetKey.semitone);
+      const delta = musicalDelta(sourceKey, targetKey);
       const measureNodes = descendantElements(partNode, 'measure');
       measureNodes.forEach((measureNode, measureIndex) => {
         const targetSignature = signatureFor(targetKey);
@@ -250,7 +268,7 @@
     return result;
   }
 
-  function transposeSignature(event, delta) {
+  function transposeSignature(event, delta, targetProject = null) {
     const source = keyFromSignature(event);
     const root = (source.semitone + Number(delta) + 120) % 12;
     const target = {
@@ -258,7 +276,15 @@
       semitone: root
     };
     const signature = signatureFor(target);
-    return { ...event, ...signature, minor: target.mode === 'minor' };
+    const atStart = Number(event?.tick) === 0;
+    const startSignature = targetProject ? signatureFor(targetProject) : null;
+    return {
+      ...event,
+      ...(atStart && startSignature ? startSignature : signature),
+      minor: atStart && targetProject
+        ? targetProject.mode === 'minor'
+        : target.mode === 'minor'
+    };
   }
 
   function isDrumTrack(track, part = null) {
@@ -292,7 +318,7 @@
             isDrumTrack(track) ? [] : (track.notes || [])
           )
         );
-    const delta = signedDelta(source.semitone, target.semitone);
+    const delta = musicalDelta(source, target);
     score.tracks = (score.tracks || []).map((track, index) => {
       const part = (score.parts || []).find(candidate =>
         String(candidate?.trackId) === String(track?.id)
@@ -310,7 +336,7 @@
     });
     const events = Array.isArray(score.keySignatures) ? score.keySignatures : [];
     score.keySignatures = events.length
-      ? events.map(event => transposeSignature(event, delta))
+      ? events.map(event => transposeSignature(event, delta, target))
       : [{ tick: 0, ...signatureFor(target), minor: target.mode === 'minor' }];
     if (!score.keySignatures.some(event => Number(event.tick) === 0)) {
       score.keySignatures.unshift({ tick: 0, ...signatureFor(target), minor: target.mode === 'minor' });
@@ -338,7 +364,7 @@
       : sourceData;
     const transposePart = (part) => {
       const source = keyFromSignature(partSourceKey(part));
-      const delta = signedDelta(source.semitone, targetProject.semitone);
+      const delta = musicalDelta(source, targetProject);
       const targetSignature = signatureFor(targetProject);
       const measures = (part.measures || []).map(measure => ({
         ...measure,
@@ -375,6 +401,7 @@
     signatureFor,
     keyFromSignature,
     signedDelta,
+    musicalDelta,
     transposeMidiScore,
     transposeMusicXmlScore,
     inferKeyFromPitches,

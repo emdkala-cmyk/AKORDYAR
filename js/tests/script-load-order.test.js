@@ -75,6 +75,14 @@ assert.ok(
     scriptIndex('js/app/core.js')
 );
 assert.ok(
+  scriptIndex('js/core/AudioContextService.js') <
+    scriptIndex('js/core/CountInScheduler.js')
+);
+assert.ok(
+  scriptIndex('js/core/CountInScheduler.js') <
+    scriptIndex('js/app/core.js')
+);
+assert.ok(
   scriptIndex('js/core/Meter.js') <
   scriptIndex('js/playerViewRenderer.js?v=20260817-10')
 );

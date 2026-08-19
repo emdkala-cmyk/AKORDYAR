@@ -257,8 +257,6 @@ const globalScope = isBrowser ? window : global;
       }
     }
     let metroActive = false, metroTimer = null, metroBeat = 0;
-    let countInTimer = null;
-    let countInGeneration = 0;
     let countInBars = 0; // 0=off, 1=1 bar, 2=2 bars before playback
 
     function alignPlayheadToNearestMeasure(config) {
@@ -284,6 +282,7 @@ const globalScope = isBrowser ? window : global;
 
     function setCountInBars(value) {
       countInBars = Math.max(0, Number(value) || 0);
+      if (isCountInRunning()) cancelCountIn();
       if (!countInBars) return;
 
       const bpm = parseInt($('edTempo')?.value) || 120;
@@ -369,6 +368,21 @@ const globalScope = isBrowser ? window : global;
       return metronomeSchedulerBridge;
     }
 
+    const countInSchedulerBridge =
+      typeof window.CountInScheduler === 'function' && audioContextServiceBridge
+        ? new window.CountInScheduler({
+            audioContextService: audioContextServiceBridge,
+            getMeterConfig: getTimeSignatureGridConfig,
+            isStrongBeat: window.Meter?.isStrongBeat || (() => false)
+          })
+        : null;
+
+    function isCountInRunning() {
+      return Boolean(countInSchedulerBridge?.running);
+    }
+    function cancelCountIn() {
+      countInSchedulerBridge?.cancel?.();
+    }
     function toggleSnap() {
       snapEnabled = !snapEnabled;
       $('snapBtn').classList.toggle('active', snapEnabled);
@@ -2240,6 +2254,7 @@ sels.forEach(c => {
     }
 
     function seekTransport(t, keepPlaying = true, noSnap = false) {
+      if (isCountInRunning()) cancelCountIn();
       getEditorDAW().playhead = PlayheadMath.clamp(
         noSnap ? t : snapTime(t),
         getProjectEnd()
@@ -2284,6 +2299,8 @@ sels.forEach(c => {
         } else {
           pauseTransport();
         }
+      } else if (isCountInRunning()) {
+        pauseTransport();
       } else {
         playStartPos = getEditorDAW().playhead;
         startTransport();
@@ -2292,11 +2309,7 @@ sels.forEach(c => {
 
     function startTransport() {
       ensureAudioCtx();
-      countInGeneration++;
-      if (countInTimer) {
-        clearTimeout(countInTimer);
-        countInTimer = null;
-      }
+      cancelCountIn();
 
       const beginPlayback = (transportStartAudioTime = null) => {
         getEditorDAW().isPlaying = true;
@@ -2428,49 +2441,37 @@ sels.forEach(c => {
         getEditorDAW().rafId = requestAnimationFrame(tick);
       };
 
-      // Count-in must happen before transport/audio scheduling. It is
-      // intentionally independent from metroActive: selecting a count-in
-      // implies that the metronome is available for the count itself.
-      if (countInBars > 0) {
+      // Count-in runs before project playback and is independent from metroActive.
+      if (countInBars > 0 && countInSchedulerBridge) {
         const bpm = parseInt($('edTempo')?.value) || 120;
         const sig = $('edTimeSig')?.value || '4/4';
         const config = getTimeSignatureGridConfig(sig, bpm);
-        // Count-in always starts from a downbeat, even if the playhead moved
-        // after count-in was enabled.
+        // Count-in always starts from a downbeat.
         alignPlayheadToNearestMeasure(config);
-        const beatsPerBar = config.beatsPerMeasure;
-        const beatDur = config.beatDuration;
-        const totalBeats = countInBars * beatsPerBar;
         getEditorDAW().isPlaying = false;
         getEditorDAW().isScrubbing = false;
+        if (getEditorDAW().rafId) {
+          cancelAnimationFrame(getEditorDAW().rafId);
+          getEditorDAW().rafId = null;
+        }
         stopAllVoices();
         if (metroTimer) stopMetronome();
         $('play-btn').style.color = 'var(--accent-cyan-glow)';
         toast('🔢 شمارش: ' + countInBars + ' میزان');
-        const countInCtx = ensureAudioCtx();
-        const countInStartAudio = countInCtx.currentTime;
-        const transportStartAudio =
-          countInStartAudio + totalBeats * beatDur;
-        for (let countBeat = 0; countBeat < totalBeats; countBeat++) {
-          const isAccent = window.Meter.isStrongBeat(
-            countBeat % beatsPerBar,
-            sig
-          );
-          if (audioContextServiceBridge?.playClickAt) {
-            audioContextServiceBridge.playClickAt(
-              isAccent,
-              APP_SETTINGS.metroSound || 'classic',
-              countInStartAudio + countBeat * beatDur
-            );
-          } else {
-            playClick(isAccent);
+        const scheduledCountIn = countInSchedulerBridge.start({
+          bars: countInBars,
+          bpm,
+          timeSignature: sig,
+          soundType: APP_SETTINGS.metroSound || 'classic',
+          onComplete: ({ endTime }) => {
+            beginPlayback(endTime);
+            if (getEditorDAW().rafId) cancelAnimationFrame(getEditorDAW().rafId);
+            getEditorDAW().rafId = requestAnimationFrame(tick);
           }
-        }
-        countInTimer = null;
-        beginPlayback(transportStartAudio);
-        if (getEditorDAW().rafId) cancelAnimationFrame(getEditorDAW().rafId);
-        getEditorDAW().rafId = requestAnimationFrame(tick);
-        return;
+        });
+        if (scheduledCountIn) return;
+
+        toast('مترونوم در دسترس نیست؛ پخش بدون کانتین شروع شد');
       }
 
       beginPlayback();
@@ -2479,11 +2480,7 @@ sels.forEach(c => {
     }
 
     function pauseTransport() {
-      countInGeneration++;
-      if (countInTimer) {
-        clearTimeout(countInTimer);
-        countInTimer = null;
-      }
+      cancelCountIn();
       if (getEditorDAW().isRecording) endRec();
       if (getEditorDAW().isPlaying && !getEditorDAW().isScrubbing) {
         getEditorDAW().playhead = getTransportPlayhead();

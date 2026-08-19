@@ -21,6 +21,47 @@ assert.equal(shiftedMidi.keySignatures[0].sharpsFlats, 0);
 assert.equal(shiftedMidi.keySignatures[0].minor, false);
 assert.equal(midi.tracks[0].notes[0].pitch, 64, 'source score must remain untouched');
 
+const cMajor = Transpose.parseKey('C', 'major');
+const aMinor = Transpose.parseKey('A', 'minor');
+const aMajor = Transpose.parseKey('A', 'major');
+assert.equal(Transpose.signatureFor(aMinor).fifths, 0);
+assert.equal(Transpose.signatureFor(aMajor).fifths, 3);
+assert.equal(Transpose.musicalDelta(cMajor, aMinor), 0);
+assert.equal(Transpose.musicalDelta(aMinor, cMajor), 0);
+assert.equal(Transpose.musicalDelta(cMajor, aMajor), -3);
+
+const relativeMinorMidi = {
+  keySignatures: [{ tick: 0, sharpsFlats: 0, minor: false, mode: 'major' }],
+  tracks: [{ id: 'melody', notes: [{ id: 'c4', pitch: 60, startTick: 0, endTick: 480 }] }]
+};
+const syncedToRelativeMinor = Transpose.transposeMidiScore(
+  relativeMinorMidi,
+  'A',
+  'minor'
+);
+assert.equal(
+  syncedToRelativeMinor.tracks[0].notes[0].pitch,
+  60,
+  'C major → A minor must keep pitches unchanged'
+);
+assert.equal(syncedToRelativeMinor.keySignatures[0].sharpsFlats, 0);
+assert.equal(syncedToRelativeMinor.keySignatures[0].mode, 'minor');
+assert.equal(syncedToRelativeMinor.keySignatures[0].minor, true);
+
+const syncedToParallelMajor = Transpose.transposeMidiScore(
+  relativeMinorMidi,
+  'A',
+  'major'
+);
+assert.equal(
+  syncedToParallelMajor.tracks[0].notes[0].pitch,
+  57,
+  'C major → A major must move pitches by the tonic interval'
+);
+assert.equal(syncedToParallelMajor.keySignatures[0].sharpsFlats, 3);
+assert.equal(syncedToParallelMajor.keySignatures[0].mode, 'major');
+assert.equal(syncedToParallelMajor.keySignatures[0].minor, false);
+
 const musicXml = {
   keyMap: { events: [{ tick: 0, fifths: 4, mode: 'major' }] },
   parts: [{
@@ -69,6 +110,42 @@ const shiftedSourceScore = Transpose.transposeMusicXmlScore(sourceScore, 'C', 'm
 assert.match(shiftedSourceScore.source.data, /<step>C<\/step>/);
 assert.match(shiftedSourceScore.source.data, /<fifths>0<\/fifths>/);
 assert.doesNotMatch(shiftedSourceScore.source.data, /<step>E<\/step>/);
+
+const relativeMinorXml = {
+  source: {
+    data:
+      '<score-partwise version="3.1">' +
+      '<part-list><score-part id="P1"><part-name>Bass</part-name></score-part></part-list>' +
+      '<part id="P1"><measure number="1">' +
+      '<attributes><key><fifths>0</fifths><mode>major</mode></key></attributes>' +
+      '<note><pitch><step>C</step><octave>4</octave></pitch><duration>1</duration><type>quarter</type></note>' +
+      '</measure></part></score-partwise>'
+  },
+  parts: [{
+    id: 'P1',
+    role: 'bass',
+    measures: [{
+      key: { fifths: 0, mode: 'major' },
+      notes: [{
+        rest: false,
+        pitch: { step: 'C', alter: 0, octave: 4, midi: 60 }
+      }]
+    }]
+  }]
+};
+const relativeMinorXmlResult = Transpose.transposeMusicXmlScore(
+  relativeMinorXml,
+  'A',
+  'minor'
+);
+assert.equal(
+  relativeMinorXmlResult.parts[0].measures[0].notes[0].pitch.midi,
+  60,
+  'MusicXML C major → A minor must keep pitches unchanged'
+);
+assert.match(relativeMinorXmlResult.source.data, /<fifths>0<\/fifths>/);
+assert.match(relativeMinorXmlResult.source.data, /<mode>minor<\/mode>/);
+assert.match(relativeMinorXmlResult.source.data, /<step>C<\/step>/);
 
 const midiWithoutKeyMeta = {
   tracks: [{
