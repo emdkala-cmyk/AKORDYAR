@@ -60,6 +60,7 @@
     onSetLoopA = () => {},
     onSetLoopB = () => {},
     onTogglePlayheadMode = () => {},
+    onToggleMetronome = () => {},
     onToggleRecording = () => {},
     onToggleSelectedTrackHeight = () => {},
     onZoomHorizontal = () => {},
@@ -340,6 +341,12 @@
         event.preventDefault?.();
         onSetLoopB(event);
       } else if (
+        getShortcutMatch(event, 'metronome') &&
+        !event.altKey
+      ) {
+        event.preventDefault?.();
+        onToggleMetronome(event);
+      } else if (
         event.code === 'KeyV' &&
         !event.ctrlKey &&
         !event.metaKey &&
@@ -385,8 +392,10 @@
     function handleAuxiliaryKeydown(event) {
       if (isEditableTarget(event?.target)) return false;
 
+      const key = String(event.key || '').toLowerCase();
       if (
-        event.key === 'c' &&
+        key === 'c' &&
+        event.shiftKey &&
         !event.ctrlKey &&
         !event.metaKey &&
         !event.altKey
@@ -394,7 +403,7 @@
         event.preventDefault?.();
         onToggleColorBrush(event);
       }
-      if (event.key === 'c' && event.altKey) {
+      if (key === 'c' && event.altKey) {
         event.preventDefault?.();
         onToggleColorEyedropper(event);
       }

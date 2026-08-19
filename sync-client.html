@@ -41,7 +41,8 @@
       display: flex; align-items: center; gap: 6px; min-width: 0; flex-shrink: 0;
     }
     .mobile-quick-toggle,
-    #set-scoreMode {
+    #set-scoreMode,
+    #set-scorePlayheadMode {
       display: inline-flex; align-items: center; gap: 5px;
       min-height: 29px; padding: 5px 8px;
       color: #dffcff; background: rgba(0,242,254,0.12);
@@ -52,8 +53,10 @@
     .mobile-quick-toggle input {
       width: 15px; height: 15px; margin: 0; accent-color: #00F2FE;
     }
-    #set-scoreMode { cursor: pointer; }
-    #set-scoreMode[aria-pressed="true"] {
+    #set-scoreMode,
+    #set-scorePlayheadMode { cursor: pointer; }
+    #set-scoreMode[aria-pressed="true"],
+    #set-scorePlayheadMode[aria-pressed="true"] {
       color: #0f131e; background: #3fb8af; border-color: #3fb8af;
     }
     #timeline-bar {
@@ -214,6 +217,7 @@
         <span>آکورد</span>
       </label>
       <button id="set-scoreMode" type="button" aria-pressed="false">MIDI SCORE</button>
+      <button id="set-scorePlayheadMode" type="button" aria-pressed="false">پلی‌هد: خط</button>
     </div>
   </div>
 
@@ -252,7 +256,7 @@
   <script src="js/playerViewRenderer.js?v=20260817-10"></script>
   <script src="js/sync/mobileTimeline.js?v=20260813-9"></script>
   <!-- کلاینت گوشی -->
-  <script src="js/sync/mobileClient.js?v=20260819-19"></script>
+  <script src="js/sync/mobileClient.js?v=20260819-20"></script>
 
   <script>
     const container = document.getElementById('pv-container');
@@ -261,6 +265,7 @@
     const statusText = document.getElementById('status-text');
     const showChordsToggle = document.getElementById('set-showChords');
     const scoreModeButton = document.getElementById('set-scoreMode');
+    const scorePlayheadModeButton = document.getElementById('set-scorePlayheadMode');
     const timelineRange = document.getElementById('timeline-range');
     const timelinePlay = document.getElementById('timeline-play');
     const timelineStop = document.getElementById('timeline-stop');
@@ -347,10 +352,30 @@
         scoreModeButton.setAttribute('aria-pressed', String(enabled));
       }
     }
+    function syncScorePlayheadModeUi(mode) {
+      const normalized = mode === 'measure' ? 'measure' : 'line';
+      if (!scorePlayheadModeButton) return;
+      scorePlayheadModeButton.textContent =
+        normalized === 'measure' ? 'پلی‌هد: میزان' : 'پلی‌هد: خط';
+      scorePlayheadModeButton.setAttribute(
+        'aria-pressed',
+        String(normalized === 'measure')
+      );
+    }
+    syncScorePlayheadModeUi(
+      window.AkordMobileClient.getScorePlayheadMode?.() || 'line'
+    );
+    window.addEventListener('akordyar:score-playhead-mode', event => {
+      syncScorePlayheadModeUi(event.detail?.mode);
+    });
     syncScoreModeUi(window.AkordMobileClient.isScoreMode?.());
     scoreModeButton?.addEventListener('click', () => {
       const active = window.AkordMobileClient?.toggleScoreMode?.();
       syncScoreModeUi(active);
+    });
+    scorePlayheadModeButton?.addEventListener('click', () => {
+      const mode = window.AkordMobileClient?.toggleScorePlayheadMode?.();
+      syncScorePlayheadModeUi(mode);
     });
 
     timelinePlay.addEventListener('click', () => {

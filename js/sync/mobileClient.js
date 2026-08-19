@@ -30,6 +30,8 @@
     const MOBILE_VIEW_STORAGE_KEY = 'akord_mobile_view_v5';
     const MOBILE_PART_STORAGE_KEY = 'akord_mobile_midi_part_v1';
     const MOBILE_MUSICXML_PART_STORAGE_KEY = 'akord_mobile_musicxml_part_v1';
+    const MOBILE_SCORE_PLAYHEAD_MODE_STORAGE_KEY =
+      'akord_mobile_score_playhead_mode_v1';
     const DEFAULT_MOBILE_VIEW = {
       fontSize: 20,
       showQuantizeGrid: false,
@@ -82,12 +84,46 @@
     let scoreMode = false;
     let lastRenderedHighlightKey = '';
     let localOverride = Object.assign({}, DEFAULT_MOBILE_VIEW); // تنظیمات محلی گوشی
+    let localScorePlayheadMode = null;
     let scorePlayheadService = null;
     let orientationHandler = null;
 
     function projectTempo() {
       const value = Number(timeline?.tempo) || Number(musicXmlScoreState?.projectTempo) || 120;
       return value > 0 ? value : 120;
+    }
+
+    function effectiveScorePlayheadMode(useMusicXml = Boolean(normalizedMusicXmlScore())) {
+      const stateMode = useMusicXml
+        ? musicXmlScoreState.playheadMode
+        : midiScoreState.playheadMode;
+      return normalizePlayheadMode(localScorePlayheadMode || stateMode);
+    }
+
+    function notifyScorePlayheadMode() {
+      try {
+        globalScope.dispatchEvent?.(new CustomEvent('akordyar:score-playhead-mode', {
+          detail: { mode: effectiveScorePlayheadMode() }
+        }));
+      } catch (_) {}
+    }
+
+    function setScorePlayheadMode(value) {
+      localScorePlayheadMode = normalizePlayheadMode(value);
+      try {
+        localStorage.setItem(
+          MOBILE_SCORE_PLAYHEAD_MODE_STORAGE_KEY,
+          localScorePlayheadMode
+        );
+      } catch (_) {}
+      notifyScorePlayheadMode();
+      if (scoreMode) renderScorePlayhead();
+      return localScorePlayheadMode;
+    }
+
+    function toggleScorePlayheadMode() {
+      const current = effectiveScorePlayheadMode();
+      return setScorePlayheadMode(current === 'measure' ? 'line' : 'measure');
     }
 
     function mobileScoreZoom() {
@@ -361,7 +397,7 @@
         zoom: mobileScoreZoom(),
         chords: scoreChordOverlay(),
         showChords: showChordsForPart(partId, part),
-        playheadMode: musicXmlScoreState.playheadMode
+        playheadMode: effectiveScorePlayheadMode(true)
       })).then(() => {
         const renderedPlayhead = canvas.querySelector('[data-score-playhead]');
         if (renderedPlayhead) {
@@ -416,6 +452,7 @@
         };
         normalizedScoreCache = { raw: null, version: 0, score: null };
         pendingPartRequest = null;
+        notifyScorePlayheadMode();
         if (scoreMode) renderFull();
         return;
       }
@@ -455,6 +492,7 @@
       } else if (pendingPartRequest === activePartId) {
         pendingPartRequest = null;
       }
+      notifyScorePlayheadMode();
       if (scoreMode) renderFull();
     }
 
@@ -479,6 +517,7 @@
         };
         normalizedMusicXmlCache = { raw: null, version: 0, score: null };
         pendingMusicXmlPartRequest = null;
+        notifyScorePlayheadMode();
         if (scoreMode) renderFull();
         return;
       }
@@ -535,6 +574,7 @@
       } else if (pendingMusicXmlPartRequest === activePartId) {
         pendingMusicXmlPartRequest = null;
       }
+      notifyScorePlayheadMode();
       if (scoreMode) {
         const updatedInPlace = sameIdentity && renderScoreInPlace();
         if (!updatedInPlace) renderFull();
@@ -669,9 +709,7 @@
         : !activeRenderer?.getPlayheadX)) return;
       const playhead = container.querySelector('[data-mobile-score-playhead]');
       const measureHighlight = container.querySelector('[data-score-measure-highlight]');
-      const playheadMode = normalizePlayheadMode(
-        useMusicXml ? musicXmlScoreState.playheadMode : midiScoreState.playheadMode
-      );
+      const playheadMode = effectiveScorePlayheadMode(useMusicXml);
       const activePartId = useMusicXml
         ? (musicXmlScoreState.activePartId || score.activePartId)
         : (midiScoreState.activePartId || score.activePartId);
@@ -788,7 +826,7 @@
         ? globalScope.MidiScoreRenderer.renderSvg(score, partId, {
           activeTime: time,
           activeTick,
-          playheadMode: midiScoreState.playheadMode,
+          playheadMode: effectiveScorePlayheadMode(false),
           ariaLabel: 'MIDI performer score'
           })
         : '';
@@ -912,7 +950,7 @@
           activeTime: time,
           activeTick,
           midiScore: midi,
-          playheadMode: midiScoreState.playheadMode,
+          playheadMode: effectiveScorePlayheadMode(false),
           ariaLabel: 'MIDI performer score'
         });
       } else {
@@ -935,7 +973,7 @@
           zoom: mobileScoreZoom(),
           chords: scoreChordOverlay(),
           showChords: showChordsForPart(partId, part),
-          playheadMode: musicXmlScoreState.playheadMode
+          playheadMode: effectiveScorePlayheadMode(true)
         })
           .then(() => {
             const renderedPlayhead = canvas.querySelector('[data-score-playhead]');
@@ -1232,9 +1270,23 @@
       } catch (e) {}
     }
 
+    function loadLocalScorePlayheadMode() {
+      try {
+        const raw = localStorage.getItem(
+          MOBILE_SCORE_PLAYHEAD_MODE_STORAGE_KEY
+        );
+        localScorePlayheadMode = raw
+          ? normalizePlayheadMode(raw)
+          : null;
+      } catch (_) {
+        localScorePlayheadMode = null;
+      }
+    }
+
     function init(el) {
       container = el;
       loadLocalView();
+      loadLocalScorePlayheadMode();
       // A QR target is a performer-part route, not the shared lyric mirror.
       // Open directly in score mode and keep the part selector locked.
       scoreMode = Boolean(lockedPartId);
@@ -1262,6 +1314,9 @@
       seek,
       requestTransport,
       toggleScoreMode,
+      setScorePlayheadMode,
+      toggleScorePlayheadMode,
+      getScorePlayheadMode: () => effectiveScorePlayheadMode(),
       isScoreMode: () => scoreMode,
       getMidiScoreState: () => midiScoreState,
       getMusicXmlScoreState: () => musicXmlScoreState,
