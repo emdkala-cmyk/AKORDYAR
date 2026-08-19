@@ -172,19 +172,35 @@
     #pv-container.midi-score-active .midi-score-barline { stroke: #000; }
     @media (orientation: landscape) and (max-height: 620px) {
       #pv-container.midi-score-active {
-        height: calc(100vh - 92px);
-        max-height: calc(100vh - 92px);
-        height: calc(100dvh - 92px);
-        max-height: calc(100dvh - 92px);
+        height: calc(100vh - 42px);
+        max-height: calc(100vh - 42px);
+        height: calc(100dvh - 42px);
+        max-height: calc(100dvh - 42px);
         padding-top: 42px;
       }
-      #timeline-bar { height: 92px; }
-      .mobile-timeline-ruler { height: 20px; line-height: 20px; }
+      .mobile-midi-score-shell { padding-top: 0; }
+      #pv-container.midi-score-active .mobile-midi-score-toolbar {
+        display: none;
+      }
+      #pv-container.midi-score-active + #timeline-bar {
+        display: none !important;
+      }
+      #pv-container.midi-score-active .mobile-midi-score-part-select {
+        min-width: 86px;
+        padding: 3px 5px;
+        font-size: 11px;
+      }
+      #timeline-bar { height: 76px; }
+      .mobile-timeline-ruler { height: 18px; line-height: 18px; }
       .mobile-timeline-viewport,
       .mobile-timeline-track,
       .mobile-timeline-grid,
-      .mobile-timeline-clips { height: 72px; }
-      .mobile-timeline-chord { top: 14px; height: 52px; }
+      .mobile-timeline-clips { height: 58px; }
+      .mobile-timeline-chord {
+        top: 9px;
+        height: 40px;
+        font-size: 14px;
+      }
     }
     .hint { text-align: center; color: #64748b; margin-top: 20vh; font-size: 14px; padding: 0 20px; }
   </style>
@@ -236,7 +252,7 @@
   <script src="js/playerViewRenderer.js?v=20260817-10"></script>
   <script src="js/sync/mobileTimeline.js?v=20260813-9"></script>
   <!-- کلاینت گوشی -->
-  <script src="js/sync/mobileClient.js?v=20260819-17"></script>
+  <script src="js/sync/mobileClient.js?v=20260819-18"></script>
 
   <script>
     const container = document.getElementById('pv-container');

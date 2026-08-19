@@ -74,10 +74,21 @@
     let lastRenderedHighlightKey = '';
     let localOverride = Object.assign({}, DEFAULT_MOBILE_VIEW); // تنظیمات محلی گوشی
     let scorePlayheadService = null;
+    let orientationHandler = null;
 
     function projectTempo() {
       const value = Number(timeline?.tempo) || Number(musicXmlScoreState?.projectTempo) || 120;
       return value > 0 ? value : 120;
+    }
+
+    function mobileScoreZoom() {
+      try {
+        return globalScope.matchMedia?.(
+          '(orientation: landscape) and (max-height: 620px)'
+        ).matches ? 0.78 : 1;
+      } catch (_) {
+        return 1;
+      }
     }
 
     function url() {
@@ -338,7 +349,7 @@
         !renderer?.renderInto
       ) return false;
       Promise.resolve(renderer.renderInto(canvas, score, partId, {
-        zoom: 1,
+        zoom: mobileScoreZoom(),
         chords: scoreChordOverlay(),
         showChords: showChordsForPart(partId, part)
       })).then(() => {
@@ -881,7 +892,7 @@
       }
       if (useMusicXml) {
         activeRenderer.renderInto(canvas, score, partId, {
-          zoom: 1,
+          zoom: mobileScoreZoom(),
           chords: scoreChordOverlay(),
           showChords: showChordsForPart(partId, part)
         })
@@ -1186,6 +1197,12 @@
       // A QR target is a performer-part route, not the shared lyric mirror.
       // Open directly in score mode and keep the part selector locked.
       scoreMode = Boolean(lockedPartId);
+      if (globalScope.addEventListener && !orientationHandler) {
+        orientationHandler = () => {
+          if (scoreMode) renderFull();
+        };
+        globalScope.addEventListener('orientationchange', orientationHandler, { passive: true });
+      }
       startPlaybackRenderLoop();
       connect();
     }
