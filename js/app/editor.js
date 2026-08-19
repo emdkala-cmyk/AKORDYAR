@@ -4473,7 +4473,7 @@ if ($('edDoBoth')) {
         const origKey = edCur.originalKey || edCur.key;
         const origMode = edCur.originalKeyMode || edCur.keyMode;
         origLabel.textContent = '🎵 ' + origKey + (origMode === 'min' ? 'm' : '');
-        origLabel.title = 'گام اورجینال: ' + origKey + (origMode === 'min' ? 'm' : '') + ' | کلیک=تغییر | Alt+کلیک=ریست';
+        origLabel.title = 'گام اورجینال: ' + origKey + (origMode === 'min' ? 'm' : '') + ' | کلیک=تغییر | Alt+کلیک=انتقال به گام پروژه';
       }
       // Transpose display
       const v = edCur?.transpose || 0;
@@ -4518,7 +4518,7 @@ if ($('edDoBoth')) {
       if (typeof rebuildSongDocumentFromEdCur === 'function') rebuildSongDocumentFromEdCur();
     }
 
-    // ORIGINAL KEY CHANGE: update baseChordNames and apply
+    // ORIGINAL KEY CHANGE: edit the base-key reference without moving the project
     function applyOriginalKeyChange(newKey, newMode) {
       const result = getEditorKeyCommandService()?.applyOriginalKeyChange(
         edCur,
@@ -4526,9 +4526,22 @@ if ($('edDoBoth')) {
         newMode
       );
       if (!result?.changed) return;
+      if (typeof saveCurrentVersion === 'function') saveCurrentVersion();
       refreshKeyUI();
       renderAllChordsAndText();
       edSaveSong();
+      if (typeof rebuildSongDocumentFromEdCur === 'function') rebuildSongDocumentFromEdCur();
+    }
+
+    // ALT+CLICK: make the project key equal to the independent original key.
+    function syncProjectKeyToOriginal() {
+      const result = getEditorKeyCommandService()?.syncProjectKeyToOriginal(edCur);
+      if (!result?.changed) return;
+      if (typeof saveCurrentVersion === 'function') saveCurrentVersion();
+      refreshKeyUI();
+      renderAllChordsAndText();
+      edSaveSong();
+      if (typeof rebuildSongDocumentFromEdCur === 'function') rebuildSongDocumentFromEdCur();
     }
 
     // RESET TO ORIGINAL: restore chord names from baseChordNames, preserve positions
@@ -4545,14 +4558,20 @@ if ($('edDoBoth')) {
     // Toggle دیز/بمل برای همه آکوردها (بدون تغییر گام)
     if ($('edToggleAccidental')) $('edToggleAccidental').onclick = () => edToggleAccidental();
 
-    // Click on original key label → change or reset
+    // Click on original key label → edit, Alt+Click → project key = original key
     if ($('edOrigKeyLabel')) $('edOrigKeyLabel').addEventListener('click', (e) => {
       if (!edCur) return;
+      if (edCur.editorLocked) {
+        toast('🔒 ویرایشگر قفل است');
+        return;
+      }
 
-      // Alt+Click → FULL RESET to saved original key
+      // Alt+Click → set the project key to the independent original key.
       if (e.altKey) {
-        resetToOriginalKey();
-        toast('گام به حالت اورجینال برگشت: ' + (edCur.originalKey || '') + ((edCur.originalKeyMode || '') === 'min' ? 'm' : ''));
+        const originalKey = edCur.originalKey || edCur.key || 'C';
+        const originalMode = edCur.originalKeyMode || edCur.keyMode || 'maj';
+        syncProjectKeyToOriginal();
+        toast('گام پروژه با گام اورجینال یکی شد: ' + originalKey + (originalMode === 'min' ? 'm' : ''));
         return;
       }
 
@@ -4560,23 +4579,29 @@ if ($('edDoBoth')) {
       const curOrigKey = edCur.originalKey || edCur.key;
       const curOrigMode = edCur.originalKeyMode || edCur.keyMode || 'maj';
       const curOrigStr = curOrigKey + (curOrigMode === 'min' ? 'm' : '');
-      const newOrig = prompt('گام اورجینال آهنگ رو مشخص کنید:', curOrigStr);
-      if (!newOrig || newOrig.trim() === '' || newOrig.trim() === curOrigStr) return;
-      const val = newOrig.trim();
-      let newKey, newMode;
-      if (val.endsWith('m') && val.length > 1) {
-        newKey = val.replace(/m$/, '');
-        newMode = 'min';
-      } else {
-        newKey = val;
-        newMode = 'maj';
-      }
-      if (typeof etIsValidNote === 'function' && !etIsValidNote(newKey)) {
-        toast('گام نامعتبر: ' + newKey);
-        return;
-      }
-      applyOriginalKeyChange(newKey, newMode);
-      toast('گام اورجینال ذخیره و اعمال شد: ' + newKey + (newMode === 'min' ? 'm' : ''));
+      const promptFn = typeof customPrompt === 'function'
+        ? customPrompt
+        : (typeof window.customPrompt === 'function'
+          ? window.customPrompt
+          : (message, defaultValue) => Promise.resolve(window.prompt(message, defaultValue)));
+      promptFn('گام اورجینال آهنگ رو مشخص کنید:', curOrigStr).then((newOrig) => {
+        if (!newOrig || newOrig.trim() === '' || newOrig.trim() === curOrigStr) return;
+        const val = newOrig.trim();
+        let newKey, newMode;
+        if (val.endsWith('m') && val.length > 1) {
+          newKey = val.replace(/m$/, '');
+          newMode = 'min';
+        } else {
+          newKey = val;
+          newMode = 'maj';
+        }
+        if (typeof etIsValidNote === 'function' && !etIsValidNote(newKey)) {
+          toast('گام نامعتبر: ' + newKey);
+          return;
+        }
+        applyOriginalKeyChange(newKey, newMode);
+        toast('گام اورجینال ذخیره شد: ' + newKey + (newMode === 'min' ? 'm' : ''));
+      });
     });
 
     // -- Toolbar bindings --

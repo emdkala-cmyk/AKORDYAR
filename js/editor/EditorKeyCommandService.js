@@ -121,8 +121,11 @@
     }
 
     function applyOriginalKeyChange(song, newKey, newMode) {
-      if (!song) return { changed: false };
-      const oldOriginalKey = song.originalKey || song.key;
+      if (!song || song.editorLocked || !newKey) return { changed: false };
+      const hadOriginalKey = Boolean(song.originalKey);
+      const oldOriginalKey = song.originalKey || song.key || newKey;
+      const oldOriginalMode = song.originalKeyMode || song.keyMode || 'maj';
+      const nextMode = newMode || song.originalKeyMode || 'maj';
       const delta = keyDelta(oldOriginalKey, newKey);
       const names = ensureBaseNames(song);
       if (delta && names.length) {
@@ -130,17 +133,31 @@
           name ? transposeChord(name, delta) : name
         );
       }
-      if (delta) transposeChordNamesInPlace(song.chords, delta);
+
+      // The original key is a reference for baseChordNames. Changing it must
+      // not move the currently selected project key, transpose, or chords.
       song.originalKey = newKey;
-      song.originalKeyMode = newMode;
-      song.key = newKey;
-      song.keyMode = newMode;
-      song.transpose = 0;
-      return { changed: true, delta };
+      song.originalKeyMode = nextMode;
+
+      const changed = !hadOriginalKey ||
+        oldOriginalKey !== newKey ||
+        oldOriginalMode !== nextMode;
+      return {
+        changed,
+        delta
+      };
+    }
+
+    function syncProjectKeyToOriginal(song) {
+      if (!song || song.editorLocked) return { changed: false };
+      const targetKey = song.originalKey || song.key;
+      const targetMode = song.originalKeyMode || song.keyMode || 'maj';
+      if (!targetKey) return { changed: false };
+      return applyKeyChange(song, targetKey, targetMode);
     }
 
     function resetToOriginalKey(song) {
-      if (!song) return { changed: false };
+      if (!song || song.editorLocked) return { changed: false };
       const names = song.baseChordNames || [];
       (song.chords || []).forEach((chord, index) => {
         if (index < names.length && names[index]) chord.name = names[index];
@@ -159,6 +176,7 @@
       applyTranspose,
       applyKeyChange,
       applyOriginalKeyChange,
+      syncProjectKeyToOriginal,
       resetToOriginalKey
     });
   }
