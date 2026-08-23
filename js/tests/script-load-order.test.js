@@ -31,6 +31,10 @@ function scriptIndex(sourceName) {
 }
 
 assert.ok(
+  scriptIndex('js/app/constants.js') <
+    scriptIndex('js/app/core.js')
+);
+assert.ok(
   scriptIndex('js/core/RuntimeStateAdapter.js') <
     scriptIndex('js/archive/ArchiveRuntimeAdapter.js')
 );
