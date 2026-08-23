@@ -4319,107 +4319,16 @@ document.addEventListener('DOMContentLoaded', () => {
   // ============================================
   // Menu Command Handlers (Electron)
   // ============================================
-  if (isElectron && window.electronAPI && window.electronAPI.onMenuCommand) {
-    console.log('[App] Registering menu command handlers...');
-
-    // File Menu
-    window.electronAPI.onMenuCommand('menu-new-song', () => {
-      console.log('[Menu] New Song requested');
-      if (typeof createNewProject === 'function') createNewProject();
-      else alert('قابلیت ایجاد پروژه جدید هنوز پیاده‌سازی نشده است.');
-    });
-
-    window.electronAPI.onMenuCommand('menu-open-project', () => {
-      console.log('[Menu] Open Project requested');
-      if (typeof openProjectDialog === 'function') openProjectDialog();
-      else alert('قابلیت باز کردن پروژه هنوز پیاده‌سازی نشده است.');
-    });
-
-    window.electronAPI.onMenuCommand('menu-save', () => {
-      console.log('[Menu] Save requested');
-      if (typeof saveCurrentProject === 'function') saveCurrentProject();
-      else alert('قابلیت ذخیره پروژه هنوز پیاده‌سازی نشده است.');
-    });
-
-    window.electronAPI.onMenuCommand('menu-save-as', () => {
-      console.log('[Menu] Save As requested');
-      if (typeof saveProjectAs === 'function') saveProjectAs();
-      else alert('قابلیت ذخیره با نام جدید هنوز پیاده‌سازی نشده است.');
-    });
-
-    window.electronAPI.onMenuCommand('menu-export', () => {
-      console.log('[Menu] Export requested');
-      if (typeof exportProject === 'function') exportProject();
-      else alert('قابلیت خروجی گرفتن هنوز پیاده‌سازی نشده است.');
-    });
-
-    window.electronAPI.onMenuCommand('menu-import', () => {
-      console.log('[Menu] Import requested');
-      if (typeof importProject === 'function') importProject();
-      else alert('قابلیت ورود پروژه هنوز پیاده‌سازی نشده است.');
-    });
-
-    // Playback Menu
-    window.electronAPI.onMenuCommand('menu-play-pause', () => {
-      console.log('[Menu] Play/Pause requested');
-      if (typeof togglePlayPause === 'function') togglePlayPause();
-      else if (typeof playPause === 'function') playPause();
-      else alert('قابلیت پخش/توقف هنوز پیاده‌سازی نشده است.');
-    });
-
-    window.electronAPI.onMenuCommand('menu-stop', () => {
-      console.log('[Menu] Stop requested');
-      if (typeof stopPlayback === 'function') stopPlayback();
-      else if (typeof perfStop === 'function') perfStop();
-      else alert('قابلیت توقف پخش هنوز پیاده‌سازی نشده است.');
-    });
-
-    window.electronAPI.onMenuCommand('menu-go-to-start', () => {
-      console.log('[Menu] Go to Start requested');
-      if (typeof goToStart === 'function') goToStart();
-      else if (DAW && typeof seekTo === 'function') seekTo(0);
-      else alert('قابلیت رفتن به ابتدا هنوز پیاده‌سازی نشده است.');
-    });
-
-    window.electronAPI.onMenuCommand('menu-go-to-end', () => {
-      console.log('[Menu] Go to End requested');
-      if (typeof goToEnd === 'function') goToEnd();
-      else alert('قابلیت رفتن به انتها هنوز پیاده‌سازی نشده است.');
-    });
-
-    // Tools Menu
-    window.electronAPI.onMenuCommand('menu-arranger', () => {
-      console.log('[Menu] Arranger requested');
-      const panel = document.getElementById('arr-perf-panel');
-      if (panel) {
-        panel.style.display = panel.style.display === 'none' || panel.style.display === '' ? 'flex' : 'none';
-      } else {
-        alert('پنجره Arranger پیدا نشد.');
-      }
-    });
-
-    window.electronAPI.onMenuCommand('menu-archive', () => {
-      console.log('[Menu] Archive requested');
-      if (typeof edOpenArchive === 'function') {
-        edOpenArchive();
-      } else {
-        alert('آرشیو هنوز بارگذاری نشده است.');
-      }
-    });
-
-    window.electronAPI.onMenuCommand('menu-midi-settings', () => {
-      console.log('[Menu] MIDI Settings requested');
-      if (typeof openMidiSettings === 'function') openMidiSettings();
-      else alert('تنظیمات MIDI هنوز پیاده‌سازی نشده است.');
-    });
-
-    window.electronAPI.onMenuCommand('menu-preferences', () => {
-      console.log('[Menu] Preferences requested');
-      if (typeof openPreferences === 'function') openPreferences();
-      else alert('تنظیمات برنامه هنوز پیاده‌سازی نشده است.');
-    });
-
-    console.log('[App] Menu command handlers registered successfully.');
+  if (
+    isElectron &&
+    window.electronAPI &&
+    window.ElectronMenuCommandService?.create
+  ) {
+    window.ElectronMenuCommandService.create({
+      electronApi: window.electronAPI,
+      notify: toast,
+      logger: console
+    }).bind();
   }
 });
 }

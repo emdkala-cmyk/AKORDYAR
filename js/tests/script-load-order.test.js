@@ -83,6 +83,10 @@ assert.ok(
     scriptIndex('js/app/core.js')
 );
 assert.ok(
+  scriptIndex('js/core/ElectronMenuCommandService.js') <
+    scriptIndex('js/app/core.js')
+);
+assert.ok(
   scriptIndex('js/core/Meter.js') <
   scriptIndex('js/playerViewRenderer.js?v=20260817-10')
 );
