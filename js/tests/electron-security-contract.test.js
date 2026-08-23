@@ -37,6 +37,7 @@ for (const channel of [
   'print:open-window',
   'dialog:show-message-box',
   'project:save-with-audio',
+  'project:write-json',
   'project:load-file',
   'fs:check-exists',
   'dialog:open-file',

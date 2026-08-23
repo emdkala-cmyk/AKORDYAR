@@ -44,6 +44,7 @@ const INVOKE_CHANNELS = Object.freeze([
     'dialog:open-file',
     'dialog:save-file',
     'project:save-with-audio',
+    'project:write-json',
     'project:load-file',
     'fs:check-exists',
     'print:open-window'
@@ -157,7 +158,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
      * نمایش دیالوگ ذخیره فایل
      * @returns {Promise<string|null>} مسیر فایل برای ذخیره
      */
-    saveFileDialog: () => invoke('dialog:save-file'),
+    saveFileDialog: (options = {}) => invoke('dialog:save-file', options),
 
     // ============================================
     // Project Operations
@@ -171,6 +172,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
      */
     saveProjectWithAudio: (projectData, filePath) => 
         invoke('project:save-with-audio', projectData, filePath),
+
+    /**
+     * ذخیرهٔ JSON پروژه در مسیر انتخاب‌شده در Electron
+     * @param {string} filePath - مسیر فایل پروژه
+     * @param {string} content - محتوای JSON
+     * @returns {Promise<string>}
+     */
+    writeProjectJson: (filePath, content) =>
+        invoke('project:write-json', filePath, content),
 
     /**
      * بارگذاری فایل پروژه

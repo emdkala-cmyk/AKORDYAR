@@ -30,6 +30,7 @@ const IPC_CHANNELS = Object.freeze([
   'print:open-window',
   'dialog:show-message-box',
   'project:save-with-audio',
+  'project:write-json',
   'project:load-file',
   'fs:check-exists',
   'dialog:open-file',
@@ -591,6 +592,27 @@ registerIpcHandler('project:save-with-audio', async (event, projectData, project
   }
 });
 
+registerIpcHandler('project:write-json', async (event, filePath, content) => {
+  try {
+    requireString(filePath, 'filePath');
+    requireString(content, 'content');
+
+    let projectData;
+    try {
+      projectData = JSON.parse(content);
+    } catch {
+      throw new TypeError('content must be valid JSON');
+    }
+    requirePlainObject(projectData, 'projectData');
+
+    await fsPromises.writeFile(filePath, content, 'utf8');
+    return filePath;
+  } catch (error) {
+    logError('Project', `Error writing project JSON: ${error.message}`);
+    throw error;
+  }
+});
+
 registerIpcHandler('project:load-file', async (event, filePath) => {
   try {
     requireString(filePath, 'filePath');
@@ -627,8 +649,12 @@ registerIpcHandler('dialog:open-file', async () => {
   return null;
 });
 
-registerIpcHandler('dialog:save-file', async () => {
+registerIpcHandler('dialog:save-file', async (event, options = {}) => {
+  requirePlainObject(options, 'options');
   const result = await dialog.showSaveDialog(mainWindow, {
+    defaultPath: typeof options.defaultPath === 'string'
+      ? options.defaultPath
+      : undefined,
     filters: [
       { name: 'Project Files', extensions: ['akr', 'json'] }
     ]

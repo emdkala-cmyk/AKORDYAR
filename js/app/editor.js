@@ -3584,6 +3584,25 @@ function edBlankSong() {
 
       const sizeMB = (blob.size / (1024*1024)).toFixed(1);
 
+      const canUseNativeSave =
+        window.electronAPI?.isElectron &&
+        typeof window.electronAPI.saveFileDialog === 'function' &&
+        typeof window.electronAPI.writeProjectJson === 'function';
+
+      if (canUseNativeSave) {
+        const savePath = await window.electronAPI.saveFileDialog({
+          defaultPath: defaultName
+        });
+        if (!savePath) {
+          toast('لغو شد');
+          return;
+        }
+        await window.electronAPI.writeProjectJson(savePath, data);
+        toast(`خروجی ذخیره شد (${sizeMB} MB, ${audioCount} کپی + ${linkedCount} لینک)`);
+        refreshStorageInfo();
+        return;
+      }
+
       if (window.showSaveFilePicker) {
         try {
           const handle = await window.showSaveFilePicker({ suggestedName: defaultName, types: [{ description: 'فایل پروژه کامل', accept: { 'application/json': ['.json'] } }] });
