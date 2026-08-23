@@ -7,6 +7,7 @@
  */
 const APPLICATION_CHUNKS = Object.freeze([
   'core/FunctionUtils.js',
+  'core/DAWRuntimeState.js',
   'app/constants.js',
   'app/core.js',
   'app/editor.js',

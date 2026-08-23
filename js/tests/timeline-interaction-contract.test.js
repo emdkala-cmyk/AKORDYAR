@@ -6,6 +6,7 @@ const root = path.resolve(__dirname, '..', '..');
 const read = file => fs.readFileSync(path.join(root, file), 'utf8');
 
 const core = read('js/app/core.js');
+const dawState = read('js/core/DAWRuntimeState.js');
 const editor = read('js/app/editor.js');
 const keyboardService = read('js/editor/EditorKeyboardService.js');
 const timelineRenderer = read('js/core/TimelineTrackRendererService.js');
@@ -17,7 +18,7 @@ const html = read('Akordyar.html');
 const layoutCss = read('styles/layout.css');
 const timelineCss = read('styles/timeline.css');
 
-assert.match(core, /selectedTrackId:\s*null/);
+assert.match(dawState, /selectedTrackId:\s*null/);
 assert.match(core, /function selectTrack\(trackId\)/);
 assert.match(core, /getTimelineTrackRendererService/);
 assert.match(timelineRenderer, /function selectTrack\(trackId\)/);

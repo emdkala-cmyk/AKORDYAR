@@ -919,21 +919,10 @@ const requestRenderSyncLyrics = debounce(() => { renderSyncLyrics(); }, 120);
    ========================= */
 
 
-    const DAW = globalScope.DAWRuntimeState?.create?.() || {
-      tracks: [], clips: [], sections: [], selectedIds: new Set(), selectedSectionIds: new Set(), clipboard: [],
-      playhead: 0, isPlaying: false, isScrubbing: false,
-      timelineDuration: 120, pxPerSecond: 70, laneHeight: 64, loadTrackId: null,
-      selectedTrackId: null,
-      rafId: null, playOriginPerf: 0, playOriginTime: 0, playOriginAudio: null,
-      audioCtx: null, masterGain: null, voices: new Map(),
-      nextId: 100, bufferCache: new Map(), waveCache: new Map(),
-      drag: null, marquee: null, editingChordClipId: null, selectedPlayhead: false,
-      loopEnabled: false, loopA: 0, loopB: 10,
-      pool: {},
-      projectRoot: null,
-      isRecording: false, recRafId: null, recAnalyser: null, recStream: null, recMediaRecorder: null,
-      recStartTime: 0, recEndTime: 0, recPeaks: [], recLaneId: null
-    };
+    if (!globalScope.DAWRuntimeState?.create) {
+      throw new Error('DAWRuntimeState باید قبل از app/core.js بارگذاری شود.');
+    }
+    const DAW = globalScope.DAWRuntimeState.create();
     globalScope.DAW = DAW;
 
     let activeMidiNotes = new Set(), midiTimeout = null, isRecordingChords = false, currentRecordingClipId = null;

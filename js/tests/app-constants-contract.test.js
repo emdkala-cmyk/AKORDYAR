@@ -39,7 +39,8 @@ assert.doesNotMatch(coreSource, /const\s+CHORD_TEMPLATES\s*=/);
 assert.match(coreSource, /globalScope\.AkordyarAppConstants/);
 
 assert.equal(appBootstrap.APPLICATION_CHUNKS[0], 'core/FunctionUtils.js');
-assert.equal(appBootstrap.APPLICATION_CHUNKS[1], 'app/constants.js');
+assert.equal(appBootstrap.APPLICATION_CHUNKS[1], 'core/DAWRuntimeState.js');
+assert.equal(appBootstrap.APPLICATION_CHUNKS[2], 'app/constants.js');
 assert.ok(
   htmlSource.indexOf('js/app/constants.js') <
     htmlSource.indexOf('js/app/core.js')

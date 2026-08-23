@@ -35,6 +35,10 @@ assert.ok(
     scriptIndex('js/app/constants.js')
 );
 assert.ok(
+  scriptIndex('js/core/DAWRuntimeState.js') <
+    scriptIndex('js/app/core.js')
+);
+assert.ok(
   scriptIndex('js/app/constants.js') <
     scriptIndex('js/app/core.js')
 );
