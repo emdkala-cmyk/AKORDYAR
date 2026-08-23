@@ -344,6 +344,47 @@ body.color-tool-eyedropper .chord { cursor: cell !important; }
   overscroll-behavior: contain;
   padding: 2px 4px 8px 2px;
 }
+.live-score-qr-details {
+  margin: 4px 0 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: #f8fafc;
+  color: #334155;
+  overflow: hidden;
+}
+.live-score-qr-details summary {
+  padding: 8px 10px;
+  cursor: pointer;
+  font: 600 12px/1.4 'Vazirmatn', sans-serif;
+  user-select: none;
+}
+.live-score-qr-details[open] summary {
+  border-bottom: 1px solid #e2e8f0;
+}
+.live-score-qr-part-label {
+  display: block;
+  margin: 8px 10px 4px;
+  color: #64748b;
+  font-size: 11px;
+}
+.live-score-qr-part-select {
+  display: block;
+  width: calc(100% - 20px);
+  margin: 0 10px 8px;
+  padding: 6px 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 7px;
+  color: #1e293b;
+  background: #fff;
+  font: 500 12px/1.3 'Vazirmatn', sans-serif;
+}
+.live-score-qr-part-url {
+  padding: 0 10px 4px;
+  color: #475569;
+  font-size: 10px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
 .live-score-qr-tabs {
   display: flex;
   align-items: center;

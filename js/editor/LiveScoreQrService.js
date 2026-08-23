@@ -88,7 +88,8 @@
   function renderCards(container, payloads, {
     documentRef = globalScope.document,
     onScan = () => {},
-    connectionService = null
+    connectionService = null,
+    showStatus = true
   } = {}) {
     if (!container || !documentRef) return [];
     container.replaceChildren();
@@ -104,13 +105,16 @@
       label.textContent = payload.label;
       const url = documentRef.createElement('code');
       url.textContent = payload.url;
-      const status = documentRef.createElement('span');
-      status.className = 'live-score-connection-status disconnected';
-      status.textContent = 'Disconnected';
-      card.append(canvas, label, url, status);
+      card.append(canvas, label, url);
+      const status = showStatus ? documentRef.createElement('span') : null;
+      if (status) {
+        status.className = 'live-score-connection-status disconnected';
+        status.textContent = 'Disconnected';
+        card.appendChild(status);
+      }
       card.addEventListener('click', () => onScan(payload));
       container.appendChild(card);
-      connectionService?.bindCard?.(payload.partId, status);
+      if (status) connectionService?.bindCard?.(payload.partId, status);
       return card;
     });
   }

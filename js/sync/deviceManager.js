@@ -15,11 +15,14 @@
 
   const DeviceManager = (() => {
     const PANEL_POSITION_KEY = 'akordyar.syncPanelPosition.v1';
-    const QR_PART_STORAGE_KEY = 'akordyar.syncQrPart.v1';
     let panelEl = null;
     let qrCanvas = null;
-    let qrTabsEl = null;
     let qrGridEl = null;
+    let partQrGridEl = null;
+    let partSelectEl = null;
+    let partDetailsEl = null;
+    let partUrlEl = null;
+    let primaryIpEl = null;
     let listEl = null;
     let statusEl = null;
     let qrPayloads = [];
@@ -92,11 +95,16 @@
         </div>
         <div id="akord-sync-body" style="padding:12px;">
           <div id="akord-sync-status" style="color:#7dd3fc;margin-bottom:8px;">در حال اتصال…</div>
-          <div style="text-align:center;color:#64748b;font-size:11px;margin-bottom:4px;">هر تب یک پارت واردشده است؛ برای سازهای دیگر فایل چندپارتی MIDI/MusicXML وارد کنید</div>
-          <div id="akord-sync-qr-tabs" class="live-score-qr-tabs" role="tablist" aria-label="QR part selector"></div>
-          <div id="akord-sync-qr-grid" class="live-score-qr-grid"></div>
           <div id="akord-sync-url" style="text-align:center;color:#00F2FE;font-size:12px;word-break:break-all;margin-bottom:6px;"></div>
           <div id="akord-sync-ips" style="text-align:center;color:#64748b;font-size:10px;word-break:break-all;margin-bottom:6px;"></div>
+          <div id="akord-sync-qr-grid" class="live-score-qr-grid"></div>
+          <details id="akord-sync-part-details" class="live-score-qr-details">
+            <summary>نمایش QR اختصاصی سازها</summary>
+            <label class="live-score-qr-part-label" for="akord-sync-part-select">انتخاب ساز</label>
+            <select id="akord-sync-part-select" class="live-score-qr-part-select" aria-label="انتخاب ساز"></select>
+            <div id="akord-sync-part-url" class="live-score-qr-part-url"></div>
+            <div id="akord-sync-part-qr-grid" class="live-score-qr-grid"></div>
+          </details>
           <div style="text-align:center;margin-bottom:8px;">
             <button id="akord-sync-refresh" style="background:rgba(0,242,254,0.15);border:1px solid rgba(0,242,254,0.4);color:#00F2FE;border-radius:8px;padding:4px 12px;font-family:inherit;cursor:pointer;font-size:11px;margin:2px;">🔄 تازهسازی آدرس</button>
             <button id="akord-sync-resend" style="background:rgba(255,46,147,0.15);border:1px solid rgba(255,46,147,0.4);color:#FF2E93;border-radius:8px;padding:4px 12px;font-family:inherit;cursor:pointer;font-size:11px;margin:2px;">📤 ارسال مجدد به گوشیها</button>
@@ -112,8 +120,12 @@
       panelEl = root;
       loadPanelPosition(root);
       qrCanvas = el('akord-sync-qr');
-      qrTabsEl = el('akord-sync-qr-tabs');
       qrGridEl = el('akord-sync-qr-grid');
+      partQrGridEl = el('akord-sync-part-qr-grid');
+      partSelectEl = el('akord-sync-part-select');
+      partDetailsEl = el('akord-sync-part-details');
+      partUrlEl = el('akord-sync-part-url');
+      primaryIpEl = el('akord-sync-url');
       listEl = el('akord-sync-list');
       statusEl = el('akord-sync-status');
       connectionService = globalScope.LiveScoreConnectionService?.create?.({
@@ -267,6 +279,12 @@
         refreshInfo();
       });
 
+      partSelectEl?.addEventListener('change', () => {
+        qrSelectedPartId = partSelectEl.value || '';
+        if (partDetailsEl) partDetailsEl.open = Boolean(qrSelectedPartId);
+        renderSelectedPartQr();
+      });
+
       el('akord-sync-resend').addEventListener('click', (e) => {
         e.stopPropagation();
         const Master = globalScope.AkordMasterSync;
@@ -330,57 +348,48 @@
       };
     }
 
-    function loadSelectedQrPart() {
-      try {
-        return String(globalScope.localStorage?.getItem(QR_PART_STORAGE_KEY) || '');
-      } catch (_) {
-        return '';
-      }
-    }
-
-    function saveSelectedQrPart(partId) {
-      try {
-        globalScope.localStorage?.setItem(QR_PART_STORAGE_KEY, String(partId || ''));
-      } catch (_) {
-        // Selection persistence is best effort.
-      }
-    }
-
-    function renderQrTabs() {
-      if (!qrTabsEl || !globalScope.document) return;
-      qrTabsEl.replaceChildren();
-
-      const allButton = document.createElement('button');
-      allButton.type = 'button';
-      allButton.className = `live-score-qr-tab${qrSelectedPartId ? '' : ' active'}`;
-      allButton.dataset.partId = '';
-      allButton.setAttribute('role', 'tab');
-      allButton.setAttribute('aria-selected', String(!qrSelectedPartId));
-      allButton.textContent = 'همهٔ سازها';
-      allButton.addEventListener('click', () => selectPartQr(''));
-      qrTabsEl.appendChild(allButton);
-
-      qrPayloads.forEach(payload => {
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = `live-score-qr-tab${String(payload.partId) === String(qrSelectedPartId) ? ' active' : ''}`;
-        button.dataset.partId = payload.partId;
-        button.setAttribute('role', 'tab');
-        button.setAttribute('aria-selected', String(String(payload.partId) === String(qrSelectedPartId)));
-        button.textContent = payload.label || payload.role || payload.partId;
-        button.addEventListener('click', () => selectPartQr(payload.partId));
-        qrTabsEl.appendChild(button);
+    function renderPlayViewQr(info) {
+      if (!qrGridEl || !globalScope.LiveScoreQrService) return;
+      const url = String(info?.clientUrl || '');
+      const payloads = url
+        ? [{ partId: 'player-view', role: 'playerView', label: 'Play View', url }]
+        : [];
+      globalScope.LiveScoreQrService.renderCards(qrGridEl, payloads, {
+        showStatus: false
       });
     }
 
-    function renderSelectedQr() {
-      if (!qrGridEl || !globalScope.LiveScoreQrService) return;
+    function renderPartSelector() {
+      if (!partSelectEl || !globalScope.document) return;
+      partSelectEl.replaceChildren();
+      qrPayloads.forEach(payload => {
+        const option = document.createElement('option');
+        option.value = payload.partId;
+        option.textContent = payload.label || payload.role || payload.partId;
+        option.selected = String(payload.partId) === String(qrSelectedPartId);
+        partSelectEl.appendChild(option);
+      });
+      partSelectEl.disabled = qrPayloads.length === 0;
+      if (!qrPayloads.length) {
+        const option = document.createElement('option');
+        option.textContent = 'سازی برای انتخاب وجود ندارد';
+        partSelectEl.appendChild(option);
+      }
+    }
+
+    function renderSelectedPartQr() {
+      if (!partQrGridEl || !globalScope.LiveScoreQrService) return;
       const selected = qrSelectedPartId
         ? qrPayloads.filter(payload => String(payload.partId) === String(qrSelectedPartId))
-        : qrPayloads;
-      globalScope.LiveScoreQrService.renderCards(qrGridEl, selected, {
-        connectionService,
-        onScan: payload => selectPartQr(payload.partId)
+        : [];
+      const payload = selected[0] || null;
+      if (partUrlEl) {
+        partUrlEl.textContent = payload?.url
+          ? `آدرس اختصاصی ساز: ${payload.url}`
+          : 'برای نمایش QR اختصاصی، یک ساز را انتخاب کنید';
+      }
+      globalScope.LiveScoreQrService.renderCards(partQrGridEl, selected, {
+        connectionService
       });
     }
 
@@ -405,30 +414,32 @@
       }
       qrRequestedPartId = hasPayload ? '' : value;
       qrSelectedPartId = hasPayload ? value : '';
-      saveSelectedQrPart(qrSelectedPartId);
-      renderQrTabs();
-      renderSelectedQr();
+      if (partDetailsEl) partDetailsEl.open = Boolean(qrSelectedPartId);
+      renderPartSelector();
+      renderSelectedPartQr();
       if (!hasPayload) refreshInfo();
       if (open) expandPanel();
       return true;
     }
 
     function renderPartQrs(info) {
-      if (!qrGridEl || !globalScope.LiveScoreQrService) return;
+      if (!globalScope.LiveScoreQrService) return;
       const source = currentScoreParts();
       qrPayloads = globalScope.LiveScoreQrService.buildPayloads({
         baseUrl: info?.clientUrl || '',
         parts: source.parts,
         mappings: source.mappings
       });
-      const savedPartId = qrRequestedPartId || loadSelectedQrPart();
-      const hasSavedPart = qrPayloads.some(payload =>
-        String(payload.partId) === savedPartId
+      const requestedPartId = qrRequestedPartId || qrSelectedPartId;
+      const hasRequestedPart = qrPayloads.some(payload =>
+        String(payload.partId) === String(requestedPartId)
       );
-      qrSelectedPartId = hasSavedPart ? savedPartId : '';
-      if (hasSavedPart) qrRequestedPartId = '';
-      renderQrTabs();
-      renderSelectedQr();
+      qrSelectedPartId = hasRequestedPart ? requestedPartId : '';
+      qrRequestedPartId = '';
+      if (partDetailsEl) partDetailsEl.open = Boolean(qrSelectedPartId);
+      renderPlayViewQr(info);
+      renderPartSelector();
+      renderSelectedPartQr();
       if (connectionService) {
         qrPayloads.forEach(payload => connectionService.setState(
           payload.partId,
@@ -458,8 +469,11 @@
         if (!resp.ok) return;
         const info = await resp.json();
         lastSyncInfo = info;
-        const urlEl = el('akord-sync-url');
-        if (urlEl) urlEl.textContent = info.clientUrl || '';
+        if (primaryIpEl) {
+          const ip = info.localIp || '127.0.0.1';
+          const port = info.port ? `:${info.port}` : '';
+          primaryIpEl.textContent = `IP پلی‌ویوو: ${ip}${port}`;
+        }
         const ipsEl = el('akord-sync-ips');
         if (ipsEl && info.lanIps && info.lanIps.length > 1) {
           ipsEl.textContent = 'آدرس‌های دیگر: ' + info.lanIps.join(' , ');
