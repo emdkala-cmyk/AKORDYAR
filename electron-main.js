@@ -638,7 +638,7 @@ registerIpcHandler('fs:check-exists', async (event, filePath) => {
 registerIpcHandler('dialog:open-file', async () => {
   const result = await dialog.showOpenDialog(mainWindow, {
     filters: [
-      { name: 'Audio Files', extensions: ['mp3', 'wav', 'ogg', 'flac', 'm4a', 'json'] }
+      { name: 'Project Files', extensions: ['akr', 'json'] }
     ],
     properties: ['openFile']
   });

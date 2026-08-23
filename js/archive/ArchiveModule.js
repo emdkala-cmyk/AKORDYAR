@@ -1930,7 +1930,7 @@ saveState();
     }
 
     // Import — loads metadata, then asks user to select audio files
-    function edImportProject() {
+    async function edImportProject() {
       const daw = getArchiveDAW();
       const input = $('import-file-input');
       input.value = '';
@@ -2209,6 +2209,33 @@ saveState();
           edOpenArchive();
         }
       };
+
+      if (
+        isElectron &&
+        typeof window.electronAPI?.openFileDialog === 'function' &&
+        typeof window.electronAPI?.loadProjectFile === 'function'
+      ) {
+        try {
+          const filePath = await window.electronAPI.openFileDialog();
+          if (!filePath) return;
+
+          const data = await window.electronAPI.loadProjectFile(filePath);
+          const fileName = String(filePath).split(/[\\/]/).pop() || 'project.json';
+          await input.onchange({
+            target: {
+              files: [{
+                name: fileName,
+                text: async () => JSON.stringify(data)
+              }]
+            }
+          });
+        } catch (error) {
+          console.error('[Project Import] Native file load failed:', error);
+          toast('خطا در باز کردن فایل پروژه: ' + (error?.message || error));
+        }
+        return;
+      }
+
       input.click();
     }
 
