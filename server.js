@@ -136,6 +136,14 @@ function extractLaminorSongLinks(document, artistPageUrl) {
 const app = express();
 const PORT = 3000;
 
+app.get('/api/health', (req, res) => {
+  res.json({
+    service: 'akordyar',
+    status: 'ok',
+    port: PORT
+  });
+});
+
 // ===== Sync Hub (Master/Slave WebSocket) =====
 let _syncHub = null;
 function startSyncHub(server) {

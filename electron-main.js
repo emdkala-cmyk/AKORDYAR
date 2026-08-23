@@ -12,12 +12,13 @@
 const { app, BrowserWindow, shell, ipcMain, dialog, Menu } = require('electron');
 const path = require('path');
 const http = require('http');
-const { spawn, execFileSync } = require('child_process');
+const { spawn } = require('child_process');
 const fsPromises = require('fs').promises;
 const fsSync = require('fs');
 
 const SERVER_PORT = 3000;
 const SERVER_URL = `http://localhost:${SERVER_PORT}/Akordyar.html`;
+const SERVER_HEALTH_URL = `http://localhost:${SERVER_PORT}/api/health`;
 
 let mainWindow = null;
 let serverProcess = null;
@@ -306,46 +307,6 @@ function log(tag, msg) {
 
 function logError(tag, msg) {
   console.error(`\x1b[36m[Akordyar]\x1b[0m \x1b[31m[${tag}]\x1b[0m ${msg}`);
-}
-
-// ============================================
-// Check if port is already in use
-// ============================================
-function stopExistingServerOnPort() {
-  if (process.platform !== 'win32') return;
-
-  try {
-    const netstat = execFileSync(
-      'netstat',
-      ['-ano', '-p', 'tcp'],
-      { encoding: 'utf8', windowsHide: true }
-    );
-    const pids = new Set();
-
-    for (const line of netstat.split(/\r?\n/)) {
-      const match = line.match(
-        /^\s*TCP\s+\S+:3000\s+\S+\s+LISTENING\s+(\d+)\s*$/i
-      );
-      if (match && Number(match[1]) !== process.pid) {
-        pids.add(match[1]);
-      }
-    }
-
-    for (const pid of pids) {
-      try {
-        execFileSync(
-          'taskkill',
-          ['/PID', pid, '/T', '/F'],
-          { stdio: 'ignore', windowsHide: true }
-        );
-        log('Server', `Stopped previous process on port ${SERVER_PORT} (PID ${pid})`);
-      } catch (error) {
-        logError('Server', `Could not stop PID ${pid}: ${error.message}`);
-      }
-    }
-  } catch (error) {
-    logError('Server', `Could not inspect port ${SERVER_PORT}: ${error.message}`);
-  }
 }
 
 // ============================================
@@ -669,32 +630,56 @@ registerIpcHandler('dialog:save-file', async (event, options = {}) => {
 // ============================================
 // Wait for Express server to be ready
 // ============================================
+function checkAkordyarServer() {
+  return new Promise(resolve => {
+    let settled = false;
+    const finish = value => {
+      if (settled) return;
+      settled = true;
+      resolve(value);
+    };
+
+    const req = http.get(SERVER_HEALTH_URL, res => {
+      let body = '';
+      res.setEncoding('utf8');
+      res.on('data', chunk => { body += chunk; });
+      res.on('end', () => {
+        if (res.statusCode !== 200) {
+          finish(false);
+          return;
+        }
+        try {
+          const data = JSON.parse(body);
+          finish(data?.service === 'akordyar' && data?.status === 'ok');
+        } catch {
+          finish(false);
+        }
+      });
+    });
+    req.on('error', () => finish(false));
+    req.setTimeout(1500, () => {
+      req.destroy();
+      finish(false);
+    });
+  });
+}
+
 function waitForServer(maxAttempts = 60) {
   return new Promise((resolve) => {
     let attempts = 0;
-    const tryConnect = () => {
+    const tryConnect = async () => {
       attempts++;
-      const req = http.get(SERVER_URL, (res) => {
-        res.resume();
-        if (res.statusCode === 200) {
-          log('Server', `Connected after ${attempts} attempt(s)`);
-          resolve(true);
-        } else if (attempts < maxAttempts) {
-          setTimeout(tryConnect, 250);
-        } else {
-          logError('Server', `Server returned status ${res.statusCode} after ${maxAttempts} attempts`);
-          resolve(false);
-        }
-      });
-      req.on('error', () => {
-        if (attempts < maxAttempts) setTimeout(tryConnect, 250);
-        else resolve(false);
-      });
-      req.setTimeout(2000, () => {
-        req.destroy();
-        if (attempts < maxAttempts) setTimeout(tryConnect, 250);
-        else resolve(false);
-      });
+      if (await checkAkordyarServer()) {
+        log('Server', `Connected after ${attempts} attempt(s)`);
+        resolve(true);
+        return;
+      }
+      if (attempts < maxAttempts) {
+        setTimeout(tryConnect, 250);
+      } else {
+        logError('Server', `Akordyar health check failed after ${maxAttempts} attempts`);
+        resolve(false);
+      }
     };
     tryConnect();
   });
@@ -840,30 +825,34 @@ app.whenReady().then(async () => {
   // ایجاد منوی اصلی برنامه
   createMenu();
 
-  // مثل Run-Akordyar.bat، همیشه سرور متعلق به همین نسخه را اجرا کن.
-  // این کار مانع اتصال تصادفی به server.js قدیمیِ باقی‌مانده روی پورت ۳۰۰۰ می‌شود.
-  stopExistingServerOnPort();
-  log('Server', 'Starting internal Express server...');
-  const started = await startServerInProcess();
-  if (!started) {
-    logError('Server', 'Failed to start server. Aborting.');
-    dialog.showErrorBox(
-      'Akordyar — خطای راه‌اندازی',
-      'سرور Express راه‌اندازی نشد. لطفاً لاگ‌های کنسول را بررسی کنید.\n\n' +
-      'اگر پورت ۳۰۰۰ اشغال است، آن را آزاد کنید.'
-    );
-    app.quit();
-    return;
+  let ok = await checkAkordyarServer();
+  if (ok) {
+    log('Server', 'Reusing the existing Akordyar server on port 3000');
+  } else {
+    log('Server', 'Starting internal Express server...');
+    const started = await startServerInProcess();
+    if (!started) {
+      logError('Server', 'Failed to start server. Aborting.');
+      dialog.showErrorBox(
+        'Akordyar — خطای راه‌اندازی',
+        'سرور Express راه‌اندازی نشد. لطفاً لاگ‌های کنسول را بررسی کنید.'
+      );
+      app.quit();
+      return;
+    }
+    log('Server', 'Waiting for server to accept connections...');
+    ok = await waitForServer();
   }
-  log('Server', 'Waiting for server to accept connections...');
-  const ok = await waitForServer();
+
   if (!ok) {
     logError('Server', 'Server did not respond in time');
     dialog.showErrorBox(
       'Akordyar — خطای اتصال',
-      'سرور روی پورت ۳۰۰۰ پاسخ نداد.\n' +
-      'ممکن است پورت اشغال باشد یا خطای دیگری رخ داده باشد.'
+      'سرور Akordyar روی پورت ۳۰۰۰ پاسخ معتبر نداد.\n' +
+      'ممکن است پورت اشغال باشد یا سرور دیگری روی آن فعال باشد.'
     );
+    app.quit();
+    return;
   }
 
   createWindow();

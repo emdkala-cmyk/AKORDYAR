@@ -21,12 +21,6 @@ netsh advfirewall firewall add rule name="Akordyar Sync 3000" dir=in action=allo
 echo [Firewall] Port 3000 is open.
 echo.
 
-REM Close a server already listening on port 3000
-for /f "tokens=5" %%a in ('netstat -aon ^| findstr :3000 ^| findstr LISTENING') do (
-    echo Closing previous process on port 3000...
-    taskkill /F /PID %%a >nul 2>nul
-)
-
 REM Verify npm is available
 where npm >nul 2>nul
 if errorlevel 1 (

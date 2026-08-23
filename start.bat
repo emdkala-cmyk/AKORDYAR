@@ -16,11 +16,6 @@ REM Allow phone connections to the LAN sync server.
 netsh advfirewall firewall delete rule name="Akordyar Sync 3000" >nul 2>nul
 netsh advfirewall firewall add rule name="Akordyar Sync 3000" dir=in action=allow protocol=TCP localport=3000 >nul 2>nul
 
-REM Stop an older server so two Master pages cannot fight over the WebSocket hub.
-for /f "tokens=5" %%a in ('netstat -aon ^| findstr :3000 ^| findstr LISTENING') do (
-    taskkill /F /PID %%a >nul 2>nul
-)
-
 echo [Server] Starting LAN server...
 start "Akordyar LAN Server" /min cmd /c "cd /d ""%~dp0"" && set ""AKORDYAR_DESKTOP=1"" && node server.js"
 
