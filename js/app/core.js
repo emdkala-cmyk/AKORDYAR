@@ -891,49 +891,17 @@ const PERF = globalScope.PerformanceRuntimeState?.create?.() || {
 };
 globalScope.PERF = PERF;
 
-function rafThrottle(fn) {
-  let scheduled = false;
-  let lastArgs = null;
-  return function (...args) {
-    lastArgs = args;
-    if (scheduled) return;
-    scheduled = true;
-    requestAnimationFrame(() => {
-      scheduled = false;
-      fn.apply(this, lastArgs);
-    });
-  };
+const functionUtils = globalScope.AkordyarFunctionUtils;
+if (!functionUtils) {
+  throw new Error('AkordyarFunctionUtils باید قبل از app/core.js بارگذاری شود.');
 }
-
-function debounce(fn, delay = 200) {
-  let timer = null;
-  return function (...args) {
-    clearTimeout(timer);
-    timer = setTimeout(() => fn.apply(this, args), delay);
-  };
-}
-
-function arrayShallowEqual(a = [], b = []) {
-  if (a === b) return true;
-  if (!a || !b || a.length !== b.length) return false;
-  for (let i = 0; i < a.length; i++) {
-    if (a[i] !== b[i]) return false;
-  }
-  return true;
-}
-
-function safeText(v) {
-  return v == null ? '' : String(v);
-}
-
-function buildDoneKey(times = [], t = 0, activeLi = -1) {
-  let key = '';
-  for (let i = 0; i < times.length; i++) {
-    const ti = times[i];
-    if (Number.isFinite(ti) && ti < t && i !== activeLi) key += i + '|';
-  }
-  return key;
-}
+const {
+  rafThrottle,
+  debounce,
+  arrayShallowEqual,
+  safeText,
+  buildDoneKey
+} = functionUtils;
 
 function centerScrollIfNeeded(container, targetEl, lastTargetRefName) {
   if (!container || !targetEl) return;

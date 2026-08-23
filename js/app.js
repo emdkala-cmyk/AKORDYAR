@@ -6,6 +6,7 @@
  * compatibility قدیمی کاملاً صریح و قابل audit باقی بماند.
  */
 const APPLICATION_CHUNKS = Object.freeze([
+  'core/FunctionUtils.js',
   'app/constants.js',
   'app/core.js',
   'app/editor.js',
