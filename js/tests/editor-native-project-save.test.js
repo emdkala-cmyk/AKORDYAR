@@ -18,5 +18,8 @@ assert.notEqual(browserPickerIndex, -1);
 assert.ok(nativeSaveIndex < browserPickerIndex);
 assert.ok(nativeWriteIndex < browserPickerIndex);
 assert.match(editor, /saveFileDialog\(\{\s*defaultPath:\s*defaultName\s*\}\)/);
+assert.match(editor, /async function edSaveProjectFile\(\)/);
+assert.match(editor, /edCurrentProjectFilePath/);
+assert.match(editor, /edExportProjectFull\(\{\s*targetPath:\s*edCurrentProjectFilePath\s*\}\)/);
 
 console.log('Editor native project save contract tests passed');

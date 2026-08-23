@@ -40,7 +40,12 @@
       },
       'menu-save': {
         label: 'ذخیره پروژه',
-        run: () => requireFunction('edSaveSong', FUNCTION_NOT_FOUND.save)()
+        run: () => {
+          if (typeof globalScope.edSaveProjectFile === 'function') {
+            return globalScope.edSaveProjectFile();
+          }
+          return requireFunction('edSaveSong', FUNCTION_NOT_FOUND.save)();
+        }
       },
       'menu-save-as': {
         label: 'ذخیرهٔ پروژه با نام جدید',

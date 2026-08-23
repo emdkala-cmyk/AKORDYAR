@@ -3558,7 +3558,20 @@ function edBlankSong() {
       } catch(e) { console.warn('Storage info error:', e); }
     }
 
-    async function edExportProjectFull() {
+    let edCurrentProjectFilePath = null;
+
+    function setEditorProjectFilePath(filePath) {
+      edCurrentProjectFilePath =
+        typeof filePath === 'string' && filePath.trim()
+          ? filePath
+          : null;
+    }
+
+    function clearEditorProjectFilePath() {
+      edCurrentProjectFilePath = null;
+    }
+
+    async function edExportProjectFull({ targetPath = null } = {}) {
       const song = getCurrentEditorSong();
       const exportService = getEditorProjectExportService();
       if (!song || !exportService) {
@@ -3590,7 +3603,7 @@ function edBlankSong() {
         typeof window.electronAPI.writeProjectJson === 'function';
 
       if (canUseNativeSave) {
-        const savePath = await window.electronAPI.saveFileDialog({
+        const savePath = targetPath || await window.electronAPI.saveFileDialog({
           defaultPath: defaultName
         });
         if (!savePath) {
@@ -3598,6 +3611,7 @@ function edBlankSong() {
           return;
         }
         await window.electronAPI.writeProjectJson(savePath, data);
+        setEditorProjectFilePath(savePath);
         toast(`خروجی ذخیره شد (${sizeMB} MB, ${audioCount} کپی + ${linkedCount} لینک)`);
         refreshStorageInfo();
         return;
@@ -3621,6 +3635,13 @@ function edBlankSong() {
       toast(`خروجی ذخیره شد (${sizeMB} MB, ${audioCount} کپی + ${linkedCount} لینک)`);
       refreshStorageInfo();
       } catch(e) { console.error('Export error:', e); toast('خطا در خروجی: ' + e.message); }
+    }
+
+    async function edSaveProjectFile() {
+      if (edCurrentProjectFilePath) {
+        return edExportProjectFull({ targetPath: edCurrentProjectFilePath });
+      }
+      return edExportProjectFull();
     }
 
     let edSongPersistenceService = null;

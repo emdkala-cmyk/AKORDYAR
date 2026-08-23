@@ -1719,6 +1719,9 @@ function archUpdateActiveFilters() {
       if (getArchiveSongOrNull() && historyLength() > 1) {
         if (confirm(t('saveSong') + '?')) await edSaveToArchive();
       }
+      if (typeof clearEditorProjectFilePath === 'function') {
+        clearEditorProjectFilePath();
+      }
       pauseTransport();
 stopAllVoices();
 
@@ -1941,6 +1944,11 @@ saveState();
           // Single file: load as current project (existing behavior)
           const file = files[0];
           try {
+            if (file._projectFilePath) {
+              setEditorProjectFilePath(file._projectFilePath);
+            } else if (typeof clearEditorProjectFilePath === 'function') {
+              clearEditorProjectFilePath();
+            }
             toast('در حال لود پروژه...');
             const text = await file.text();
             const data = JSON.parse(text);
@@ -2225,6 +2233,7 @@ saveState();
             target: {
               files: [{
                 name: fileName,
+                _projectFilePath: filePath,
                 text: async () => JSON.stringify(data)
               }]
             }

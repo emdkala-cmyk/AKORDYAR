@@ -6,6 +6,7 @@ const original = {};
   'edNewSong',
   'edImportProject',
   'edSaveSong',
+  'edSaveProjectFile',
   'edExportProjectFull',
   'getEditorDAW',
   'startTransport',
@@ -25,6 +26,7 @@ const calls = [];
 globalThis.edNewSong = () => calls.push('new');
 globalThis.edImportProject = () => calls.push('open');
 globalThis.edSaveSong = () => calls.push('save');
+globalThis.edSaveProjectFile = () => calls.push('save-file');
 globalThis.edExportProjectFull = () => calls.push('export');
 globalThis.getEditorDAW = () => ({ isPlaying: false });
 globalThis.startTransport = () => calls.push('start');
@@ -73,7 +75,7 @@ setImmediate(() => {
   assert.deepEqual(calls, [
     'new',
     'open',
-    'save',
+    'save-file',
     'export',
     'export',
     'open',
