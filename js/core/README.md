@@ -3,6 +3,12 @@
 ## معرفی
 این سیستم برای مدیریت فایل‌های صوتی در پروژه DAW طراحی شده و از دو حالت **وب** و **الکترون (دسکتاپ)** پشتیبانی می‌کند.
 
+> توجه: فایل‌های `FileSystemBridge.js`، `AudioManager.js`،
+> `AudioFileLoader.js` و `ProjectStore.js` مسیر قدیمی و مستقل هستند و در
+> `Akordyar.html` بارگذاری نمی‌شوند. مسیر فعال برنامه از
+> `ProjectAudioService`، `AudioRecoveryService` و سرویس‌های ذخیرهٔ editor
+> استفاده می‌کند.
+
 ## ساختار فایل‌ها
 
 ```

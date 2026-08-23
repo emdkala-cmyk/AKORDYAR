@@ -1,0 +1,34 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+
+const projectRoot = path.resolve(__dirname, '..', '..');
+const html = fs.readFileSync(
+  path.join(projectRoot, 'Akordyar.html'),
+  'utf8'
+);
+
+const escapeRegExp = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const legacyScripts = [
+  'js/core/FileSystemBridge.js',
+  'js/core/AudioManager.js',
+  'js/core/AudioFileLoader.js',
+  'js/core/ProjectStore.js'
+];
+
+for (const script of legacyScripts) {
+  assert.doesNotMatch(
+    html,
+    new RegExp(`<script[^>]+src=["']${escapeRegExp(script)}["']`)
+  );
+}
+
+for (const activeScript of [
+  'js/core/ProjectAudioService.js',
+  'js/editor/AudioRecoveryService.js',
+  'js/editor/EditorSongPersistenceService.js'
+]) {
+  assert.match(html, new RegExp(escapeRegExp(activeScript)));
+}
+
+console.log('Legacy runtime script contract tests passed');

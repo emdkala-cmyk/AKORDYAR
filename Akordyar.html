@@ -1098,11 +1098,11 @@
   <script src="js/sync/masterSync.js"></script>
   <script src="js/sync/deviceManager.js?v=20260819-15"></script>
 
-  <!-- Core Audio Management System (DAW-style) -->
-  <script src="js/core/FileSystemBridge.js"></script>
-  <script src="js/core/AudioManager.js"></script>
-  <script src="js/core/AudioFileLoader.js"></script>
-  <script src="js/core/ProjectStore.js"></script>
+  <!--
+    Legacy standalone audio/project modules are retained for reference but are
+    not loaded by the application. The active editor path uses
+    ProjectAudioService, AudioRecoveryService and editor persistence services.
+  -->
 
   <script src="js/laminor-extractor.js"></script>
   <script src="js/importers/laminor/extractLaminorAkordyarLines.js"></script>
