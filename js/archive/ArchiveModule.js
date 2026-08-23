@@ -1807,68 +1807,10 @@ saveState();
     }
 
     async function edExportProject() {
-      const daw = getArchiveDAW();
-      const song = getArchiveSongOrNull();
-      if (!song) { toast('ترانه‌ای باز نیست'); return; }
-      try {
-      SongMetadata.syncFromDom(song);
-      song._dawTracks = daw.tracks.map(tr => ({
-        id: tr.id, name: tr.name, icon: tr.icon, muted: tr.muted,
-        solo: tr.solo, vol: tr.vol, pan: tr.pan, type: tr.type, transpose: tr.transpose || 0, laneHeight: tr.laneHeight || null
-      }));
-      song._dawClips = daw.clips.map(c => {
-        const cp = { ...c }; delete cp._peaks; delete cp.waveUrl; delete cp._fileHandle; delete cp._originalBlob; return cp;
-      });
-      song._dawSections = (daw.sections || []).map(s => ({ ...s }));
-      song._dawLoop = { loopEnabled: daw.loopEnabled, loopA: daw.loopA, loopB: daw.loopB };
-
-      // فقط کلیپ‌های کپی‌شده رمزگذاری بشن
-      const audioData = {};
-      const audioClips = daw.clips.filter(c => c.type !== 'chord' && c.bufferKey && c._embedded);
-      if (audioClips.length > 0) {
-        let idx = 0;
-        for (const clip of audioClips) {
-          const buffer = daw.bufferCache.get(clip.bufferKey);
-          if (!buffer) continue;
-          idx++;
-          toast(`رمزگذاری صدا ${idx}/${audioClips.length}...`);
-          try {
-            const encoded = await encodeAudioToWebM(buffer, 128000);
-            audioData[clip.bufferKey] = { format: 'wav', data: uint8ToBase64(encoded) };
-          } catch(e) {
-            try {
-              const channels = [];
-              for (let i = 0; i < buffer.numberOfChannels; i++) {
-                channels.push(uint8ToBase64(new Uint8Array(buffer.getChannelData(i).buffer)));
-              }
-              audioData[clip.bufferKey] = { format: 'float32-b64', sampleRate: buffer.sampleRate, channels: buffer.numberOfChannels, length: buffer.length, data: channels };
-            } catch(e2) {}
-          }
-        }
+      if (typeof edExportProjectFull === 'function') {
+        return edExportProjectFull();
       }
-      song._embeddedAudio = audioData;
-
-      const linkedCount = daw.clips.filter(c => c.type !== 'chord' && c.bufferKey && !c._embedded).length;
-      const defaultName = (song.title || 'ترانه جدید') + '.json';
-      const data = JSON.stringify(song);
-      const blob = new Blob([data], { type: 'application/json' });
-      const sizeMB = (blob.size / (1024*1024)).toFixed(1);
-      const audioCount = Object.keys(audioData).length;
-
-      if (window.showSaveFilePicker) {
-        try {
-          const handle = await window.showSaveFilePicker({ suggestedName: defaultName, types: [{ description: 'فایل پروژه', accept: { 'application/json': ['.json'] } }] });
-          const writable = await handle.createWritable(); await writable.write(blob); await writable.close();
-          toast(`خروجی ذخیره شد (${sizeMB} MB, ${audioCount} صدا)`);
-          return;
-        } catch (e) { if (e.name === 'AbortError') { toast('لغو شد'); return; } }
-      }
-      if (!confirm(`دانلود فایل: ${defaultName}\nحجم: ${sizeMB} MB\nصدا: ${audioCount} فایل`)) return;
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a'); a.href = url; a.download = defaultName; a.click();
-      setTimeout(() => URL.revokeObjectURL(url), 5000);
-      toast(`خروجی ذخیره شد (${sizeMB} MB, ${audioCount} صدا)`);
-      } catch(e) { console.error('Export error:', e); toast('خطا در خروجی: ' + e.message); }
+      toast('سرویس خروجی پروژه هنوز آماده نیست');
     }
 
     async function edExportXML() {
