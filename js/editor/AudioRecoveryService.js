@@ -85,6 +85,15 @@
     return Boolean(daw?.bufferCache?.has?.(bufferKey));
   }
 
+  function updateMissingResult(result, daw) {
+    const missing = missingAudioClips(daw);
+    result.missing = missing.length;
+    result.missingNames = missing.map(
+      clip => clip.fileName || clip.bufferKey
+    );
+    return result;
+  }
+
   function create({
     getDAW = () => null,
     getSong = () => null,
@@ -326,7 +335,9 @@
         `[Audio Init] ${missing.length} clip(s) need audio loading. ` +
           `isElectron=${context.isElectron}, _audioPaths=${paths.length}`
       );
-      if (!missing.length || !paths.length) return result;
+      if (!missing.length || !paths.length) {
+        return updateMissingResult(result, daw);
+      }
 
       await loadFromElectron(paths, daw, context, result, 'LINK');
       await loadFromStoredBlobs(daw, context, result, 'BLOB');

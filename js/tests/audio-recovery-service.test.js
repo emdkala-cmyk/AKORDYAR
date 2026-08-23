@@ -89,6 +89,27 @@ function makeBuffer(duration = 3) {
   assert.equal(preloadResult.missing, 0);
   assert.equal(preloadDaw.bufferCache.get('next-key').duration, 5);
 
+  const missingDaw = {
+    clips: [{
+      id: 'missing-audio',
+      type: 'audio',
+      bufferKey: 'missing-key',
+      fileName: 'missing.wav'
+    }],
+    bufferCache: new Map()
+  };
+  const missingService = recoveryModule.create({
+    getDAW: () => missingDaw,
+    loadAudioBlobsForProject: async () => {}
+  });
+  const missingResult = await missingService.restoreSongAudio({
+    id: 'song-4'
+  });
+
+  assert.equal(missingResult.loaded, 0);
+  assert.equal(missingResult.missing, 1);
+  assert.deepEqual(missingResult.missingNames, ['missing.wav']);
+
   console.log('AudioRecoveryService tests passed');
 })().catch(error => {
   console.error(error);
