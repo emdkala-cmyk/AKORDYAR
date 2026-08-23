@@ -18,6 +18,8 @@ if errorlevel 1 (
 )
 echo Node.js found:
 node --version
+for /f "delims=" %%v in ('node -p "require('./package.json').version"') do set "APP_VERSION=%%v"
+echo Akordyar version: %APP_VERSION%
 echo.
 
 echo [2/4] Installing dependencies...
@@ -41,6 +43,6 @@ echo.
 echo [4/4] Build completed successfully!
 echo.
 echo Installer location:
-echo   release\Akordyar-Setup-1.0.0.exe
+echo   release\Akordyar Setup %APP_VERSION%.exe
 echo.
 pause

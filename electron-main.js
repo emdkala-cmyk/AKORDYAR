@@ -281,7 +281,7 @@ function createMenu() {
               type: 'info',
               title: 'About Akordyar',
               message: 'Akordyar - DAW Timeline Pro',
-              detail: 'Version 1.0.0\nA professional chord and timeline editor.'
+              detail: `Version ${app.getVersion()}\nA professional chord and timeline editor.`
             });
           }
         },
