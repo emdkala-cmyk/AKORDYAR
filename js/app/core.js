@@ -4292,6 +4292,8 @@ function bufferToWave(abuffer, len) {
     offset++;
   }
   return new Blob([out], { type: "audio/wav" });
+}
+
   // ==========================================
 // PART 4: Timeline Rendering & UI Event Listeners
 // ==========================================
@@ -4331,7 +4333,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }).bind();
   }
 });
-}
       // تنظیمات popup فقط از مسیر WindowBridge به runtime پنجره می‌رسد.
       const initialPopupConfig = popupWindowBridge?.get?.(_lyricPopup, '_pCfg');
       if (initialPopupConfig && typeof initialPopupConfig === 'object') {
