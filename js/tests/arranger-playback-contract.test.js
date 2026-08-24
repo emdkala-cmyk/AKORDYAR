@@ -35,6 +35,8 @@ assert.match(core, /playbackStart:\s*playbackBoundary\.start/);
 assert.match(editor, /arrangerPlaybackPolicy\?\.applyToDAW/);
 assert.match(editor, /seekTransport\(arrPerformActive \? playbackBoundary\.start : 0, false, true\)/);
 assert.match(editor, /arrangerMarkers:\s*ns\.arrangerMarkers/);
+assert.match(editor, /seekTransport\(arrPerformActive \? nextStart : 0, true, true\)/);
+assert.doesNotMatch(editor, /var _ori2 = PlayheadMath\.createOrigin/);
 
 assert.match(
   html,

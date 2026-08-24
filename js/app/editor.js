@@ -245,10 +245,10 @@ function getMidiScoreController() {
           ? `, ${audio.missing} missing: ${audio.missingNames.join(', ')}`
           : ''));
 
-      getEditorDAW().playhead = arrPerformActive ? nextStart : 0;
-      var _ori2 = PlayheadMath.createOrigin(performance.now(), getEditorDAW().playhead); getEditorDAW().playOriginPerf = _ori2.playOriginPerf;
-      getEditorDAW().playOriginTime = _ori2.playOriginTime;
-      scheduleAllFromPlayhead();
+      // Re-anchor both the visual and AudioContext clocks. Updating only
+      // playOriginPerf/playOriginTime leaves playOriginAudio pointing at the
+      // previous song, so the scheduler starts this song near the old B.
+      seekTransport(arrPerformActive ? nextStart : 0, true, true);
 
       resetHistory();
       edSyncToolbar(); edRenderEditor(true); renderAll(); saveState();

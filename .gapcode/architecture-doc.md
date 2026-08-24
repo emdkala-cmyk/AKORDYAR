@@ -296,7 +296,8 @@ seamهای باقی‌مانده تمرکز کند؛ بدنهٔ legacy رندر 
 - `dead-code-contract.test.js`: جلوگیری از بازگشت placeholderهای بدون مصرف.
 - `ArrangerMarkerService` و `ArrangerPlaybackPolicyService`: نگهداری مستقل
   `_arrangerMarkers`، مهاجرت legacy و تبدیل A/B هر آهنگ به مرز اجرای setlist؛
-  loop خاموش می‌شود اما `loopA/loopB` دست‌نخورده می‌مانند.
+  loop خاموش می‌شود اما `loopA/loopB` دست‌نخورده می‌مانند؛ hot-swap نیز
+  origin صوتی AudioContext را همراه A آهنگ جدید دوباره تنظیم می‌کند.
 
 وضعیت فعلی همچنان hybrid است. wrapperهای عمومی و compatibility boundaryهای
 لازم برای hot-swap، Electron و مسیرهای قدیمی حذف نشده‌اند. هشدار line budget
