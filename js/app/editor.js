@@ -5935,13 +5935,16 @@ if ($('edDoBoth')) {
       attachHistoryService();
     }
 
-    window.EditorLifecycleService?.initialize?.({
+    const lifecycleReady = window.EditorLifecycleService?.initialize?.({
       initDAW: init,
       initSong: edInitSong,
       initAccidentalSelector,
       applyI18n,
       initHighlightEffect,
       refreshStorageInfo
+    });
+    lifecycleReady?.catch?.(error => {
+      console.error('Editor lifecycle initialization failed:', error);
     });
   
     /**

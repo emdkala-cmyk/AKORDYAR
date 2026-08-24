@@ -34,7 +34,7 @@ lifecycle.renderTimeline({
 assert.equal(children.length, 2);
 
 let initialized = [];
-lifecycle.initialize({
+const ready = lifecycle.initialize({
   initDAW: () => initialized.push('daw'),
   initSong: () => initialized.push('song'),
   initAccidentalSelector: () => initialized.push('accidental'),
@@ -43,8 +43,9 @@ lifecycle.initialize({
   refreshStorageInfo: () => initialized.push('storage'),
   schedule: callback => callback()
 });
+assert.equal(typeof ready?.then, 'function');
 
-setImmediate(() => {
+ready.then(() => {
   assert.deepEqual(initialized, [
     'daw',
     'song',
@@ -54,4 +55,7 @@ setImmediate(() => {
     'storage'
   ]);
   console.log('EditorLifecycleService tests passed');
+}).catch(error => {
+  console.error(error);
+  process.exitCode = 1;
 });
