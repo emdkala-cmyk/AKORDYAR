@@ -91,6 +91,10 @@ assert.ok(
     scriptIndex('js/core/CountInScheduler.js')
 );
 assert.ok(
+  scriptIndex('js/core/AudioCompressionService.js') <
+    scriptIndex('js/app/core.js')
+);
+assert.ok(
   scriptIndex('js/core/CountInScheduler.js') <
     scriptIndex('js/app/core.js')
 );

@@ -3166,6 +3166,17 @@ function edBlankSong() {
     // -- Unified Save/Load (Timeline + Lyrics + Audio) --
     // IndexedDB for audio blob storage
     let audioDB = null;
+    let audioCompressionService = null;
+    function getAudioCompressionService() {
+      if (
+        !audioCompressionService &&
+        typeof window.AudioCompressionService?.create === 'function'
+      ) {
+        audioCompressionService = window.AudioCompressionService.create();
+      }
+      return audioCompressionService;
+    }
+
     function openAudioDB() {
       if (audioDB) return Promise.resolve(audioDB);
       return new Promise((resolve, reject) => {
@@ -3343,20 +3354,31 @@ function edBlankSong() {
           } else {
             // ─── مرحله 2: encode به WAV و فشرده‌سازی ───
             try {
-              const wavBytes = audioBufferToWav(buffer);
-              const compressedBlob = await compressBytes(wavBytes);
+              const wavEncoder = getEditorProjectExportService()?.audioBufferToWav;
+              if (typeof wavEncoder !== 'function') {
+                throw new Error('Audio WAV encoder is unavailable');
+              }
+              const wavBytes = wavEncoder(buffer);
+              const compressed =
+                await getAudioCompressionService()?.compressBytes(wavBytes);
+              if (!compressed?.blob || !compressed.format) {
+                throw new Error('Audio compression service is unavailable');
+              }
               allBlobs.push({
                 key,
-                format: 'wav-deflate',
-                mimeType: 'application/octet-stream',
-                fileName: (clip.fileName || clip.name || key).replace(/\.[^.]+$/, '') + '.wav.deflate',
-                size: compressedBlob.size,
+                format: compressed.format,
+                mimeType: compressed.format === 'wav-deflate'
+                  ? 'application/octet-stream'
+                  : 'audio/wav',
+                fileName: (clip.fileName || clip.name || key).replace(/\.[^.]+$/, '') +
+                  (compressed.format === 'wav-deflate' ? '.wav.deflate' : '.wav'),
+                size: compressed.blob.size,
                 duration: buffer.duration,
                 sampleRate: buffer.sampleRate,
                 channels: buffer.numberOfChannels,
-                blob: compressedBlob
+                blob: compressed.blob
               });
-              console.log(`[Audio Save] Saved WAV+deflate: ${clip.fileName} (raw=${(wavBytes.length/1024/1024).toFixed(2)}MB → compressed=${(compressedBlob.size/1024/1024).toFixed(2)}MB)`);
+              console.log(`[Audio Save] Saved ${compressed.format}: ${clip.fileName} (raw=${(wavBytes.length/1024/1024).toFixed(2)}MB → stored=${(compressed.blob.size/1024/1024).toFixed(2)}MB)`);
             } catch (e) {
               console.warn(`[Audio Save] Failed to encode ${clip.fileName}:`, e);
             }
@@ -3370,32 +3392,6 @@ function edBlankSong() {
       });
     }
 
-    /**
-     * compressBytes — فشرده‌سازی Uint8Array با CompressionStream (deflate)
-     */
-    async function compressBytes(uint8Arr) {
-      try {
-        const cs = new CompressionStream('deflate');
-        const writer = cs.writable.getWriter();
-        writer.write(uint8Arr);
-        writer.close();
-        const reader = cs.readable.getReader();
-        const chunks = [];
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          chunks.push(value);
-        }
-        const totalLen = chunks.reduce((s, c) => s + c.length, 0);
-        const result = new Uint8Array(totalLen);
-        let offset = 0;
-        for (const chunk of chunks) { result.set(chunk, offset); offset += chunk.length; }
-        return new Blob([result], { type: 'application/octet-stream' });
-      } catch (e) {
-        // fallback: بدون فشرده‌سازی
-        return new Blob([uint8Arr], { type: 'application/octet-stream' });
-      }
-    }
     async function loadAudioBlobsForProject(projectId) {
       const db = await openAudioDB();
       return new Promise(async (resolve, reject) => {
@@ -3415,10 +3411,17 @@ function edBlankSong() {
                 const arrayBuffer = await entry.blob.arrayBuffer();
                 buffer = await getEditorDAW().audioCtx.decodeAudioData(arrayBuffer);
                 console.log(`[Audio Load] Loaded blob: ${entry.fileName}`);
+              } else if (entry.format === 'wav' && entry.blob) {
+                const arrayBuffer = await entry.blob.arrayBuffer();
+                buffer = await getEditorDAW().audioCtx.decodeAudioData(arrayBuffer);
+                console.log(`[Audio Load] Loaded WAV: ${entry.fileName}`);
               } else if (entry.format === 'wav-deflate' && entry.blob) {
                 // ─── فرمت جدید: WAV فشرده‌شده با deflate ───
                 const compressedBytes = new Uint8Array(await entry.blob.arrayBuffer());
-                const wavBytes = await decompressBytes(compressedBytes);
+                const wavBytes =
+                  await getAudioCompressionService()?.decompressBytes(
+                    compressedBytes
+                  );
                 const wavBlob = new Blob([wavBytes], { type: 'audio/wav' });
                 const arrayBuffer = await wavBlob.arrayBuffer();
                 buffer = await getEditorDAW().audioCtx.decodeAudioData(arrayBuffer);
@@ -3493,20 +3496,6 @@ function edBlankSong() {
       }
       return out;
     }
-    async function decompressBytes(uint8Arr) {
-      const ds = new DecompressionStream('deflate');
-      const writer = ds.writable.getWriter();
-      writer.write(uint8Arr); writer.close();
-      const reader = ds.readable.getReader();
-      const chunks = [];
-      while (true) { const { done, value } = await reader.read(); if (done) break; chunks.push(value); }
-      const totalLen = chunks.reduce((s, c) => s + c.length, 0);
-      const result = new Uint8Array(totalLen);
-      let offset = 0;
-      for (const chunk of chunks) { result.set(chunk, offset); offset += chunk.length; }
-      return result;
-    }
-
     async function refreshStorageInfo() {
       try {
         const infoBar = $('storageInfoBar');
