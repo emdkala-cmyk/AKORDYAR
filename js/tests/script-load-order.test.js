@@ -315,6 +315,14 @@ assert.ok(
     scriptIndex('js/archive/ArchiveModule.js')
 );
 assert.ok(
+  scriptIndex('js/archive/ArchiveNormalizationService.js') <
+    scriptIndex('js/archive/ArchiveArtistService.js')
+);
+assert.ok(
+  scriptIndex('js/archive/ArchiveArtistService.js') <
+    scriptIndex('js/archive/ArchiveModule.js')
+);
+assert.ok(
   scriptIndex('js/editor/HistoryService.js') <
     scriptIndex('js/app/core.js')
 );

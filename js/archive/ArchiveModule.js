@@ -163,46 +163,28 @@
       return getArchiveNormalizationService().normalizeText(value);
     }
 
-    // Canonical artist alias map: all variants → one stable key
-    const ARCH_ARTIST_ALIASES = Object.freeze({
-      'هایده': 'hayedeh', 'هايده': 'hayedeh',
-      'hayedeh': 'hayedeh', 'haydeh': 'hayedeh', 'hayede': 'hayedeh',
-      'Hayedeh': 'hayedeh', 'Haydeh': 'hayedeh',
-      'گوگوش': 'googoosh', 'googoosh': 'googoosh', 'googosh': 'googoosh',
-      'gogoosh': 'googoosh', 'gogoush': 'googoosh',
-      'Googoosh': 'googoosh', 'Googosh': 'googoosh',
-      'داریوش': 'dariush', 'dariush': 'dariush', 'Dariush': 'dariush',
-      'ابی': 'ebi', 'ebi': 'ebi', 'Ebi': 'ebi', 'EBI': 'ebi',
-      'ابی ابراهیمی': 'ebi',
-      'سیاوش قمیشی': 'siavash-ghomayshi', 'siavash-ghomayshi': 'siavash-ghomayshi',
-      'قمیشی': 'siavash-ghomayshi', 'Siavash Ghomayshi': 'siavash-ghomayshi',
-      'معین': 'moein', 'moein': 'moein', 'Moein': 'moein', 'کاشانی': 'moein',
-      'حبیب': 'habib', 'habib': 'habib', 'Habib': 'habib', 'موحد': 'habib',
-      'مهستی': 'mahasti', 'mahasti': 'mahasti', 'Mahasti': 'mahasti',
-      'رضا صادقی': 'reza-sadeghi', 'reza sadeghi': 'reza-sadeghi',
-      'Reza Sadeghi': 'reza-sadeghi', 'رضا_صادقی': 'reza-sadeghi'
-    });
-
-    /**
-     * Canonical artist key: all spellings/translations of one artist → one key.
-     * artist field keeps the original display name; artistKey is for grouping/filtering/image lookup.
-     */
-    function archArtistKey(value) {
-      const normalized = archNormText(String(value == null ? '' : value));
-      if (!normalized) return '_unknown';
-      return ARCH_ARTIST_ALIASES[normalized] || normalized;
+    // --- Artist canonicalization bridge ---
+    let _archiveArtistService = null;
+    function getArchiveArtistService() {
+      if (!_archiveArtistService) {
+        const create = window.ArchiveArtistService?.create;
+        if (typeof create !== 'function') {
+          throw new Error('ArchiveArtistService is not loaded. Check script order.');
+        }
+        _archiveArtistService = create({
+          normalizeText: archNormText,
+          getDefaultArtists: () => DEFAULT_ARTISTS
+        });
+      }
+      return _archiveArtistService;
     }
 
-    // Match a song artist name to a default artist
+    function archArtistKey(value) {
+      return getArchiveArtistService().artistKey(value);
+    }
+
     function matchDefaultArtist(songArtist) {
-      const key = archArtistKey(songArtist);
-      if (key === '_unknown') return null;
-      return DEFAULT_ARTISTS.find(a => {
-        if (archArtistKey(a.normalizedName) === key) return true;
-        if (archArtistKey(a.displayName) === key) return true;
-        if (a.aliases && a.aliases.some(alias => archArtistKey(alias) === key)) return true;
-        return false;
-      }) || null;
+      return getArchiveArtistService().matchDefaultArtist(songArtist);
     }
 
     // --- Undo ---
