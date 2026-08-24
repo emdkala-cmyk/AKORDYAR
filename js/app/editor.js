@@ -3033,7 +3033,10 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
     const ED_TYPES = ['','m','7','maj7','m7','dim','aug','sus2','sus4','6','m6','m7b5'];
     const ED_TENS = ['','add9','9','11','13','b9','#9','#11','b13'];
 
-    let edCur = null;
+    let edCur = window.EditorRuntimeAdapter?.getSong?.() || null;
+    window.EdCurAdapter?.onChange?.((_eventName, song) => {
+      edCur = song;
+    });
     window.EditorLegacySongBridge = {
       get: () => edCur,
       set: song => { edCur = song; }
