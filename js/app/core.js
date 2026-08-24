@@ -86,6 +86,15 @@ const isBrowser = typeof window !== 'undefined';
 // placeholder قدیمی DAW حذف شده تا adapter هیچ‌وقت state ناقص را نبیند.
 const globalScope = isBrowser ? window : global;
 
+const corePublicApiFactory = globalScope.CorePublicApi;
+if (!corePublicApiFactory?.create) {
+  throw new Error('CorePublicApi باید قبل از app/core.js بارگذاری شود.');
+}
+const corePublicApi = corePublicApiFactory.create({
+  target: globalScope,
+  namespace: 'AkordyarCoreApi'
+});
+
     /* ===== I18N ===== */
     let currentLang = localStorage.getItem('appLang') || 'fa';
     const I18N = {
@@ -601,10 +610,10 @@ const globalScope = isBrowser ? window : global;
       return nextHeight;
     }
 
-    if (typeof window !== 'undefined') {
-      window.getTimelinePanelHeight = getTimelinePanelHeight;
-      window.setTimelinePanelHeight = setTimelinePanelHeight;
-    }
+    corePublicApi.publish({
+      getTimelinePanelHeight,
+      setTimelinePanelHeight
+    });
 
     function togglePanel(panel) {
       if (panel === 'timeline' && window.timelinePanelLayout?.toggleClosed) {
@@ -999,16 +1008,14 @@ async function resolveClipAudio(clip, projectFilePath = null) {
 }
 
 // حفظ APIهای global قدیمی برای بخش‌های دیگر پروژه و ابزارهای legacy.
-if (typeof window !== 'undefined') {
-  window.loadAudioFromHardDrive =
-    loadAudioFromHardDrive;
-
-  window.pathDirname =
-    pathDirname;
-
-  window.pathJoin =
-    pathJoin;
-}
+corePublicApi.publish({
+  loadAudioFromHardDrive,
+  pathDirname,
+  pathJoin,
+  handleAudioImport,
+  loadProject,
+  resolveClipAudio
+});
 
 // ==========================================
 // Editor Domain module accessors (Commit 1)
@@ -2290,12 +2297,14 @@ sels.forEach(c => {
       // Update perf UI play button
       if (perfModeActive) { $('perfPlayBtn').textContent = '▶'; renderPerfUI(); }
     }
-    // SyncHub uses these explicit window hooks for timeline controls requested
-    // by the phone Player View.
-    window.startTransport = startTransport;
-    window.pauseTransport = pauseTransport;
-    window.stopTransport = stopTransport;
-    window.seekTransport = seekTransport;
+    // SyncHub uses these explicit hooks for timeline controls requested by the
+    // phone Player View. The registry keeps the legacy aliases intact.
+    corePublicApi.publish({
+      startTransport,
+      pauseTransport,
+      stopTransport,
+      seekTransport
+    });
     // Arranger end: uses selectionEnd if defined, otherwise end of song content
     // Does NOT depend on loopEnabled — selection range is separate from loop
     function getArrangerEnd() {
@@ -4473,9 +4482,11 @@ let syncTapKeyHandler = null;
       editingArr = null;
     }
 
-    // Expose for ProjectHub (Hub arranger track click)
-    window.openArrangerModal = openArrangerModal;
-    window.closeArrangerModal = closeArrangerModal;
+    // Expose for ProjectHub (Hub arranger track click).
+    corePublicApi.publish({
+      openArrangerModal,
+      closeArrangerModal
+    });
 
     // درگ arrangerModal
     function _setupArrangerModalDrag() {
@@ -4659,8 +4670,8 @@ let syncTapKeyHandler = null;
       toast(`✅ پلی‌لیست «${arr.name}» ساخته شد`);
     }
 
-    // Expose for ProjectHub (Hub "➕ جدید" button)
-    window.createNewArranger = createNewArranger;
+    // Expose for ProjectHub (Hub "➕ جدید" button).
+    corePublicApi.publish({ createNewArranger });
 
     function openArrEditor() {
       if (!editingArr) return;
