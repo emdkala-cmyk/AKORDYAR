@@ -1,0 +1,43 @@
+const assert = require('node:assert/strict');
+const ArchiveNormalizationService = require('../archive/ArchiveNormalizationService.js');
+
+const service = ArchiveNormalizationService.create({
+  schemaVersion: 1,
+  generateId: () => 'generated-id',
+  now: () => '2026-08-24T00:00:00.000Z'
+});
+
+assert.equal(
+  service.normalizeText('  كِتاب\u200c  ي  '),
+  'کتاب ی'
+);
+
+const source = {
+  id: 'song-1',
+  title: 'عنوان',
+  artist: 'خواننده',
+  bpm: '90',
+  tags: ['شاد'],
+  categories: ['پاپ'],
+  lyrics: 'متن ترانه',
+  chords: [{ name: 'Am' }],
+  sections: [{ title: 'بند', text: 'متن بخش' }]
+};
+const normalized = service.normalizeSong(source, 'song.json');
+
+assert.equal(normalized.id, 'song-1');
+assert.equal(normalized.title, 'عنوان');
+assert.equal(normalized.tempo, 90);
+assert.equal(normalized.bpm, 90);
+assert.equal(normalized.timeSignature, '4/4');
+assert.equal(normalized.sourceFileName, 'song.json');
+assert.equal(normalized.schemaVersion, 1);
+assert.equal(normalized.deletedAt, null);
+assert.equal(normalized.createdAt, '2026-08-24T00:00:00.000Z');
+
+assert.match(
+  service.extractSearchText(source),
+  /عنوان.*خواننده.*متن ترانه.*am.*متن بخش بند/s
+);
+
+console.log('ArchiveNormalizationService tests passed');

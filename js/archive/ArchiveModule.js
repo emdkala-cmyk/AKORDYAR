@@ -135,50 +135,32 @@
     }
     try { archMigrate(edGetAllSongs()); } catch(_) {}
 
-    // --- Normalize ---
+    // --- Normalize and search bridge ---
+    let _archiveNormalizationService = null;
+    function getArchiveNormalizationService() {
+      if (!_archiveNormalizationService) {
+        const create = window.ArchiveNormalizationService?.create;
+        if (typeof create !== 'function') {
+          throw new Error('ArchiveNormalizationService is not loaded. Check script order.');
+        }
+        _archiveNormalizationService = create({
+          schemaVersion: ARCH_SCHEMA_VERSION,
+          generateId: archGenId
+        });
+      }
+      return _archiveNormalizationService;
+    }
+
     function archNormalize(data, fileName) {
-      const now = new Date().toISOString();
-      const out = { ...data };
-      out.id = String(data.id || archGenId());
-      out.title = data.title || 'بدون نام';
-      out.artist = data.artist || '';
-      out.album = data.album || '';
-      out.key = data.key || 'C';
-      out.keyMode = data.keyMode || 'maj';
-      out.tempo = data.tempo || parseInt(data.bpm) || 120;
-      out.bpm = out.tempo;
-      out.timeSignature = data.timeSignature || '4/4';
-      out.genre = data.genre || '';
-      out.tags = Array.isArray(data.tags) ? data.tags : [];
-      out.categories = Array.isArray(data.categories) ? data.categories : [];
-      out.favorite = !!data.favorite;
-      out.status = 'active';
-      out.createdAt = data.createdAt || now;
-      out.updatedAt = data.updatedAt || now;
-      out.lastOpenedAt = data.lastOpenedAt || null;
-      out.importedAt = data.importedAt || now;
-      out.sourceFileName = fileName || data.sourceFileName || '';
-      out.schemaVersion = ARCH_SCHEMA_VERSION;
-      out.deletedAt = null;
-      return out;
+      return getArchiveNormalizationService().normalizeSong(data, fileName);
     }
 
-    // --- Search Text Extractor ---
-    function archExtractSearchText(s) {
-      const parts = [s.title, s.artist, s.album, s.key, s.genre, s.sourceFileName, s.notes, (s.tags||[]).join(' '), (s.categories||[]).join(' ')];
-      if (s.lyrics) parts.push(s.lyrics);
-      if (s.text) parts.push(s.text);
-      if (Array.isArray(s.chords)) parts.push(s.chords.map(c => c.name || c).join(' '));
-      if (Array.isArray(s.lines)) parts.push(s.lines.map(l => l.text || l.lyric || l).join(' '));
-      if (Array.isArray(s.sections)) parts.push(s.sections.map(sec => (sec.text||'') + ' ' + (sec.title||'')).join(' '));
-      if (s._dawSections) parts.push(s._dawSections.map(sec => sec.label || '').join(' '));
-      return archNormText(parts.filter(Boolean).join(' '));
+    function archExtractSearchText(song) {
+      return getArchiveNormalizationService().extractSearchText(song);
     }
 
-    // --- Persian Normalizer ---
-    function archNormText(s) {
-      if (!s) return '';
-      return s.replace(/ي/g, 'ی').replace(/ك/g, 'ک').replace(/[\u064B-\u065F\u0670]/g, '').replace(/\u200c/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+    function archNormText(value) {
+      return getArchiveNormalizationService().normalizeText(value);
     }
 
     // Canonical artist alias map: all variants → one stable key
