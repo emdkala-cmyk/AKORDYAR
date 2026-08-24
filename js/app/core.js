@@ -804,6 +804,7 @@ const requestRenderSyncLyrics = debounce(() => { renderSyncLyrics(); }, 120);
     }
     const DAW = globalScope.DAWRuntimeState.create();
     globalScope.DAW = DAW;
+    const arrangerPlaybackPolicy = globalScope.ArrangerPlaybackPolicyService;
 
     let activeMidiNotes = new Set(), midiTimeout = null, isRecordingChords = false, currentRecordingClipId = null;
     let currentChord = { root: 'None', type: 'None', tension: '', bass: 'None' };
@@ -2030,7 +2031,7 @@ sels.forEach(c => {
         if (!getEditorDAW().isScrubbing) getEditorDAW().playhead = getTransportPlayhead();
 
         // Loop A-B: if playhead reaches B, jump back to A (math delegated to PlayheadMath)
-        if (getEditorDAW().loopEnabled && !getEditorDAW().isRecording && getEditorDAW().playhead >= getEditorDAW().loopB) {
+        if (getEditorDAW().loopEnabled && !arrPerformActive && !getEditorDAW().isRecording && getEditorDAW().playhead >= getEditorDAW().loopB) {
           var looped = PlayheadMath.applyLoop(getEditorDAW().playhead, getEditorDAW().loopEnabled, getEditorDAW().loopA, getEditorDAW().loopB);
           getEditorDAW().playhead = looped.playhead;
           setTransportOrigin(getEditorDAW().playhead);
@@ -2218,9 +2219,16 @@ sels.forEach(c => {
       stopTransport,
       seekTransport
     });
-    // Arranger end: uses selectionEnd if defined, otherwise end of song content
-    // Does NOT depend on loopEnabled — selection range is separate from loop
+    // Arranger end: while performing a setlist, use the real song content end.
+    // A song's editor loop is intentionally ignored by arranger playback.
     function getArrangerEnd() {
+      if (arrPerformActive && arrangerPlaybackPolicy?.getTimelineEnd) {
+        const contentEnd = arrangerPlaybackPolicy.getTimelineEnd({
+          clips: getEditorDAW().clips,
+          sections: getEditorDAW().sections
+        });
+        if (contentEnd > 0) return contentEnd;
+      }
       if (selectionEnd > 0) return selectionEnd;
       // Fallback: end of last clip/section in current project
       let end = 0;
@@ -2781,6 +2789,10 @@ sels.forEach(c => {
 
     /* ===== LOOP A-B ===== */
     function toggleLoop() {
+      if (arrPerformActive) {
+        toast('لوپ در حالت ارنجر غیرفعال است');
+        return;
+      }
       getEditorDAW().loopEnabled = !getEditorDAW().loopEnabled;
       const btn = $('loopToggleBtn');
       if (btn) btn.classList.toggle('loop-active', getEditorDAW().loopEnabled);
@@ -2826,6 +2838,10 @@ sels.forEach(c => {
 
     // Alt+P: set loop range from selection + activate + play from start
     function setLoopFromSelectionAndPlay() {
+      if (arrPerformActive) {
+        toast('لوپ در حالت ارنجر غیرفعال است');
+        return;
+      }
       const sels = selectedClips();
       if (!sels.length) { toast('آیتمی انتخاب نشده'); return; }
       const starts = sels.map(c => c.start);
@@ -5531,8 +5547,14 @@ let syncTapKeyHandler = null;
         const oldSec = clips.filter(c => c.type === 'section');
         if (oldSec.length) { oldSec.forEach(c => { sections.push({ id: c.id, trackId: c.trackId, label: c.name, start: c.start, duration: c.duration, color: c.color }); }); clips = clips.filter(c => c.type !== 'section'); }
 
-        const loopState = songData._dawLoop ? { loopEnabled: !!songData._dawLoop.loopEnabled, loopA: songData._dawLoop.loopA || 0, loopB: songData._dawLoop.loopB || 10 } : { loopEnabled: false, loopA: 0, loopB: 10 };
-        const selEnd = (loopState.loopA < loopState.loopB) ? loopState.loopB : 0;
+        const playbackBoundary = arrangerPlaybackPolicy?.createBoundary?.({
+          clips,
+          sections,
+          fallbackEnd: 0
+        }) || {
+          selectionEnd: 0,
+          loopState: { loopEnabled: false, loopA: 0, loopB: 10 }
+        };
 
         // آپدیت sourceDuration و peaks برای کلیپ‌های که لود شدن
         clips.forEach(c => { if (c.type !== 'chord' && c.bufferKey && getEditorDAW().bufferCache.has(c.bufferKey)) { const buffer = getEditorDAW().bufferCache.get(c.bufferKey); c.sourceDuration = buffer.duration; c._peaks = peaksFromBuffer(buffer, 2000); } });
@@ -5543,7 +5565,15 @@ let syncTapKeyHandler = null;
           tracks.forEach(t => { if (t.type === 'audio') t.transpose = (t.transpose || 0) + nextSetting.transpose; });
         }
 
-        _arrNextState = { song: songData, idx: nextIdx, clips, sections, tracks, selectionEnd: selEnd, loopState };
+        _arrNextState = {
+          song: songData,
+          idx: nextIdx,
+          clips,
+          sections,
+          tracks,
+          selectionEnd: playbackBoundary.selectionEnd,
+          loopState: playbackBoundary.loopState
+        };
         console.log(`[Arranger Prep] ✓ _arrNextState ready for song ${nextIdx + 1}: "${songData.title}"`);
         
         // ─── تأیید نهایی: مطمئن شو همه بافرهای مورد نیاز واقعاً لود شدن ───

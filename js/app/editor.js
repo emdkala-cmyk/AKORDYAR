@@ -217,7 +217,12 @@ function getMidiScoreController() {
         console.error('[Arranger] Song transition service is unavailable');
         return false;
       }
-      selectionEnd = ns.selectionEnd;
+      if (arrPerformActive) {
+        arrangerPlaybackPolicy?.applyToDAW?.(getEditorDAW());
+        selectionEnd = 0;
+      } else {
+        selectionEnd = ns.selectionEnd;
+      }
       isRecordingChords = false; currentRecordingClipId = null;
 
       const audio = transition.audio;
@@ -311,9 +316,14 @@ function getMidiScoreController() {
         return;
       }
 
-      selectionEnd = (getEditorDAW().loopA < getEditorDAW().loopB)
-        ? getEditorDAW().loopB
-        : 0;
+      if (arrPerformActive) {
+        arrangerPlaybackPolicy?.applyToDAW?.(getEditorDAW());
+        selectionEnd = 0;
+      } else {
+        selectionEnd = (getEditorDAW().loopA < getEditorDAW().loopB)
+          ? getEditorDAW().loopB
+          : 0;
+      }
 
       const restoreResult = transition.restoreResult;
       if (transition.restoreError) {

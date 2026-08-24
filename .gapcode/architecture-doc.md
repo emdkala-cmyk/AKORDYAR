@@ -283,7 +283,7 @@ quality:legacy-deps موفق
 سخت ۶۰۰۰ و ۶۵۰۰ خط هستند. مرحلهٔ بعد باید روی hydration/restore و keyboard
 seamهای باقی‌مانده تمرکز کند؛ بدنهٔ legacy رندر ترک دیگر در core باقی نمانده است.
 
-## آخرین snapshot عملیاتی — ۲۴ اوت ۲۰۲۶، پایان موج بیست‌مرحله‌ای
+## آخرین snapshot عملیاتی — ۲۴ اوت ۲۰۲۶، پس از اصلاح باگ ارنجر
 
 مرزهای اصلی این موج اکنون شامل موارد زیر هستند:
 
@@ -294,6 +294,8 @@ seamهای باقی‌مانده تمرکز کند؛ بدنهٔ legacy رندر 
 - `EditorLifecycleService` و سرویس‌های state/audio editor: lifecycle و
   restore callbackمحور؛
 - `dead-code-contract.test.js`: جلوگیری از بازگشت placeholderهای بدون مصرف.
+- `ArrangerPlaybackPolicyService`: مرزبندی اجرای setlist مستقل از loopهای
+  شخصی آهنگ‌ها.
 
 وضعیت فعلی همچنان hybrid است. wrapperهای عمومی و compatibility boundaryهای
 لازم برای hot-swap، Electron و مسیرهای قدیمی حذف نشده‌اند. هشدار line budget
@@ -301,10 +303,10 @@ seamهای باقی‌مانده تمرکز کند؛ بدنهٔ legacy رندر 
 
 ```text
 js/app.js       ۱۲۴ خط
-js/app/core.js  ۵۶۲۶ خط در quality line-budget
-js/app/editor.js ۶۱۷۲ خط در quality line-budget
-تست‌ها         ۱۰۱ ورودی موفق
-lint            ۱۰۷ فایل JavaScript موفق
+js/app/core.js  ۵۶۵۶ خط در quality line-budget
+js/app/editor.js ۶۱۸۲ خط در quality line-budget
+تست‌ها         ۱۰۳ ورودی موفق
+lint            ۱۰۸ فایل JavaScript موفق
 ```
 
 ایمن‌سازی کامل QR و سینک موبایل طبق دامنهٔ تعیین‌شدهٔ کاربر در این موج
