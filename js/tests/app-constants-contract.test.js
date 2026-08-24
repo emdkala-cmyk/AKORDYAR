@@ -42,6 +42,10 @@ assert.equal(appBootstrap.APPLICATION_CHUNKS[0], 'core/FunctionUtils.js');
 assert.equal(appBootstrap.APPLICATION_CHUNKS[1], 'core/DAWRuntimeState.js');
 assert.equal(appBootstrap.APPLICATION_CHUNKS[2], 'app/constants.js');
 assert.ok(
+  appBootstrap.APPLICATION_CHUNKS.indexOf('core/TransportSchedulingService.js') <
+    appBootstrap.APPLICATION_CHUNKS.indexOf('app/core.js')
+);
+assert.ok(
   htmlSource.indexOf('js/app/constants.js') <
     htmlSource.indexOf('js/app/core.js')
 );

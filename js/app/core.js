@@ -256,7 +256,7 @@ const globalScope = isBrowser ? window : global;
         notesEl.textContent = notes || '';
       }
     }
-    let metroActive = false, metroTimer = null, metroBeat = 0;
+    let metroActive = false, metroTimer = null;
     let countInBars = 0; // 0=off, 1=1 bar, 2=2 bars before playback
 
     function alignPlayheadToNearestMeasure(config) {
@@ -304,84 +304,20 @@ const globalScope = isBrowser ? window : global;
       return TimelineGrid.getTimeSignatureGridConfig(timeSignature, bpm || 120);
     }
 
-    // Safe bridge: app.js keeps transport/audio/DOM ownership while the
-    // extracted engine tracks beat transitions. The legacy path remains as a
-    // fallback for backward compatibility.
-    const metronomeEngineBridge =
-      typeof window.MetronomeEngine === 'function' &&
-      window.Meter &&
-      typeof window.Meter.isStrongBeat === 'function'
-        ? new window.MetronomeEngine({
-            getMeterConfig: getTimeSignatureGridConfig,
-            isStrongBeat: window.Meter.isStrongBeat
-          })
-        : null;
+    let transportSchedulingService = null;
+    let audioContextServiceBridge = null;
+    let countInSchedulerBridge = null;
 
-    // Safe bridge for AudioContextService: app.js keeps runtime audio ownership
-    // while the extracted service synthesises the metronome click. The legacy
-    // path remains as a fallback for backward compatibility.
-    const audioContextServiceBridge =
-      typeof window.AudioContextService === 'function'
-        ? new window.AudioContextService({
-            // The transport creates the authoritative context lazily. The
-            // provider lets the metronome adopt that same context whenever
-            // it becomes available, preventing two audio clocks from drifting.
-            contextProvider: () => {
-              try {
-                return getEditorDAW()?.audioCtx || null;
-              } catch (_) {
-                return null;
-              }
-            }
-          })
-        : null;
-
-    // Safe bridge for MetronomeScheduler: the look-ahead scheduler reserves
-    // metronome clicks ahead of time in audioCtx.currentTime, decoupling them
-    // from the RAF transport loop (fixes stutter during zoom/scroll).
-    let metronomeSchedulerBridge = null;
     function getMetronomeSchedulerBridge() {
-      if (metronomeSchedulerBridge) return metronomeSchedulerBridge;
-      if (
-        typeof window.MetronomeScheduler !== 'function' ||
-        !audioContextServiceBridge
-      ) return null;
-      metronomeSchedulerBridge = new window.MetronomeScheduler({
-        audioContextService: audioContextServiceBridge,
-        metronomeEngine: metronomeEngineBridge,
-        getMeterConfig: getTimeSignatureGridConfig,
-        getLoop: () => {
-          const daw = getEditorDAW();
-          return {
-            enabled: Boolean(daw.loopEnabled),
-            start: daw.loopA,
-            end: daw.loopB
-          };
-        },
-        // Keep a generous audio-side reserve so short UI/layout stalls
-        // cannot starve the Web Audio queue during timeline zoom.
-        scheduleAheadTime: 1.5,
-        isStrongBeat: window.Meter && typeof window.Meter.isStrongBeat === 'function'
-          ? window.Meter.isStrongBeat
-          : () => false
-      });
-      return metronomeSchedulerBridge;
+      return transportSchedulingService?.getMetronomeScheduler?.() || null;
     }
-
-    const countInSchedulerBridge =
-      typeof window.CountInScheduler === 'function' && audioContextServiceBridge
-        ? new window.CountInScheduler({
-            audioContextService: audioContextServiceBridge,
-            getMeterConfig: getTimeSignatureGridConfig,
-            isStrongBeat: window.Meter?.isStrongBeat || (() => false)
-          })
-        : null;
 
     function isCountInRunning() {
-      return Boolean(countInSchedulerBridge?.running);
+      return Boolean(transportSchedulingService?.isCountInRunning?.());
     }
+
     function cancelCountIn() {
-      countInSchedulerBridge?.cancel?.();
+      return transportSchedulingService?.cancelCountIn?.() || false;
     }
     function toggleSnap() {
       snapEnabled = !snapEnabled;
@@ -493,93 +429,32 @@ const globalScope = isBrowser ? window : global;
       if (metroActive && getEditorDAW().isPlaying) startMetronome();
       else stopMetronome();
     }
-   function startMetronome() {
-     stopMetronome();
-     const _mbpm = parseInt($('edTempo')?.value) || 120;
-     const _msig = $('edTimeSig')?.value || '4/4';
-     // Look-ahead scheduler: reserves clicks ahead of time in audioCtx.currentTime.
-     // This decouples metronome timing from the RAF loop (fixes zoom/scroll stutter).
-     const scheduler = getMetronomeSchedulerBridge();
-     if (scheduler) {
-        ensureAudioCtx();
-        // Beat zero is derived from the exact transport origin. No second
-        // clock sample or UI timestamp participates in metronome phase.
-        const _clock = getTransportClockSnapshot();
-        const _timelineZeroAudioTime = _clock.timelineZeroAudioTime;
-        if (!Number.isFinite(_timelineZeroAudioTime)) return;
-        const _started = scheduler.start({
-          bpm: _mbpm,
-          timeSignature: _msig,
-          startTime: _timelineZeroAudioTime,
-          playheadPosition: getEditorDAW().playhead,
-          transportStartTime: _clock.transportStartAudioTime,
-          soundType: APP_SETTINGS.metroSound || 'classic'
-        });
-        if (!_started) return;
-        // Mark the metronome as running so pauseTransport()/stopTransport()
-        // will call stopMetronome() (which stops the scheduler + audio nodes).
-        metroTimer = true;
-        return;
-      }
-      // Legacy fallback: beat transitions tracked from the RAF tick loop.
-      const _mcfg = getTimeSignatureGridConfig(_msig, _mbpm);
-      if (metronomeEngineBridge) metronomeEngineBridge.start();
-      metroBeat = -1; // force first tick to always click
-    }
-    function stopMetronome() {
-      const scheduler = getMetronomeSchedulerBridge();
-      if (scheduler) scheduler.stop();
-      if (metronomeEngineBridge) metronomeEngineBridge.stop();
-      metroTimer = null;
-      metroBeat = 0;
-    }
-    function playClick(isAccent) {
-      // Proxy: all click synthesis (oscillators/gains) is delegated to
-      // AudioContextService. app.js no longer builds Web Audio nodes directly.
-      if (!audioContextServiceBridge) return;
-      audioContextServiceBridge.playClick(isAccent, APP_SETTINGS.metroSound || 'classic');
+
+    function startMetronome() {
+      const bpm = parseInt($('edTempo')?.value) || 120;
+      const timeSignature = $('edTimeSig')?.value || '4/4';
+      ensureAudioCtx();
+      const started = transportSchedulingService?.startMetronome?.({
+        bpm,
+        timeSignature,
+        sound: APP_SETTINGS.metroSound || 'classic'
+      }) || false;
+      metroTimer = started ? true : null;
     }
 
-    // تابع کمکی برای چک کردن ضرب در حلقه پخش
+    function stopMetronome() {
+      transportSchedulingService?.stopMetronome?.();
+      metroTimer = null;
+    }
+
     function checkMetronomeTick(playheadTime) {
       if (!metroActive || !getEditorDAW().isPlaying) return;
       const bpm = parseInt($('edTempo')?.value) || 120;
-      const sig = $('edTimeSig')?.value || '4/4';
-      const config = getTimeSignatureGridConfig(sig, bpm);
-      const beatsPerBar = config.beatsPerMeasure;
-      const beatDur = config.beatDuration;
-      const currentBeat = Math.floor(playheadTime / beatDur);
-
-      // [DEBUG] Metronome timing verification (log once per sig/bpm change)
-      if (!checkMetronomeTick._lastLog || checkMetronomeTick._lastLog.sig !== sig || checkMetronomeTick._lastLog.bpm !== bpm) {
-        console.log('[METRONOME TIMING]', {
-          sig, bpm,
-          numerator: config.numerator,
-          denominator: config.denominator,
-          beatDuration: config.beatDuration,
-          measureDuration: config.measureDuration
-        });
-        checkMetronomeTick._lastLog = { sig, bpm };
-      }
-
-      if (metronomeEngineBridge) {
-        const beatEvent = metronomeEngineBridge.nextBeat(playheadTime, {
-          bpm,
-          timeSignature: sig
-        });
-
-        if (beatEvent) {
-          playClick(beatEvent.isAccent);
-          metroBeat = beatEvent.beatIndex;
-        }
-        return;
-      }
-
-      // Backward-compatible fallback when MetronomeEngine is unavailable.
-      if (currentBeat !== metroBeat) {
-        playClick(window.Meter.isStrongBeat(currentBeat % beatsPerBar, sig));
-        metroBeat = currentBeat;
-      }
+      const timeSignature = $('edTimeSig')?.value || '4/4';
+      return transportSchedulingService?.checkLegacyTick?.(
+        playheadTime,
+        { bpm, timeSignature }
+      ) || null;
     }
 
     // ===== TAP TEMPO =====
@@ -989,6 +864,36 @@ const requestRenderSyncLyrics = debounce(() => { renderSyncLyrics(); }, 120);
       transportClockService.getSnapshot(...args);
     const getTransportPlayhead = (...args) =>
       transportClockService.getPlayhead(...args);
+
+    if (typeof globalScope.TransportSchedulingService?.create !== 'function') {
+      throw new Error('TransportSchedulingService باید قبل از app/core.js بارگذاری شود.');
+    }
+    transportSchedulingService = globalScope.TransportSchedulingService.create({
+      getDAW: () => getEditorDAW(),
+      getMeterConfig: getTimeSignatureGridConfig,
+      getLoop: () => {
+        const daw = getEditorDAW();
+        return {
+          enabled: Boolean(daw.loopEnabled),
+          start: daw.loopA,
+          end: daw.loopB
+        };
+      },
+      getClockSnapshot: getTransportClockSnapshot,
+      contextProvider: () => {
+        try {
+          return getEditorDAW()?.audioCtx || null;
+        } catch (_) {
+          return null;
+        }
+      },
+      scheduleAheadTime: 1.5,
+      logger: console
+    });
+    audioContextServiceBridge =
+      transportSchedulingService.getAudioContextService?.() || null;
+    countInSchedulerBridge =
+      transportSchedulingService.getCountInScheduler?.() || null;
 
     const playbackTimelineController =
       globalScope.PlaybackTimelineController?.create({
