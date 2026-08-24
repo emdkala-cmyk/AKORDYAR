@@ -3550,17 +3550,25 @@ function edBlankSong() {
       } catch(e) { console.warn('Storage info error:', e); }
     }
 
-    let edCurrentProjectFilePath = null;
+    let edProjectFileService = null;
+    function getEditorProjectFileService() {
+      if (
+        !edProjectFileService &&
+        typeof window.EditorProjectFileService?.create === 'function'
+      ) {
+        edProjectFileService = window.EditorProjectFileService.create({
+          getElectronAPI: () => window.electronAPI
+        });
+      }
+      return edProjectFileService;
+    }
 
     function setEditorProjectFilePath(filePath) {
-      edCurrentProjectFilePath =
-        typeof filePath === 'string' && filePath.trim()
-          ? filePath
-          : null;
+      return getEditorProjectFileService()?.setPath?.(filePath) || null;
     }
 
     function clearEditorProjectFilePath() {
-      edCurrentProjectFilePath = null;
+      return getEditorProjectFileService()?.clearPath?.() || null;
     }
 
     async function edExportProjectFull({ targetPath = null } = {}) {
@@ -3589,21 +3597,16 @@ function edBlankSong() {
 
       const sizeMB = (blob.size / (1024*1024)).toFixed(1);
 
-      const canUseNativeSave =
-        window.electronAPI?.isElectron &&
-        typeof window.electronAPI.saveFileDialog === 'function' &&
-        typeof window.electronAPI.writeProjectJson === 'function';
-
-      if (canUseNativeSave) {
-        const savePath = targetPath || await window.electronAPI.saveFileDialog({
-          defaultPath: defaultName
-        });
-        if (!savePath) {
+      const nativeSave = await getEditorProjectFileService()?.saveNative?.({
+        data,
+        defaultPath: defaultName,
+        targetPath
+      });
+      if (nativeSave?.handled) {
+        if (nativeSave.cancelled) {
           toast('لغو شد');
           return;
         }
-        await window.electronAPI.writeProjectJson(savePath, data);
-        setEditorProjectFilePath(savePath);
         toast(`خروجی ذخیره شد (${sizeMB} MB, ${audioCount} کپی + ${linkedCount} لینک)`);
         refreshStorageInfo();
         return;
@@ -3630,8 +3633,9 @@ function edBlankSong() {
     }
 
     async function edSaveProjectFile() {
-      if (edCurrentProjectFilePath) {
-        return edExportProjectFull({ targetPath: edCurrentProjectFilePath });
+      const currentPath = getEditorProjectFileService()?.getPath?.();
+      if (currentPath) {
+        return edExportProjectFull({ targetPath: currentPath });
       }
       return edExportProjectFull();
     }

@@ -7,19 +7,18 @@ const editor = fs.readFileSync(
   path.join(projectRoot, 'js', 'app', 'editor.js'),
   'utf8'
 );
+const fileService = fs.readFileSync(
+  path.join(projectRoot, 'js', 'editor', 'EditorProjectFileService.js'),
+  'utf8'
+);
 
-const nativeSaveIndex = editor.indexOf('window.electronAPI.saveFileDialog');
-const nativeWriteIndex = editor.indexOf('window.electronAPI.writeProjectJson');
-const browserPickerIndex = editor.indexOf('window.showSaveFilePicker');
-
-assert.notEqual(nativeSaveIndex, -1);
-assert.notEqual(nativeWriteIndex, -1);
-assert.notEqual(browserPickerIndex, -1);
-assert.ok(nativeSaveIndex < browserPickerIndex);
-assert.ok(nativeWriteIndex < browserPickerIndex);
-assert.match(editor, /saveFileDialog\(\{\s*defaultPath:\s*defaultName\s*\}\)/);
+assert.match(fileService, /saveNative\(/);
+assert.match(fileService, /saveFileDialog\(\{\s*defaultPath\s*\}\)/);
+assert.match(fileService, /writeProjectJson\(savePath,\s*data\)/);
+assert.match(editor, /getEditorProjectFileService\(\)\?\.saveNative\?\.\(/);
+assert.match(editor, /window\.showSaveFilePicker/);
 assert.match(editor, /async function edSaveProjectFile\(\)/);
-assert.match(editor, /edCurrentProjectFilePath/);
-assert.match(editor, /edExportProjectFull\(\{\s*targetPath:\s*edCurrentProjectFilePath\s*\}\)/);
+assert.match(editor, /getEditorProjectFileService\(\)\?\.getPath\?\.\(\)/);
+assert.match(editor, /edExportProjectFull\(\{\s*targetPath:\s*currentPath\s*\}\)/);
 
 console.log('Editor native project save contract tests passed');
