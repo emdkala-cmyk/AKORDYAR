@@ -4,7 +4,9 @@
  * برش verbatim از app.js — Commit 3 برنامهٔ کاهش حجم app.js.
  * این فایل classic script است: اعلان‌های top-level آن در global lexical scope
  * باقی می‌مانند و از app.js، projecthub.js و inline handlerهای HTML قابل دسترس‌اند.
- * به همین دلیل این فایل باید بعد از app.js لود شود (ارجاع‌های runtime به $ و toast و…).
+ * این فایل پیش از app/core و editor لود می‌شود تا APIهای آرشیو قبل از ثبت
+ * actionها و routeهای بعدی در دسترس باشند؛ ارجاع‌های runtime به $، toast و
+ * سرویس‌های editor فقط هنگام اجرای actionها resolve می‌شوند.
  *
  * نکته: اعلان let _audioDirHandle عمداً در app.js باقی مانده است،
  * چون ناحیهٔ Storage در app.js به آن نیاز دارد.
