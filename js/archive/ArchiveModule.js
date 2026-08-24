@@ -27,6 +27,7 @@
     let _archProjectImportRouteService = null;
     let _archiveProjectPersistenceService = null;
     let _archiveBatchImportService = null;
+    let _archiveTransferService = null;
 
     function getArchiveRuntimeAdapter() {
       const adapter = window.ArchiveRuntimeAdapter;
@@ -317,6 +318,41 @@
       return _archiveBatchImportService;
     }
 
+    // --- Archive transfer bridge ---
+    function getArchiveTransferService() {
+      if (!_archiveTransferService) {
+        const create = window.ArchiveTransferService?.create;
+        if (typeof create !== 'function') {
+          throw new Error('ArchiveTransferService is not loaded. Check script order.');
+        }
+        _archiveTransferService = create({
+          documentRef: window.document,
+          BlobCtor: window.Blob,
+          URLRef: window.URL,
+          showSaveFilePicker: window.showSaveFilePicker?.bind(window),
+          showDirectoryPicker: window.showDirectoryPicker?.bind(window),
+          getAllSongs: edGetAllSongs,
+          getSelectedIds: () => _archSelectedIds,
+          setAllSongs: edSetAllSongs,
+          prepareSong: ensureSongParsed,
+          normalizeSong: archNormalize,
+          confirmImport: count => archConfirm(
+            'ورودی آرشیو',
+            `فایل حاوی ${count} ترانه است. آیا با آرشیو فعلی ادغام شود؟`,
+            'ادغام'
+          ),
+          resetSearchCache: () => {
+            _archSearchIndex = null;
+            _archArtistCache = null;
+          },
+          renderArchive: archRender,
+          renderArtists: archRenderArtists,
+          toast
+        });
+      }
+      return _archiveTransferService;
+    }
+
     // --- Shared Load Project Data ---
     async function loadProjectData(data, options = {}) {
       return getArchiveProjectPersistenceService().load(data, options);
@@ -329,18 +365,7 @@
 
     // --- Save Archive to Folder ---
     function edSaveArchiveToFolder() {
-      const songs = edGetAllSongs().filter(s=>!s.deletedAt);
-      if (!songs.length) { toast('آرشیو خالی است'); return; }
-      const data = JSON.stringify(songs.map(s=>{const d=JSON.parse(JSON.stringify(s));delete d._audioPaths;delete d._audioBlobs;return d;}),null,2);
-      if (window.showSaveFilePicker) {
-        window.showSaveFilePicker({ suggestedName:'archive_all_'+new Date().toISOString().slice(0,10)+'.json', types:[{description:'JSON',accept:{'application/json':['.json']}}] }).then(async fh => {
-          try { const w=await fh.createWritable(); await w.write(data); await w.close(); toast(songs.length+' ترانه ذخیره شد'); } catch(e) { if (e.name!=='AbortError') toast('خطا: '+e.message); }
-        }).catch(()=>{});
-      } else {
-        const blob=new Blob([data],{type:'application/json'}); const url=URL.createObjectURL(blob);
-        const a=document.createElement('a'); a.href=url; a.download='archive_all_'+new Date().toISOString().slice(0,10)+'.json'; a.click(); URL.revokeObjectURL(url);
-        toast(songs.length+' ترانه دانلود شد');
-      }
+      return getArchiveTransferService().exportAll();
     }
 
     // --- Ensure rawText is parsed into lyrics+chords ---
@@ -374,67 +399,21 @@
       return getArchiveBatchImportService().importFolder(directoryHandle);
     }
 
-    // --- Import Full Archive ---
-    async function archImportFullArchive() {
-      const input = document.createElement('input');
-      input.type='file'; input.accept='.json';
-      input.onchange = async (e) => {
-        const file = e.target.files[0]; if (!file) return;
-        try {
-          const text = await file.text();
-          let imported; try { imported=JSON.parse(text); } catch(_) { toast('فرمت JSON نامعتبر'); return; }
-          if (!Array.isArray(imported)) { imported = imported.songs || imported.archive || [imported]; }
-          if (!Array.isArray(imported)) { toast('ساختار فایل آرشیو نامعتبر'); return; }
-          const count = imported.length;
-          const ok = await archConfirm('ورودی آرشیو', `فایل حاوی ${count} ترانه است. آیا با آرشیو فعلی ادغام شود؟`, 'ادغام');
-          if (!ok) return;
-          const existing = edGetAllSongs();
-          let added=0, updated=0;
-          for (const song of imported) {
-            if (!song||typeof song!=='object') continue;
-            ensureSongParsed(song);
-            const dup = existing.find(es=>String(es.id)===String(song.id)) || existing.find(es=>es.artist===song.artist&&es.title===song.title&&es.title);
-            if (dup) { Object.assign(dup, archNormalize(song,'')); dup.updatedAt=new Date().toISOString(); updated++; }
-            else { const normalized=archNormalize(song,''); existing.unshift(normalized); added++; }
-          }
-          edSetAllSongs(existing); _archSearchIndex=null; _archArtistCache=null;
-          archRender(); archRenderArtists();
-          toast(added+' اضافه شد، '+updated+' به‌روزرسانی');
-        } catch(err) { toast('خطا در خواندن فایل: '+err.message); }
-      };
-      input.click();
+    // --- Full archive import and export ---
+    function archImportFullArchive(file) {
+      return getArchiveTransferService().importFullArchive(file);
     }
 
-    // --- Export ---
     function archExportSong(id) {
-      const songs=edGetAllSongs(); const s=songs.find(x=>x.id===id); if (!s) return;
-      const data=JSON.parse(JSON.stringify(s)); delete data._audioPaths; delete data._audioBlobs;
-      const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
-      const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url;
-      a.download=(s.title||'song').replace(/[\/\\?%*:|"<>]/g,'_')+'.json'; a.click(); URL.revokeObjectURL(url);
+      return getArchiveTransferService().exportSong(id);
     }
-    function archExportAll() { edSaveArchiveToFolder(); }
-    async function archBulkExport() {
-      const songs=edGetAllSongs(); const selected=songs.filter(s=>_archSelectedIds.has(s.id));
-      if (!selected.length) { toast('ترانه‌ای انتخاب نشده'); return; }
-      if (window.showDirectoryPicker) {
-        try {
-          const dh = await window.showDirectoryPicker({mode:'readwrite'});
-          let saved=0;
-          for (const s of selected) {
-            const data=JSON.parse(JSON.stringify(s)); delete data._audioPaths; delete data._audioBlobs;
-            const safeName=(s.title||'song').replace(/[\/\\?%*:|"<>]/g,'_')+'.json';
-            try { const fh=await dh.getFileHandle(safeName,{create:true}); const w=await fh.createWritable(); await w.write(JSON.stringify(data,null,2)); await w.close(); saved++; } catch(_){}
-          }
-          toast(saved+' فایل ذخیره شد');
-        } catch(e) { if (e.name!=='AbortError') toast('خطا: '+e.message); }
-      } else {
-        const data=selected.map(s=>{const d=JSON.parse(JSON.stringify(s));delete d._audioPaths;delete d._audioBlobs;return d;});
-        const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
-        const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url;
-        a.download='archive_export_'+new Date().toISOString().slice(0,10)+'.json'; a.click(); URL.revokeObjectURL(url);
-        toast(selected.length+' ترانه خروجی گرفته شد');
-      }
+
+    function archExportAll() {
+      return edSaveArchiveToFolder();
+    }
+
+    function archBulkExport() {
+      return getArchiveTransferService().bulkExport();
     }
 
     // --- Open / Close ---
