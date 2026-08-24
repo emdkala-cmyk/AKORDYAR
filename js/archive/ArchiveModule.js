@@ -85,49 +85,28 @@
       };
     }
 
-    // --- Storage (IndexedDB — ظرفیت بالا + کش همگام) ---
-    let _archCache = null;
-    const _dbReq = indexedDB.open('ChordSongDB', 1);
-    _dbReq.onupgradeneeded = (e) => {
-      const db = e.target.result;
-      if (!db.objectStoreNames.contains('songs')) db.createObjectStore('songs', { keyPath: 'id' });
-    };
-    _dbReq.onsuccess = (e) => {
-      window._archDB = e.target.result;
-      // بارگذاری اولیه کش
-      const tx = window._archDB.transaction('songs', 'readonly');
-      const req = tx.objectStore('songs').getAll();
-      req.onsuccess = () => { _archCache = req.result || []; };
-      req.onerror = () => { _archCache = []; };
-      // مهاجرت از localStorage
-      try {
-        const old = JSON.parse(localStorage.getItem('ed_songs_archive') || '[]');
-        if (old.length) {
-          const tx2 = window._archDB.transaction('songs', 'readwrite');
-          old.forEach(s => tx2.objectStore('songs').put(s));
-          tx2.oncomplete = () => { localStorage.removeItem('ed_songs_archive'); console.log('Migrated ' + old.length + ' songs to IndexedDB'); };
+    // --- Storage bridge ---
+    let _archiveStorageService = null;
+    function getArchiveStorageService() {
+      if (!_archiveStorageService) {
+        const create = window.ArchiveStorageService?.create;
+        if (typeof create !== 'function') {
+          throw new Error('ArchiveStorageService is not loaded. Check script order.');
         }
-      } catch(_) {}
-    };
-    _dbReq.onerror = () => { _archCache = JSON.parse(localStorage.getItem('ed_songs_archive') || '[]'); };
+        _archiveStorageService = create({
+          globalScope: window,
+          toast: message => window.toast?.(message)
+        });
+      }
+      return _archiveStorageService;
+    }
 
     function edGetAllSongs() {
-      if (_archCache) return _archCache;
-      // اگر هنوز DB باز نشده، از localStorage بخوان
-      try { return JSON.parse(localStorage.getItem('ed_songs_archive') || '[]'); } catch(_) { return []; }
+      return getArchiveStorageService().getAllSongs();
     }
+
     function edSetAllSongs(arr) {
-      _archCache = arr;
-      if (!window._archDB) {
-        try { localStorage.setItem('ed_songs_archive', JSON.stringify(arr)); } catch(e) {
-          if (e.name === 'QuotaExceededError') toast('❌ حافظه مرورگر پر است!');
-        }
-        return;
-      }
-      const tx = window._archDB.transaction('songs', 'readwrite');
-      const store = tx.objectStore('songs');
-      store.clear();
-      arr.forEach(s => store.put(s));
+      return getArchiveStorageService().setAllSongs(arr);
     }
 
     // --- ID ---
