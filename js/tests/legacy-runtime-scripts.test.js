@@ -25,6 +25,7 @@ for (const script of legacyScripts) {
 
 for (const activeScript of [
   'js/core/ProjectAudioService.js',
+  'js/core/TimelineSectionRendererService.js',
   'js/editor/AudioRecoveryService.js',
   'js/editor/EditorProjectFileService.js',
   'js/editor/EditorProjectExportRouteService.js',

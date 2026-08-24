@@ -1303,6 +1303,33 @@ function applyState(stateStr) {
       return service?.renderTracks?.();
     }
 
+    let timelineSectionRendererService = null;
+    function getTimelineSectionRendererService() {
+      if (
+        !timelineSectionRendererService &&
+        window.TimelineSectionRendererService?.create
+      ) {
+        timelineSectionRendererService =
+          window.TimelineSectionRendererService.create({
+            documentRef: document,
+            windowRef: window,
+            getDAW: () => getEditorDAW(),
+            timeToX,
+            xToTime,
+            snapTime,
+            roundMs,
+            renderClips: () => renderClips(),
+            selectedClips,
+            startPointerDrag: (...args) => startEditorPointerDrag(...args),
+            getTimelineInner: () => $('tl-inner'),
+            onDocumentMouseMove: (...args) => onDocMouseMove(...args),
+            onDocumentMouseUp: (...args) => onDocMouseUp(...args),
+            saveState
+          });
+      }
+      return timelineSectionRendererService;
+    }
+
     // ===== Cubase-style Timeline Grid =====
     function timeToBarBeat(seconds) {
       const timing = requireEditorSongStateService().getTimingContext();
@@ -1349,7 +1376,6 @@ function applyState(stateStr) {
     function renderClips(options = {}) {
       const preserveWaveforms = options.preserveWaveforms === true;
       document.querySelectorAll('.clip').forEach(el => el.remove());
-      document.querySelectorAll('.section-tag').forEach(el => el.remove());
       // Render audio & chord clips
       getEditorDAW().clips.forEach(clip => {
         const lane = document.querySelector(`.track-lane[data-track-id="${clip.trackId}"]`); if (!lane) return;
@@ -1400,116 +1426,7 @@ function applyState(stateStr) {
         }
         el.addEventListener('pointerdown', onClipMouseDown); lane.appendChild(el);
       });
-      // Render section tags (fully decoupled from clips)
-      getEditorDAW().sections.forEach(sec => {
-        const lane = document.querySelector(`.track-lane[data-track-id="${sec.trackId}"]`); if (!lane) return;
-        const hint = lane.querySelector('.empty-lane-hint'); if (hint) hint.remove();
-        const el = document.createElement('div');
-        el.className = 'section-tag' + (getEditorDAW().selectedSectionIds.has(sec.id) ? ' selected' : '');
-        el.dataset.sectionId = sec.id;
-        el.style.left = timeToX(sec.start) + 'px';
-        el.style.width = Math.max(50, timeToX(sec.duration)) + 'px';
-        el.textContent = sec.label;
-        el.style.background = sec.color ? `rgba(${parseInt(sec.color.slice(1,3),16)},${parseInt(sec.color.slice(3,5),16)},${parseInt(sec.color.slice(5,7),16)},0.35)` : 'rgba(63,184,175,0.25)';
-        el.style.borderColor = sec.color || 'var(--accent-teal)';
-
-        // Drag to move + custom double-click detection
-        // (native dblclick is unreliable because renderClips recreates elements)
-        el.addEventListener('mousedown', (e) => {
-          if (e.button !== 0) return;
-          e.stopPropagation();
-          e.preventDefault();
-
-          // Custom double-click: two clicks within 350ms at same position
-          // Track state on sec object (survives renderClips element recreation)
-          const now = Date.now();
-          const dx = Math.abs(e.clientX - (sec._clickX || 0));
-          const dy = Math.abs(e.clientY - (sec._clickY || 0));
-          if (sec._clickTimer && (now - (sec._clickTime || 0)) < 350 && dx < 5 && dy < 5) {
-            clearTimeout(sec._clickTimer);
-            sec._clickTimer = null;
-            // Double-click → enter rename mode
-            el.contentEditable = 'true';
-            el.focus();
-            const range = document.createRange();
-            range.selectNodeContents(el);
-            const sel = window.getSelection();
-            sel.removeAllRanges();
-            sel.addRange(range);
-            const finishEdit = () => {
-              el.contentEditable = 'false';
-              const newName = el.textContent.trim();
-              if (newName && newName !== sec.label) { sec.label = newName; saveState(); }
-              el.removeEventListener('blur', finishEdit);
-              el.removeEventListener('keydown', onKey);
-            };
-            const onKey = (ke) => {
-              if (ke.key === 'Enter') { ke.preventDefault(); el.blur(); }
-              if (ke.key === 'Escape') { el.textContent = sec.label; el.blur(); }
-              ke.stopPropagation();
-            };
-            el.addEventListener('blur', finishEdit);
-            el.addEventListener('keydown', onKey);
-            return;
-          }
-
-          // First click → record position, start timer
-          sec._clickX = e.clientX;
-          sec._clickY = e.clientY;
-          sec._clickTime = now;
-          sec._clickTimer = setTimeout(() => { sec._clickTimer = null; }, 350);
-
-          // Selection logic (same as clips)
-          if (e.ctrlKey || e.metaKey) {
-            if (getEditorDAW().selectedSectionIds.has(sec.id)) getEditorDAW().selectedSectionIds.delete(sec.id);
-            else getEditorDAW().selectedSectionIds.add(sec.id);
-            renderClips();
-            return;
-          }
-          // If clicking an already-selected section, preserve full multi-selection for cross-lane drag
-          if (!getEditorDAW().selectedSectionIds.has(sec.id)) {
-            getEditorDAW().selectedSectionIds = new Set([sec.id]);
-            getEditorDAW().selectedIds.clear();
-            renderClips();
-          }
-
-          // Build cross-lane drag items from ALL selected items (clips + sections)
-          const dragItems = [];
-          selectedClips().forEach(c => dragItems.push({ id: c.id, origStart: c.start, origDur: c.duration, origOffset: c.offset }));
-          (getEditorDAW().sections || []).filter(s => getEditorDAW().selectedSectionIds.has(s.id)).forEach(s => dragItems.push({ id: s.id, origStart: s.start, origDur: s.duration, origOffset: 0, _isSection: true }));
-          if (dragItems.length === 0) return;
-
-          getEditorDAW().drag = { type: 'move', edge: null, primaryId: sec.id, startX: e.clientX, items: dragItems };
-          startEditorPointerDrag($('tl-inner') || e.currentTarget, e, onDocMouseMove, onDocMouseUp);
-        });
-        // Resize handles (left + right) with snap
-        const resL = document.createElement('div');
-        resL.className = 'resize-handle left';
-        resL.addEventListener('pointerdown', (e) => {
-          if (e.button !== 0) return;
-          e.stopPropagation(); e.preventDefault();
-          const startX = e.clientX; const origStart = sec.start; const origDur = sec.duration;
-          const onMove = (ev) => {
-            const dt = xToTime(ev.clientX - startX);
-            let newStart = snapTime(origStart + dt); let newDur = origStart + origDur - newStart;
-            if (newStart < 0) { newDur += newStart; newStart = 0; }
-            if (newDur >= 0.5) { sec.start = roundMs(newStart); sec.duration = roundMs(newDur); el.style.left = timeToX(sec.start) + 'px'; el.style.width = Math.max(50, timeToX(sec.duration)) + 'px'; }
-          };
-          startEditorPointerDrag(resL, e, onMove, saveState);
-        });
-        const resR = document.createElement('div');
-        resR.className = 'resize-handle right';
-        resR.addEventListener('pointerdown', (e) => {
-          if (e.button !== 0) return;
-          e.stopPropagation(); e.preventDefault();
-          const startX = e.clientX; const origDur = sec.duration;
-          const onMove = (ev) => { sec.duration = Math.max(0.5, roundMs(snapTime(origDur + xToTime(ev.clientX - startX)))); el.style.width = Math.max(50, timeToX(sec.duration)) + 'px'; };
-          startEditorPointerDrag(resR, e, onMove, saveState);
-        });
-        el.appendChild(resL);
-        el.appendChild(resR);
-        lane.appendChild(el);
-      });
+      getTimelineSectionRendererService()?.renderSections?.();
     }
 
     function autoScrollToPlayhead() {
