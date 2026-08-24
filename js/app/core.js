@@ -972,96 +972,23 @@ const requestRenderSyncLyrics = debounce(() => { renderSyncLyrics(); }, 120);
       return daw.audioCtx;
     }
 
-    /**
-     * Keep transport timing on the same AudioContext clock used by audio
-     * tracks and the metronome scheduler.
-     */
-    function setTransportOrigin(
-      currentTime = getEditorDAW().playhead,
-      audioOriginOverride = null
-    ) {
-      const daw = getEditorDAW();
-      const safeTime = Number.isFinite(currentTime) ? currentTime : 0;
-      const perfOrigin = PlayheadMath.createOrigin(performance.now(), safeTime);
-      daw.playOriginPerf = perfOrigin.playOriginPerf;
-      daw.playOriginTime = perfOrigin.playOriginTime;
-      const audioNow = daw.audioCtx?.currentTime;
-      daw.playOriginAudio = Number.isFinite(audioOriginOverride)
-        ? audioOriginOverride
-        : (Number.isFinite(audioNow) ? audioNow : null);
-      return daw.playOriginAudio;
+    const transportClockService =
+      typeof globalScope.TransportClockService?.create === 'function'
+        ? globalScope.TransportClockService.create({
+            getDAW: () => getEditorDAW(),
+            playheadMath: PlayheadMath,
+            getNow: () => performance.now()
+          })
+        : null;
+    if (!transportClockService) {
+      throw new Error('TransportClockService باید قبل از app/core.js بارگذاری شود.');
     }
-
-    function getTransportClockSnapshot({
-      visual = false,
-      performanceTime = performance.now()
-    } = {}) {
-      const daw = getEditorDAW();
-      const audioNow = daw.audioCtx?.currentTime;
-      if (
-        daw.isPlaying &&
-        Number.isFinite(daw.playOriginAudio) &&
-        Number.isFinite(audioNow)
-      ) {
-        const visualAudioTime = visual
-          ? PlayheadMath.getOutputAlignedAudioTime(
-              daw.audioCtx,
-              performanceTime,
-              audioNow
-            )
-          : audioNow;
-        return {
-          audioTime: audioNow,
-          timelineTime: PlayheadMath.getAudioElapsed(
-            audioNow,
-            daw.playOriginAudio,
-            daw.playOriginTime
-          ),
-          visualAudioTime: Number.isFinite(visualAudioTime)
-            ? visualAudioTime
-            : audioNow,
-          visualTimelineTime: PlayheadMath.getAudioElapsed(
-            Number.isFinite(visualAudioTime) ? visualAudioTime : audioNow,
-            daw.playOriginAudio,
-            daw.playOriginTime
-          ),
-          transportStartAudioTime: daw.playOriginAudio,
-          timelineZeroAudioTime: PlayheadMath.getTimelineZeroAudioTime(
-            daw.playOriginAudio,
-            daw.playOriginTime
-          )
-        };
-      }
-
-      if (!daw.isPlaying) {
-        return {
-          audioTime: Number.isFinite(audioNow) ? audioNow : null,
-          timelineTime: Number.isFinite(daw.playhead) ? daw.playhead : 0,
-          visualAudioTime: Number.isFinite(audioNow) ? audioNow : null,
-          visualTimelineTime: Number.isFinite(daw.playhead) ? daw.playhead : 0,
-          transportStartAudioTime: null,
-          timelineZeroAudioTime: null
-        };
-      }
-
-      const fallbackTimelineTime = PlayheadMath.getElapsed(
-        performanceTime,
-        daw.playOriginPerf,
-        daw.playOriginTime
-      );
-      return {
-        audioTime: null,
-        timelineTime: fallbackTimelineTime,
-        visualAudioTime: null,
-        visualTimelineTime: fallbackTimelineTime,
-        transportStartAudioTime: null,
-        timelineZeroAudioTime: null
-      };
-    }
-
-    function getTransportPlayhead() {
-      return getTransportClockSnapshot().timelineTime;
-    }
+    const setTransportOrigin = (...args) =>
+      transportClockService.setOrigin(...args);
+    const getTransportClockSnapshot = (...args) =>
+      transportClockService.getSnapshot(...args);
+    const getTransportPlayhead = (...args) =>
+      transportClockService.getPlayhead(...args);
 
     const playbackTimelineController =
       globalScope.PlaybackTimelineController?.create({

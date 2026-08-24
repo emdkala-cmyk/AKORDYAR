@@ -10,6 +10,7 @@ const APPLICATION_CHUNKS = Object.freeze([
   'core/DAWRuntimeState.js',
   'app/constants.js',
   'core/AudioCompressionService.js',
+  'core/TransportClockService.js',
   'app/core.js',
   'app/editor.js',
   'app/print.js',
