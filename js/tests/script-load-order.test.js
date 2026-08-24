@@ -168,6 +168,10 @@ assert.ok(
 );
 assert.ok(
   scriptIndex('js/editor/EditorProjectFileService.js') <
+    scriptIndex('js/editor/EditorProjectExportRouteService.js')
+);
+assert.ok(
+  scriptIndex('js/editor/EditorProjectExportRouteService.js') <
     scriptIndex('js/editor/EditorProjectExportService.js')
 );
 assert.ok(

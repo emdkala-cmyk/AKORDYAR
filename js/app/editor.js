@@ -95,6 +95,24 @@ function getEditorProjectExportService() {
   return edProjectExportService;
 }
 
+let edProjectExportRouteService = null;
+function getEditorProjectExportRouteService() {
+  if (
+    !edProjectExportRouteService &&
+    typeof window.EditorProjectExportRouteService?.create === 'function'
+  ) {
+    edProjectExportRouteService = window.EditorProjectExportRouteService.create({
+      getShowSaveFilePicker: () => window.showSaveFilePicker,
+      getConfirm: () => window.confirm,
+      documentRef: document,
+      urlRef: window.URL,
+      schedule: window.setTimeout,
+      logger: console
+    });
+  }
+  return edProjectExportRouteService;
+}
+
 let edSongImportService = null;
 function getEditorSongImportService() {
   if (
@@ -3612,21 +3630,26 @@ function edBlankSong() {
         return;
       }
 
-      if (window.showSaveFilePicker) {
-        try {
-          const handle = await window.showSaveFilePicker({ suggestedName: defaultName, types: [{ description: 'فایل پروژه کامل', accept: { 'application/json': ['.json'] } }] });
-          const writable = await handle.createWritable(); await writable.write(blob); await writable.close();
-          toast(`خروجی ذخیره شد (${sizeMB} MB, ${audioCount} کپی + ${linkedCount} لینک)`);
-          refreshStorageInfo();
-          return;
-        } catch (e) { if (e.name === 'AbortError') { toast('لغو شد'); return; } }
-      }
-      // Fallback: confirm before download
       const linkedInfo = linkedCount > 0 ? `\nلینک‌شده: ${linkedCount} فایل (بدون صدا)` : '';
-      if (!confirm(`دانلود فایل: ${defaultName}\nحجم: ${sizeMB} MB\nصدا: ${audioCount} کپی‌شده${linkedInfo}\n\nذخیره در پوشه دانلود؟`)) return;
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a'); a.href = url; a.download = defaultName; a.click();
-      setTimeout(() => URL.revokeObjectURL(url), 5000);
+      const browserSave = await getEditorProjectExportRouteService()?.saveBrowser?.({
+        blob,
+        defaultName,
+        pickerOptions: {
+          suggestedName: defaultName,
+          types: [{
+            description: 'فایل پروژه کامل',
+            accept: { 'application/json': ['.json'] }
+          }]
+        },
+        confirmMessage: `دانلود فایل: ${defaultName}\nحجم: ${sizeMB} MB\nصدا: ${audioCount} کپی‌شده${linkedInfo}\n\nذخیره در پوشه دانلود؟`
+      });
+      if (!browserSave?.handled) {
+        throw new Error('EditorProjectExportRouteService در دسترس نیست');
+      }
+      if (browserSave.status === 'cancelled') {
+        toast('لغو شد');
+        return;
+      }
       toast(`خروجی ذخیره شد (${sizeMB} MB, ${audioCount} کپی + ${linkedCount} لینک)`);
       refreshStorageInfo();
       } catch(e) { console.error('Export error:', e); toast('خطا در خروجی: ' + e.message); }

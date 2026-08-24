@@ -27,6 +27,7 @@ for (const activeScript of [
   'js/core/ProjectAudioService.js',
   'js/editor/AudioRecoveryService.js',
   'js/editor/EditorProjectFileService.js',
+  'js/editor/EditorProjectExportRouteService.js',
   'js/editor/EditorSongPersistenceService.js'
 ]) {
   assert.match(html, new RegExp(escapeRegExp(activeScript)));
