@@ -49,6 +49,14 @@ assert.ok(
     scriptIndex('js/archive/ArchiveModule.js')
 );
 assert.ok(
+  scriptIndex('js/archive/ArchiveUndoService.js') <
+    scriptIndex('js/archive/ArchiveModule.js')
+);
+assert.ok(
+  scriptIndex('js/archive/ArchiveConfirmService.js') <
+    scriptIndex('js/archive/ArchiveModule.js')
+);
+assert.ok(
   scriptIndex('js/editor/EditorProjectImportRouteService.js') <
     scriptIndex('js/archive/ArchiveModule.js')
 );
@@ -91,6 +99,9 @@ const publicArchiveFunctions = [
   'archBulkExport',
   'archRefresh',
   'archArtistKey',
+  'archPushUndo',
+  'archConfirm',
+  'archConfirmResolve',
   'archRender',
   'archRenderArtists',
   'archUpdateActiveFilters'

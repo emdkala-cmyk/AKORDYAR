@@ -14,14 +14,12 @@
 
     // ===== ARCHIVE SYSTEM =====
     const ARCH_SCHEMA_VERSION = 1;
-    const ARCH_UNDO_STACK = [];
     let _archCtxSongId = null;
     let _archSelectMode = false;
     let _archSelectedIds = new Set();
     let _archCurrentTab = 'all';
     let _archViewMode = localStorage.getItem('arch_view_mode') || 'card';
     let _archDebounceTimer = null;
-    let _archConfirmResolver = null;
     let _archEditSongId = null;
     let _archLoading = false;
     let _archEventsBound = false;
@@ -187,27 +185,42 @@
       return getArchiveArtistService().matchDefaultArtist(songArtist);
     }
 
-    // --- Undo ---
-    function archPushUndo(desc) {
-      ARCH_UNDO_STACK.push({ snapshot: JSON.parse(JSON.stringify(edGetAllSongs())), desc, time: Date.now() });
-      if (ARCH_UNDO_STACK.length > 30) ARCH_UNDO_STACK.shift();
+    // --- Undo bridge ---
+    let _archiveUndoService = null;
+    function getArchiveUndoService() {
+      if (!_archiveUndoService) {
+        const create = window.ArchiveUndoService?.create;
+        if (typeof create !== 'function') {
+          throw new Error('ArchiveUndoService is not loaded. Check script order.');
+        }
+        _archiveUndoService = create({ getSongs: edGetAllSongs });
+      }
+      return _archiveUndoService;
     }
 
-    // --- Confirm ---
-    function archConfirm(title, msg, okLabel, dangerMode) {
-      return new Promise(resolve => {
-        _archConfirmResolver = resolve;
-        $('archConfirmTitle').textContent = title;
-        $('archConfirmMsg').innerHTML = msg;
-        const okBtn = $('archConfirmOk');
-        okBtn.textContent = okLabel || 'تأیید';
-        okBtn.className = dangerMode ? 'confirm-danger' : 'confirm-ok';
-        $('archiveConfirmOverlay').classList.add('show');
-      });
+    function archPushUndo(desc) {
+      getArchiveUndoService().push(desc);
     }
+
+    // --- Confirm bridge ---
+    let _archiveConfirmService = null;
+    function getArchiveConfirmService() {
+      if (!_archiveConfirmService) {
+        const create = window.ArchiveConfirmService?.create;
+        if (typeof create !== 'function') {
+          throw new Error('ArchiveConfirmService is not loaded. Check script order.');
+        }
+        _archiveConfirmService = create({ getElement: id => $(id) });
+      }
+      return _archiveConfirmService;
+    }
+
+    function archConfirm(title, msg, okLabel, dangerMode) {
+      return getArchiveConfirmService().open(title, msg, okLabel, dangerMode);
+    }
+
     function archConfirmResolve(val) {
-      $('archiveConfirmOverlay').classList.remove('show');
-      if (_archConfirmResolver) { const r = _archConfirmResolver; _archConfirmResolver = null; r(val); }
+      getArchiveConfirmService().close(val);
     }
 
     // --- Shared Load Project Data ---
