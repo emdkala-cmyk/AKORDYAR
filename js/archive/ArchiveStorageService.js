@@ -9,31 +9,20 @@
   const DB_NAME = 'ChordSongDB';
   const DB_VERSION = 1;
   const STORE_NAME = 'songs';
-  const FALLBACK_KEY = 'ed_songs_archive';
-
-  function readFallback(storage) {
-    try {
-      const value = JSON.parse(storage?.getItem(FALLBACK_KEY) || '[]');
-      return Array.isArray(value) ? value : [];
-    } catch (_) {
-      return [];
-    }
-  }
-
-  function writeFallback(storage, songs, onQuota) {
-    try {
-      storage?.setItem(FALLBACK_KEY, JSON.stringify(songs));
-    } catch (error) {
-      if (error?.name === 'QuotaExceededError') {
-        onQuota?.('❌ حافظه مرورگر پر است!');
-      }
-    }
-  }
 
   function create(options = {}) {
     const scope = options.globalScope || globalScope;
     const storage = options.storage || scope.localStorage;
     const indexedDBRef = options.indexedDB || scope.indexedDB;
+    const fallback =
+      options.fallback ||
+      scope.ArchiveStorageFallbackService ||
+      globalScope.ArchiveStorageFallbackService;
+    if (!fallback?.read || !fallback?.write) {
+      throw new Error(
+        'ArchiveStorageFallbackService is not loaded. Check script order.'
+      );
+    }
     const notify = typeof options.onQuota === 'function'
       ? options.onQuota
       : options.toast;
@@ -43,13 +32,13 @@
 
     const getFallbackSongs = () => {
       if (cache) return cache;
-      cache = readFallback(storage);
+      cache = fallback.read(storage);
       return cache;
     };
 
     const openRequest = indexedDBRef?.open?.(DB_NAME, DB_VERSION);
     if (!openRequest) {
-      cache = readFallback(storage);
+      cache = fallback.read(storage);
     } else {
       openRequest.onupgradeneeded = event => {
         const db = event.target.result;
@@ -72,7 +61,7 @@
         };
 
         try {
-          const oldSongs = readFallback(storage);
+          const oldSongs = fallback.read(storage);
           if (oldSongs.length) {
             const migrationTransaction = database.transaction(STORE_NAME, 'readwrite');
             oldSongs.forEach(song => {
@@ -89,7 +78,7 @@
       };
 
       openRequest.onerror = () => {
-        cache = readFallback(storage);
+        cache = fallback.read(storage);
       };
     }
 
@@ -100,7 +89,7 @@
     function setAllSongs(songs) {
       cache = Array.isArray(songs) ? songs : [];
       if (!database) {
-        writeFallback(storage, cache, notify);
+        fallback.write(storage, cache, notify);
         return cache;
       }
 

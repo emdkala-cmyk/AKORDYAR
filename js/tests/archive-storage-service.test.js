@@ -1,4 +1,7 @@
 const assert = require('node:assert/strict');
+const ArchiveStorageFallbackService = require(
+  '../archive/ArchiveStorageFallbackService.js'
+);
 const ArchiveStorageService = require('../archive/ArchiveStorageService.js');
 
 function createStorage(initial = []) {
@@ -14,7 +17,8 @@ function createStorage(initial = []) {
 const fallbackStorage = createStorage([{ id: 'fallback-song' }]);
 const fallback = ArchiveStorageService.create({
   globalScope: {},
-  storage: fallbackStorage
+  storage: fallbackStorage,
+  fallback: ArchiveStorageFallbackService
 });
 
 assert.deepEqual(fallback.getAllSongs(), [{ id: 'fallback-song' }]);
@@ -35,6 +39,7 @@ const quotaStorage = {
 const quota = ArchiveStorageService.create({
   globalScope: {},
   storage: quotaStorage,
+  fallback: ArchiveStorageFallbackService,
   toast: message => {
     quotaMessage = message;
   }
@@ -86,7 +91,8 @@ const indexedDBFake = createIndexedDbFake();
 const indexed = ArchiveStorageService.create({
   globalScope: {},
   storage: createStorage([{ id: 'legacy-song' }]),
-  indexedDB: indexedDBFake
+  indexedDB: indexedDBFake,
+  fallback: ArchiveStorageFallbackService
 });
 
 assert.deepEqual(indexed.getAllSongs(), [{ id: 'legacy-song' }]);
