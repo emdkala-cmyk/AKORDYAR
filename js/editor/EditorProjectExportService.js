@@ -38,7 +38,12 @@
       loopA: daw?.loopA,
       loopB: daw?.loopB
     };
-    return { tracks, clips, sections, loop };
+    const arrangerMarkers =
+      globalScope.ArrangerMarkerService?.fromDAW?.(daw) || {
+        start: Math.max(0, Number(daw?.arrangerMarkers?.start) || 0),
+        end: Math.max(0, Number(daw?.arrangerMarkers?.end) || 0)
+      };
+    return { tracks, clips, sections, loop, arrangerMarkers };
   }
 
   function uint8ToBase64(uint8Arr, btoaRef = globalScope.btoa) {
@@ -166,6 +171,7 @@
       exportSong._dawClips = timeline.clips;
       exportSong._dawSections = timeline.sections;
       exportSong._dawLoop = timeline.loop;
+      exportSong._arrangerMarkers = timeline.arrangerMarkers;
 
       const audioData = {};
       const audioClips = timeline.clips.filter(clip =>

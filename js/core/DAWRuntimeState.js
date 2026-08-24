@@ -38,6 +38,8 @@
       loopEnabled: false,
       loopA: 0,
       loopB: 10,
+      // Independent from the editor loop: arranger start/transition markers.
+      arrangerMarkers: { start: 0, end: 0 },
       pool: {},
       projectRoot: null,
       isRecording: false,

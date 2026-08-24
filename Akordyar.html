@@ -136,7 +136,7 @@
           <button class="ed-btn" id="edSyncChordLineBtn" data-action="syncChordLine" title="بروزرسانی Chord Line از Lyrics Chord" style="border-color:#00F2FE; color:#00F2BE;">🔄 سینک</button>
         </div>
       </div>
-      <div style="min-width: 120px; display:flex; align-items:center; gap:8px;">
+      <div data-inline-actions style="min-width: 120px; display:flex; align-items:center; gap:8px;">
         <button class="ed-btn" id="sendToArrangerBtn" data-action="sendToArranger" title="ارسال به ارنجر ترک" style="font-size:0.78rem; font-weight:700; min-width:auto; padding:4px 10px; border-color:var(--accent-cyan-glow); color:var(--accent-cyan-glow);">🎼 ارسال به ارنجر</button>
       </div>
     </header>
@@ -399,6 +399,10 @@
         <button class="tl-tool-btn" data-action="setLoopA" title="Set Loop A (I)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><polyline points="12 5 5 12 12 19"/></svg></button>
         <button class="tl-tool-btn" data-action="setLoopB" title="Set Loop B (O)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><polyline points="12 19 19 12 12 5"/></svg></button>
         <button class="tl-tool-btn" data-action="clearLoop" title="Clear Loop"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+        <div class="arranger-marker-divider" aria-hidden="true"></div>
+        <button class="tl-tool-btn arranger-marker-btn arranger-marker-a-btn" data-action="setArrangerA" title="تعیین شروع ارنجر A">A</button>
+        <button class="tl-tool-btn arranger-marker-btn arranger-marker-b-btn" data-action="setArrangerB" title="تعیین تعویض ارنجر B">B</button>
+        <button class="tl-tool-btn arranger-marker-btn arranger-marker-clear-btn" data-action="clearArrangerMarkers" title="پاک کردن markerهای ارنجر">×</button>
         <div style="width:1px;height:20px;background:var(--border-subtle);margin:0 4px;"></div>
         <button class="tl-tool-btn" id="playheadModeBtn" data-action="togglePlayheadMode" title="Playhead Mode: Page Scroll / Center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="22"/><polyline points="8 6 12 2 16 6"/><polyline points="8 18 12 22 16 18"/></svg></button>
         <button class="tl-snap-btn active" id="snapBtn" data-action="toggleSnap" title="Snap (S)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 3L3 21"/><path d="M21 3v7"/><path d="M21 3h-7"/></svg></button>
@@ -439,10 +443,22 @@
                   <div class="loop-loc loop-loc-left" id="loop-loc-left"><div class="loop-loc-head"></div></div>
                   <div class="loop-loc loop-loc-right" id="loop-loc-right"><div class="loop-loc-head"></div></div>
                 </div>
+                <div class="arranger-markers-overlay" id="arranger-markers-overlay" style="display:none;" aria-label="markerهای ارنجر">
+                  <div class="arranger-marker arranger-marker-a" id="arranger-marker-a">
+                    <span class="arranger-marker-badge">A</span>
+                  </div>
+                  <div class="arranger-marker arranger-marker-b" id="arranger-marker-b">
+                    <span class="arranger-marker-badge">B</span>
+                  </div>
+                </div>
               </div>
               <div class="lanes-container" id="lanes-container"></div>
               <div class="marquee" id="marquee"></div>
               <div class="cut-guide" id="cut-guide"></div>
+              <div class="arranger-markers-timeline-overlay" id="arranger-markers-timeline-overlay" style="display:none;" aria-hidden="true">
+                <div class="arranger-marker-line arranger-marker-line-a" id="arranger-marker-line-a"></div>
+                <div class="arranger-marker-line arranger-marker-line-b" id="arranger-marker-line-b"></div>
+              </div>
               <div class="playhead" id="main-playhead"></div>
               <div class="playhead-hit" id="playhead-hit"></div>
             </div>
@@ -1117,6 +1133,7 @@
   <script src="js/editor/SyncAnalysis.js"></script>
   <script src="js/editor/ClipboardService.js"></script>
   <script src="js/editor/HistoryService.js"></script>
+  <script src="js/editor/ArrangerMarkerService.js"></script>
   <script src="js/editor/EditorHydrationService.js"></script>
   <script src="js/editor/AudioRecoveryService.js"></script>
   <script src="js/editor/EditorSongInitializationService.js"></script>

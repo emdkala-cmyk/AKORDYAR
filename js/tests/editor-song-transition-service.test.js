@@ -73,7 +73,8 @@ const service = transitionModule.create({
     tracks: [preparedTrack],
     clips: [{ id: 'prepared-clip', type: 'audio', bufferKey: 'prepared' }],
     sections: [{ id: 'section-1' }],
-    loopState: { loopEnabled: true, loopA: 2, loopB: 8 }
+    loopState: { loopEnabled: true, loopA: 2, loopB: 8 },
+    arrangerMarkers: { start: 4, end: 12 }
   });
 
   assert.equal(prepared.song.repaired, true);
@@ -82,6 +83,7 @@ const service = transitionModule.create({
   assert.equal(daw.loopEnabled, true);
   assert.equal(daw.loopA, 2);
   assert.equal(daw.loopB, 8);
+  assert.deepEqual(daw.arrangerMarkers, { start: 4, end: 12 });
   assert.equal(preparedTrack.transpose, 0);
   assert.ok(preparedTrack._pannerNode);
   assert.ok(preparedTrack._gainNode);

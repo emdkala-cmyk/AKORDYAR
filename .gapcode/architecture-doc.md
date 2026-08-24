@@ -294,8 +294,9 @@ seamهای باقی‌مانده تمرکز کند؛ بدنهٔ legacy رندر 
 - `EditorLifecycleService` و سرویس‌های state/audio editor: lifecycle و
   restore callbackمحور؛
 - `dead-code-contract.test.js`: جلوگیری از بازگشت placeholderهای بدون مصرف.
-- `ArrangerPlaybackPolicyService`: مرزبندی اجرای setlist مستقل از loopهای
-  شخصی آهنگ‌ها.
+- `ArrangerMarkerService` و `ArrangerPlaybackPolicyService`: نگهداری مستقل
+  `_arrangerMarkers`، مهاجرت legacy و تبدیل A/B هر آهنگ به مرز اجرای setlist؛
+  loop خاموش می‌شود اما `loopA/loopB` دست‌نخورده می‌مانند.
 
 وضعیت فعلی همچنان hybrid است. wrapperهای عمومی و compatibility boundaryهای
 لازم برای hot-swap، Electron و مسیرهای قدیمی حذف نشده‌اند. هشدار line budget
@@ -303,10 +304,10 @@ seamهای باقی‌مانده تمرکز کند؛ بدنهٔ legacy رندر 
 
 ```text
 js/app.js       ۱۲۴ خط
-js/app/core.js  ۵۶۵۶ خط در quality line-budget
-js/app/editor.js ۶۱۸۲ خط در quality line-budget
-تست‌ها         ۱۰۳ ورودی موفق
-lint            ۱۰۸ فایل JavaScript موفق
+js/app/core.js  ۵۸۲۴ خط در quality line-budget
+js/app/editor.js ۶۲۱۵ خط در quality line-budget
+تست‌ها         ۱۰۴ ورودی موفق
+lint            ۱۰۹ فایل JavaScript موفق
 ```
 
 ایمن‌سازی کامل QR و سینک موبایل طبق دامنهٔ تعیین‌شدهٔ کاربر در این موج

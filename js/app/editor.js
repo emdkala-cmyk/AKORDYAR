@@ -211,15 +211,29 @@ function getMidiScoreController() {
         clips: ns.clips,
         sections: ns.sections,
         tracks: ns.tracks,
-        loopState: ns.loopState
+        loopState: ns.loopState,
+        arrangerMarkers: ns.arrangerMarkers
       });
       if (!transition) {
         console.error('[Arranger] Song transition service is unavailable');
         return false;
       }
+      const nextStart = Math.max(
+        0,
+        Number(ns.playbackStart ?? ns.arrangerMarkers?.start) || 0
+      );
+      const requestedEnd = Number(
+        ns.playbackEnd ??
+        ns.selectionEnd ??
+        ns.arrangerMarkers?.end ??
+        ns.loopState?.loopB
+      );
+      const nextEnd = Number.isFinite(requestedEnd) && requestedEnd > nextStart
+        ? requestedEnd
+        : nextStart + 10;
       if (arrPerformActive) {
         arrangerPlaybackPolicy?.applyToDAW?.(getEditorDAW());
-        selectionEnd = 0;
+        selectionEnd = nextEnd;
       } else {
         selectionEnd = ns.selectionEnd;
       }
@@ -231,8 +245,8 @@ function getMidiScoreController() {
           ? `, ${audio.missing} missing: ${audio.missingNames.join(', ')}`
           : ''));
 
-      getEditorDAW().playhead = 0;
-      var _ori2 = PlayheadMath.createOrigin(performance.now(), 0); getEditorDAW().playOriginPerf = _ori2.playOriginPerf;
+      getEditorDAW().playhead = arrPerformActive ? nextStart : 0;
+      var _ori2 = PlayheadMath.createOrigin(performance.now(), getEditorDAW().playhead); getEditorDAW().playOriginPerf = _ori2.playOriginPerf;
       getEditorDAW().playOriginTime = _ori2.playOriginTime;
       scheduleAllFromPlayhead();
 
@@ -316,9 +330,22 @@ function getMidiScoreController() {
         return;
       }
 
+      const playbackBoundary = arrangerPlaybackPolicy?.createBoundary?.({
+        clips: getEditorDAW().clips,
+        sections: getEditorDAW().sections,
+        arrangerMarkers: song._arrangerMarkers,
+        legacyLoopState: song._dawLoop,
+        fallbackEnd: 30
+      }) || {
+        start: 0,
+        end: getProjectEnd(),
+        selectionEnd: getProjectEnd(),
+        markers: { start: 0, end: getProjectEnd() }
+      };
+
       if (arrPerformActive) {
         arrangerPlaybackPolicy?.applyToDAW?.(getEditorDAW());
-        selectionEnd = 0;
+        selectionEnd = playbackBoundary.end;
       } else {
         selectionEnd = (getEditorDAW().loopA < getEditorDAW().loopB)
           ? getEditorDAW().loopB
@@ -345,7 +372,7 @@ function getMidiScoreController() {
       syncUIAfterSongChange();
 
       toast(`${t('songN')} ${idx + 1}/${arr.items.length}: ${song.title || t('untitled')}`);
-      seekTransport(0, false);
+      seekTransport(arrPerformActive ? playbackBoundary.start : 0, false, true);
       ensureAudioCtx();
       if (arrPerformActive && !getEditorDAW().isPlaying && !perfPauseMode) startTransport();
       if (arrPerformActive && idx + 1 < arr.items.length) {
@@ -5451,6 +5478,9 @@ if ($('edDoBoth')) {
       'returnToStart': toggleReturnToStart,
       'loop': toggleLoop, 'loopA': setLoopA, 'loopB': setLoopB,
       'setLoopFromSel': setLoopFromSelection,
+      'setArrangerA': () => setArrangerA(),
+      'setArrangerB': () => setArrangerB(),
+      'clearArrangerMarkers': () => clearArrangerMarkers(),
       'undo': () => getHistoryService().undo(),
       'redo': () => getHistoryService().redo(),
       'fullscreen': () => { if (!getEditorDAW().isPlaying) { ensureAudioCtx(); if (getEditorDAW().playhead <= 0) seekTransport(0, false); startTransport(); } openLyricOnlyPopup(); setTimeout(openLyricPopup, 300); },
@@ -5507,6 +5537,9 @@ if ($('edDoBoth')) {
       setLoopA: () => setLoopA(),
       setLoopB: () => setLoopB(),
       clearLoop: () => clearLoop(),
+      setArrangerA: () => setArrangerA(),
+      setArrangerB: () => setArrangerB(),
+      clearArrangerMarkers: () => clearArrangerMarkers(),
       togglePlayheadMode: () => togglePlayheadMode(),
       toggleSnap: () => toggleSnap(),
       showQuantize: () => showQuantizeModal(),

@@ -41,7 +41,8 @@ const daw = {
   sections: [{ id: 4, start: 0, duration: 4 }],
   loopEnabled: true,
   loopA: 2,
-  loopB: 6
+  loopB: 6,
+  arrangerMarkers: { start: 4, end: 18 }
 };
 
 let metadataSynced = 0;
@@ -78,6 +79,10 @@ assert.deepEqual(JSON.parse(JSON.stringify(song._dawLoop)), {
   loopEnabled: true,
   loopA: 2,
   loopB: 6
+});
+assert.deepEqual(JSON.parse(JSON.stringify(song._arrangerMarkers)), {
+  start: 4,
+  end: 18
 });
 assert.equal(stored.has('ed_current_song'), true);
 assert.equal(blobsScheduled, 1);

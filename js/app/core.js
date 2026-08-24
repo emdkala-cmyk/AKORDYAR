@@ -811,7 +811,7 @@ const requestRenderSyncLyrics = debounce(() => { renderSyncLyrics(); }, 120);
     let midiAccess = null;
     // Playhead scroll mode: 'page' (scrolls page by page) or 'center' (stationary center)
     getEditorDAW().playheadMode = 'page';
-    // Selection end point for arranger (independent of loop)
+    // Arranger transition boundary (B). Looping itself stays disabled.
     let selectionEnd = 0;
 
     const $ = (id) => document.getElementById(id);
@@ -1214,9 +1214,9 @@ function applyState(stateStr) {
     }
 
     function renderAll(options = {}) {
-  renderTracks(); renderRuler(); renderClips(options); renderLoopRegion(); updatePlayheadUI(); updateHud();
-  edRenderClMarkers();
-}
+      renderTracks(); renderRuler(); renderClips(options); renderLoopRegion(); renderArrangerMarkers(); updatePlayheadUI(); updateHud();
+      edRenderClMarkers();
+    }
 
     function handleTimingChange() {
       const timing = requireEditorSongStateService().getTimingContext();
@@ -2219,9 +2219,10 @@ sels.forEach(c => {
       stopTransport,
       seekTransport
     });
-    // Arranger end: while performing a setlist, use the real song content end.
-    // A song's editor loop is intentionally ignored by arranger playback.
+    // Arranger end: B is the transition point for the current song.
+    // If a legacy song has no valid B, fall back to its timeline end.
     function getArrangerEnd() {
+      if (arrPerformActive && selectionEnd > 0) return selectionEnd;
       if (arrPerformActive && arrangerPlaybackPolicy?.getTimelineEnd) {
         const contentEnd = arrangerPlaybackPolicy.getTimelineEnd({
           clips: getEditorDAW().clips,
@@ -2822,6 +2823,69 @@ sels.forEach(c => {
       toast('محدوده پاک شد');
     }
 
+    function getArrangerMarkers() {
+      const daw = getEditorDAW();
+      if (!daw.arrangerMarkers || typeof daw.arrangerMarkers !== 'object') {
+        daw.arrangerMarkers = { start: 0, end: 0 };
+      }
+      return daw.arrangerMarkers;
+    }
+
+    function persistArrangerMarkers() {
+      saveState();
+      if (typeof edSaveSong === 'function') edSaveSong();
+    }
+
+    function setArrangerA() {
+      if (arrPerformActive) {
+        toast('markerهای ارنجر هنگام اجرا قابل تغییر نیستند');
+        return;
+      }
+      const markers = getArrangerMarkers();
+      const maxTime = getProjectEnd();
+      const start = Math.min(
+        clamp(getEditorDAW().playhead, 0, maxTime),
+        Math.max(0, maxTime - 0.5)
+      );
+      markers.start = start;
+      if (!(markers.end > start)) {
+        markers.end = Math.min(maxTime, Math.max(start + 0.5, start + 5));
+      }
+      renderArrangerMarkers();
+      persistArrangerMarkers();
+      toast('شروع ارنجر A: ' + formatTime(markers.start));
+    }
+
+    function setArrangerB() {
+      if (arrPerformActive) {
+        toast('markerهای ارنجر هنگام اجرا قابل تغییر نیستند');
+        return;
+      }
+      const markers = getArrangerMarkers();
+      const end = Math.max(
+        0.5,
+        clamp(getEditorDAW().playhead, 0, getProjectEnd())
+      );
+      markers.end = end;
+      if (!(markers.end > markers.start)) {
+        markers.start = Math.max(0, end - 5);
+      }
+      renderArrangerMarkers();
+      persistArrangerMarkers();
+      toast('تعویض ارنجر B: ' + formatTime(markers.end));
+    }
+
+    function clearArrangerMarkers() {
+      if (arrPerformActive) {
+        toast('markerهای ارنجر هنگام اجرا قابل تغییر نیستند');
+        return;
+      }
+      getEditorDAW().arrangerMarkers = { start: 0, end: 0 };
+      renderArrangerMarkers();
+      persistArrangerMarkers();
+      toast('markerهای ارنجر پاک شد');
+    }
+
     // P key: set loop range from selection (no activate)
     function setLoopFromSelection() {
       const sels = selectedClips();
@@ -2893,6 +2957,79 @@ sels.forEach(c => {
       if (locLeft) locLeft.style.left = (xA - 5) + 'px';
       if (locRight) locRight.style.left = (xB - 5) + 'px';
     }
+
+    function renderArrangerMarkers() {
+      const markers = getArrangerMarkers();
+      const start = Number(markers.start);
+      const end = Number(markers.end);
+      const hasRange = Number.isFinite(start) && Number.isFinite(end) && end > start;
+      const rulerOverlay = $('arranger-markers-overlay');
+      const timelineOverlay = $('arranger-markers-timeline-overlay');
+      const markerA = $('arranger-marker-a');
+      const markerB = $('arranger-marker-b');
+      const lineA = $('arranger-marker-line-a');
+      const lineB = $('arranger-marker-line-b');
+
+      [rulerOverlay, timelineOverlay].forEach(el => {
+        if (el) el.style.display = hasRange ? 'block' : 'none';
+      });
+      if (!hasRange) return;
+
+      const xA = timeToX(start);
+      const xB = timeToX(end);
+      if (markerA) markerA.style.left = `${xA - 8}px`;
+      if (markerB) markerB.style.left = `${xB - 8}px`;
+      if (lineA) lineA.style.left = `${xA}px`;
+      if (lineB) lineB.style.left = `${xB}px`;
+    }
+
+    (function initArrangerMarkerDrag() {
+      let dragTarget = null;
+
+      $('arranger-marker-a')?.addEventListener('pointerdown', (event) => {
+        if (event.button !== 0 || arrPerformActive) return;
+        event.stopPropagation();
+        event.preventDefault();
+        dragTarget = 'A';
+        startEditorPointerDrag(event.currentTarget, event, onDragMove, onDragUp);
+      });
+      $('arranger-marker-b')?.addEventListener('pointerdown', (event) => {
+        if (event.button !== 0 || arrPerformActive) return;
+        event.stopPropagation();
+        event.preventDefault();
+        dragTarget = 'B';
+        startEditorPointerDrag(event.currentTarget, event, onDragMove, onDragUp);
+      });
+
+      function onDragMove(event) {
+        if (!dragTarget) return;
+        const inner = $('tl-inner');
+        if (!inner) return;
+        const rect = inner.getBoundingClientRect();
+        const markers = getArrangerMarkers();
+        const time = clamp(
+          xToTime(event.clientX - rect.left),
+          0,
+          getProjectEnd()
+        );
+        if (dragTarget === 'A') {
+          markers.start = Math.max(
+            0,
+            Math.min(time, markers.end > 0 ? markers.end - 0.5 : time)
+          );
+        } else {
+          markers.end = Math.max(time, markers.start + 0.5);
+        }
+        renderArrangerMarkers();
+      }
+
+      function onDragUp() {
+        if (dragTarget) persistArrangerMarkers();
+        dragTarget = null;
+        document.removeEventListener('mousemove', onDragMove);
+        document.removeEventListener('mouseup', onDragUp);
+      }
+    })();
 
     // Cubase-style locator dragging on ruler
     (function initLoopDrag() {
@@ -4562,11 +4699,15 @@ let syncTapKeyHandler = null;
     }
 
     // Send current song to Arranger Track
-    function sendCurrentSongToArranger() {
+    async function sendCurrentSongToArranger() {
       const currentSong = requireEditorSongStateService().currentSong();
       if (!currentSong) { toast('ترانه‌ای باز نیست'); return; }
-      // Save current song to archive first
-      edSaveToArchive().then(() => {
+
+      try {
+        // Save current song to archive first so the arranger references the
+        // latest timeline and the saved A/B markers.
+        await edSaveToArchive();
+
         // If no arrangers exist, create one
         if (!arrangers.length) {
           const arr = { id: Date.now(), name: 'پلی‌لیست جدید', items: [], crossfade: 0, pauseBetween: false };
@@ -4576,15 +4717,20 @@ let syncTapKeyHandler = null;
           // Use first arranger or last edited one
           editingArr = arrangers[0];
         }
+        if (!Array.isArray(editingArr.items)) editingArr.items = [];
+
         // Add current song to arranger if not already there
-        if (!editingArr.items.includes(currentSong.id)) {
+        if (!editingArr.items.some(item => String(item) === String(currentSong.id))) {
           editingArr.items.push(currentSong.id);
         }
         saveArrangers();
         // Open arranger editor
         openArrangerModal();
         toast('ترانه به پلی‌لیست اضافه شد');
-      });
+      } catch (error) {
+        console.error('[Arranger] Failed to send current song:', error);
+        toast('خطا در ارسال ترانه به ارنجر');
+      }
     }
 
     async function createNewArranger() {
@@ -5241,7 +5387,13 @@ let syncTapKeyHandler = null;
         $('perfPlayBtn').textContent = '▶';
       } else {
         ensureAudioCtx();
-        if (getEditorDAW().playhead <= 0) seekTransport(0, false);
+        if (getEditorDAW().playhead <= 0) {
+          seekTransport(
+            arrPerformActive ? (getEditorDAW().arrangerMarkers?.start || 0) : 0,
+            false,
+            true
+          );
+        }
         startTransport();
         $('perfPlayBtn').textContent = '⏸';
       }
@@ -5249,7 +5401,11 @@ let syncTapKeyHandler = null;
 
     function perfRestartSong() {
       document.activeElement?.blur();
-      seekTransport(0, false);
+      seekTransport(
+        arrPerformActive ? (getEditorDAW().arrangerMarkers?.start || 0) : 0,
+        false,
+        true
+      );
       ensureAudioCtx();
       startTransport();
       $('perfPlayBtn').textContent = '⏸';
@@ -5550,11 +5706,20 @@ let syncTapKeyHandler = null;
         const playbackBoundary = arrangerPlaybackPolicy?.createBoundary?.({
           clips,
           sections,
-          fallbackEnd: 0
+          arrangerMarkers: songData._arrangerMarkers,
+          legacyLoopState: songData._dawLoop,
+          fallbackEnd: 30
         }) || {
-          selectionEnd: 0,
-          loopState: { loopEnabled: false, loopA: 0, loopB: 10 }
+          start: 0,
+          end: 30,
+          selectionEnd: 30,
+          markers: { start: 0, end: 30 }
         };
+        const savedArrangerMarkers =
+          globalScope.ArrangerMarkerService?.fromSong?.(songData) || {
+            start: Math.max(0, Number(songData._arrangerMarkers?.start ?? songData._dawLoop?.loopA) || 0),
+            end: Math.max(0, Number(songData._arrangerMarkers?.end ?? songData._dawLoop?.loopB) || 0)
+          };
 
         // آپدیت sourceDuration و peaks برای کلیپ‌های که لود شدن
         clips.forEach(c => { if (c.type !== 'chord' && c.bufferKey && getEditorDAW().bufferCache.has(c.bufferKey)) { const buffer = getEditorDAW().bufferCache.get(c.bufferKey); c.sourceDuration = buffer.duration; c._peaks = peaksFromBuffer(buffer, 2000); } });
@@ -5571,8 +5736,11 @@ let syncTapKeyHandler = null;
           clips,
           sections,
           tracks,
+          playbackStart: playbackBoundary.start,
+          playbackEnd: playbackBoundary.end,
           selectionEnd: playbackBoundary.selectionEnd,
-          loopState: playbackBoundary.loopState
+          loopState: songData._dawLoop,
+          arrangerMarkers: savedArrangerMarkers
         };
         console.log(`[Arranger Prep] ✓ _arrNextState ready for song ${nextIdx + 1}: "${songData.title}"`);
         

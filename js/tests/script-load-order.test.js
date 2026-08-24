@@ -175,6 +175,14 @@ assert.ok(
     scriptIndex('js/app/core.js')
 );
 assert.ok(
+  scriptIndex('js/editor/ArrangerMarkerService.js') <
+    scriptIndex('js/editor/EditorHydrationService.js')
+);
+assert.ok(
+  scriptIndex('js/editor/ArrangerMarkerService.js') <
+    scriptIndex('js/editor/EditorSongTransitionService.js')
+);
+assert.ok(
   scriptIndex('js/editor/EditorSongTransitionService.js') <
     scriptIndex('js/editor/ArrangerPlaybackPolicyService.js')
 );

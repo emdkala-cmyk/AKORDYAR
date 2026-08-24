@@ -71,7 +71,8 @@
       clips = [],
       sections = [],
       tracks = [],
-      loopState = null
+      loopState = null,
+      arrangerMarkers = null
     } = {}) {
       const daw = getDAW();
       if (!daw || !song) return null;
@@ -94,6 +95,14 @@
         daw.loopA = 0;
         daw.loopB = 10;
       }
+      daw.arrangerMarkers =
+        globalScope.ArrangerMarkerService?.normalize?.(
+          arrangerMarkers,
+          song?._arrangerMarkers || song?._dawLoop
+        ) || {
+          start: Math.max(0, Number(arrangerMarkers?.start ?? song?._arrangerMarkers?.start ?? song?._dawLoop?.loopA) || 0),
+          end: Math.max(0, Number(arrangerMarkers?.end ?? song?._arrangerMarkers?.end ?? song?._dawLoop?.loopB) || 0)
+        };
 
       const nextSong = repairSong(song) || song;
       setSong(nextSong);

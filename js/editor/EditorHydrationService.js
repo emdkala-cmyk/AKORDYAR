@@ -153,7 +153,11 @@
     sectionsFallbackEmpty = false,
     updateNextIdFromClips
   } = {}) {
-    if (!daw) return { migratedSections: [], loopState: null };
+    if (!daw) return {
+      migratedSections: [],
+      loopState: null,
+      arrangerMarkers: { start: 0, end: 0 }
+    };
 
     if (song?._dawTracks) {
       daw.tracks = cloneTracks ? clone(song._dawTracks) : song._dawTracks;
@@ -182,7 +186,13 @@
       daw.loopB = loopState.loopB;
     }
 
-    return { migratedSections, loopState };
+    const arrangerMarkers = globalScope.ArrangerMarkerService?.fromSong?.(song) || {
+      start: Math.max(0, Number(song?._arrangerMarkers?.start ?? song?._dawLoop?.loopA) || 0),
+      end: Math.max(0, Number(song?._arrangerMarkers?.end ?? song?._dawLoop?.loopB) || 0)
+    };
+    daw.arrangerMarkers = arrangerMarkers;
+
+    return { migratedSections, loopState, arrangerMarkers };
   }
 
   function initializeAudioTracks(daw, {

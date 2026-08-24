@@ -34,6 +34,11 @@
       loopA: daw?.loopA,
       loopB: daw?.loopB
     };
+    const arrangerMarkers =
+      globalScope.ArrangerMarkerService?.fromDAW?.(daw) || {
+        start: Math.max(0, Number(daw?.arrangerMarkers?.start) || 0),
+        end: Math.max(0, Number(daw?.arrangerMarkers?.end) || 0)
+      };
     const audioPaths = (daw?.clips || [])
       .filter(clip => clip.type !== 'chord' && clip.bufferKey)
       .map(clip => ({
@@ -43,7 +48,7 @@
         filePath: clip._filePath || null
       }));
 
-    return { tracks, clips, sections, loop, audioPaths };
+    return { tracks, clips, sections, loop, arrangerMarkers, audioPaths };
   }
 
   function create({
@@ -71,6 +76,7 @@
       song._dawClips = timeline.clips;
       song._dawSections = timeline.sections;
       song._dawLoop = timeline.loop;
+      song._arrangerMarkers = timeline.arrangerMarkers;
       song._audioPaths = timeline.audioPaths;
       if (song.midiScore && globalScope.MidiScoreModel?.normalize) {
         try {

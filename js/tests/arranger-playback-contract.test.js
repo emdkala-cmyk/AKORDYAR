@@ -21,9 +21,33 @@ assert.ok(
     html.indexOf('js/app/core.js'),
   'arranger playback policy must load before core'
 );
+assert.ok(
+  html.indexOf('js/editor/ArrangerMarkerService.js') <
+    html.indexOf('js/editor/EditorHydrationService.js'),
+  'arranger marker service must load before hydration'
+);
 assert.match(core, /ArrangerPlaybackPolicyService/);
 assert.match(core, /!arrPerformActive && !getEditorDAW\(\)\.isRecording/);
 assert.match(core, /arrangerPlaybackPolicy\?\.createBoundary/);
+assert.match(core, /arrangerMarkers:\s*songData\._arrangerMarkers/);
+assert.match(core, /legacyLoopState:\s*songData\._dawLoop/);
+assert.match(core, /playbackStart:\s*playbackBoundary\.start/);
 assert.match(editor, /arrangerPlaybackPolicy\?\.applyToDAW/);
+assert.match(editor, /seekTransport\(arrPerformActive \? playbackBoundary\.start : 0, false, true\)/);
+assert.match(editor, /arrangerMarkers:\s*ns\.arrangerMarkers/);
+
+assert.match(
+  html,
+  /<div[^>]*data-inline-actions[^>]*>\s*<button[^>]*id="sendToArrangerBtn"[^>]*data-action="sendToArranger"/
+);
+assert.match(
+  editor,
+  /sendToArranger:\s*\(\)\s*=>\s*sendCurrentSongToArranger\(\)/
+);
+assert.match(core, /async function sendCurrentSongToArranger/);
+assert.match(html, /data-action="setArrangerA"/);
+assert.match(html, /data-action="setArrangerB"/);
+assert.match(html, /id="arranger-markers-overlay"/);
+assert.match(core, /function renderArrangerMarkers/);
 
 console.log('Arranger playback contract tests passed');

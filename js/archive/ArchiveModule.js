@@ -75,6 +75,13 @@
       return daw;
     }
 
+    function getArchiveArrangerMarkers(song) {
+      return window.ArrangerMarkerService?.fromSong?.(song) || {
+        start: Math.max(0, Number(song?._arrangerMarkers?.start ?? song?._dawLoop?.loopA) || 0),
+        end: Math.max(0, Number(song?._arrangerMarkers?.end ?? song?._dawLoop?.loopB) || 0)
+      };
+    }
+
     // --- Storage (IndexedDB — ظرفیت بالا + کش همگام) ---
     let _archCache = null;
     const _dbReq = indexedDB.open('ChordSongDB', 1);
@@ -266,6 +273,7 @@
       daw.clips = []; daw.sections = []; daw.selectedIds.clear(); daw.selectedSectionIds = new Set();
       daw.bufferCache.clear(); daw.waveCache.clear();
       daw.loopEnabled = false; daw.loopA = 0; daw.loopB = 10;
+      daw.arrangerMarkers = { start: 0, end: 0 };
       isRecordingChords = false; currentRecordingClipId = null;
       setEditorSong(JSON.parse(JSON.stringify(data)));
       const song = getArchiveSong();
@@ -308,6 +316,7 @@
       const _oldS = daw.clips.filter(c => c.type === 'section');
       if (_oldS.length > 0) { _oldS.forEach(c => { daw.sections.push({ id:c.id,trackId:c.trackId,label:c.name,start:c.start,duration:c.duration,color:c.color }); }); daw.clips = daw.clips.filter(c => c.type !== 'section'); }
       if (song._dawLoop) { daw.loopEnabled = !!song._dawLoop.loopEnabled; daw.loopA = song._dawLoop.loopA||0; daw.loopB = song._dawLoop.loopB||10; }
+      daw.arrangerMarkers = getArchiveArrangerMarkers(song);
       ensureAudioCtx();
       daw.tracks.forEach(t => { if (t.type === 'audio') { if (t.transpose===undefined) t.transpose=0; t._pannerNode=daw.audioCtx.createStereoPanner(); t._gainNode=daw.audioCtx.createGain(); t._pannerNode.connect(t._gainNode); t._gainNode.connect(daw.masterGain); updateTrackMix(t.id); } });
       // Audio from IndexedDB (only embedded)
@@ -386,6 +395,13 @@
       song._dawClips = daw.clips.map(c => { const cp={...c}; delete cp._peaks; delete cp.waveUrl; delete cp._fileHandle; delete cp._originalBlob; return cp; });
       song._dawSections = (daw.sections||[]).map(s=>({...s}));
       song._dawLoop = { loopEnabled:daw.loopEnabled, loopA:daw.loopA, loopB:daw.loopB };
+      song._arrangerMarkers = getArchiveArrangerMarkers(song);
+      if (daw.arrangerMarkers) {
+        song._arrangerMarkers = {
+          start: Math.max(0, Number(daw.arrangerMarkers.start) || 0),
+          end: Math.max(0, Number(daw.arrangerMarkers.end) || 0)
+        };
+      }
       if (typeof saveCurrentVersion==='function') saveCurrentVersion();
       song._audioPaths = [];
       for (const clip of daw.clips) {
@@ -1912,6 +1928,7 @@ saveState();
             pauseTransport(); stopAllVoices();
             daw.clips = []; daw.sections = []; daw.selectedIds.clear(); daw.selectedSectionIds = new Set(); daw.bufferCache.clear(); daw.waveCache.clear();
             daw.loopEnabled = false; daw.loopA = 0; daw.loopB = 10;
+            daw.arrangerMarkers = { start: 0, end: 0 };
             setEditorSong(data);
             const song = getArchiveSong();
             if (!song.styles) song.styles = {};
@@ -1941,6 +1958,7 @@ saveState();
               daw.clips = daw.clips.filter(c => c.type !== 'section');
             }
             if (song._dawLoop) { daw.loopEnabled = !!song._dawLoop.loopEnabled; daw.loopA = song._dawLoop.loopA||0; daw.loopB = song._dawLoop.loopB||10; }
+            daw.arrangerMarkers = getArchiveArrangerMarkers(song);
             ensureAudioCtx();
             daw.tracks.forEach(tr => {
               if (tr.type === 'audio') {
