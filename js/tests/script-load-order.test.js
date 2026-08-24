@@ -299,6 +299,14 @@ assert.ok(
     scriptIndex('js/archive/ArchiveStorageService.js')
 );
 assert.ok(
+  scriptIndex('js/archive/ArchiveStorageService.js') <
+    scriptIndex('js/archive/ArchiveMigrationService.js')
+);
+assert.ok(
+  scriptIndex('js/archive/ArchiveMigrationService.js') <
+    scriptIndex('js/archive/ArchiveModule.js')
+);
+assert.ok(
   scriptIndex('js/editor/HistoryService.js') <
     scriptIndex('js/app/core.js')
 );

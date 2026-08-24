@@ -109,30 +109,29 @@
       return getArchiveStorageService().setAllSongs(arr);
     }
 
-    // --- ID ---
-    function archGenId() {
-      if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
-      return Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 10);
+    // --- Identity and migration bridge ---
+    let _archiveMigrationService = null;
+    function getArchiveMigrationService() {
+      if (!_archiveMigrationService) {
+        const create = window.ArchiveMigrationService?.create;
+        if (typeof create !== 'function') {
+          throw new Error('ArchiveMigrationService is not loaded. Check script order.');
+        }
+        _archiveMigrationService = create({
+          schemaVersion: ARCH_SCHEMA_VERSION,
+          cryptoRef: window.crypto,
+          setSongs: edSetAllSongs
+        });
+      }
+      return _archiveMigrationService;
     }
 
-    // --- Migration ---
+    function archGenId() {
+      return getArchiveMigrationService().generateId();
+    }
+
     function archMigrate(songs) {
-      let changed = false; const seen = new Set();
-      for (const s of songs) {
-        if (!s.id || seen.has(s.id)) { s.id = archGenId(); changed = true; }
-        seen.add(String(s.id));
-        const defs = { schemaVersion: ARCH_SCHEMA_VERSION, deletedAt: null, favorite: false, categories: [], tags: [] };
-        for (const [k,v] of Object.entries(defs)) { if (s[k] === undefined) { s[k] = v; changed = true; } }
-        if (!s.createdAt) { s.createdAt = s.updatedAt || new Date().toISOString(); changed = true; }
-        if (!s.updatedAt) { s.updatedAt = new Date().toISOString(); changed = true; }
-        if (s.lastOpenedAt === undefined) { s.lastOpenedAt = null; changed = true; }
-        if (s.importedAt === undefined) { s.importedAt = null; changed = true; }
-        if (s.sourceFileName === undefined) { s.sourceFileName = ''; changed = true; }
-        if (s.status === undefined) { s.status = 'active'; changed = true; }
-        if (s.id !== undefined) s.id = String(s.id);
-      }
-      if (changed) edSetAllSongs(songs);
-      return songs;
+      return getArchiveMigrationService().migrate(songs);
     }
     try { archMigrate(edGetAllSongs()); } catch(_) {}
 
