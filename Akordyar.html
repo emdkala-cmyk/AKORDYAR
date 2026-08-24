@@ -400,9 +400,12 @@
         <button class="tl-tool-btn" data-action="setLoopB" title="Set Loop B (O)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><polyline points="12 19 19 12 12 5"/></svg></button>
         <button class="tl-tool-btn" data-action="clearLoop" title="Clear Loop"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
         <div class="arranger-marker-divider" aria-hidden="true"></div>
-        <button class="tl-tool-btn arranger-marker-btn arranger-marker-a-btn" data-action="setArrangerA" title="تعیین شروع ارنجر A">A</button>
-        <button class="tl-tool-btn arranger-marker-btn arranger-marker-b-btn" data-action="setArrangerB" title="تعیین تعویض ارنجر B">B</button>
-        <button class="tl-tool-btn arranger-marker-btn arranger-marker-clear-btn" data-action="clearArrangerMarkers" title="پاک کردن markerهای ارنجر">×</button>
+        <button class="tl-tool-btn arranger-marker-btn arranger-marker-toggle-btn" id="arranger-marker-toggle" data-action="toggleArrangerMarkers" title="فعال‌سازی A/B ارنجر" aria-pressed="false">A/B</button>
+        <div class="arranger-marker-controls" id="arranger-marker-controls" style="display:none;">
+          <button class="tl-tool-btn arranger-marker-btn arranger-marker-a-btn" data-action="setArrangerA" title="تعیین شروع ارنجر A">A</button>
+          <button class="tl-tool-btn arranger-marker-btn arranger-marker-b-btn" data-action="setArrangerB" title="تعیین تعویض ارنجر B">B</button>
+          <button class="tl-tool-btn arranger-marker-btn arranger-marker-clear-btn" data-action="clearArrangerMarkers" title="پاک کردن markerهای ارنجر">×</button>
+        </div>
         <div style="width:1px;height:20px;background:var(--border-subtle);margin:0 4px;"></div>
         <button class="tl-tool-btn" id="playheadModeBtn" data-action="togglePlayheadMode" title="Playhead Mode: Page Scroll / Center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="22"/><polyline points="8 6 12 2 16 6"/><polyline points="8 18 12 22 16 18"/></svg></button>
         <button class="tl-snap-btn active" id="snapBtn" data-action="toggleSnap" title="Snap (S)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 3L3 21"/><path d="M21 3v7"/><path d="M21 3h-7"/></svg></button>

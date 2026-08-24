@@ -1,9 +1,9 @@
 /**
  * ArrangerPlaybackPolicyService
  *
- * Arranger playback uses independent A/B markers as a bounded segment:
- * A is the start position and B is the transition position. Editor looping
- * remains a separate concern and is only disabled while the setlist runs.
+ * Arranger playback uses opt-in independent A/B markers as a bounded segment:
+ * A is the start position and B is the transition position. When markers are
+ * disabled, the full song timeline is used. Editor looping remains separate.
  */
 (function attachArrangerPlaybackPolicyService(globalScope) {
   function finiteNumber(value, fallback = 0) {
@@ -34,20 +34,23 @@
     const contentEnd = getTimelineEnd({ clips, sections });
     const fallback = Math.max(0, finiteNumber(fallbackEnd));
     const timelineEnd = contentEnd > 0 ? contentEnd : fallback;
+    // `legacyLoopState` is intentionally ignored. Editor loop points must not
+    // become arranger A/B points unless the user explicitly enables them.
     const markerSource = arrangerMarkers &&
-      typeof arrangerMarkers === 'object'
+      typeof arrangerMarkers === 'object' &&
+      arrangerMarkers.enabled === true
       ? arrangerMarkers
-      : legacyLoopState;
+      : null;
     const configuredStart = Math.max(
       0,
       finiteNumber(
         markerSource?.start,
-        finiteNumber(markerSource?.loopA, 0)
+        0
       )
     );
     const configuredEnd = finiteNumber(
       markerSource?.end,
-      finiteNumber(markerSource?.loopB, 0)
+      0
     );
     const hasConfiguredRange = configuredEnd > configuredStart;
 

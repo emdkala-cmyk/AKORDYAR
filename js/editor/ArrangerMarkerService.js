@@ -1,9 +1,9 @@
 /**
  * ArrangerMarkerService
  *
- * Normalizes the independent per-song arranger A/B markers. Legacy songs
- * without `_arrangerMarkers` are migrated from `_dawLoop` only at load time;
- * new saves always use the separate arranger field.
+ * Normalizes the independent per-song arranger A/B markers. Marker use is
+ * opt-in through `enabled`; editor loop points are never migrated into
+ * arranger points automatically.
  */
 (function attachArrangerMarkerService(globalScope) {
   function finiteNumber(value, fallback = 0) {
@@ -11,24 +11,23 @@
     return Number.isFinite(number) ? number : fallback;
   }
 
-  function normalize(markers = null, legacyLoopState = null) {
-    const source = markers && typeof markers === 'object'
-      ? markers
-      : legacyLoopState;
+  function normalize(markers = null) {
+    const source = markers && typeof markers === 'object' ? markers : null;
     return {
+      enabled: source?.enabled === true,
       start: Math.max(
         0,
-        finiteNumber(source?.start, finiteNumber(source?.loopA, 0))
+        finiteNumber(source?.start, 0)
       ),
       end: Math.max(
         0,
-        finiteNumber(source?.end, finiteNumber(source?.loopB, 0))
+        finiteNumber(source?.end, 0)
       )
     };
   }
 
   function fromSong(song) {
-    return normalize(song?._arrangerMarkers, song?._dawLoop);
+    return normalize(song?._arrangerMarkers);
   }
 
   function fromDAW(daw) {

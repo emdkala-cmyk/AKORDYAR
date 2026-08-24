@@ -49,7 +49,11 @@ assert.match(
 assert.match(core, /async function sendCurrentSongToArranger/);
 assert.match(html, /data-action="setArrangerA"/);
 assert.match(html, /data-action="setArrangerB"/);
+assert.match(html, /data-action="toggleArrangerMarkers"/);
+assert.match(html, /id="arranger-marker-controls"/);
 assert.match(html, /id="arranger-markers-overlay"/);
 assert.match(core, /function renderArrangerMarkers/);
+assert.match(core, /markers\.enabled === true/);
+assert.match(editor, /toggleArrangerMarkers:\s*\(\)\s*=>\s*toggleArrangerMarkers\(\)/);
 
 console.log('Arranger playback contract tests passed');

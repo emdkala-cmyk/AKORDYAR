@@ -41,7 +41,7 @@ const daw = {
   loopEnabled: true,
   loopA: 1,
   loopB: 3,
-  arrangerMarkers: { start: 5, end: 17 },
+  arrangerMarkers: { enabled: true, start: 5, end: 17 },
   bufferCache: new Map([['embedded-1', buffer]])
 };
 
@@ -71,7 +71,7 @@ const service = exportModule.create({
   assert.equal(bundle.song._dawClips[0]._fileHandle, undefined);
   assert.equal(bundle.song._dawClips[0]._originalBlob, undefined);
   assert.equal(bundle.song._embeddedAudio['embedded-1'].format, 'wav');
-  assert.deepEqual(bundle.song._arrangerMarkers, { start: 5, end: 17 });
+  assert.deepEqual(bundle.song._arrangerMarkers, { enabled: true, start: 5, end: 17 });
   assert.equal(bundle.audioCount, 1);
   assert.equal(bundle.linkedCount, 1);
   assert.equal(bundle.defaultName, 'Export test (کامل).json');

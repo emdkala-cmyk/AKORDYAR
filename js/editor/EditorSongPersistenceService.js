@@ -36,6 +36,7 @@
     };
     const arrangerMarkers =
       globalScope.ArrangerMarkerService?.fromDAW?.(daw) || {
+        enabled: daw?.arrangerMarkers?.enabled === true,
         start: Math.max(0, Number(daw?.arrangerMarkers?.start) || 0),
         end: Math.max(0, Number(daw?.arrangerMarkers?.end) || 0)
       };

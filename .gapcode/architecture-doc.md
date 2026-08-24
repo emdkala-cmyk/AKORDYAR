@@ -283,7 +283,7 @@ quality:legacy-deps موفق
 سخت ۶۰۰۰ و ۶۵۰۰ خط هستند. مرحلهٔ بعد باید روی hydration/restore و keyboard
 seamهای باقی‌مانده تمرکز کند؛ بدنهٔ legacy رندر ترک دیگر در core باقی نمانده است.
 
-## آخرین snapshot عملیاتی — ۲۴ اوت ۲۰۲۶، پس از اصلاح باگ ارنجر
+## آخرین snapshot عملیاتی — ۲۴ اوت ۲۰۲۶، پس از اختیاری‌شدن A/B ارنجر
 
 مرزهای اصلی این موج اکنون شامل موارد زیر هستند:
 
@@ -295,7 +295,8 @@ seamهای باقی‌مانده تمرکز کند؛ بدنهٔ legacy رندر 
   restore callbackمحور؛
 - `dead-code-contract.test.js`: جلوگیری از بازگشت placeholderهای بدون مصرف.
 - `ArrangerMarkerService` و `ArrangerPlaybackPolicyService`: نگهداری مستقل
-  `_arrangerMarkers`، مهاجرت legacy و تبدیل A/B هر آهنگ به مرز اجرای setlist؛
+  `_arrangerMarkers` با فعال‌سازی opt-in از طریق `enabled` و تبدیل A/B هر
+  آهنگ به مرز اجرای setlist؛ مهاجرت خودکار از `loopA/loopB` انجام نمی‌شود.
   loop خاموش می‌شود اما `loopA/loopB` دست‌نخورده می‌مانند؛ hot-swap نیز
   origin صوتی AudioContext را همراه A آهنگ جدید دوباره تنظیم می‌کند.
 
@@ -305,11 +306,16 @@ seamهای باقی‌مانده تمرکز کند؛ بدنهٔ legacy رندر 
 
 ```text
 js/app.js       ۱۲۴ خط
-js/app/core.js  ۵۸۲۴ خط در quality line-budget
-js/app/editor.js ۶۲۱۵ خط در quality line-budget
+js/app/core.js  ۵۸۵۳ خط در quality line-budget
+js/app/editor.js ۶۲۱۷ خط در quality line-budget
 تست‌ها         ۱۰۴ ورودی موفق
 lint            ۱۰۹ فایل JavaScript موفق
 ```
 
 ایمن‌سازی کامل QR و سینک موبایل طبق دامنهٔ تعیین‌شدهٔ کاربر در این موج
 دست‌نخورده باقی مانده‌اند.
+
+در حالت پیش‌فرض `arrangerMarkers.enabled` برابر `false` است؛ در این وضعیت
+کنترل‌های A/B و overlayهای آن‌ها نمایش داده نمی‌شوند و policy ارنجر کل بازهٔ
+زمانی آهنگ را اجرا می‌کند. فعال‌سازی از دکمهٔ مستقل `A/B` در timeline انجام
+می‌شود و به state loop شخصی آهنگ وابسته نیست.

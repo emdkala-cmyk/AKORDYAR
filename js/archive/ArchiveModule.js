@@ -77,8 +77,9 @@
 
     function getArchiveArrangerMarkers(song) {
       return window.ArrangerMarkerService?.fromSong?.(song) || {
-        start: Math.max(0, Number(song?._arrangerMarkers?.start ?? song?._dawLoop?.loopA) || 0),
-        end: Math.max(0, Number(song?._arrangerMarkers?.end ?? song?._dawLoop?.loopB) || 0)
+        enabled: song?._arrangerMarkers?.enabled === true,
+        start: Math.max(0, Number(song?._arrangerMarkers?.start) || 0),
+        end: Math.max(0, Number(song?._arrangerMarkers?.end) || 0)
       };
     }
 
@@ -273,7 +274,7 @@
       daw.clips = []; daw.sections = []; daw.selectedIds.clear(); daw.selectedSectionIds = new Set();
       daw.bufferCache.clear(); daw.waveCache.clear();
       daw.loopEnabled = false; daw.loopA = 0; daw.loopB = 10;
-      daw.arrangerMarkers = { start: 0, end: 0 };
+      daw.arrangerMarkers = { enabled: false, start: 0, end: 0 };
       isRecordingChords = false; currentRecordingClipId = null;
       setEditorSong(JSON.parse(JSON.stringify(data)));
       const song = getArchiveSong();
@@ -398,6 +399,7 @@
       song._arrangerMarkers = getArchiveArrangerMarkers(song);
       if (daw.arrangerMarkers) {
         song._arrangerMarkers = {
+          enabled: daw.arrangerMarkers.enabled === true,
           start: Math.max(0, Number(daw.arrangerMarkers.start) || 0),
           end: Math.max(0, Number(daw.arrangerMarkers.end) || 0)
         };
@@ -1928,7 +1930,7 @@ saveState();
             pauseTransport(); stopAllVoices();
             daw.clips = []; daw.sections = []; daw.selectedIds.clear(); daw.selectedSectionIds = new Set(); daw.bufferCache.clear(); daw.waveCache.clear();
             daw.loopEnabled = false; daw.loopA = 0; daw.loopB = 10;
-            daw.arrangerMarkers = { start: 0, end: 0 };
+            daw.arrangerMarkers = { enabled: false, start: 0, end: 0 };
             setEditorSong(data);
             const song = getArchiveSong();
             if (!song.styles) song.styles = {};

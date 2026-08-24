@@ -42,7 +42,7 @@ const daw = {
   loopEnabled: true,
   loopA: 2,
   loopB: 6,
-  arrangerMarkers: { start: 4, end: 18 }
+  arrangerMarkers: { enabled: true, start: 4, end: 18 }
 };
 
 let metadataSynced = 0;
@@ -81,6 +81,7 @@ assert.deepEqual(JSON.parse(JSON.stringify(song._dawLoop)), {
   loopB: 6
 });
 assert.deepEqual(JSON.parse(JSON.stringify(song._arrangerMarkers)), {
+  enabled: true,
   start: 4,
   end: 18
 });

@@ -156,7 +156,7 @@
     if (!daw) return {
       migratedSections: [],
       loopState: null,
-      arrangerMarkers: { start: 0, end: 0 }
+      arrangerMarkers: { enabled: false, start: 0, end: 0 }
     };
 
     if (song?._dawTracks) {
@@ -187,8 +187,9 @@
     }
 
     const arrangerMarkers = globalScope.ArrangerMarkerService?.fromSong?.(song) || {
-      start: Math.max(0, Number(song?._arrangerMarkers?.start ?? song?._dawLoop?.loopA) || 0),
-      end: Math.max(0, Number(song?._arrangerMarkers?.end ?? song?._dawLoop?.loopB) || 0)
+      enabled: song?._arrangerMarkers?.enabled === true,
+      start: Math.max(0, Number(song?._arrangerMarkers?.start) || 0),
+      end: Math.max(0, Number(song?._arrangerMarkers?.end) || 0)
     };
     daw.arrangerMarkers = arrangerMarkers;
 

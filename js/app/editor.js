@@ -340,7 +340,7 @@ function getMidiScoreController() {
         start: 0,
         end: getProjectEnd(),
         selectionEnd: getProjectEnd(),
-        markers: { start: 0, end: getProjectEnd() }
+        markers: { enabled: false, start: 0, end: getProjectEnd() }
       };
 
       if (arrPerformActive) {
@@ -5481,6 +5481,7 @@ if ($('edDoBoth')) {
       'setArrangerA': () => setArrangerA(),
       'setArrangerB': () => setArrangerB(),
       'clearArrangerMarkers': () => clearArrangerMarkers(),
+      'toggleArrangerMarkers': () => toggleArrangerMarkers(),
       'undo': () => getHistoryService().undo(),
       'redo': () => getHistoryService().redo(),
       'fullscreen': () => { if (!getEditorDAW().isPlaying) { ensureAudioCtx(); if (getEditorDAW().playhead <= 0) seekTransport(0, false); startTransport(); } openLyricOnlyPopup(); setTimeout(openLyricPopup, 300); },
@@ -5540,6 +5541,7 @@ if ($('edDoBoth')) {
       setArrangerA: () => setArrangerA(),
       setArrangerB: () => setArrangerB(),
       clearArrangerMarkers: () => clearArrangerMarkers(),
+      toggleArrangerMarkers: () => toggleArrangerMarkers(),
       togglePlayheadMode: () => togglePlayheadMode(),
       toggleSnap: () => toggleSnap(),
       showQuantize: () => showQuantizeModal(),

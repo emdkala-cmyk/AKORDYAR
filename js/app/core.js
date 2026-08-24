@@ -2825,8 +2825,11 @@ sels.forEach(c => {
 
     function getArrangerMarkers() {
       const daw = getEditorDAW();
-      if (!daw.arrangerMarkers || typeof daw.arrangerMarkers !== 'object') {
-        daw.arrangerMarkers = { start: 0, end: 0 };
+      const normalize = globalScope.ArrangerMarkerService?.normalize;
+      if (typeof normalize === 'function') {
+        daw.arrangerMarkers = normalize(daw.arrangerMarkers);
+      } else if (!daw.arrangerMarkers || typeof daw.arrangerMarkers !== 'object') {
+        daw.arrangerMarkers = { enabled: false, start: 0, end: 0 };
       }
       return daw.arrangerMarkers;
     }
@@ -2842,6 +2845,7 @@ sels.forEach(c => {
         return;
       }
       const markers = getArrangerMarkers();
+      markers.enabled = true;
       const maxTime = getProjectEnd();
       const start = Math.min(
         clamp(getEditorDAW().playhead, 0, maxTime),
@@ -2862,6 +2866,7 @@ sels.forEach(c => {
         return;
       }
       const markers = getArrangerMarkers();
+      markers.enabled = true;
       const end = Math.max(
         0.5,
         clamp(getEditorDAW().playhead, 0, getProjectEnd())
@@ -2880,10 +2885,22 @@ sels.forEach(c => {
         toast('markerهای ارنجر هنگام اجرا قابل تغییر نیستند');
         return;
       }
-      getEditorDAW().arrangerMarkers = { start: 0, end: 0 };
+      getEditorDAW().arrangerMarkers = { enabled: false, start: 0, end: 0 };
       renderArrangerMarkers();
       persistArrangerMarkers();
       toast('markerهای ارنجر پاک شد');
+    }
+
+    function toggleArrangerMarkers() {
+      if (arrPerformActive) {
+        toast('markerهای ارنجر هنگام اجرا قابل تغییر نیستند');
+        return;
+      }
+      const markers = getArrangerMarkers();
+      markers.enabled = markers.enabled !== true;
+      renderArrangerMarkers();
+      persistArrangerMarkers();
+      toast(markers.enabled ? 'A/B ارنجر فعال شد' : 'A/B ارنجر غیرفعال شد');
     }
 
     // P key: set loop range from selection (no activate)
@@ -2960,9 +2977,12 @@ sels.forEach(c => {
 
     function renderArrangerMarkers() {
       const markers = getArrangerMarkers();
+      const enabled = markers.enabled === true;
       const start = Number(markers.start);
       const end = Number(markers.end);
-      const hasRange = Number.isFinite(start) && Number.isFinite(end) && end > start;
+      const hasRange = enabled && Number.isFinite(start) && Number.isFinite(end) && end > start;
+      const toggle = $('arranger-marker-toggle');
+      const controls = $('arranger-marker-controls');
       const rulerOverlay = $('arranger-markers-overlay');
       const timelineOverlay = $('arranger-markers-timeline-overlay');
       const markerA = $('arranger-marker-a');
@@ -2970,6 +2990,12 @@ sels.forEach(c => {
       const lineA = $('arranger-marker-line-a');
       const lineB = $('arranger-marker-line-b');
 
+      if (toggle) {
+        toggle.classList.toggle('arranger-marker-enabled', enabled);
+        toggle.setAttribute('aria-pressed', String(enabled));
+        toggle.title = enabled ? 'غیرفعال‌سازی A/B ارنجر' : 'فعال‌سازی A/B ارنجر';
+      }
+      if (controls) controls.style.display = enabled ? 'flex' : 'none';
       [rulerOverlay, timelineOverlay].forEach(el => {
         if (el) el.style.display = hasRange ? 'block' : 'none';
       });
@@ -5388,8 +5414,9 @@ let syncTapKeyHandler = null;
       } else {
         ensureAudioCtx();
         if (getEditorDAW().playhead <= 0) {
+          const markers = getArrangerMarkers();
           seekTransport(
-            arrPerformActive ? (getEditorDAW().arrangerMarkers?.start || 0) : 0,
+            arrPerformActive && markers.enabled === true ? (markers.start || 0) : 0,
             false,
             true
           );
@@ -5401,8 +5428,9 @@ let syncTapKeyHandler = null;
 
     function perfRestartSong() {
       document.activeElement?.blur();
+      const markers = getArrangerMarkers();
       seekTransport(
-        arrPerformActive ? (getEditorDAW().arrangerMarkers?.start || 0) : 0,
+        arrPerformActive && markers.enabled === true ? (markers.start || 0) : 0,
         false,
         true
       );
@@ -5713,12 +5741,13 @@ let syncTapKeyHandler = null;
           start: 0,
           end: 30,
           selectionEnd: 30,
-          markers: { start: 0, end: 30 }
+          markers: { enabled: false, start: 0, end: 30 }
         };
         const savedArrangerMarkers =
           globalScope.ArrangerMarkerService?.fromSong?.(songData) || {
-            start: Math.max(0, Number(songData._arrangerMarkers?.start ?? songData._dawLoop?.loopA) || 0),
-            end: Math.max(0, Number(songData._arrangerMarkers?.end ?? songData._dawLoop?.loopB) || 0)
+            enabled: songData._arrangerMarkers?.enabled === true,
+            start: Math.max(0, Number(songData._arrangerMarkers?.start) || 0),
+            end: Math.max(0, Number(songData._arrangerMarkers?.end) || 0)
           };
 
         // آپدیت sourceDuration و peaks برای کلیپ‌های که لود شدن

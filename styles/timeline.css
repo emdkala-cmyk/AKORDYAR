@@ -328,7 +328,11 @@
 .tl-tool-btn.loop-active { background: #2D5EA8; color: #fff; border-color: #64B4FF; }
 .tl-tool-btn.loop-active:hover { background: #3A6EB8; }
 .arranger-marker-divider { width: 1px; height: 20px; background: rgba(255,255,255,0.18); margin: 0 2px; }
+.arranger-marker-controls { display: flex; align-items: center; gap: 2px; }
 .arranger-marker-btn { min-width: 24px; padding: 0 6px; font-weight: 900; font-family: 'JetBrains Mono', monospace; }
+.arranger-marker-toggle-btn { color: #C4B5FD; border-color: rgba(196,181,253,0.7); min-width: 36px; }
+.arranger-marker-toggle-btn:hover,
+.arranger-marker-toggle-btn.arranger-marker-enabled { color: #1E1B4B; background: #C4B5FD; border-color: #C4B5FD; }
 .arranger-marker-a-btn { color: #7CFFB2; border-color: rgba(124,255,178,0.7); }
 .arranger-marker-a-btn:hover { color: #052e16; background: #7CFFB2; border-color: #7CFFB2; }
 .arranger-marker-b-btn { color: #FFB86B; border-color: rgba(255,184,107,0.75); }

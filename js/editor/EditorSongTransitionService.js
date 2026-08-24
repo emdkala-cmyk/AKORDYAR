@@ -97,11 +97,11 @@
       }
       daw.arrangerMarkers =
         globalScope.ArrangerMarkerService?.normalize?.(
-          arrangerMarkers,
-          song?._arrangerMarkers || song?._dawLoop
+          arrangerMarkers || song?._arrangerMarkers
         ) || {
-          start: Math.max(0, Number(arrangerMarkers?.start ?? song?._arrangerMarkers?.start ?? song?._dawLoop?.loopA) || 0),
-          end: Math.max(0, Number(arrangerMarkers?.end ?? song?._arrangerMarkers?.end ?? song?._dawLoop?.loopB) || 0)
+          enabled: arrangerMarkers?.enabled === true || song?._arrangerMarkers?.enabled === true,
+          start: Math.max(0, Number(arrangerMarkers?.start ?? song?._arrangerMarkers?.start) || 0),
+          end: Math.max(0, Number(arrangerMarkers?.end ?? song?._arrangerMarkers?.end) || 0)
         };
 
       const nextSong = repairSong(song) || song;

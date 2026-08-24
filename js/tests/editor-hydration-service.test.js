@@ -10,7 +10,7 @@ const song = {
     { id: 'clip-1', type: 'audio', start: 4, duration: 2 }
   ],
   _dawLoop: { loopEnabled: true, loopA: 2, loopB: 8 },
-  _arrangerMarkers: { start: 3, end: 9 }
+  _arrangerMarkers: { enabled: true, start: 3, end: 9 }
 };
 
 const repaired = hydration.normalizeSong(song, {
@@ -46,7 +46,7 @@ assert.equal(daw.clips.length, 1);
 assert.equal(daw.loopEnabled, true);
 assert.equal(daw.loopA, 2);
 assert.equal(daw.loopB, 8);
-assert.deepEqual(daw.arrangerMarkers, { start: 3, end: 9 });
-assert.deepEqual(result.arrangerMarkers, { start: 3, end: 9 });
+assert.deepEqual(daw.arrangerMarkers, { enabled: true, start: 3, end: 9 });
+assert.deepEqual(result.arrangerMarkers, { enabled: true, start: 3, end: 9 });
 
 console.log('EditorHydrationService tests passed');
