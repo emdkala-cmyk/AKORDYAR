@@ -110,6 +110,33 @@ function makeBuffer(duration = 3) {
   assert.equal(missingResult.missing, 1);
   assert.deepEqual(missingResult.missingNames, ['missing.wav']);
 
+  const handleDaw = {
+    clips: [{
+      id: 'handle-audio',
+      type: 'audio',
+      bufferKey: 'handle-key',
+      fileName: 'handle.wav'
+    }],
+    bufferCache: new Map()
+  };
+  const handleService = recoveryModule.create({
+    getDAW: () => handleDaw,
+    getFileHandle: async key => key === 'handle-key'
+      ? {
+          requestPermission: async () => 'granted',
+          getFile: async () => ({ name: 'handle.wav' })
+        }
+      : null,
+    decodeFileToBuffer: async () => ({ buffer: makeBuffer(6) })
+  });
+  const handleResult = await handleService.restoreSongAudio({
+    id: 'song-5'
+  });
+
+  assert.equal(handleResult.loaded, 1);
+  assert.equal(handleResult.missing, 0);
+  assert.equal(handleDaw.bufferCache.get('handle-key').duration, 6);
+
   console.log('AudioRecoveryService tests passed');
 })().catch(error => {
   console.error(error);

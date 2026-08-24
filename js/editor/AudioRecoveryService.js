@@ -335,7 +335,7 @@
         `[Audio Init] ${missing.length} clip(s) need audio loading. ` +
           `isElectron=${context.isElectron}, _audioPaths=${paths.length}`
       );
-      if (!missing.length || !paths.length) {
+      if (!missing.length) {
         return updateMissingResult(result, daw);
       }
 
@@ -345,6 +345,7 @@
 
       missing = missingAudioClips(daw);
       if (!missing.length) return result;
+      if (!paths.length) return updateMissingResult(result, daw);
 
       let directory = await context.getDirHandle?.();
       if (!directory) {
@@ -353,7 +354,7 @@
         } catch (_) {}
       }
 
-      if (directory) {
+      if (directory && paths.length) {
         try {
           const permission = await directory.requestPermission({ mode: 'read' });
           if (permission === 'granted') {
