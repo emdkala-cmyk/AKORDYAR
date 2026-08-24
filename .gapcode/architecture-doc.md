@@ -282,3 +282,30 @@ quality:legacy-deps موفق
 `core.js` و `editor.js` هنوز warning هدف extraction دارند، اما هر دو زیر سقف
 سخت ۶۰۰۰ و ۶۵۰۰ خط هستند. مرحلهٔ بعد باید روی hydration/restore و keyboard
 seamهای باقی‌مانده تمرکز کند؛ بدنهٔ legacy رندر ترک دیگر در core باقی نمانده است.
+
+## آخرین snapshot عملیاتی — ۲۴ اوت ۲۰۲۶، پایان موج بیست‌مرحله‌ای
+
+مرزهای اصلی این موج اکنون شامل موارد زیر هستند:
+
+- `TimelineSectionRendererService`: projection و تعامل sectionهای timeline؛
+- `PopupWindowService`: lifecycle مشترک popupها روی `WindowBridge`؛
+- `EditorProjectFileService`، `EditorProjectExportRouteService` و
+  `EditorProjectImportRouteService`: مسیرهای مستقل فایل پروژه؛
+- `EditorLifecycleService` و سرویس‌های state/audio editor: lifecycle و
+  restore callbackمحور؛
+- `dead-code-contract.test.js`: جلوگیری از بازگشت placeholderهای بدون مصرف.
+
+وضعیت فعلی همچنان hybrid است. wrapperهای عمومی و compatibility boundaryهای
+لازم برای hot-swap، Electron و مسیرهای قدیمی حذف نشده‌اند. هشدار line budget
+برای `core.js` و `editor.js` هدف بعدی معماری است، نه خطای runtime.
+
+```text
+js/app.js       ۱۲۴ خط
+js/app/core.js  ۵۶۲۶ خط در quality line-budget
+js/app/editor.js ۶۱۷۲ خط در quality line-budget
+تست‌ها         ۱۰۱ ورودی موفق
+lint            ۱۰۷ فایل JavaScript موفق
+```
+
+ایمن‌سازی کامل QR و سینک موبایل طبق دامنهٔ تعیین‌شدهٔ کاربر در این موج
+دست‌نخورده باقی مانده‌اند.
