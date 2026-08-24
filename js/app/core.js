@@ -7,10 +7,6 @@
 // در دسترس نیست. حالا از window.electronAPI (که preload.js ست می‌کنه) استفاده می‌کنیم.
 const isElectron = !!(typeof window !== 'undefined' && window.electronAPI && window.electronAPI.isElectron) ||
                    (typeof process !== 'undefined' && process.versions && !!process.versions.electron);
-// fs و path در renderer با contextIsolation:true در دسترس نیستن.
-// به‌جاش از window.electronAPI استفاده می‌کنیم که IPC handlers رو فراهم می‌کنه.
-const fs = null; // استفاده نمی‌شه — به‌جاش از window.electronAPI.checkFileExists و readAudioFile استفاده می‌کنیم
-const path = null; // استفاده نمی‌شه — به‌جاش از window.electronAPI.resolvePath و getProjectDir استفاده می‌کنیم
 
 if (isElectron) {
   console.log('[App] Electron mode detected. electronAPI available:', !!window.electronAPI);
