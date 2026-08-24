@@ -5,12 +5,20 @@
 // Keep selection state initialized before DOM setup can register handlers.
 let edSelectedChords = [];
 
+const editorPopupWindowService = window.PopupWindowService?.create?.({
+  windowRef: window,
+  windowBridge: window.WindowBridge
+});
+
 function editorPopupIsOpen(popup) {
-  return window.WindowBridge?.isOpen?.(popup) ?? Boolean(popup && !popup.closed);
+  return (
+    editorPopupWindowService?.isOpen?.(popup) ??
+    Boolean(popup && !popup.closed)
+  );
 }
 
 function editorPopupDocument(popup) {
-  return window.WindowBridge?.getDocument?.(popup) || null;
+  return editorPopupWindowService?.getDocument?.(popup) || null;
 }
 
 let edSongTransitionService = null;

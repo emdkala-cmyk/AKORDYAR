@@ -39,6 +39,18 @@ assert.ok(
     scriptIndex('js/app/core.js')
 );
 assert.ok(
+  scriptIndex('js/core/WindowBridge.js') <
+    scriptIndex('js/core/PopupWindowService.js')
+);
+assert.ok(
+  scriptIndex('js/core/PopupWindowService.js') <
+    scriptIndex('js/app/core.js')
+);
+assert.ok(
+  scriptIndex('js/core/PopupWindowService.js') <
+    scriptIndex('js/app/editor.js')
+);
+assert.ok(
   scriptIndex('js/app/constants.js') <
     scriptIndex('js/app/core.js')
 );

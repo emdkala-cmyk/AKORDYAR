@@ -2914,19 +2914,35 @@ sels.forEach(c => {
 
     /* ===== POPUP WINDOW FULLSCREEN ===== */
     const popupWindowBridge = globalScope.WindowBridge;
+    const popupWindowService = globalScope.PopupWindowService?.create?.({
+      windowRef: window,
+      windowBridge: popupWindowBridge
+    });
     function isPopupOpen(popup) {
-      return popupWindowBridge?.isOpen?.(popup) ?? Boolean(popup && !popup.closed);
+      return (
+        popupWindowService?.isOpen?.(popup) ??
+        Boolean(popup && !popup.closed)
+      );
     }
     function popupDocument(popup) {
-      return popupWindowBridge?.getDocument?.(popup) || null;
+      return popupWindowService?.getDocument?.(popup) || null;
     }
     function openPopupWindow(name, features) {
+      if (popupWindowService?.open) {
+        return popupWindowService.open({ url: '', name, features }) || null;
+      }
       return popupWindowBridge?.open?.({
         windowRef: window,
         url: '',
         name,
         features
       }) || null;
+    }
+    function focusPopupWindow(popup) {
+      if (popupWindowService?.focus) {
+        return popupWindowService.focus(popup);
+      }
+      return popupWindowBridge?.focus?.(popup) ?? false;
     }
 
     let _lyricPopup = null;
@@ -2962,7 +2978,7 @@ sels.forEach(c => {
     }
 
     function openLyricPopup() {
-      if (isPopupOpen(_lyricPopup)) { popupWindowBridge?.focus?.(_lyricPopup); return; }
+      if (isPopupOpen(_lyricPopup)) { focusPopupWindow(_lyricPopup); return; }
       _lyricPopup = openPopupWindow('lyricPopup', 'width=900,height=700,menubar=no,toolbar=no,location=no,status=no');
       if (!_lyricPopup) { toast(t('popupBlocked')); return; }
       popupWindowBridge?.set?.(_lyricPopup, '__popupRole', 'player');
@@ -2973,7 +2989,7 @@ sels.forEach(c => {
     // ===== LYRIC-ONLY POPUP (singer view, no chords) =====
     let _lyricOnlyPopup = null;
     function openLyricOnlyPopup() {
-      if (isPopupOpen(_lyricOnlyPopup)) { popupWindowBridge?.focus?.(_lyricOnlyPopup); return; }
+      if (isPopupOpen(_lyricOnlyPopup)) { focusPopupWindow(_lyricOnlyPopup); return; }
       _lyricOnlyPopup = openPopupWindow('lyricOnlyPopup', 'width=650,height=400,menubar=no,toolbar=no,location=no,status=no');
       if (!_lyricOnlyPopup) { toast(t('popupBlocked')); return; }
       popupWindowBridge?.set?.(_lyricOnlyPopup, '__popupRole', 'singer');
@@ -3099,7 +3115,7 @@ sels.forEach(c => {
     // ===== CHORD LINE POPUP (detachable, small) =====
     let _chordLinePopup = null;
     function openChordLinePopup() {
-      if (isPopupOpen(_chordLinePopup)) { popupWindowBridge?.focus?.(_chordLinePopup); return; }
+      if (isPopupOpen(_chordLinePopup)) { focusPopupWindow(_chordLinePopup); return; }
       _chordLinePopup = openPopupWindow('chordLinePopup', 'width=650,height=400,menubar=no,toolbar=no,location=no,status=no');
       if (!_chordLinePopup) { toast(t('popupBlocked')); return; }
       syncChordLinePopup();
