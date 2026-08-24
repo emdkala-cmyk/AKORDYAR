@@ -175,6 +175,10 @@ assert.ok(
     scriptIndex('js/editor/EditorProjectExportService.js')
 );
 assert.ok(
+  scriptIndex('js/editor/EditorProjectImportRouteService.js') <
+    scriptIndex('js/archive/ArchiveModule.js')
+);
+assert.ok(
   scriptIndex('js/editor/EditorProjectExportService.js') <
     scriptIndex('js/app/core.js')
 );

@@ -7,18 +7,22 @@ const archive = fs.readFileSync(
   path.join(projectRoot, 'js', 'archive', 'ArchiveModule.js'),
   'utf8'
 );
+const routeService = fs.readFileSync(
+  path.join(projectRoot, 'js', 'editor', 'EditorProjectImportRouteService.js'),
+  'utf8'
+);
 
-const nativeDialogIndex = archive.indexOf('window.electronAPI.openFileDialog');
-const nativeLoadIndex = archive.indexOf('window.electronAPI.loadProjectFile');
 const browserInputIndex = archive.lastIndexOf('input.click();');
 
 assert.match(archive, /async function edImportProject\(\)/);
-assert.notEqual(nativeDialogIndex, -1);
-assert.notEqual(nativeLoadIndex, -1);
-assert.ok(nativeDialogIndex < browserInputIndex);
-assert.ok(nativeLoadIndex < browserInputIndex);
+assert.match(archive, /getArchiveProjectImportRouteService\(\)\?\.openNative\?\.\(/);
+assert.doesNotMatch(archive, /window\.electronAPI\.openFileDialog/);
+assert.doesNotMatch(archive, /window\.electronAPI\.loadProjectFile/);
+assert.match(routeService, /openFileDialog/);
+assert.match(routeService, /loadProjectFile/);
+assert.ok(browserInputIndex !== -1);
 assert.match(
-  archive,
+  routeService,
   /text:\s*async\s*\(\)\s*=>\s*JSON\.stringify\(data\)/
 );
 
