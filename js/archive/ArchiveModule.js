@@ -26,6 +26,7 @@
     let _archSearchIndex = null;
     let _archProjectImportRouteService = null;
     let _archiveProjectPersistenceService = null;
+    let _archiveBatchImportService = null;
 
     function getArchiveRuntimeAdapter() {
       const adapter = window.ArchiveRuntimeAdapter;
@@ -287,6 +288,35 @@
       return _archiveProjectPersistenceService;
     }
 
+    // --- Batch import bridge ---
+    function getArchiveBatchImportService() {
+      if (!_archiveBatchImportService) {
+        const create = window.ArchiveBatchImportService?.create;
+        if (typeof create !== 'function') {
+          throw new Error('ArchiveBatchImportService is not loaded. Check script order.');
+        }
+        _archiveBatchImportService = create({
+          documentRef: window.document,
+          showDirectoryPicker: window.showDirectoryPicker?.bind(window),
+          getElement: id => $(id),
+          getAllSongs: edGetAllSongs,
+          setAllSongs: edSetAllSongs,
+          prepareSong: ensureSongParsed,
+          normalizeSong: archNormalize,
+          generateId: archGenId,
+          resetSearchCache: () => {
+            _archSearchIndex = null;
+            _archArtistCache = null;
+          },
+          renderArchive: archRender,
+          renderArtists: archRenderArtists,
+          openArchive: edOpenArchive,
+          toast
+        });
+      }
+      return _archiveBatchImportService;
+    }
+
     // --- Shared Load Project Data ---
     async function loadProjectData(data, options = {}) {
       return getArchiveProjectPersistenceService().load(data, options);
@@ -331,95 +361,17 @@
       return song;
     }
 
-    // --- Import Songs (Multi) ---
-    async function archImportFiles() {
-      const input = document.createElement('input');
-      input.type='file'; input.accept='.json'; input.multiple=true;
-      input.onchange = async (e) => {
-        const files = e.target.files;
-        if (!files||!files.length) return;
-        const existing = edGetAllSongs();
-        let added=0, updated=0, errors=0;
-        for (const file of files) {
-          try {
-            const text = await file.text();
-            let data; try { data=JSON.parse(text); } catch(_) { errors++; continue; }
-            if (!data||typeof data!=='object') { errors++; continue; }
-            ensureSongParsed(data);
-            const dup = existing.find(es=>String(es.id)===String(data.id)) || existing.find(es=>es.artist===data.artist&&es.title===data.title&&es.title);
-            if (dup) { Object.assign(dup, archNormalize(data,file.name)); dup.updatedAt=new Date().toISOString(); updated++; }
-            else { const song=archNormalize(data,file.name); if (!song.id) song.id=archGenId(); existing.unshift(song); added++; }
-          } catch(_) { errors++; }
-        }
-        edSetAllSongs(existing);
-        _archSearchIndex = null; _archArtistCache = null;
-        if ($('archiveModal').classList.contains('show')) { archRender(); archRenderArtists(); }
-        else { archRender(); edOpenArchive(); }
-        toast(added+' وارد شد'+(updated?'، '+updated+' به‌روزرسانی':'')+(errors?'، '+errors+' خطا':''));
-      };
-      input.click();
+    // --- Import Songs (Multi) and Folder ---
+    function archImportFiles(files) {
+      return getArchiveBatchImportService().importFiles(files);
     }
-    function edImportArchiveFromJson() { archImportFiles(); }
 
-    // --- Import from Folder (recursive: reads subfolders too) ---
-    async function archImportFolder() {
-      if (!window.showDirectoryPicker) {
-        toast('مرورگر شما از انتخاب پوشه پشتیبانی نمی‌کند');
-        return;
-      }
-      let dirHandle;
-      try {
-        dirHandle = await window.showDirectoryPicker({ mode: 'read' });
-      } catch(e) { if (e.name !== 'AbortError') toast('خطا در انتخاب پوشه'); return; }
+    function edImportArchiveFromJson(files) {
+      return archImportFiles(files);
+    }
 
-      toast('در حال خواندن فایل‌ها از پوشه...');
-      const jsonFiles = [];
-
-      async function readDirRecursive(handle, path) {
-        let entries;
-        try { entries = handle.entries(); } catch(_) { return; }
-        for await (const [name, child] of entries) {
-          const childPath = path ? path + '/' + name : name;
-          try {
-            if (child.kind === 'file' && name.endsWith('.json')) {
-              jsonFiles.push({ handle: child, path: childPath });
-            } else if (child.kind === 'directory') {
-              await readDirRecursive(child, childPath);
-            }
-          } catch(_) { /* رد کردن فایل/پوشه خراب */ }
-        }
-      }
-
-      try {
-        await readDirRecursive(dirHandle, '');
-      } catch(e) {
-        toast('خطا در خواندن پوشه: ' + e.message);
-        return;
-      }
-
-      if (!jsonFiles.length) { toast('هیچ فایل JSON در پوشه پیدا نشد'); return; }
-
-      const existing = edGetAllSongs();
-      let added = 0, updated = 0, errors = 0;
-
-      for (const { handle: fileHandle, path: filePath } of jsonFiles) {
-        try {
-          const file = await fileHandle.getFile();
-          const text = await file.text();
-          let data; try { data = JSON.parse(text); } catch(_) { errors++; continue; }
-          if (!data || typeof data !== 'object') { errors++; continue; }
-          ensureSongParsed(data);
-          const dup = existing.find(es => String(es.id) === String(data.id)) || existing.find(es => es.artist === data.artist && es.title === data.title && es.title);
-          if (dup) { Object.assign(dup, archNormalize(data, filePath)); dup.updatedAt = new Date().toISOString(); updated++; }
-          else { const song = archNormalize(data, filePath); if (!song.id) song.id = archGenId(); existing.unshift(song); added++; }
-        } catch(_) { errors++; }
-      }
-
-      edSetAllSongs(existing);
-      _archSearchIndex = null; _archArtistCache = null;
-      if ($('archiveModal').classList.contains('show')) { archRender(); archRenderArtists(); }
-      else { archRender(); edOpenArchive(); }
-      toast(`${added} وارد شد${updated ? '، ' + updated + ' به‌روزرسانی' : ''}${errors ? '، ' + errors + ' خطا' : ''} (از ${jsonFiles.length} فایل)`);
+    function archImportFolder(directoryHandle) {
+      return getArchiveBatchImportService().importFolder(directoryHandle);
     }
 
     // --- Import Full Archive ---
