@@ -14,6 +14,7 @@ const files = [
   'js/app/CoreTimelineRendererService.js',
   'js/app/CoreClipService.js',
   'js/app/CoreAudioImportService.js',
+  'js/app/CoreClipEditService.js',
   'js/app/core.js',
   'js/app/editor.js',
   'js/app/search.js',

@@ -40,6 +40,7 @@ const coreTimelineGeometryService = read('js/app/CoreTimelineGeometryService.js'
 const coreTimelineRendererService = read('js/app/CoreTimelineRendererService.js');
 const coreClipService = read('js/app/CoreClipService.js');
 const coreAudioImportService = read('js/app/CoreAudioImportService.js');
+const coreClipEditService = read('js/app/CoreClipEditService.js');
 const editor = executableLines(read('js/app/editor.js'));
 const appCore = executableLines(read('js/app/core.js'));
 const search = executableLines(read('js/app/search.js'));
@@ -154,6 +155,9 @@ assert.doesNotMatch(
   appCore,
   /\$\('audio-file-input'\)\.addEventListener\('change'/
 );
+assert.match(coreClipEditService, /function cutAtTime\(time, trackId = null\)/);
+assert.doesNotMatch(appCore, /function cutAtTime\(time, trackId = null\)/);
+assert.doesNotMatch(appCore, /\bsels\.forEach\(c =>/);
 
 assert.doesNotMatch(appCore, /\bPERF\s*\./);
 assert.doesNotMatch(appCore, /\bDAW\s*\./);

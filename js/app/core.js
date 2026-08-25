@@ -1081,41 +1081,25 @@ function applyState(stateStr) {
     function cutSelected() { getClipboardService()?.cutSelected(); }
     function pasteClipboard() { getClipboardService()?.pasteClipboard(); }
     function duplicateSelected() { getClipboardService()?.duplicateSelected(); }
-    function cutAtTime(time, trackId = null) {
-  const t = roundMs(time);
-  if (!trackId) return false;
-
-  const hits = getEditorDAW().clips.filter(c => {
-    if (c.trackId !== trackId) return false;
-    return t > c.start + 0.01 &&
-           t < c.start + c.duration - 0.01;
-  });
-
-      if (!hits.length) {
-        seekTransport(t, true);
-        toast(t('noClipToCut'));
-        return false;
-      }
-
-      const created = [];
-sels.forEach(c => {
-  if (c.type !== 'chord') return;
-  const r = splitClipAt(c, getEditorDAW().playhead);
-  if (r) created.push(r.id);
-});
-
-
-      seekTransport(t, true);
-      if (created.length) {
-        getEditorDAW().selectedIds = new Set(created);
-        saveState(); renderAll();
-        if (getEditorDAW().isPlaying) scheduleAllFromPlayhead();
-        toast(`${t('clipsCut')}: ${hits.length}`);
-        return true;
-      }
-      renderAll();
-      return false;
-    }
+    const coreClipEditRuntime =
+      globalScope.CoreClipEditService?.create?.({
+        getDAW: () => getEditorDAW(),
+        roundMs: value => roundMs(value),
+        splitClipAt: (...args) => splitClipAt(...args),
+        seekTransport: (...args) => seekTransport(...args),
+        saveState: (...args) => saveState(...args),
+        renderAll: (...args) => renderAll(...args),
+        scheduleAllFromPlayhead: (...args) =>
+          scheduleAllFromPlayhead(...args),
+        toast: message => toast(message),
+        translate: key => globalScope.t?.(key) ?? key
+      });
+    if (!coreClipEditRuntime) throw new Error(
+      'CoreClipEditService باید قبل از app/core.js بارگذاری شود.'
+    );
+    const { cutAtTime } = coreClipEditRuntime;
+    Object.assign(globalScope, { cutAtTime });
+    corePublicApi.publish({ cutAtTime });
 
     function openTimelineChordEditor(clipId) {
       const clip = getClip(clipId);
