@@ -35,6 +35,7 @@ for (const activeScript of [
   'js/editor/EditorPopupTimelineSyncService.js',
   'js/editor/EditorSyncAnalysisUiService.js',
   'js/editor/EditorLyricsChordInteractionService.js',
+  'js/app/AppI18nService.js',
   'js/editor/EditorProjectFileService.js',
   'js/editor/EditorProjectExportRouteService.js',
   'js/editor/EditorProjectImportRouteService.js',
