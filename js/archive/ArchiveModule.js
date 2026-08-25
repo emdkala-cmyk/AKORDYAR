@@ -32,6 +32,7 @@
     let _archiveArtistImageService = null;
     let _archiveRenderService = null;
     let _archiveSearchService = null;
+    let _archiveListViewService = null;
 
     function getArchiveRuntimeAdapter() {
       const adapter = window.ArchiveRuntimeAdapter;
@@ -377,6 +378,41 @@
       return _archiveRenderService;
     }
 
+    // --- List/view bridge ---
+    function getArchiveListViewService() {
+      if (!_archiveListViewService) {
+        const create = window.ArchiveListViewService?.create;
+        if (typeof create !== 'function') {
+          throw new Error('ArchiveListViewService is not loaded. Check script order.');
+        }
+        _archiveListViewService = create({
+          documentRef: window.document,
+          storage: window.localStorage,
+          getElement: id => $(id),
+          getViewMode: () => _archViewMode,
+          setViewMode: value => {
+            _archViewMode = value;
+          },
+          getCurrentTab: () => _archCurrentTab,
+          setCurrentTab: value => {
+            _archCurrentTab = value;
+          },
+          render: archRender,
+          loadSong: archLoadSong,
+          loadSongReadOnly: archLoadSongReadOnly,
+          editSong: archEditOpen,
+          toggleFavorite: archToggleFav,
+          duplicateSong: archDuplicateSong,
+          exportSong: archExportSong,
+          trashSong: archTrashSong,
+          restoreSong: archRestoreSong,
+          permanentDelete: archPermanentDelete,
+          showContextMenu: archCtxShow
+        });
+      }
+      return _archiveListViewService;
+    }
+
     // --- Batch import bridge ---
     function getArchiveBatchImportService() {
       if (!_archiveBatchImportService) {
@@ -605,48 +641,22 @@
       return getArchiveLifecycleService().close();
     }
 
-    // --- Event Delegation ---
+    // --- Event delegation and view facade ---
     function archHandleListClick(e) {
-      const card = e.target.closest('[data-song-id]');
-      if (!card) return;
-      const id = String(card.dataset.songId);
-      if (e.target.closest('[data-arch-action]')) {
-        e.stopPropagation();
-        const action = e.target.closest('[data-arch-action]').dataset.archAction;
-        archDispatchAction(action, id, e);
-        return;
-      }
-      // Click on card body = open
-      if (!e.target.closest('.archive-card-actions')&&!e.target.closest('.archive-card-check')) {
-        archLoadSong(id);
-      }
+      return getArchiveListViewService().handleListClick(e);
     }
     function archHandleListKeydown(e) {
-      if (e.key!=='Enter'&&e.key!=='Delete') return;
-      const card = e.target.closest('[data-song-id]');
-      if (!card) return;
-      const id = String(card.dataset.songId);
-      if (e.key==='Enter') archLoadSong(id);
-      if (e.key==='Delete') archTrashSong(id);
+      return getArchiveListViewService().handleListKeydown(e);
     }
     function archDispatchAction(action, id, e) {
-      switch(action) {
-        case 'open': archLoadSong(id); break;
-        case 'readonly': archLoadSongReadOnly(id); break;
-        case 'edit': archEditOpen(id); break;
-        case 'fav': archToggleFav(id); break;
-        case 'duplicate': archDuplicateSong(id); break;
-        case 'export': archExportSong(id); break;
-        case 'trash': archTrashSong(id); break;
-        case 'restore': archRestoreSong(id); break;
-        case 'permanent-delete': archPermanentDelete(id); break;
-        case 'menu': archCtxShow(e, id); break;
-      }
+      return getArchiveListViewService().dispatchAction(action, id, e);
     }
-
-    // --- View / Tab ---
-    function archSetView(mode) { _archViewMode=mode; localStorage.setItem('arch_view_mode',mode); $('archViewCard').classList.toggle('active-blue',mode==='card'); $('archViewTable').classList.toggle('active-blue',mode==='table'); $('archiveList').classList.toggle('table-view',mode==='table'); archRender(); }
-    function archSetTab(tab) { _archCurrentTab=tab; document.querySelectorAll('.archive-tabs .at-tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===tab)); archRender(); }
+    function archSetView(mode) {
+      return getArchiveListViewService().setView(mode);
+    }
+    function archSetTab(tab) {
+      return getArchiveListViewService().setTab(tab);
+    }
 
     // --- Select ---
     function archToggleSelectMode() {
