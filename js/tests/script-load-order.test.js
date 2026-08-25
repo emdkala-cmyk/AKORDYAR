@@ -379,6 +379,10 @@ assert.ok(
     scriptIndex('js/archive/ArchiveModule.js')
 );
 assert.ok(
+  scriptIndex('js/archive/ArchiveSongLoadService.js') <
+    scriptIndex('js/archive/ArchiveModule.js')
+);
+assert.ok(
   scriptIndex('js/editor/HistoryService.js') <
     scriptIndex('js/app/core.js')
 );

@@ -30,6 +30,7 @@
     let _archiveRenderService = null;
     let _archiveSearchService = null;
     let _archiveListViewService = null;
+    let _archiveSongLoadService = null;
 
     function getArchiveRuntimeAdapter() {
       const adapter = window.ArchiveRuntimeAdapter;
@@ -410,6 +411,39 @@
       return _archiveListViewService;
     }
 
+    // --- Editable song load bridge ---
+    function getArchiveSongLoadService() {
+      if (!_archiveSongLoadService) {
+        const create = window.ArchiveSongLoadService?.create;
+        if (typeof create !== 'function') {
+          throw new Error('ArchiveSongLoadService is not loaded. Check script order.');
+        }
+        _archiveSongLoadService = create({
+          getAllSongs: edGetAllSongs,
+          getCurrentSong: getArchiveSongOrNull,
+          getLoading: () => _archState.loading,
+          setLoading: value => {
+            _archState.loading = value;
+          },
+          ensureSongParsed,
+          hasUnsavedChanges: () => historyLength() > 1,
+          confirmUnsaved: () => archConfirm(
+            'پروژه ذخیره نشده',
+            'تغییرات ذخیره‌نشده‌ای وجود دارد. آیا می‌خواهید قبل از لود ذخیره کنید؟',
+            'ذخیره و لود',
+            false
+          ),
+          saveCurrent: edSaveToArchive,
+          closeArchive: archClose,
+          loadProject: loadProjectData,
+          setAllSongs: edSetAllSongs,
+          toast,
+          logError: console.error
+        });
+      }
+      return _archiveSongLoadService;
+    }
+
     // --- Batch import bridge ---
     function getArchiveBatchImportService() {
       if (!_archiveBatchImportService) {
@@ -743,36 +777,7 @@
 
     // --- Load Song (Main) ---
     async function archLoadSong(id) {
-      if (_archState.loading) return;
-      _archState.loading = true;
-      try {
-        const songs = edGetAllSongs();
-        const s = songs.find(x => String(x.id) === String(id));
-        if (!s || s.deletedAt) { toast('ترانه یافت نشد'); _archState.loading=false; return; }
-        toast('در حال باز کردن ترانه...');
-        // Parse rawText if lyrics/chords are missing (bulk import case)
-        ensureSongParsed(s);
-        // Check unsaved changes: history length > 1 means user made changes after loading
-        if (getArchiveSongOrNull() && historyLength() > 1) {
-          const ok = await archConfirm('پروژه ذخیره نشده', 'تغییرات ذخیره‌نشده‌ای وجود دارد. آیا می‌خواهید قبل از لود ذخیره کنید؟', 'ذخیره و لود', false);
-          if (ok) await edSaveToArchive();
-        }
-        // Close archive FIRST to prevent any UI blocking
-        archClose();
-        // Load project
-        await loadProjectData(s);
-        // Update lastOpenedAt
-        const all2 = edGetAllSongs();
-        const idx2 = all2.findIndex(x => String(x.id) === String(getArchiveSong().id));
-        if (idx2 > -1) { all2[idx2].lastOpenedAt = new Date().toISOString(); edSetAllSongs(all2); }
-        toast('پروژه لود شد: ' + (getArchiveSong().title || 'بدون نام'));
-      } catch(err) {
-        console.error('Archive load error:', err);
-        toast('خطا در لود ترانه: ' + (err.message || 'خطای ناشناخته'));
-        // Do NOT close archive on error
-      } finally {
-        _archState.loading = false;
-      }
+      return getArchiveSongLoadService().load(id);
     }
     function edLoadFromArchive(id) { archLoadSong(id); }
 
