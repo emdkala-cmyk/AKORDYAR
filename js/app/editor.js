@@ -3133,43 +3133,6 @@ function edBlankSong() {
       edFilterChordsWithBase(ch => ch.lineIndex >= 0);
     }
 
-    if ($('editor')) {
-      $('editor').addEventListener('input', () => {
-  const songState = getEditorSongStateService();
-  if (!songState?.currentSong?.()) return;
-
-  const oldText = songState.getLyrics();
-  const newText = edGetLyricsFromDOM();
-  if (oldText === newText) return;
-
-  songState.setLyrics(newText);
-
-  // Remap anchors and sequence points immediately
-  edRemapAnchors(oldText, newText);
-  edRemapSeqPoints(oldText, newText);
-
-  // Debounced editor refresh
-  edScheduleEditorRefresh();
-
-  // Debounced commit for undo stack
-  clearTimeout(edCommitTimer);
-  edCommitTimer = setTimeout(() => {
-    edCommit();
-  }, 300);
-
-  // Debounced save
-  edScheduleSave();
-});
-
-;
-      $('editor').addEventListener('paste', e => {
-        e.preventDefault();
-        let text = (e.clipboardData||window.clipboardData).getData('text/plain');
-        // Remove ALL empty lines
-        text = text.split('\n').filter(line => line.trim() !== '').join('\n');
-        document.execCommand('insertText', false, text);
-      });
-    }
     let edSelectionService = null;
     function getEditorSelectionService() {
       if (
@@ -3250,23 +3213,6 @@ function edBlankSong() {
       }
       return edChordInteractionService;
     }
-    // Clear selection when clicking empty area
-if ($('editorWrap')) {
-  $('editorWrap').addEventListener('mousedown', e => {
-    if (!edCur) return;
-
-    clearSelection();
-
-    if (!e.altKey &&
-        !edAltDown &&
-        !e.target.closest('.chord')) {
-      edClearChordSelection();
-    }
-  }, true);
-}
-
-
-
     // -- Chord Drag --
     function edAttachChordDrag(el, idx) {
   getEditorChordInteractionService()?.attach(el, idx);
@@ -3292,26 +3238,44 @@ if ($('editorWrap')) {
     }
     getEditorGlobalBindingsService()?.bind?.();
 
-    // -- Mousedown on editorWrap: Alt+Click = add chord --
-    if ($('editorWrap')) {
-      $('editorWrap').addEventListener('mousedown', e => {
-        if (!edCur) return;
-        if (edCur.editorLocked && !e.target.closest('.chord')) {
-          toast('🔒 ویرایشگر قفل است');
-          const btn = $('edEditorLockBtn');
-          if (btn) { btn.classList.add('editor-lock-blink'); setTimeout(() => btn.classList.remove('editor-lock-blink'), 2000); }
-          return;
-        }
-        const altHeld = e.altKey || edAltDown;
-        if (altHeld) {
-          if (edCur.editorLocked) { toast('🔒 ویرایشگر قفل است'); return; }
-          e.preventDefault(); e.stopPropagation();
-          const anchor = anchorFromPoint(e.clientX, e.clientY);
-          if (!anchor) return;
-          edPendingAnchor = anchor; edChordIdx = null; edOpenChordModal(null);
-          return;
-        }
-      });
+    let edLyricsChordInteractionService = null;
+    if (typeof window.EditorLyricsChordInteractionService?.create === 'function') {
+      edLyricsChordInteractionService =
+        window.EditorLyricsChordInteractionService.create({
+          getSongState: () => getEditorSongStateService(),
+          getEditor: () => $('editor'),
+          getEditorWrap: () => $('editorWrap'),
+          getEditorText: () => edGetLyricsFromDOM(),
+          executeCommand: (...args) => document.execCommand?.(...args),
+          remapAnchors: (oldText, newText) => edRemapAnchors(oldText, newText),
+          remapSequencePoints: (oldText, newText) =>
+            edRemapSeqPoints(oldText, newText),
+          scheduleEditorRefresh: () => edScheduleEditorRefresh(),
+          scheduleCommit: () => {
+            clearTimeout(edCommitTimer);
+            edCommitTimer = setTimeout(() => edCommit(), 300);
+          },
+          scheduleSave: () => edScheduleSave(),
+          clearSelection,
+          clearChordSelection: () => edClearChordSelection(),
+          isAltDown: () => edAltDown,
+          anchorFromPoint,
+          onLocked: () => {
+            const button = $('edEditorLockBtn');
+            if (button) {
+              button.classList.add('editor-lock-blink');
+              setTimeout(
+                () => button.classList.remove('editor-lock-blink'),
+                2000
+              );
+            }
+          },
+          setPendingAnchor: value => { edPendingAnchor = value; },
+          setChordIndex: value => { edChordIdx = value; },
+          openChordModal: index => edOpenChordModal(index),
+          toast
+        });
+      edLyricsChordInteractionService.bind();
     }
 
     // -- Arrow keys to move selected chord (from file 2) --
