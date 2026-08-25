@@ -611,7 +611,34 @@ function historyLength() {
 function isHistoryApplying() {
   return getHistoryService().isApplying();
 }
-    const timeToX = (t) => t * getEditorDAW().pxPerSecond;
+    const coreTimelineGeometryRuntime =
+      globalScope.CoreTimelineGeometryService?.create?.({
+        getDAW: () => getEditorDAW(),
+        getTimelineInner: () => document.getElementById('tl-inner'),
+        clamp: (value, minimum, maximum) => clamp(value, minimum, maximum),
+        getTimingContext: () =>
+          requireEditorSongStateService().getTimingContext(),
+        meter: globalScope.Meter,
+        syncTimelineViewportToPlayhead: (...args) =>
+          syncTimelineViewportToPlayhead(...args)
+      });
+    if (!coreTimelineGeometryRuntime) {
+      throw new Error(
+        'CoreTimelineGeometryService باید قبل از app/core.js بارگذاری شود.'
+      );
+    }
+    const {
+      timeToX,
+      xToTime,
+      timeToBarBeat,
+      barBeatToTime,
+      getProjectEnd,
+      ensureTimelineFits,
+      clientToTime,
+      clientToInnerPoint,
+      autoScrollToPlayhead
+    } = Object.assign(globalScope, coreTimelineGeometryRuntime);
+    corePublicApi.publish(coreTimelineGeometryRuntime);
     const waveformBridge =
       globalScope.EditorWaveformBridgeService.create({
         ensureAudioCtx: () => ensureAudioCtx(),
@@ -622,25 +649,12 @@ function isHistoryApplying() {
         documentRef: document,
         clamp: (value, min, max) => clamp(value, min, max),
         timeToX: (value) => timeToX(value)
-      });
+    });
     window.waveformService = waveformBridge.service;
-    const xToTime = (x) => x / getEditorDAW().pxPerSecond;
-
-    function getProjectEnd() {
-      const daw = getEditorDAW();
-      let end = 30;
-      for (const c of daw.clips) end = Math.max(end, c.start + c.duration);
-      for (const s of (daw.sections || [])) end = Math.max(end, s.start + s.duration);
-      return Math.max(daw.timelineDuration, end + 8);
-    }
     function getClip(id) { return getEditorDAW().clips.find(c => c.id === id); }
     function selectedClips() {
       const daw = getEditorDAW();
       return daw.clips.filter(c => daw.selectedIds.has(c.id));
-    }
-    function ensureTimelineFits(needed) {
-      const daw = getEditorDAW();
-      if (needed > daw.timelineDuration) daw.timelineDuration = needed;
     }
 
 function setEditorSong(song) {
@@ -816,20 +830,6 @@ function applyState(stateStr) {
     }
 
     // ===== Cubase-style Timeline Grid =====
-    function timeToBarBeat(seconds) {
-      const timing = requireEditorSongStateService().getTimingContext();
-      const bpm = timing.tempo;
-      const sig = timing.timeSignature;
-      return window.Meter.timeToBarBeat(seconds, sig, bpm);
-    }
-
-    function barBeatToTime(bar, beat) {
-      const timing = requireEditorSongStateService().getTimingContext();
-      const bpm = timing.tempo;
-      const sig = timing.timeSignature;
-      return window.Meter.barBeatToTime(bar, beat, sig, bpm);
-    }
-
     function drawLaneGrid(canvas) {
       const timing = requireEditorSongStateService().getTimingContext();
       TimelineGrid.drawLaneGrid(canvas, {
@@ -912,10 +912,6 @@ function applyState(stateStr) {
         el.addEventListener('pointerdown', onClipMouseDown); lane.appendChild(el);
       });
       getTimelineSectionRendererService()?.renderSections?.();
-    }
-
-    function autoScrollToPlayhead() {
-      syncTimelineViewportToPlayhead();
     }
 
     function updateHud() { $('clip-count').textContent = String(getEditorDAW().clips.length + (getEditorDAW().sections || []).length); }
@@ -1214,9 +1210,6 @@ sels.forEach(c => {
       renderAll();
       return false;
     }
-
-    function clientToTime(clientX) { const inner = $('tl-inner').getBoundingClientRect(); return clamp(xToTime(clientX - inner.left), 0, getProjectEnd()); }
-    function clientToInnerPoint(clientX, clientY) { const inner = $('tl-inner').getBoundingClientRect(); return { x: clientX - inner.left, y: clientY - inner.top }; }
 
     function openTimelineChordEditor(clipId) {
       const clip = getClip(clipId);

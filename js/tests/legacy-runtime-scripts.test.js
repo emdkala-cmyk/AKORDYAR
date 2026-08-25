@@ -40,6 +40,7 @@ for (const activeScript of [
   'js/app/CoreGridQuantizeService.js',
   'js/app/CoreMetronomeService.js',
   'js/app/CorePanelLayoutService.js',
+  'js/app/CoreTimelineGeometryService.js',
   'js/editor/EditorProjectFileService.js',
   'js/editor/EditorProjectExportRouteService.js',
   'js/editor/EditorProjectImportRouteService.js',
