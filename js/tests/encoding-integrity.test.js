@@ -21,6 +21,7 @@ const files = [
   'js/app/CoreClipDeletionService.js',
   'js/app/CoreClipboardBridgeService.js',
   'js/app/CoreMixerBridgeService.js',
+  'js/app/CoreRecordingService.js',
   'js/app/core.js',
   'js/app/editor.js',
   'js/app/search.js',

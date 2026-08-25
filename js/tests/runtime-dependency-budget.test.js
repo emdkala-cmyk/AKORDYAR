@@ -48,6 +48,7 @@ const coreClipDeletionService = read('js/app/CoreClipDeletionService.js');
 const coreClipboardBridgeService = read(
   'js/app/CoreClipboardBridgeService.js'
 );
+const coreRecordingService = read('js/app/CoreRecordingService.js');
 const coreMixerBridgeService = read('js/app/CoreMixerBridgeService.js');
 const editor = executableLines(read('js/app/editor.js'));
 const appCore = executableLines(read('js/app/core.js'));
@@ -191,10 +192,14 @@ assert.match(
 assert.match(coreClipboardBridgeService, /copySelected:\s*call/);
 assert.match(coreClipDeletionService, /function deleteSelected\(\)/);
 assert.match(coreClipDeletionService, /selectedSectionIds/);
+assert.match(coreRecordingService, /function startRec\(\)/);
+assert.match(coreRecordingService, /function finishRec\(blob\)/);
 assert.doesNotMatch(
   appCore,
   /function deleteSelected\(\)/
 );
+assert.doesNotMatch(appCore, /function startRec\(\)/);
+assert.doesNotMatch(appCore, /function finishRec\(blob\)/);
 assert.doesNotMatch(
   appCore,
   /function getClipboardService\(\)/

@@ -1179,6 +1179,8 @@ function applyState(stateStr) {
       openChordEditor(clipId);
     }
 
+    let recordingRuntime = null;
+
     function seekTransport(t, keepPlaying = true, noSnap = false) {
       if (isCountInRunning()) cancelCountIn();
       getEditorDAW().playhead = PlayheadMath.clamp(
@@ -1406,7 +1408,7 @@ function applyState(stateStr) {
 
     function pauseTransport() {
       cancelCountIn();
-      if (getEditorDAW().isRecording) endRec();
+      if (getEditorDAW().isRecording) recordingRuntime?.endRec?.();
       if (getEditorDAW().isPlaying && !getEditorDAW().isScrubbing) {
         getEditorDAW().playhead = getTransportPlayhead();
       }
@@ -1468,207 +1470,45 @@ function applyState(stateStr) {
     function transportToStart() { seekTransport(0); }
     function transportToEnd() { let end = 0; getEditorDAW().clips.forEach(c => end = Math.max(end, c.start + c.duration)); seekTransport(end); }
 
-    /* ============================================================
-       RECORDING (mic/input) + MIXER
-       ============================================================ */
-    function ensureRecLane() {
-      let tr = getEditorDAW().tracks.find(t => t.id === 'tRec');
-      if (!tr) {
-        ensureAudioCtx();
-        tr = { id: 'tRec', name: 'Rec', icon: '●', type: 'audio', isRec: true, muted: false, solo: false, vol: 0.8, pan: 0, transpose: 0, locked: false };
-        const idx = getEditorDAW().tracks.findIndex(t => t.type === 'section');
-        if (idx >= 0) getEditorDAW().tracks.splice(idx + 1, 0, tr); else getEditorDAW().tracks.push(tr);
-      }
-      if (tr.type === 'audio' && !tr._gainNode) {
-        ensureAudioCtx();
-        tr._pannerNode = getEditorDAW().audioCtx.createStereoPanner();
-        tr._gainNode = getEditorDAW().audioCtx.createGain();
-        tr._pannerNode.connect(tr._gainNode);
-        tr._gainNode.connect(getEditorDAW().masterGain);
-      }
-      if (typeof updateTrackMix === 'function') updateTrackMix(tr.id);
-      return tr;
+    const coreRecordingRuntime =
+      globalScope.CoreRecordingService?.create?.({
+        getDAW: () => getEditorDAW(),
+        documentRef: document,
+        getNavigator: () => globalScope.navigator,
+        getMediaRecorder: () => globalScope.MediaRecorder,
+        getBlob: () => globalScope.Blob,
+        requestAnimationFrameRef: (...args) =>
+          globalScope.requestAnimationFrame?.(...args),
+        cancelAnimationFrameRef: (...args) =>
+          globalScope.cancelAnimationFrame?.(...args),
+        ensureAudioCtx: (...args) => ensureAudioCtx(...args),
+        updateTrackMix: (...args) => updateTrackMix(...args),
+        renderAll: (...args) => renderAll(...args),
+        startTransport: (...args) => startTransport(...args),
+        pauseTransport: (...args) => pauseTransport(...args),
+        timeToX: value => timeToX(value),
+        decodeFileToBuffer: (...args) => decodeFileToBuffer(...args),
+        peaksFromBuffer: (...args) => peaksFromBuffer(...args),
+        refreshClipWaveImage: (...args) =>
+          refreshClipWaveImage(...args),
+        ensureTimelineFits: (...args) => ensureTimelineFits(...args),
+        saveState: (...args) => saveState(...args),
+        saveAudioBlobToDB: (...args) =>
+          globalScope.saveAudioBlobToDB?.(...args),
+        uid: prefix => uid(prefix),
+        roundMs: value => roundMs(value),
+        formatTime: value => formatTime(value),
+        toast: message => toast(message),
+        logger: console
+      });
+    if (!coreRecordingRuntime) {
+      throw new Error(
+        'CoreRecordingService باید قبل از app/core.js بارگذاری شود.'
+      );
     }
-
-    function updateRecUI() {
-      const btn = $('recBtn');
-      if (btn) btn.classList.toggle('rec-on', !!getEditorDAW().isRecording);
-      const laneName = document.querySelector('.track-name[data-track-id="tRec"]');
-      if (laneName) laneName.classList.toggle('rec-lane-name', !!getEditorDAW().isRecording);
-      const lane = document.querySelector('.track-lane[data-track-id="tRec"]');
-      if (lane) lane.classList.toggle('rec-lane', !!getEditorDAW().isRecording);
-    }
-
-    function recMimeType() {
-      if (typeof MediaRecorder === 'undefined') return undefined;
-      const types = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/mp4'];
-      for (const t of types) {
-        try { if (MediaRecorder.isTypeSupported(t)) return t; } catch (_) {}
-      }
-      return undefined;
-    }
-
-    async function startRec() {
-      if (getEditorDAW().isRecording) return;
-      if (typeof navigator === 'undefined' || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        toast('ضبط صدا در این محیط پشتیبانی نمی‌شود'); return;
-      }
-      let stream;
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-      } catch (err) {
-        console.error(err);
-        toast('دسترسی به میکروفن/ورودی صوتی رد شد'); return;
-      }
-      try {
-        const ctx = ensureAudioCtx();
-        const recLane = ensureRecLane(); renderAll();
-        const audioSource = ctx.createMediaStreamSource(stream);
-        const analyser = ctx.createAnalyser(); analyser.fftSize = 1024;
-        const dest = ctx.createMediaStreamDestination();
-        audioSource.connect(analyser);
-        analyser.connect(dest);
-
-        const chunks = [];
-        const mrType = recMimeType();
-        const recorder = new MediaRecorder(dest.stream, mrType ? { mimeType: mrType } : undefined);
-        recorder.ondataavailable = (ev) => { if (ev.data && ev.data.size > 0) chunks.push(ev.data); };
-        recorder.onstop = () => {
-          const blob = new Blob(chunks, { type: mrType || recorder.mimeType || 'audio/webm' });
-          finishRec(blob);
-        };
-
-        getEditorDAW().isRecording = true;
-        getEditorDAW().recLaneId = recLane ? recLane.id : 'tRec';
-        getEditorDAW().recStartTime = getEditorDAW().playhead;
-        getEditorDAW().recEndTime = getEditorDAW().playhead;
-        getEditorDAW().recPeaks = [];
-        getEditorDAW().recAnalyser = analyser;
-        getEditorDAW().recStream = stream;
-        getEditorDAW().recMediaRecorder = recorder;
-
-        try { recorder.start(250); } catch (e) {
-          console.error(e); toast('خطا در شروع ضبط');
-          getEditorDAW().isRecording = false; cleanupRecResources(); return;
-        }
-        renderAll();
-        updateRecUI();
-        if (!getEditorDAW().isPlaying) startTransport();
-        toast('● ضبط شروع شد — برای توقف R را بزنید');
-
-        const tickRecWave = () => {
-          if (!getEditorDAW().isRecording) { getEditorDAW().recRafId = null; return; }
-          try {
-            const data = new Float32Array(getEditorDAW().recAnalyser.fftSize);
-            getEditorDAW().recAnalyser.getFloatTimeDomainData(data);
-            let max = 0;
-            for (let i = 0; i < data.length; i++) { const a = Math.abs(data[i]); if (a > max) max = a; }
-            getEditorDAW().recPeaks.push(max);
-          } catch (_) {}
-          renderLiveRecWave();
-          getEditorDAW().recRafId = requestAnimationFrame(tickRecWave);
-        };
-        getEditorDAW().recRafId = requestAnimationFrame(tickRecWave);
-      } catch (err) {
-        console.error(err);
-        toast('خطا در راه‌اندازی ضبط');
-        getEditorDAW().isRecording = false; cleanupRecResources();
-      }
-    }
-
-    function cleanupRecResources() {
-      if (getEditorDAW().recRafId) { cancelAnimationFrame(getEditorDAW().recRafId); getEditorDAW().recRafId = null; }
-      try { if (getEditorDAW().recMediaRecorder && getEditorDAW().recMediaRecorder.state !== 'inactive') getEditorDAW().recMediaRecorder.stop(); } catch (_) {}
-      try { if (getEditorDAW().recStream) getEditorDAW().recStream.getTracks().forEach(t => t.stop()); } catch (_) {}
-      getEditorDAW().recStream = null; getEditorDAW().recMediaRecorder = null; getEditorDAW().recAnalyser = null; getEditorDAW().recPeaks = [];
-      document.querySelectorAll('.rec-live-clip').forEach(el => el.remove());
-    }
-
-    function endRec() {
-      if (!getEditorDAW().isRecording) return;
-      getEditorDAW().recEndTime = getEditorDAW().playhead;
-      cleanupRecResources(); // رویداد onstop، finishRec را صدا می‌زند
-      getEditorDAW().isRecording = false;
-      updateRecUI();
-    }
-
-    function toggleRec() {
-      if (getEditorDAW().isRecording) {
-        endRec();
-        if (getEditorDAW().isPlaying) pauseTransport();
-      } else {
-        startRec();
-      }
-    }
-
-    function renderLiveRecWave() {
-      const lane = document.querySelector('.track-lane[data-track-id="' + getEditorDAW().recLaneId + '"]');
-      if (!lane) return;
-      const dur = Math.max(0.02, getEditorDAW().playhead - getEditorDAW().recStartTime);
-      const w = Math.min(20000, Math.max(6, Math.floor(timeToX(dur))));
-      let el = document.querySelector('.clip.rec-live-clip');
-      if (!el) {
-        el = document.createElement('div');
-        el.className = 'clip rec-live-clip';
-        el.dataset.rec = '1';
-        el.style.top = '6px';
-        el.style.height = 'calc(var(--lane-h) - 12px)';
-        el.style.pointerEvents = 'none';
-        lane.appendChild(el);
-      }
-      el.style.left = timeToX(getEditorDAW().recStartTime) + 'px';
-      el.style.width = w + 'px';
-      el.innerHTML = '<img class="clip-wave" src="' + recWaveDataUrl(getEditorDAW().recPeaks, w, 52) + '"><div class="clip-title">● ضبط زنده</div>';
-    }
-
-    function recWaveDataUrl(peaks, w, h) {
-      const canvas = document.createElement('canvas');
-      canvas.width = Math.max(2, w); canvas.height = Math.max(2, h);
-      const c = canvas.getContext('2d');
-      c.fillStyle = 'rgba(255,120,120,0.9)';
-      const mid = h / 2;
-      for (let i = 0; i < w; i++) {
-        const idx = Math.min(peaks.length - 1, Math.floor((i / w) * peaks.length));
-        const amp = Math.min(1, peaks[idx] || 0);
-        const hh = Math.max(1.5, amp * (h * 0.86));
-        c.fillRect(i, mid - hh / 2, 1, hh);
-      }
-      return canvas.toDataURL('image/png');
-    }
-
-    function finishRec(blob) {
-      const start = getEditorDAW().recStartTime || 0;
-      const end = (getEditorDAW().recEndTime != null && getEditorDAW().recEndTime >= start) ? getEditorDAW().recEndTime : getEditorDAW().playhead;
-      const dur = Math.max(0.05, end - start);
-      if (!blob || blob.size < 500) { toast('ضبط خالی بود'); return; }
-      (async () => {
-        try {
-          ensureAudioCtx();
-          const { buffer } = await decodeFileToBuffer(blob);
-          const bufferKey = 'rec_' + uid('b') + '_' + Date.now();
-          getEditorDAW().bufferCache.set(bufferKey, buffer);
-          const clip = {
-            id: uid('c'), type: 'audio', trackId: getEditorDAW().recLaneId || 'tRec',
-            name: 'Recording ' + formatTime(start),
-            start: roundMs(start), duration: roundMs(dur), offset: 0,
-            sourceDuration: buffer.duration,
-            color: '#EF4444', bufferKey,
-            _peaks: peaksFromBuffer(buffer, 2000), waveUrl: null,
-            _embedded: true, _originalBlob: blob
-          };
-          refreshClipWaveImage(clip);
-          getEditorDAW().clips.push(clip);
-          getEditorDAW().selectedIds = new Set([clip.id]);
-          ensureTimelineFits(clip.start + clip.duration + 5);
-          saveState(); renderAll();
-          try { await saveAudioBlobToDB(bufferKey, blob, 'recording.webm'); } catch (_) {}
-          toast('✓ ضبط ذخیره شد');
-        } catch (err) {
-          console.error(err);
-          toast('خطا در ذخیره‌ی ضبط');
-        }
-      })();
-    }
+    recordingRuntime = coreRecordingRuntime;
+    Object.assign(globalScope, coreRecordingRuntime);
+    corePublicApi.publish(coreRecordingRuntime);
 
     /* ============================================================
        SETTINGS (theme, audio device, toggles) + movable windows
