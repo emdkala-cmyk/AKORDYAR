@@ -33,6 +33,7 @@
     let _archiveListViewService = null;
     let _archiveSongLoadService = null;
     let _archiveReadOnlyService = null;
+    let _archiveArtistCatalogService = null;
 
     function getArchiveRuntimeAdapter() {
       const adapter = window.ArchiveRuntimeAdapter;
@@ -190,6 +191,21 @@
     }
 
     // --- Artist canonicalization bridge ---
+    function getArchiveArtistCatalogService() {
+      if (!_archiveArtistCatalogService) {
+        const service = window.ArchiveArtistCatalogService;
+        if (!service?.getAll || !service?.getDisplayName) {
+          throw new Error('ArchiveArtistCatalogService is not loaded. Check script order.');
+        }
+        _archiveArtistCatalogService = service;
+      }
+      return _archiveArtistCatalogService;
+    }
+
+    function getArchiveDefaultArtists() {
+      return getArchiveArtistCatalogService().getAll();
+    }
+
     let _archiveArtistService = null;
     function getArchiveArtistService() {
       if (!_archiveArtistService) {
@@ -199,7 +215,7 @@
         }
         _archiveArtistService = create({
           normalizeText: archNormText,
-          getDefaultArtists: () => DEFAULT_ARTISTS
+          getDefaultArtists: getArchiveDefaultArtists
         });
       }
       return _archiveArtistService;
@@ -378,7 +394,7 @@
           documentRef: window.document,
           storage: window.localStorage,
           getAllSongs: edGetAllSongs,
-          getDefaultArtists: () => DEFAULT_ARTISTS,
+          getDefaultArtists: getArchiveDefaultArtists,
           artistKey: archArtistKey,
           matchDefaultArtist,
           normalizeText: archNormText,
@@ -948,180 +964,6 @@
 
     // ===== ARTIST SLIDER SYSTEM =====
 
-    // ===== DEFAULT ARTISTS =====
-const DEFAULT_ARTISTS = [
-  {
-    id: "hayedeh",
-    displayName: "هایده",
-    normalizedName: "hayedeh",
-    aliases: ["هایده", "هايده", "Hayedeh", "hayedeh", "Haydeh", "haydeh", "حیدری"],
-    image: { type: "bundled", src: "./assets/artists/hayedeh.jpg" },
-    favorite: false
-  },
-  {
-    id: "googoosh",
-    displayName: "گوگوش",
-    normalizedName: "googoosh",
-    aliases: ["گوگوش", "Googoosh", "googoosh", "Googosh", "googosh", "بیژن"],
-    image: { type: "bundled", src: "./assets/artists/googosh.jpg" },
-    favorite: false
-  },
-  {
-    id: "dariush",
-    displayName: "داریوش",
-    normalizedName: "dariush",
-    aliases: ["داریوش", "Dariush", "dariush", "اقبال"],
-    image: { type: "bundled", src: "./assets/artists/dariush.jpg" },
-    favorite: false
-  },
-  {
-    id: "ebi",
-    displayName: "ابی",
-    normalizedName: "ebi",
-    aliases: ["ابی", "Ebi", "ebi", "EBI", "ابی ابراهیمی"],
-    image: { type: "bundled", src: "./assets/artists/ebi.jpg" },
-    favorite: false
-  },
-  {
-    id: "siavash-ghomayshi",
-    displayName: "سیاوش قمیشی",
-    normalizedName: "siavash-ghomayshi",
-    aliases: ["سیاوش قمیشی", "Siavash Ghomayshi", "siavash-ghomayshi", "قمیشی"],
-    image: { type: "bundled", src: "./assets/artists/siavash-ghomayshi.jpg" },
-    favorite: false
-  },
-  {
-    id: "moein",
-    displayName: "معین",
-    normalizedName: "moein",
-    aliases: ["معین", "Moein", "moein", "کاشانی"],
-    image: { type: "bundled", src: "./assets/artists/moein.jpg" },
-    favorite: false
-  },
-  {
-    id: "habib",
-    displayName: "حبیب",
-    normalizedName: "habib",
-    aliases: ["حبیب", "Habib", "habib", "موحد"],
-    image: { type: "bundled", src: "./assets/artists/habib.jpg" },
-    favorite: false
-  },
-  {
-    id: "mahasti",
-    displayName: "مهستی",
-    normalizedName: "mahasti",
-    aliases: ["هاشمی"],
-    image: { type: "bundled", src: "./assets/artists/mahasti.jpg" },
-    favorite: false
-  },
-  {
-    id: "aref",
-    displayName: "عارف",
-    normalizedName: "aref",
-    aliases: ["_avlazm"],
-    image: { type: "bundled", src: "./assets/artists/aref.jpg" },
-    favorite: false
-  },
-  {
-    id: "farhamz-aslani",
-    displayName: "فرامرز اصلانی",
-    normalizedName: "farhamz-aslani",
-    aliases: ["فرامرز", "اصلانی", "فرامرز اصلانی"],
-    image: { type: "bundled", src: "./assets/artists/farhamz-aslani.jpg" },
-    favorite: false
-  },
-  {
-    id: "martik",
-    displayName: "مارتیک",
-    normalizedName: "martik",
-    aliases: ["ترپتیان"],
-    image: { type: "bundled", src: "./assets/artists/martik.jpg" },
-    favorite: false
-  },
-  {
-    id: "sheyad-ghambari",
-    displayName: "شهیار قنبری",
-    normalizedName: "sheyad-ghambari",
-    aliases: ["قنبری"],
-    image: { type: "bundled", src: "./assets/artists/sheyad-ghambari.jpg" },
-    favorite: false
-  },
-  {
-    id: "andy",
-    displayName: "اندی",
-    normalizedName: "andy",
-    aliases: ["سیسجنگ"],
-    image: { type: "bundled", src: "./assets/artists/andy.jpg" },
-    favorite: false
-  },
-  {
-    id: "leila-forouhar",
-    displayName: "لیلا فروهر",
-    normalizedName: "leila-forouhar",
-    aliases: ["فروهر"],
-    image: { type: "bundled", src: "./assets/artists/leila-forouhar.jpg" },
-    favorite: false
-  },
-  {
-    id: "sattar",
-    displayName: "ستار",
-    normalizedName: "sattar",
-    aliases: ["صدرالدین"],
-    image: { type: "bundled", src: "./assets/artists/sattar.jpg" },
-    favorite: false
-  },
-  {
-    id: "farhad",
-    displayName: "فرهاد",
-    normalizedName: "farhad",
-    aliases: ["شکیبا"],
-    image: { type: "bundled", src: "./assets/artists/farhad.jpg" },
-    favorite: false
-  },
-  {
-    id: "shohreh",
-    displayName: "شهره",
-    normalizedName: "shohreh",
-    aliases: ["سعادتمند"],
-    image: { type: "bundled", src: "./assets/artists/shohreh.jpg" },
-    favorite: false
-  },
-  {
-    id: "marjan",
-    displayName: "مرجان",
-    normalizedName: "marjan",
-    aliases: ["سعادت‌مند"],
-    image: { type: "bundled", src: "./assets/artists/marjan.jpg" },
-    favorite: false
-  },
-  {
-    id: "homaira",
-    displayName: "حمیرا",
-    normalizedName: "homaira",
-    aliases: [],
-    image: { type: "bundled", src: "./assets/artists/homaira.jpg" },
-    favorite: false
-  },
-  {
-    id: "vigen",
-    displayName: "ویگن",
-    normalizedName: "vigen",
-    aliases: ["دردیریان"],
-    image: { type: "bundled", src: "./assets/artists/vigen.jpg" },
-    favorite: false
-  },
-  {
-    id: "kourosh-yaghmaei",
-    displayName: "کوروش یغمایی",
-    normalizedName: "kourosh-yaghmaei",
-    aliases: ["یغمایی"],
-    image: { type: "bundled", src: "./assets/artists/kourosh-yaghmaei.jpg" },
-    favorite: false
-  }
-];
-
-
-
     // Avatar color generator (deterministic from name)
     function archAvatarColor(name) {
       const colors = ['#E53935','#1E88E5','#43A047','#FB8C00','#8E24AA','#00ACC1','#F4511E','#3949AB','#00897B','#D81B60','#5E35B1','#039BE5','#7CB342','#FFB300','#6D4C41','#546E7A'];
@@ -1150,7 +992,7 @@ const DEFAULT_ARTISTS = [
           documentRef: window.document,
           FileReaderCtor: window.FileReader,
           ImageCtor: window.Image,
-          getDefaultArtists: () => DEFAULT_ARTISTS,
+          getDefaultArtists: getArchiveDefaultArtists,
           artistKey: archArtistKey,
           refreshArtists: archRenderArtists,
           toast
@@ -1202,47 +1044,7 @@ const DEFAULT_ARTISTS = [
 
 
 function getArtistDisplayName(artistKey) {
-  if (!artistKey) return '';
-
-  const normalizedKey = String(artistKey).trim().toLowerCase();
-
-  if (Array.isArray(DEFAULT_ARTISTS)) {
-    const artist = DEFAULT_ARTISTS.find((item) => {
-      if (String(item.id || '').trim().toLowerCase() === normalizedKey) return true;
-      if (String(item.normalizedName || '').trim().toLowerCase() === normalizedKey) return true;
-      return Array.isArray(item.aliases) && item.aliases.some((alias) =>
-        String(alias || '').trim().toLowerCase() === normalizedKey
-      );
-    });
-
-    if (artist?.displayName) return artist.displayName;
-  }
-
-  const manualMap = {
-    hayedeh: 'هایده',
-    googoosh: 'گوگوش',
-    dariush: 'داریوش',
-    ebi: 'ابی',
-    'siavash-ghomayshi': 'سیاوش قمیشی',
-    moein: 'معین',
-    habib: 'حبیب',
-    mahasti: 'مهستی',
-    aref: 'عارف',
-    'farhamz-aslani': 'فرامز اصلانی',
-    martik: 'مارتیک',
-    'sheyad-ghambari': 'شهیار قنبری',
-    andy: 'اندی',
-    'leila-forouhar': 'لیلا فروهر',
-    sattar: 'ستار',
-    farhad: 'فرهاد',
-    shohreh: 'شهره',
-    marjan: 'مرجان',
-    homaira: 'حمیرا',
-    vigen: 'ویگن',
-    'kourosh-yaghmaei': 'کوروش یغمایی',
-  };
-
-  return manualMap[normalizedKey] || artistKey;
+  return getArchiveArtistCatalogService().getDisplayName(artistKey);
 }
 
 // --- ۲. تنها نسخه تابع رندر فیلتر (مطمئن شو نسخه دیگری در فایل نباشد) ---
