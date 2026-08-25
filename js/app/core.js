@@ -66,6 +66,11 @@ function customPrompt(message, defaultValue = '') {
 }
 if (typeof window !== 'undefined') window.customPrompt = customPrompt;
 
+    let settingsRuntime = null;
+    function getAppSettings() {
+      return settingsRuntime?.getSettings?.() || {};
+    }
+
     const editorTransportState = globalScope.EditorTransportStateService.create();
     let transportSchedulingService = null;
     let audioContextServiceBridge = null;
@@ -134,7 +139,7 @@ if (typeof window !== 'undefined') window.customPrompt = customPrompt;
         getSchedulingService: () => transportSchedulingService,
         getCountInScheduler: () => countInSchedulerBridge,
         ensureAudioCtx: (...args) => ensureAudioCtx(...args),
-        getMetroSound: () => APP_SETTINGS.metroSound || 'classic'
+        getMetroSound: () => getAppSettings().metroSound || 'classic'
       });
     if (!coreMetronomeRuntime) {
       throw new Error(
@@ -1389,7 +1394,7 @@ function applyState(stateStr) {
           bars: editorTransportState.countInBars,
           bpm,
           timeSignature: sig,
-          soundType: APP_SETTINGS.metroSound || 'classic',
+          soundType: getAppSettings().metroSound || 'classic',
           onComplete: ({ endTime }) => {
             beginPlayback(endTime);
             if (getEditorDAW().rafId) cancelAnimationFrame(getEditorDAW().rafId);
@@ -1513,96 +1518,40 @@ function applyState(stateStr) {
     /* ============================================================
        SETTINGS (theme, audio device, toggles) + movable windows
        ============================================================ */
-    const SETTINGS_KEY = 'ed_app_settings';
-    let APP_SETTINGS = {};
-    function loadSettings(){
-      try { APP_SETTINGS = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}'); }
-      catch(_){ APP_SETTINGS = {}; }
-      editorTransportState.returnToStartOnPause = APP_SETTINGS.returnToStart !== false;
-      updateReturnToStartButton();
+    const coreSettingsRuntime =
+      globalScope.CoreSettingsService?.create?.({
+        settingsKey: 'ed_app_settings',
+        documentRef: document,
+        storage: globalScope.localStorage,
+        getElement: id => $(id),
+        getNavigator: () => globalScope.navigator,
+        getDAW: () => getEditorDAW(),
+        getTransportState: () => editorTransportState,
+        ensureAudioCtx: (...args) => ensureAudioCtx(...args),
+        getAudioContextService: () => audioContextServiceBridge,
+        toggleMetronome: (...args) => toggleMetronome(...args),
+        stopMetronome: (...args) => stopMetronome(...args),
+        startMetronome: (...args) => startMetronome(...args),
+        updateReturnToStartButton: (...args) =>
+          updateReturnToStartButton(...args),
+        getSizeLocked: () =>
+          typeof _sizeLocked !== 'undefined' ? _sizeLocked : false,
+        toggleSizeLock: (...args) =>
+          typeof toggleSizeLock === 'function'
+            ? toggleSizeLock(...args)
+            : undefined,
+        toast: message => toast(message),
+        logger: console
+      });
+    if (!coreSettingsRuntime) {
+      throw new Error(
+        'CoreSettingsService باید قبل از app/core.js بارگذاری شود.'
+      );
     }
-    function saveSettings(){ try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(APP_SETTINGS)); } catch(_){} }
-    const THEMES = {
-      dark:     { '--dark-bg':'#0F131E', '--panel-bg':'#161B26', '--workspace-bg':'#121622', '--timeline-bg':'#0D1017', '--accent-teal':'#3FB8AF', '--accent-cyan-glow':'#00F2FE', '--accent-neon-pink':'#FF2E93' },
-      midnight: { '--dark-bg':'#0a0c14', '--panel-bg':'#12141f', '--workspace-bg':'#0d0f18', '--timeline-bg':'#090b11', '--accent-teal':'#818CF8', '--accent-cyan-glow':'#A5B4FC', '--accent-neon-pink':'#FF6BB5' },
-      ocean:    { '--dark-bg':'#04131c', '--panel-bg':'#0a2230', '--workspace-bg':'#071b27', '--timeline-bg':'#051420', '--accent-teal':'#21D4FD', '--accent-cyan-glow':'#4FB3E8', '--accent-neon-pink':'#FF7EB3' },
-      sunset:   { '--dark-bg':'#1a0f14', '--panel-bg':'#2a1a22', '--workspace-bg':'#221320', '--timeline-bg':'#1a1018', '--accent-teal':'#FF9E6D', '--accent-cyan-glow':'#FFB1A8', '--accent-neon-pink':'#FF4D8D' },
-      forest:   { '--dark-bg':'#08130d', '--panel-bg':'#101f16', '--workspace-bg':'#0c1811', '--timeline-bg':'#08140d', '--accent-teal':'#34D399', '--accent-cyan-glow':'#6EE7B7', '--accent-neon-pink':'#F472B6' }
-    };
-    function applyThemeVars(vars) { const r = document.documentElement.style; if (!vars) return; for (const k in vars) r.setProperty(k, vars[k]); }
-    function applyTheme(name) {
-      applyThemeVars(THEMES[name] || null);
-      APP_SETTINGS.theme = name || 'dark'; saveSettings();
-      if (APP_SETTINGS.accent) { const r = document.documentElement.style; r.setProperty('--accent-teal', APP_SETTINGS.accent); r.setProperty('--accent-cyan-glow', APP_SETTINGS.accent); }
-    }
-    function applyAccent(color) {
-      const r = document.documentElement.style;
-      r.setProperty('--accent-teal', color); r.setProperty('--accent-cyan-glow', color);
-      APP_SETTINGS.accent = color; saveSettings();
-    }
-    async function loadOutputDevices() {
-      const sel = $('setOutDevice'); if (!sel) return;
-      try {
-        if (navigator && navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
-          const devs = await navigator.mediaDevices.enumerateDevices();
-          devs.filter(d => d.kind === 'audiooutput').forEach(d => {
-            const opt = document.createElement('option');
-            opt.value = d.deviceId; opt.textContent = d.label || ('خروجی ' + (sel.options.length + 1));
-            sel.appendChild(opt);
-          });
-        }
-      } catch(_) {}
-      sel.value = APP_SETTINGS.outDevice || 'default';
-    }
-    function applyOutputDevice(id) {
-      APP_SETTINGS.outDevice = id; saveSettings();
-      try {
-        const ctx = ensureAudioCtx();
-        if (ctx && ctx.destination && typeof ctx.destination.setSinkId === 'function') {
-          ctx.destination.setSinkId(id).then(() => toast('دستگاه خروجی تغییر کرد')).catch(() => toast('تغییر دستگاه پشتیبانی نمی‌شود'));
-        } else { toast('تغییر دستگاه خروجی پشتیبانی نمی‌شود'); }
-      } catch(_) { toast('تغییر دستگاه خروجی پشتیبانی نمی‌شود'); }
-    }
-    function applyMetroSound(val) {
-      APP_SETTINGS.metroSound = val || 'classic';
-      saveSettings();
-      previewMetronomeSound(APP_SETTINGS.metroSound);
-      if (editorTransportState.metroActive && getEditorDAW().isPlaying) {
-        stopMetronome();
-        startMetronome();
-      }
-    }
-
-    function previewMetronomeSound(soundType = APP_SETTINGS.metroSound || 'classic') {
-      if (!audioContextServiceBridge) return false;
-      const played = audioContextServiceBridge.playClick(true, soundType);
-      if (played) toast('صدای مترونوم آزمایش شد');
-      return played;
-    }
-    function applySettingsToggles() {
-      const metro = $('setMetronome').checked;
-      if (metro !== editorTransportState.metroActive) toggleMetronome();
-      APP_SETTINGS.metronome = metro;
-      editorTransportState.returnToStartOnPause = $('setReturnToStart')?.checked ?? true;
-      APP_SETTINGS.returnToStart = editorTransportState.returnToStartOnPause;
-      updateReturnToStartButton();
-      const wantLock = $('setSizeLock').checked;
-      if (wantLock !== !!_sizeLocked) toggleSizeLock();
-      APP_SETTINGS.sizeLock = wantLock;
-      saveSettings();
-    }
-    function openSettings() {
-      loadSettings();
-      if ($('setTheme')) $('setTheme').value = APP_SETTINGS.theme || 'dark';
-      if (APP_SETTINGS.accent && $('setAccent')) $('setAccent').value = APP_SETTINGS.accent;
-      if ($('setMetroSound')) $('setMetroSound').value = APP_SETTINGS.metroSound || 'classic';
-      if ($('setMetronome')) $('setMetronome').checked = !!editorTransportState.metroActive;
-      if ($('setReturnToStart')) $('setReturnToStart').checked = !!editorTransportState.returnToStartOnPause;
-      if ($('setSizeLock')) $('setSizeLock').checked = !!_sizeLocked;
-      $('settingsModal').classList.add('show');
-      $('settingsModal').focus();
-      loadOutputDevices();
-    }
+    settingsRuntime = coreSettingsRuntime;
+    Object.assign(globalScope, coreSettingsRuntime);
+    corePublicApi.publish(coreSettingsRuntime);
+    coreSettingsRuntime.initialize();
     function syncChordLineFromLyrics() {
       const songState = requireEditorSongStateService();
       const song = songState.currentSong();
@@ -1664,24 +1613,6 @@ function applyState(stateStr) {
         toast(`✔ Chord Line با موفقیت از Lyrics Chord همگام شد (${appliedCount} آکورد).`);
       }
     }
-    function closeSettings() { $('settingsModal').classList.remove('show'); }
-    function resetSettings() {
-      localStorage.removeItem(SETTINGS_KEY);
-      APP_SETTINGS = {};
-      applyTheme('dark');
-      const r = document.documentElement.style;
-      r.removeProperty('--accent-teal'); r.removeProperty('--accent-cyan-glow'); r.removeProperty('--accent-neon-pink');
-      editorTransportState.metroActive = false; if ($('metroToggleBtn')) $('metroToggleBtn').textContent = '🔇';
-      editorTransportState.returnToStartOnPause = true;
-      updateReturnToStartButton();
-      if (_sizeLocked) toggleSizeLock();
-      openSettings();
-      toast('تنظیمات بازنشانی شد');
-    }
-    loadSettings();
-    if (APP_SETTINGS.theme) applyTheme(APP_SETTINGS.theme);
-    if (APP_SETTINGS.accent) { const r = document.documentElement.style; r.setProperty('--accent-teal', APP_SETTINGS.accent); r.setProperty('--accent-cyan-glow', APP_SETTINGS.accent); }
-
     // Generic: drag windows from their title/header
     let editorMovableWindowService = null;
     function getEditorMovableWindowService() {
