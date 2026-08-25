@@ -1637,6 +1637,36 @@ function applyState(stateStr) {
       toast(getEditorDAW().playheadMode === 'center' ? 'پلی‌هدر ثابت در مرکز' : 'اسکرول صفحه‌ای');
     }
 
+    const corePopupWindowRuntime =
+      globalScope.CorePopupWindowBridgeService?.create?.({
+        windowRef: window,
+        windowBridge: globalScope.WindowBridge
+      });
+    if (!corePopupWindowRuntime) {
+      throw new Error(
+        'CorePopupWindowBridgeService باید قبل از app/core.js بارگذاری شود.'
+      );
+    }
+    const {
+      windowBridge: popupWindowBridge,
+      isPopupOpen,
+      popupDocument,
+      openPopupWindow,
+      focusPopupWindow
+    } = corePopupWindowRuntime;
+    Object.assign(globalScope, {
+      isPopupOpen,
+      popupDocument,
+      openPopupWindow,
+      focusPopupWindow
+    });
+    corePublicApi.publish({
+      isPopupOpen,
+      popupDocument,
+      openPopupWindow,
+      focusPopupWindow
+    });
+
     const coreHighlightRuntime =
       globalScope.CoreHighlightService?.create?.({
         documentRef: document,
@@ -1806,38 +1836,6 @@ function applyState(stateStr) {
     arrangerMarkerController.bindDrag();
 
     /* ===== POPUP WINDOW FULLSCREEN ===== */
-    const popupWindowBridge = globalScope.WindowBridge;
-    const popupWindowService = globalScope.PopupWindowService?.create?.({
-      windowRef: window,
-      windowBridge: popupWindowBridge
-    });
-    function isPopupOpen(popup) {
-      return (
-        popupWindowService?.isOpen?.(popup) ??
-        Boolean(popup && !popup.closed)
-      );
-    }
-    function popupDocument(popup) {
-      return popupWindowService?.getDocument?.(popup) || null;
-    }
-    function openPopupWindow(name, features) {
-      if (popupWindowService?.open) {
-        return popupWindowService.open({ url: '', name, features }) || null;
-      }
-      return popupWindowBridge?.open?.({
-        windowRef: window,
-        url: '',
-        name,
-        features
-      }) || null;
-    }
-    function focusPopupWindow(popup) {
-      if (popupWindowService?.focus) {
-        return popupWindowService.focus(popup);
-      }
-      return popupWindowBridge?.focus?.(popup) ?? false;
-    }
-
     let _lyricPopup = null;
     let _lyricOnlyMessageCleanup = null;
     let _chordLineMessageCleanup = null;
