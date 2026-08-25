@@ -29,6 +29,10 @@ assert.ok(
     scriptIndex('js/archive/ArchiveModule.js')
 );
 assert.ok(
+  scriptIndex('js/archive/ArchiveCurrentSongService.js') <
+    scriptIndex('js/archive/ArchiveModule.js')
+);
+assert.ok(
   scriptIndex('js/archive/ArchiveStorageService.js') <
     scriptIndex('js/archive/ArchiveModule.js')
 );

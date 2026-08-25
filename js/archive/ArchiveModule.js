@@ -21,6 +21,7 @@
     let _archProjectImportRouteService = null;
     let _archiveProjectPersistenceService = null;
     let _archiveProjectFileImportService = null;
+    let _archiveCurrentSongService = null;
     let _archiveBatchImportService = null;
     let _archiveTransferService = null;
     let _archiveLifecycleService = null;
@@ -36,14 +37,6 @@
     let _archiveReadOnlyService = null;
     let _archiveArtistCatalogService = null;
 
-    function getArchiveRuntimeAdapter() {
-      const adapter = window.ArchiveRuntimeAdapter;
-      if (!adapter) {
-        throw new Error('ArchiveRuntimeAdapter is not loaded. Check Akordyar.html script order.');
-      }
-      return adapter;
-    }
-
     function getArchiveProjectImportRouteService() {
       if (
         !_archProjectImportRouteService &&
@@ -57,40 +50,38 @@
       return _archProjectImportRouteService;
     }
 
-    function getArchiveSong() {
-      const adapter = getArchiveRuntimeAdapter();
-      if (typeof adapter.getSongOrThrow === 'function') {
-        return adapter.getSongOrThrow();
+    function getArchiveCurrentSongService() {
+      if (!_archiveCurrentSongService) {
+        const create = window.ArchiveCurrentSongService?.create;
+        if (typeof create !== 'function') {
+          throw new Error('ArchiveCurrentSongService is not loaded. Check script order.');
+        }
+        _archiveCurrentSongService = create({
+          runtimeAdapter: window.ArchiveRuntimeAdapter,
+          getArrangerMarkerService: () => window.ArrangerMarkerService
+        });
       }
-      const song = adapter.getSong?.();
-      if (!song) throw new Error('ArchiveRuntimeAdapter: editor song is unavailable');
-      return song;
+      return _archiveCurrentSongService;
+    }
+
+    function getArchiveSong() {
+      return getArchiveCurrentSongService().getSong();
     }
 
     function getArchiveSongOrNull() {
-      return getArchiveRuntimeAdapter().getSong?.() || null;
+      return getArchiveCurrentSongService().getSongOrNull();
     }
 
     function resetPerformanceSerialization() {
-      getArchiveRuntimeAdapter().resetPerformanceSerialization?.();
+      return getArchiveCurrentSongService().resetPerformanceSerialization();
     }
 
     function getArchiveDAW() {
-      const adapter = getArchiveRuntimeAdapter();
-      if (typeof adapter.getDAWOrThrow === 'function') {
-        return adapter.getDAWOrThrow();
-      }
-      const daw = adapter.getDAW?.();
-      if (!daw) throw new Error('ArchiveRuntimeAdapter: DAW is unavailable');
-      return daw;
+      return getArchiveCurrentSongService().getDAW();
     }
 
     function getArchiveArrangerMarkers(song) {
-      return window.ArrangerMarkerService?.fromSong?.(song) || {
-        enabled: song?._arrangerMarkers?.enabled === true,
-        start: Math.max(0, Number(song?._arrangerMarkers?.start) || 0),
-        end: Math.max(0, Number(song?._arrangerMarkers?.end) || 0)
-      };
+      return getArchiveCurrentSongService().getArrangerMarkers(song);
     }
 
     // --- Storage bridge ---
