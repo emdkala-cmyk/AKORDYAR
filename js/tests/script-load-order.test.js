@@ -319,6 +319,10 @@ assert.ok(
     scriptIndex('js/editor/KeyboardMappingService.js')
 );
 assert.ok(
+  scriptIndex('js/editor/EditorAutoImportUiService.js') <
+    scriptIndex('js/app/editor.js')
+);
+assert.ok(
   scriptIndex('js/editor/KeyboardMappingService.js') <
     scriptIndex('js/editor/EditorKeyboardService.js')
 );

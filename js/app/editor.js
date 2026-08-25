@@ -1062,34 +1062,20 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
       return normalizeKey(song.artist) + '::' + normalizeKey(song.title);
     }
 
+    const autoImportUiService = window.EditorAutoImportUiService.create({
+      getElement: id => $(id)
+    });
+
     // ---- Progress UI ----
     function updateAutoProgress(current, total, detail) {
-      const pct = total > 0 ? Math.round((current / total) * 100) : 0;
-      const fill = $('autoProgressFill');
-      const label = $('autoProgressLabel');
-      const pctEl = $('autoProgressPct');
-      const detailEl = $('autoProgressDetail');
-      if (fill) fill.style.width = pct + '%';
-      if (label) label.textContent = `${current} / ${total}`;
-      if (pctEl) pctEl.textContent = pct + '%';
-      // Detail markup is assembled locally; every external value is escaped
-      // before interpolation (see escapeHtml calls below).
-      if (detailEl && detail) detailEl.innerHTML = detail;
+      return autoImportUiService.updateProgress(current, total, detail);
     }
-    function showProgressBar() { $('autoProgressBar')?.classList.add('show'); }
-    function hideProgressBar() { $('autoProgressBar')?.classList.remove('show'); }
+    function showProgressBar() { return autoImportUiService.showProgress(); }
+    function hideProgressBar() { return autoImportUiService.hideProgress(); }
 
     // ---- Modal open/close ----
     function openAutoImportModal() {
-      $('autoImportModal').classList.add('show');
-      $('autoImportStatus').style.display = 'none';
-      $('autoImportResults').innerHTML = '';
-      $('autoImportDone').style.display = 'none';
-      $('autoImportForm').style.display = 'block';
-      $('autoImportFooter').style.display = 'flex';
-      $('autoImportBtn').disabled = false;
-      $('autoArtistTags').innerHTML = '';
-      hideProgressBar();
+      autoImportUiService.open();
       const ta = $('autoArtistName');
       if (ta && !ta._tagListenerAttached) { ta.addEventListener('input', updateAutoArtistTags); ta._tagListenerAttached = true; }
       // Show/hide cookie field based on source
@@ -1103,19 +1089,10 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
         $('autoCookieField').style.display = srcSel.value === 'laminor' ? 'block' : 'none';
       }
     }
-    function closeAutoImportModal() { $('autoImportModal').classList.remove('show'); }
+    function closeAutoImportModal() { return autoImportUiService.close(); }
 
     function autoImportNewRequest() {
-      $('autoImportStatus').style.display = 'none';
-      $('autoImportResults').innerHTML = '';
-      $('autoImportDone').style.display = 'none';
-      $('autoImportSummary').textContent = '';
-      $('autoImportFolderInput').style.display = 'none';
-      $('autoImportForm').style.display = 'block';
-      $('autoImportFooter').style.display = 'flex';
-      $('autoImportBtn').disabled = false;
-      $('autoImportBtn').textContent = '🚀 شروع ورودی اتومات';
-      hideProgressBar();
+      return autoImportUiService.resetRequest();
     }
 
     // ---- Fetch ALL songs for one artist (server handles everything) ----
