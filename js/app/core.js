@@ -1158,11 +1158,22 @@ function applyState(stateStr) {
       return waveformBridge.refreshClipWaveImage(clip);
     }
 
+    const mixerService = globalScope.EditorMixerService.create({
+      getDAW: () => getEditorDAW(),
+      getElement: id => $(id),
+      documentRef: document,
+      windowRef: window,
+      saveState: () => saveState(),
+      renderTracks: (...args) => renderTracks(...args),
+      renderClips: (...args) => renderClips(...args),
+      scheduleAllFromPlayhead: (...args) =>
+        scheduleAllFromPlayhead(...args),
+      startPointerDrag: (...args) =>
+        startEditorPointerDrag(...args)
+    });
+
     function updateTrackMix(trackId) {
-      const tr = getEditorDAW().tracks.find(t => t.id === trackId); if (!tr || !tr._gainNode) return;
-      const anySolo = getEditorDAW().tracks.some(t => t.solo); let gain = 0;
-      if (anySolo) gain = tr.solo && !tr.muted ? tr.vol : 0; else gain = tr.muted ? 0 : tr.vol;
-      tr._gainNode.gain.value = gain; tr._pannerNode.pan.value = tr.pan;
+      return mixerService.updateTrackMix(trackId);
     }
 
     function stopAllVoices() {
@@ -2398,89 +2409,16 @@ sels.forEach(c => {
       })();
     }
 
-    /* ===== MIXER ===== */
-    let _mixerPos = null;
     function toggleMixer() {
-      const p = $('mixerPanel'); if (!p) return;
-      initMixerDrag();
-      const show = !p.classList.contains('show');
-      p.classList.toggle('show', show);
-      if (show) { if (_mixerPos) { p.style.transform = 'none'; p.style.left = _mixerPos.left + 'px'; p.style.top = _mixerPos.top + 'px'; } renderMixer(); }
+      return mixerService.toggle();
     }
+
     function renderMixer() {
-      const wrap = $('mixerChannels'); if (!wrap) return;
-      wrap.innerHTML = '';
-      const tracks = getEditorDAW().tracks.filter(t => t.type === 'audio');
-      if (!tracks.length) { wrap.innerHTML = '<div style="color:var(--text-secondary);padding:12px;">ترک صوتی وجود ندارد</div>'; return; }
-      tracks.forEach(tr => {
-        const ch = document.createElement('div');
-        ch.className = 'mixer-channel' + (tr.id === 'tRec' ? ' rec-channel' : '');
-        const volPct = Math.round((tr.vol || 0) * 100);
-        const bal = tr.pan < 0 ? 'L ' + Math.round(Math.abs(tr.pan) * 100) : (tr.pan > 0 ? 'R ' + Math.round(tr.pan * 100) : '(C)');
-        ch.innerHTML =
-          '<div class="mixer-ch-top"><span class="mixer-ch-name">' + (tr.icon || '') + '</span>' +
-          '<input class="mixer-ch-name-input" value="' + tr.name + '" data-mn="' + tr.id + '" title="تغییر نام لاین" spellcheck="false"></div>' +
-          '<div class="mixer-ch-controls">' +
-            '<button class="t-btn ' + (tr.muted ? 'on' : '') + '" data-mm="' + tr.id + '" title="Mute">M</button>' +
-            '<button class="t-btn ' + (tr.solo ? 'on-solo' : '') + '" data-ms="' + tr.id + '" title="Solo">S</button>' +
-          '</div>' +
-          '<div class="mixer-ch-fader"><label>Volume (' + volPct + '%)</label>' +
-            '<input type="range" min="0" max="1" step="0.01" value="' + (tr.vol || 0) + '" data-mv="' + tr.id + '"></div>' +
-          '<div class="mixer-ch-fader"><label>Balance ' + bal + '</label>' +
-            '<input type="range" min="-1" max="1" step="0.01" value="' + (tr.pan || 0) + '" data-mp="' + tr.id + '"></div>';
-        wrap.appendChild(ch);
-      });
-      wrap.querySelectorAll('[data-mn]').forEach(inp => inp.addEventListener('change', () => {
-        const tr = getEditorDAW().tracks.find(t => t.id === inp.dataset.mn); if (!tr) return;
-        tr.name = inp.value.trim() || tr.name; saveState(); renderTracks(); renderClips(); if (getEditorDAW().isPlaying) scheduleAllFromPlayhead();
-      }));
-      wrap.querySelectorAll('[data-mm]').forEach(b => b.addEventListener('click', () => {
-        const tr = getEditorDAW().tracks.find(t => t.id === b.dataset.mm); if (!tr) return;
-        tr.muted = !tr.muted; updateTrackMix(tr.id); renderMixer(); renderTracks(); renderClips(); if (getEditorDAW().isPlaying) scheduleAllFromPlayhead();
-      }));
-      wrap.querySelectorAll('[data-ms]').forEach(b => b.addEventListener('click', () => {
-        const tr = getEditorDAW().tracks.find(t => t.id === b.dataset.ms); if (!tr) return;
-        tr.solo = !tr.solo; getEditorDAW().tracks.forEach(t => updateTrackMix(t.id)); renderMixer(); renderTracks(); renderClips(); if (getEditorDAW().isPlaying) scheduleAllFromPlayhead();
-      }));
-      wrap.querySelectorAll('[data-mv]').forEach(r => r.addEventListener('input', () => {
-        const tr = getEditorDAW().tracks.find(t => t.id === r.dataset.mv); if (!tr) return;
-        tr.vol = +r.value; updateTrackMix(tr.id);
-        r.parentElement.querySelector('label').textContent = 'Volume (' + Math.round(tr.vol * 100) + '%)';
-      }));
-      wrap.querySelectorAll('[data-mp]').forEach(r => {
-        r.addEventListener('input', () => {
-          const tr = getEditorDAW().tracks.find(t => t.id === r.dataset.mp); if (!tr) return;
-          tr.pan = +r.value; updateTrackMix(tr.id);
-          const lab = r.parentElement.querySelector('label');
-          lab.textContent = 'Balance ' + (tr.pan < 0 ? 'L ' + Math.round(Math.abs(tr.pan) * 100) : (tr.pan > 0 ? 'R ' + Math.round(tr.pan * 100) : '(C)'));
-        });
-        r.addEventListener('dblclick', (e) => {
-          e.preventDefault();
-          const tr = getEditorDAW().tracks.find(t => t.id === r.dataset.mp); if (!tr) return;
-          tr.pan = 0; r.value = 0; updateTrackMix(tr.id);
-          r.parentElement.querySelector('label').textContent = 'Balance (C)';
-        });
-      });
+      return mixerService.render();
     }
+
     function initMixerDrag() {
-      const panel = $('mixerPanel'); if (!panel || panel._dragReady) return;
-      panel._dragReady = true;
-      const head = panel.querySelector('.mixer-head'); if (!head) return;
-      head.addEventListener('pointerdown', (e) => {
-        if (e.button !== 0) return;
-        if (e.target.closest('button')) return;
-        e.preventDefault();
-        const rect = panel.getBoundingClientRect();
-        panel.style.transform = 'none';
-        const offX = e.clientX - rect.left, offY = e.clientY - rect.top;
-        const move = (ev) => {
-          let x = ev.clientX - offX, y = ev.clientY - offY;
-          x = Math.max(-panel.offsetWidth + 80, Math.min(x, window.innerWidth - 40));
-          y = Math.max(0, Math.min(y, window.innerHeight - 30));
-          panel.style.left = x + 'px'; panel.style.top = y + 'px';
-        };
-        startEditorPointerDrag(head, e, move, () => { const r = panel.getBoundingClientRect(); _mixerPos = { left: r.left, top: r.top }; });
-      });
+      return mixerService.initDrag();
     }
 
     /* ============================================================

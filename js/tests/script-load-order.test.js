@@ -227,6 +227,14 @@ assert.ok(
     scriptIndex('js/app/core.js')
 );
 assert.ok(
+  scriptIndex('js/core/EditorWaveformBridgeService.js') <
+    scriptIndex('js/core/EditorMixerService.js')
+);
+assert.ok(
+  scriptIndex('js/core/EditorMixerService.js') <
+    scriptIndex('js/app/core.js')
+);
+assert.ok(
   scriptIndex('js/editor/EditorProjectFileService.js') <
     scriptIndex('js/editor/EditorProjectExportRouteService.js')
 );
