@@ -14,13 +14,10 @@
 
     // ===== ARCHIVE SYSTEM =====
     const ARCH_SCHEMA_VERSION = 1;
-    let _archCtxSongId = null;
-    let _archSelectMode = false;
-    let _archSelectedIds = new Set();
-    let _archCurrentTab = 'all';
-    let _archViewMode = localStorage.getItem('arch_view_mode') || 'card';
-    let _archEditSongId = null;
-    let _archLoading = false;
+    const _archiveStateController = window.ArchiveStateService.create({
+      storage: window.localStorage
+    });
+    const _archState = _archiveStateController.state;
     let _archProjectImportRouteService = null;
     let _archiveProjectPersistenceService = null;
     let _archiveBatchImportService = null;
@@ -334,13 +331,13 @@
           avatarColor: archAvatarColor,
           getInitials: archGetInitials,
           escapeHtml: escH,
-          getArtistCache: () => _archArtistCache,
+          getArtistCache: () => _archState.artistCache,
           setArtistCache: value => {
-            _archArtistCache = value;
+            _archState.artistCache = value;
           },
-          getArtistFilter: () => _archArtistFilter,
+          getArtistFilter: () => _archState.artistFilter,
           setArtistFilter: value => {
-            _archArtistFilter = value;
+            _archState.artistFilter = value;
           },
           render: archRender,
           refreshArtists: archRenderArtists,
@@ -348,13 +345,13 @@
           pickArtistImage: archPickArtistImage,
           removeArtistImage: archRemoveArtistImage,
           toast,
-          getSectionCollapsed: () => _archArtistSectionCollapsed,
+          getSectionCollapsed: () => _archState.artistSectionCollapsed,
           setSectionCollapsed: value => {
-            _archArtistSectionCollapsed = value;
+            _archState.artistSectionCollapsed = value;
           },
-          getFullscreen: () => _archFullscreen,
+          getFullscreen: () => _archState.fullscreen,
           setFullscreen: value => {
-            _archFullscreen = value;
+            _archState.fullscreen = value;
           }
         });
       }
@@ -389,13 +386,13 @@
           documentRef: window.document,
           storage: window.localStorage,
           getElement: id => $(id),
-          getViewMode: () => _archViewMode,
+          getViewMode: () => _archState.viewMode,
           setViewMode: value => {
-            _archViewMode = value;
+            _archState.viewMode = value;
           },
-          getCurrentTab: () => _archCurrentTab,
+          getCurrentTab: () => _archState.currentTab,
           setCurrentTab: value => {
-            _archCurrentTab = value;
+            _archState.currentTab = value;
           },
           render: archRender,
           loadSong: archLoadSong,
@@ -431,7 +428,7 @@
           generateId: archGenId,
           resetSearchCache: () => {
             archResetSearchCache();
-            _archArtistCache = null;
+            _archState.artistCache = null;
           },
           renderArchive: archRender,
           renderArtists: archRenderArtists,
@@ -456,7 +453,7 @@
           showSaveFilePicker: window.showSaveFilePicker?.bind(window),
           showDirectoryPicker: window.showDirectoryPicker?.bind(window),
           getAllSongs: edGetAllSongs,
-          getSelectedIds: () => _archSelectedIds,
+          getSelectedIds: () => _archState.selectedIds,
           setAllSongs: edSetAllSongs,
           prepareSong: ensureSongParsed,
           normalizeSong: archNormalize,
@@ -467,7 +464,7 @@
           ),
           resetSearchCache: () => {
             archResetSearchCache();
-            _archArtistCache = null;
+            _archState.artistCache = null;
           },
           renderArchive: archRender,
           renderArtists: archRenderArtists,
@@ -487,7 +484,7 @@
         _archiveLifecycleService = create({
           getElement: id => $(id),
           documentRef: window.document,
-          getViewMode: () => _archViewMode,
+          getViewMode: () => _archState.viewMode,
           render: archRender,
           renderArtists: archRenderArtists,
           initArtistSection: archInitArtistSection,
@@ -495,9 +492,9 @@
           handleListClick: archHandleListClick,
           handleListKeydown: archHandleListKeydown,
           stopAutoScroll: archStopAutoScroll,
-          isFullscreen: () => _archFullscreen,
+          isFullscreen: () => _archState.fullscreen,
           setFullscreen: value => {
-            _archFullscreen = value;
+            _archState.fullscreen = value;
           }
         });
       }
@@ -513,17 +510,17 @@
         }
         _archiveSelectionFilterService = create({
           getElement: id => $(id),
-          selectedIds: _archSelectedIds,
-          getSelectMode: () => _archSelectMode,
+          selectedIds: _archState.selectedIds,
+          getSelectMode: () => _archState.selectMode,
           setSelectMode: value => {
-            _archSelectMode = value;
+            _archState.selectMode = value;
           },
           render: archRender,
-          getCurrentTab: () => _archCurrentTab,
+          getCurrentTab: () => _archState.currentTab,
           getAllSongs: edGetAllSongs,
-          getArtistFilter: () => _archArtistFilter,
+          getArtistFilter: () => _archState.artistFilter,
           setArtistFilter: value => {
-            _archArtistFilter = value;
+            _archState.artistFilter = value;
           },
           renderArtists: archRenderArtists,
           updateActiveFilters: archUpdateActiveFilters
@@ -542,10 +539,10 @@
         _archiveMutationService = create({
           getAllSongs: edGetAllSongs,
           setAllSongs: edSetAllSongs,
-          selectedIds: _archSelectedIds,
-          clearSelected: () => _archSelectedIds.clear(),
+          selectedIds: _archState.selectedIds,
+          clearSelected: () => _archState.selectedIds.clear(),
           setSelectMode: value => {
-            _archSelectMode = value;
+            _archState.selectMode = value;
           },
           updateSelectionUi: () => {
             $('archiveBulkBar').classList.remove('show');
@@ -560,7 +557,7 @@
           updateActiveFilters: archUpdateActiveFilters,
           resetSearchCache: () => {
             archResetSearchCache();
-            _archArtistCache = null;
+            _archState.artistCache = null;
           },
           escapeHtml: escH,
           toast
@@ -701,16 +698,16 @@
       $('tabCountTrash').textContent=allSongs.filter(s=>s.deletedAt).length;
       $('archiveTotalCount').textContent=`(${activeAll.length} ترانه)`;
       let songs;
-      if (_archCurrentTab==='fav') songs=activeAll.filter(s=>s.favorite);
-      else if (_archCurrentTab==='trash') songs=allSongs.filter(s=>s.deletedAt);
+      if (_archState.currentTab==='fav') songs=activeAll.filter(s=>s.favorite);
+      else if (_archState.currentTab==='trash') songs=allSongs.filter(s=>s.deletedAt);
       else songs=activeAll;
       songs = songs.filter(s => {
         if (q && !archExtractSearchText(s).includes(q)) return false;
-        if (_archArtistFilter) {
+        if (_archState.artistFilter) {
           const rawArtist = s.artist || s.artistName || s.singer || '';
           const matched = matchDefaultArtist(rawArtist);
           const songKey = matched ? archArtistKey(matched.normalizedName) : archArtistKey(rawArtist);
-          if (songKey !== _archArtistFilter) return false;
+          if (songKey !== _archState.artistFilter) return false;
         }
         if (sig && s.timeSignature!==sig) return false;
         if (genre && s.genre!==genre) return false;
@@ -722,8 +719,8 @@
       });
       songs.sort((a,b) => { switch(sort) { case 'newest':return (b.createdAt||'').localeCompare(a.createdAt||''); case 'oldest':return (a.createdAt||'').localeCompare(b.createdAt||''); case 'title':return (a.title||'').localeCompare(b.title||'','fa'); case 'artist':return (a.artist||'').localeCompare(b.artist||'','fa'); case 'lastEdit':return (b.updatedAt||'').localeCompare(a.updatedAt||''); case 'lastOpen':return (b.lastOpenedAt||'').localeCompare(a.lastOpenedAt||''); case 'key':return (a.key||'').localeCompare(b.key||''); case 'bpm':return (a.tempo||0)-(b.tempo||0); default:return 0; } });
       $('archiveResultCount').textContent=songs.length+' نتیجه';
-      const isTrash=_archCurrentTab==='trash';
-      $('archiveStatusText').textContent=isTrash?'سطل زباله':_archCurrentTab==='fav'?'علاقه‌مندی‌ها':'همه ترانه‌ها';
+      const isTrash=_archState.currentTab==='trash';
+      $('archiveStatusText').textContent=isTrash?'سطل زباله':_archState.currentTab==='fav'?'علاقه‌مندی‌ها':'همه ترانه‌ها';
       $('archiveFilterBar').style.display=isTrash?'none':'';
       const list = $('archiveList');
       list.innerHTML = '';
@@ -731,14 +728,14 @@
         getArchiveRenderService().renderEmpty(list, {
           query: q,
           isTrash,
-          currentTab: _archCurrentTab
+          currentTab: _archState.currentTab
         });
         return;
       }
       getArchiveRenderService().render(list, songs, {
-        viewMode: _archViewMode,
-        selectMode: _archSelectMode,
-        selectedIds: _archSelectedIds,
+        viewMode: _archState.viewMode,
+        selectMode: _archState.selectMode,
+        selectedIds: _archState.selectedIds,
         activeId: getArchiveSongOrNull()?.id
       });
     }
@@ -746,12 +743,12 @@
 
     // --- Load Song (Main) ---
     async function archLoadSong(id) {
-      if (_archLoading) return;
-      _archLoading = true;
+      if (_archState.loading) return;
+      _archState.loading = true;
       try {
         const songs = edGetAllSongs();
         const s = songs.find(x => String(x.id) === String(id));
-        if (!s || s.deletedAt) { toast('ترانه یافت نشد'); _archLoading=false; return; }
+        if (!s || s.deletedAt) { toast('ترانه یافت نشد'); _archState.loading=false; return; }
         toast('در حال باز کردن ترانه...');
         // Parse rawText if lyrics/chords are missing (bulk import case)
         ensureSongParsed(s);
@@ -774,19 +771,19 @@
         toast('خطا در لود ترانه: ' + (err.message || 'خطای ناشناخته'));
         // Do NOT close archive on error
       } finally {
-        _archLoading = false;
+        _archState.loading = false;
       }
     }
     function edLoadFromArchive(id) { archLoadSong(id); }
 
     // --- Load Read-Only ---
     async function archLoadSongReadOnly(id) {
-      if (_archLoading) return;
-      _archLoading = true;
+      if (_archState.loading) return;
+      _archState.loading = true;
       try {
         const songs = edGetAllSongs();
         const s = songs.find(x => String(x.id) === String(id));
-        if (!s || s.deletedAt) { toast('ترانه یافت نشد'); _archLoading=false; return; }
+        if (!s || s.deletedAt) { toast('ترانه یافت نشد'); _archState.loading=false; return; }
         toast('در حال باز کردن ترانه...');
         // Parse rawText if lyrics/chords are missing (bulk import case)
         ensureSongParsed(s);
@@ -804,7 +801,7 @@
       } catch(err) {
         console.error('Archive readonly load error:', err);
         toast('خطا در لود ترانه: ' + (err.message || 'خطای ناشناخته'));
-      } finally { _archLoading = false; }
+      } finally { _archState.loading = false; }
     }
     function archShowReadOnlyBanner() {
       let banner = $('readOnlyBanner');
@@ -872,13 +869,13 @@
 
     // --- Context Menu ---
     function archCtxShow(e, id) {
-      _archCtxSongId=id; const menu=$('archiveCtxMenu');
+      _archState.ctxSongId=id; const menu=$('archiveCtxMenu');
       menu.style.left=Math.min(e.clientX,window.innerWidth-220)+'px';
       menu.style.top=Math.min(e.clientY,window.innerHeight-300)+'px';
       menu.classList.add('show'); e.stopPropagation();
     }
     async function archCtxAction(action) {
-      $('archiveCtxMenu').classList.remove('show'); const id=_archCtxSongId; if (!id) return;
+      $('archiveCtxMenu').classList.remove('show'); const id=_archState.ctxSongId; if (!id) return;
       archDispatchAction(action, id, {stopPropagation:()=>{}});
     }
 
@@ -890,7 +887,7 @@
     // --- Edit Metadata ---
     function archEditOpen(id) {
       const songs=edGetAllSongs(); const s=songs.find(x=>String(x.id)===String(id)); if (!s) return;
-      _archEditSongId=id;
+      _archState.editSongId=id;
       $('aeTitle').value=s.title||''; $('aeArtist').value=s.artist||''; $('aeAlbum').value=s.album||'';
       $('aeKey').value=s.key||'C'; $('aeKeyMode').value=s.keyMode||'maj';
       $('aeBpm').value=s.tempo||s.bpm||120; $('aeTimeSig').value=s.timeSignature||'4/4';
@@ -899,27 +896,23 @@
       const ks=$('aeKey'); if (ks.options.length<=1) ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'].forEach(n=>ks.add(new Option(n,n)));
       $('archiveEditOverlay').classList.add('show');
     }
-    function archEditClose() { $('archiveEditOverlay').classList.remove('show'); _archEditSongId=null; }
+    function archEditClose() { $('archiveEditOverlay').classList.remove('show'); _archState.editSongId=null; }
     function archEditSave() {
-      if (!_archEditSongId) return;
-      archPushUndo('ویرایش مشخصات'); const songs=edGetAllSongs(); const s=songs.find(x=>String(x.id)===String(_archEditSongId));
+      if (!_archState.editSongId) return;
+      archPushUndo('ویرایش مشخصات'); const songs=edGetAllSongs(); const s=songs.find(x=>String(x.id)===String(_archState.editSongId));
       if (!s) return;
       s.title=$('aeTitle').value.trim()||'بدون نام'; s.artist=$('aeArtist').value.trim(); s.artistKey=archArtistKey(s.artist); s.album=$('aeAlbum').value.trim();
       s.key=$('aeKey').value; s.keyMode=$('aeKeyMode').value; s.tempo=parseInt($('aeBpm').value)||120; s.bpm=s.tempo;
       s.timeSignature=$('aeTimeSig').value; s.genre=$('aeGenre').value;
       s.categories=$('aeCategory').value.split(',').map(c=>c.trim()).filter(Boolean);
       s.notes=$('aeNotes').value.trim(); s.updatedAt=new Date().toISOString();
-      edSetAllSongs(songs); archResetSearchCache(); _archArtistCache=null; archEditClose(); archRender(); archRenderArtists(); archUpdateActiveFilters(); toast('مشخصات به‌روزرسانی شد');
+      edSetAllSongs(songs); archResetSearchCache(); _archState.artistCache=null; archEditClose(); archRender(); archRenderArtists(); archUpdateActiveFilters(); toast('مشخصات به‌روزرسانی شد');
     }
 
     // --- Refresh ---
-    function archRefresh() { archResetSearchCache(); _archArtistCache=null; archMigrate(edGetAllSongs()); archRender(); archRenderArtists(); toast('آرشیو تازه‌سازی شد'); }
+    function archRefresh() { archResetSearchCache(); _archState.artistCache=null; archMigrate(edGetAllSongs()); archRender(); archRenderArtists(); toast('آرشیو تازه‌سازی شد'); }
 
     // ===== ARTIST SLIDER SYSTEM =====
-    let _archArtistCache = null;
-    let _archArtistFilter = null;
-    let _archArtistSectionCollapsed = localStorage.getItem('arch_artists_collapsed') === 'true';
-    let _archFullscreen = false;
 
     // ===== DEFAULT ARTISTS =====
 const DEFAULT_ARTISTS = [
@@ -1225,11 +1218,11 @@ function archUpdateActiveFilters() {
 
   container.innerHTML = '';
 
-  if (_archArtistFilter) {
+  if (_archState.artistFilter) {
     const chip = document.createElement('span');
     chip.className = 'aaf-chip';
 
-    const displayName = getArtistDisplayName(_archArtistFilter);
+    const displayName = getArtistDisplayName(_archState.artistFilter);
 
     chip.innerHTML = `خواننده: ${escH(displayName)} <button data-action="archClearArtistFilter">✕</button>`;
     container.appendChild(chip);
