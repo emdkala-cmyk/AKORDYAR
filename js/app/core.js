@@ -1736,150 +1736,32 @@ function applyState(stateStr) {
     Object.assign(globalScope, corePlayerViewSettingsRuntime);
     corePublicApi.publish(corePlayerViewSettingsRuntime);
 
+    const corePlayerViewPopupSyncRuntime =
+      globalScope.CorePlayerViewPopupSyncService?.create?.({
+        popup: _lyricPopup,
+        documentRef: () => popupDocument(_lyricPopup),
+        popupWindowBridge,
+        getSnapshot: () =>
+          requireEditorSongStateService().getPresentationSnapshot(),
+        transposeChord: edTransposeChord,
+        getSettings: () => corePlayerViewSettingsRuntime.getSettings(),
+        isPopupOpen: popup => isPopupOpen(popup),
+        schedule: (...args) => setTimeout(...args),
+        EventCtor: window.Event
+      });
+    if (!corePlayerViewPopupSyncRuntime) {
+      throw new Error(
+        'CorePlayerViewPopupSyncService باید قبل از app/core.js بارگذاری شود.'
+      );
+    }
+    corePublicApi.publish(corePlayerViewPopupSyncRuntime);
+
     function syncLyricPopup() {
       if (!isPopupOpen(_lyricPopup)) return;
       const popupDoc = popupDocument(_lyricPopup);
       if (!popupDoc) return;
       // If popup already has chord script, update in-place (no full rebuild)
-      const _existingScript = popupDoc.querySelector('script[data-pv="chord"]');
-      if (_existingScript) {
-        const doc = popupDoc;
-        const pb = doc.getElementById('popupBody');
-        if (!pb) return;
-
-        const snapshot = requireEditorSongStateService().getPresentationSnapshot();
-        if (!snapshot) return;
-        const lines = snapshot.lyrics.split('\n');
-        const transpose = snapshot.transpose;
-        const chords = snapshot.chords.map(ch => ({
-          lineIndex: ch.lineIndex, charIndex: ch.charIndex,
-          anchorType: ch.anchorType, _name: edTransposeChord(ch.name, transpose)
-        }));
-        const { tSize, tColor, tFont, tBold, align } = snapshot.styles;
-
-        // بررسی آیا ساختار خط‌ها واقعاً عوض شده
-        const existingLines = Array.from(pb.querySelectorAll('.popup-sync-line'));
-        let structureChanged = existingLines.length !== lines.length;
-        if (!structureChanged) {
-          for (let i = 0; i < lines.length; i++) {
-            if (!existingLines[i] || existingLines[i].textContent !== (lines[i] || '\u200B')) {
-              structureChanged = true; break;
-            }
-          }
-        }
-
-        if (structureChanged) {
-          // فقط وقتی تعداد خط‌ها یا متن عوض شده rebuild کن
-          let h = '';
-          lines.forEach((line, i) => {
-            h += `<div class="eline popup-sync-line" data-li="${i}">${line || '\u200B'}</div>`;
-          });
-          pb.innerHTML = h;
-        }
-
-        // آپدیت text و style خط‌ها روی DOM موجود
-        const lineEls = pb.querySelectorAll('.popup-sync-line');
-        lineEls.forEach((el, i) => {
-          const nextText = lines[i] || '\u200B';
-          if (el.textContent !== nextText) el.textContent = nextText;
-          el.style.fontSize = tSize + 'px';
-          el.style.color = tColor;
-          el.style.fontFamily = `'${tFont}', sans-serif`;
-          el.style.fontWeight = tBold;
-          el.style.textAlign = align;
-        });
-
-        // آپدیت chord data و رندر
-        try {
-          const previousVersion = Number(
-            popupWindowBridge?.get?.(_lyricPopup, '_pStructureVersion')
-          ) || 0;
-          const nextVersion = previousVersion + (structureChanged ? 1 : 0);
-
-          // اگر ساختار عوض شده، کش المان‌های chord قبلی را پاک کن
-          if (structureChanged) {
-            popupWindowBridge?.clearManagedNodes?.(
-              _lyricPopup,
-              ['_pChordEls', '_pChordLineEls']
-            );
-          }
-          popupWindowBridge?.set?.(_lyricPopup, '_pChords', chords);
-          popupWindowBridge?.set?.(_lyricPopup, '_pStructureVersion', nextVersion);
-          const renderReason = structureChanged ? 'structure' : 'data';
-          const rendered = popupWindowBridge?.call?.(
-            _lyricPopup,
-            '_pScheduleChordRender',
-            renderReason
-          );
-          if (!rendered) {
-            popupWindowBridge?.call?.(_lyricPopup, '_pRenderChords');
-          }
-
-          // Fallback chain: اگر rAF یا layout هنوز آماده نباشد
-          if (structureChanged) {
-            [120, 300, 600].forEach(function(ms) {
-              setTimeout(function() {
-                try {
-                  if (isPopupOpen(_lyricPopup)) {
-                    const scheduled = popupWindowBridge?.call?.(
-                      _lyricPopup,
-                      '_pScheduleChordRender',
-                      'structure'
-                    );
-                    if (!scheduled) {
-                      popupWindowBridge?.call?.(
-                        _lyricPopup,
-                        '_pRenderChords'
-                      );
-                    }
-                  }
-                } catch(_) {}
-              }, ms);
-            });
-          }
-        } catch(_) {
-          // اگر bridge یا layout موقتاً آماده نبود، بعد از layout دوباره تلاش کن.
-          setTimeout(function() {
-            try {
-              if (isPopupOpen(_lyricPopup)) {
-                popupWindowBridge?.call?.(_lyricPopup, '_pRenderChords');
-              }
-            } catch(_) {}
-          }, 250);
-        }
-
-        // Re-apply saved settings
-        try {
-          const s = corePlayerViewSettingsRuntime.getSettings();
-          lineEls.forEach(el => {
-            el.style.fontSize = (s.tSize || tSize) + 'px';
-            el.style.color = s.tColor || tColor;
-            el.style.fontWeight = s.bold ? 'bold' : tBold;
-            el.style.fontFamily = "'" + (s.font || tFont) + "', sans-serif";
-          });
-          if (s.cSize || s.cColor) {
-            const popupConfig = popupWindowBridge?.get?.(_lyricPopup, '_pCfg');
-            if (popupConfig && typeof popupConfig === 'object') {
-              popupConfig.cSize = s.cSize || 38;
-              popupConfig.cColor = s.cColor || '#e6aa28';
-              popupWindowBridge?.set?.(_lyricPopup, '_pCfg', popupConfig);
-              const scheduled = popupWindowBridge?.call?.(
-                _lyricPopup,
-                '_pScheduleChordRender',
-                'style'
-              );
-              if (!scheduled) {
-                popupWindowBridge?.call?.(_lyricPopup, '_pRenderChords');
-              }
-            }
-          }
-        } catch(_) {}
-        // Force Reflow: مجبور کردن مرورگر به محاسبه مجدد چیدمان
-        try { void pb.offsetHeight; } catch(_) {}
-        // Dispatch resize event to force layout recalculation
-        popupWindowBridge?.dispatch?.(_lyricPopup, new Event('resize'));
-        return;
-      }
+      if (corePlayerViewPopupSyncRuntime.syncExistingPopup()) return;
       const snapshot = requireEditorSongStateService().getPresentationSnapshot();
       if (!snapshot) return;
       const title = snapshot.title || t('untitled');
