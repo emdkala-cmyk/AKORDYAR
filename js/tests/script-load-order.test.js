@@ -223,6 +223,10 @@ assert.ok(
     scriptIndex('js/app/core.js')
 );
 assert.ok(
+  scriptIndex('js/app/CoreSyncModeBridgeService.js') <
+    scriptIndex('js/app/core.js')
+);
+assert.ok(
   scriptIndex('js/core/CountInScheduler.js') <
     scriptIndex('js/app/core.js')
 );

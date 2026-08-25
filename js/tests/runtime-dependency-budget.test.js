@@ -59,6 +59,9 @@ const corePopupWindowBridgeService = read(
   'js/app/CorePopupWindowBridgeService.js'
 );
 const coreFocusModeService = read('js/app/CoreFocusModeService.js');
+const coreSyncModeBridgeService = read(
+  'js/app/CoreSyncModeBridgeService.js'
+);
 const coreMixerBridgeService = read('js/app/CoreMixerBridgeService.js');
 const editor = executableLines(read('js/app/editor.js'));
 const appCore = executableLines(read('js/app/core.js'));
@@ -217,6 +220,14 @@ assert.match(coreLoopVisualService, /function bindLoopDrag\(\)/);
 assert.match(corePopupWindowBridgeService, /function isPopupOpen\(popup\)/);
 assert.match(corePopupWindowBridgeService, /function openPopupWindow\(name, features\)/);
 assert.match(coreFocusModeService, /function toggleFocusMode\(\)/);
+assert.match(
+  coreSyncModeBridgeService,
+  /function createSyncModeControllerBridge\(\)/
+);
+assert.match(
+  coreSyncModeBridgeService,
+  /function requireSyncModeController\(\)/
+);
 assert.doesNotMatch(
   appCore,
   /function deleteSelected\(\)/
@@ -229,6 +240,14 @@ assert.doesNotMatch(appCore, /function getEditorMovableWindowService\(\)/);
 assert.doesNotMatch(appCore, /function renderLoopRegion\(\)/);
 assert.doesNotMatch(appCore, /function openPopupWindow\(name, features\)/);
 assert.doesNotMatch(appCore, /function toggleFocusMode\(\)/);
+assert.doesNotMatch(
+  appCore,
+  /function createSyncModeControllerBridge\(\)/
+);
+assert.doesNotMatch(
+  appCore,
+  /function requireSyncModeController\(\)/
+);
 assert.doesNotMatch(
   appCore,
   /function getClipboardService\(\)/

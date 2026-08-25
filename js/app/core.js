@@ -3109,65 +3109,74 @@ let syncTapKeyHandler = null;
       get clMarkers() { return edClMarkers; }, set clMarkers(v) { edClMarkers = v; }
     };
 
-    let syncModeControllerBridge = null;
-
-    function createSyncModeControllerBridge() {
-      if (syncModeControllerBridge) return syncModeControllerBridge;
-      if (typeof window.SyncModeController !== 'function') return null;
-
-      syncModeControllerBridge = new window.SyncModeController({
-            state: syncModeState,
-            seqState: seqClState,
-            getDAW: () => getEditorDAW(),
-            songState: requireEditorSongStateService(),
-            $: (id) => $(id),
-            t: (key) => t(key),
-            toast: (msg) => toast(msg),
-            edSaveSong: () => edSaveSong(),
-            startTransport: () => startTransport(),
-            pauseTransport: () => pauseTransport(),
-            seekTransport: (time, keepPlaying) => seekTransport(time, keepPlaying),
-            getProjectEnd: () => getProjectEnd(),
-            getLyricPopup: () => (typeof _lyricPopup !== 'undefined' ? _lyricPopup : null),
-            getLyricOnlyPopup: () => (typeof _lyricOnlyPopup !== 'undefined' ? _lyricOnlyPopup : null),
-            getChordLinePopup: () => (typeof _chordLinePopup !== 'undefined' ? _chordLinePopup : null),
-            edRenderChords: () => edRenderChords(),
-            edCommit: () => edCommit(),
-            saveState: () => saveState(),
-            renderAll: () => renderAll(),
-            uid: (p) => uid(p),
-            roundMs: (v) => roundMs(v),
-            ensureTimelineFits: (v) => ensureTimelineFits(v),
-            timeToX: (v) => timeToX(v),
-            formatTime: (v) => formatTime(v),
-            openChordLinePopup: () => openChordLinePopup(),
-            getPerformanceStore: () => window.RuntimeStateAdapter?.getPerformanceStore?.() || null,
-            windowRef: window,
-            windowBridge: popupWindowBridge,
-            logger: console
-          });
-      return syncModeControllerBridge;
+    const coreSyncModeRuntime =
+      globalScope.CoreSyncModeBridgeService?.create?.({
+        controllerClass: globalScope.SyncModeController,
+        state: syncModeState,
+        seqState: seqClState,
+        getDAW: () => getEditorDAW(),
+        songState: requireEditorSongStateService(),
+        getElement: id => $(id),
+        translate: key => t(key),
+        toast: message => toast(message),
+        saveSong: () => edSaveSong(),
+        startTransport: () => startTransport(),
+        pauseTransport: () => pauseTransport(),
+        seekTransport: (time, keepPlaying) =>
+          seekTransport(time, keepPlaying),
+        getProjectEnd: () => getProjectEnd(),
+        getLyricPopup: () =>
+          typeof _lyricPopup !== 'undefined' ? _lyricPopup : null,
+        getLyricOnlyPopup: () =>
+          typeof _lyricOnlyPopup !== 'undefined' ? _lyricOnlyPopup : null,
+        getChordLinePopup: () =>
+          typeof _chordLinePopup !== 'undefined' ? _chordLinePopup : null,
+        renderChords: () => edRenderChords(),
+        commit: () => edCommit(),
+        saveState: () => saveState(),
+        renderAll: () => renderAll(),
+        uid: prefix => uid(prefix),
+        roundMs: value => roundMs(value),
+        ensureTimelineFits: value => ensureTimelineFits(value),
+        timeToX: value => timeToX(value),
+        formatTime: value => formatTime(value),
+        openChordLinePopup: () => openChordLinePopup(),
+        getPerformanceStore: () =>
+          window.RuntimeStateAdapter?.getPerformanceStore?.() || null,
+        windowRef: window,
+        windowBridge: popupWindowBridge,
+        logger: console
+      });
+    if (!coreSyncModeRuntime) {
+      throw new Error(
+        'CoreSyncModeBridgeService باید قبل از app/core.js بارگذاری شود.'
+      );
     }
-
-    function requireSyncModeController() {
-      const controller = createSyncModeControllerBridge();
-      if (!controller) {
-        throw new Error('SyncModeController در دسترس نیست. ترتیب scriptها در Akordyar.html را بررسی کنید.');
-      }
-      return controller;
-    }
-
-    function renderSyncLyrics() { return requireSyncModeController().renderSyncLyrics(); }
-    function selectSyncLine(li) { return requireSyncModeController().selectSyncLine(li); }
-    function syncTap() { return requireSyncModeController().syncTap(); }
-    function updateSyncHighlight() { return requireSyncModeController().updateSyncHighlight(); }
-
-
-
-    // Sync tick loop و ورود/خروج حالت سینک — wrapperهای SyncModeController
-    function syncTick() { return requireSyncModeController().syncTick(); }
-    function enterSyncMode() { return requireSyncModeController().enterSyncMode(); }
-    function exitSyncMode() { return requireSyncModeController().exitSyncMode(); }
+    const {
+      createSyncModeControllerBridge,
+      requireSyncModeController,
+      renderSyncLyrics,
+      selectSyncLine,
+      syncTap,
+      updateSyncHighlight,
+      syncTick,
+      enterSyncMode,
+      exitSyncMode,
+      edToggleSeqMode,
+      edStartSeqChording,
+      edSeqNavigate,
+      edUpdateClCount,
+      edRenderClMarkers,
+      edSetSeqMode,
+      edToggleClTap,
+      edClTap,
+      edClUndoMarker,
+      edClClearMarkers,
+      edClApplyMarkers,
+      initSyncUI
+    } = coreSyncModeRuntime;
+    Object.assign(globalScope, coreSyncModeRuntime);
+    corePublicApi.publish(coreSyncModeRuntime);
 
     // Chord visibility toggle (editor only, independent of popup)
     if ($('edToggleChords')) $('edToggleChords').onclick = () => {
@@ -3188,10 +3197,6 @@ let syncTapKeyHandler = null;
       if (edSeqModeActive) edSeqPoints = validPoints;
     }
 
-    function edToggleSeqMode() { return requireSyncModeController().edToggleSeqMode(); }
-    function edStartSeqChording() { return requireSyncModeController().edStartSeqChording(); }
-    function edSeqNavigate(dir) { return requireSyncModeController().edSeqNavigate(dir); }
-
     if ($('edSeqToggle')) $('edSeqToggle').onclick = edToggleSeqMode;
     if ($('edSeqStart')) $('edSeqStart').onclick = edStartSeqChording;
     if ($('edSeqPrev')) $('edSeqPrev').onclick = () => edSeqNavigate(-1);
@@ -3199,14 +3204,6 @@ let syncTapKeyHandler = null;
 
     // ===== Sequential: حالت کورد لاین (نقطه‌گذاری با آهنگ روی تایم لاین) =====
     let edClMode = false, edClTapActive = false, edClMarkers = [];
-    function edUpdateClCount() { return requireSyncModeController().edUpdateClCount(); }
-    function edRenderClMarkers() { return requireSyncModeController().edRenderClMarkers(); }
-    function edSetSeqMode(mode) { return requireSyncModeController().edSetSeqMode(mode); }
-    function edToggleClTap() { return requireSyncModeController().edToggleClTap(); }
-    function edClTap() { return requireSyncModeController().edClTap(); }
-    function edClUndoMarker() { return requireSyncModeController().edClUndoMarker(); }
-    function edClClearMarkers() { return requireSyncModeController().edClClearMarkers(); }
-    function edClApplyMarkers() { return requireSyncModeController().edClApplyMarkers(); }
     if ($('edSeqModeLyrics')) $('edSeqModeLyrics').onclick = () => edSetSeqMode('lyrics');
     if ($('edSeqModeChord')) $('edSeqModeChord').onclick = () => edSetSeqMode('chord');
     if ($('edClStart')) $('edClStart').onclick = edToggleClTap;
@@ -3234,9 +3231,6 @@ let syncTapKeyHandler = null;
       edRenderChords(); edCommit();
 
     }, true);
-
-    // Wire up sync buttons — wrapper SyncModeController
-    function initSyncUI() { return requireSyncModeController().initSyncUI(); }
 
     /* ===== ARRANGER ===== */
     let arrangers = JSON.parse(localStorage.getItem('arrangers_v1') || '[]');
