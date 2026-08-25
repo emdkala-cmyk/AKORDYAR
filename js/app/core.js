@@ -992,105 +992,47 @@ function applyState(stateStr) {
   }, 1200);
 }
 
-    function openFileForTrack(trackId) { getEditorDAW().loadTrackId = trackId; renderTracks(); $('audio-file-input').value = ''; $('audio-file-input').click(); }
-    $('audio-file-input').addEventListener('change', async (e) => {
-      const file = e.target.files && e.target.files[0]; const trackId = getEditorDAW().loadTrackId; getEditorDAW().loadTrackId = null; renderTracks();
-      if (!file || !trackId) return;
-      // Clear all selections before import
-      clearSelection();
-      try {
-        ensureAudioCtx(); toast(t('decoding')); const { buffer } = await decodeFileToBuffer(file);
-        
-        // ایجاد شناسه پایدار برای کلیپ
-        const clipId = 'clip_' + uid('c');
-        
-        // ذخیره در Pool
-        const storageMode = await askAudioCopyMode(file.name);
-        const storage = {
-          mode: storageMode ? 'copy' : 'reference',
-          projectPath: storageMode ? `Audio/${clipId}_${file.name}` : null,
-          externalPath: storageMode ? null : (isElectron && file.path ? file.path : null)
-        };
-        
-        getEditorDAW().pool[clipId] = {
-          id: clipId,
-          name: file.name.replace(/\.[^.]+$/, ''),
-          originalName: file.name,
-          storage: storage,
-          sampleRate: buffer.sampleRate,
-          channels: buffer.numberOfChannels,
-          frames: buffer.length,
-          duration: buffer.duration,
-          offlineOps: []
-        };
-        
-        // ذخیره در کش با کلید clipId
-        getEditorDAW().bufferCache.set(clipId, buffer);
-
-        const clip = {
-          id: clipId,
-          type: 'audio',
-          trackId,
-          name: file.name.replace(/\.[^.]+$/, ''),
-          fileName: file.name,
-          start: roundMs(getEditorDAW().playhead),
-          duration: buffer.duration,
-          offset: 0,
-          sourceDuration: buffer.duration,
-          color: COLORS[getEditorDAW().clips.length % COLORS.length],
-          _peaks: peaksFromBuffer(buffer, 2000),
-          waveUrl: null,
-          _embedded: storageMode,
-          // ─── ذخیره Blob اصلی برای ذخیره حجم (به‌جای Base64) ───
-          // این فایل MP3/WAV اصلی هست که مستقیماً در IndexedDB ذخیره می‌شه
-          _originalBlob: storageMode ? file : null
-        };
-        // ذخیره مسیر/هندل فایل برای لینک‌شده‌ها
-        if (!storageMode) {
-          if (isElectron && file.path) {
-            clip._filePath = file.path;
-            console.log(`[INPUT] Electron file path saved: ${file.name} → ${file.path}`);
-          } else if (isElectron) {
-            // در الکترون ولی file.path موجود نیست (الکترون 32+)
-            console.warn(`[INPUT] Electron but file.path is missing for: ${file.name}`);
-            if (window.electronAPI && window.electronAPI.getPathForFile) {
-              try {
-                const filePath = await window.electronAPI.getPathForFile(file);
-                if (filePath) {
-                  clip._filePath = filePath;
-                  console.log(`[INPUT] Got path via webUtils: ${file.name} → ${filePath}`);
-                }
-              } catch(_) {}
-            }
-            if (!clip._filePath) {
-              try {
-                await saveAudioBlobToDB(clipId, file, file.name);
-                console.log(`[INPUT] Saved as blob fallback: ${file.name}`);
-              } catch(e) {
-                console.warn('[BLOB] Could not save file blob to IndexedDB:', e);
-              }
-            }
-          } else {
-            // ─── در مرورگر: فایل رو به‌صورت Blob در IndexedDB ذخیره کن ───
-            try {
-              await saveAudioBlobToDB(clipId, file, file.name);
-            } catch(e) {
-              console.warn('[BLOB] Could not save file blob to IndexedDB:', e);
-            }
-          }
-        }
-        refreshClipWaveImage(clip); getEditorDAW().clips.push(clip); getEditorDAW().selectedIds = new Set([clip.id]); ensureTimelineFits(clip.start + clip.duration + 5);
-        saveState(); renderAll(); if (getEditorDAW().isPlaying) scheduleAllFromPlayhead();
-        if (storageMode) {
-          toast(`${t('loadedOk')} ${clip.name} (کپی در پروژه)`);
-          const songId = requireEditorSongStateService().currentSong()?.id;
-          if (songId) saveAudioBlobsForProject(songId).catch(() => {});
-        } else {
-          toast(`${t('loadedOk')} ${clip.name} (لینک — فقط مسیر ذخیره شد)`);
-        }
-        edSaveSong();
-      } catch (err) { console.error(err); toast(t('loadFailed')); }
-    });
+    const coreAudioImportRuntime =
+      globalScope.CoreAudioImportService?.create?.({
+        getDAW: () => getEditorDAW(),
+        getFileInput: () => $('audio-file-input'),
+        renderTracks: (...args) => renderTracks(...args),
+        clearSelection: (...args) => clearSelection(...args),
+        ensureAudioCtx: (...args) => ensureAudioCtx(...args),
+        decodeFileToBuffer: (...args) => decodeFileToBuffer(...args),
+        askAudioCopyMode: (...args) => askAudioCopyMode(...args),
+        uid: prefix => uid(prefix),
+        roundMs: value => roundMs(value),
+        colors: COLORS,
+        peaksFromBuffer: (...args) => peaksFromBuffer(...args),
+        refreshClipWaveImage: clip => refreshClipWaveImage(clip),
+        ensureTimelineFits: value => ensureTimelineFits(value),
+        saveAudioBlobToDB: (...args) => saveAudioBlobToDB(...args),
+        saveAudioBlobsForProject: (...args) =>
+          saveAudioBlobsForProject(...args),
+        saveState: (...args) => saveState(...args),
+        renderAll: (...args) => renderAll(...args),
+        scheduleAllFromPlayhead: (...args) =>
+          scheduleAllFromPlayhead(...args),
+        getSong: () => requireEditorSongStateService().currentSong(),
+        saveSong: (...args) => edSaveSong(...args),
+        toast: message => toast(message),
+        translate: key => globalScope.t?.(key) ?? key,
+        isElectron,
+        getElectronAPI: () => window.electronAPI || null,
+        logger: console
+      });
+    if (!coreAudioImportRuntime) throw new Error(
+      'CoreAudioImportService باید قبل از app/core.js بارگذاری شود.'
+    );
+    const {
+      openFileForTrack,
+      importFileForTrack,
+      bindFileInput
+    } = coreAudioImportRuntime;
+    Object.assign(globalScope, { openFileForTrack });
+    corePublicApi.publish({ openFileForTrack, importFileForTrack });
+    bindFileInput();
 
     function setSelection(ids) {
   getEditorDAW().selectedIds = new Set(ids);

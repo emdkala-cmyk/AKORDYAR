@@ -39,6 +39,7 @@ const corePanelLayoutService = read('js/app/CorePanelLayoutService.js');
 const coreTimelineGeometryService = read('js/app/CoreTimelineGeometryService.js');
 const coreTimelineRendererService = read('js/app/CoreTimelineRendererService.js');
 const coreClipService = read('js/app/CoreClipService.js');
+const coreAudioImportService = read('js/app/CoreAudioImportService.js');
 const editor = executableLines(read('js/app/editor.js'));
 const appCore = executableLines(read('js/app/core.js'));
 const search = executableLines(read('js/app/search.js'));
@@ -146,6 +147,13 @@ assert.match(coreClipService, /function splitClipAt\(clip, atTime\)/);
 assert.match(coreClipService, /function splitSelectedAtPlayhead\(\)/);
 assert.doesNotMatch(appCore, /function splitClipAt\(clip, atTime\)/);
 assert.doesNotMatch(appCore, /function splitSelectedAtPlayhead\(\)/);
+assert.match(coreAudioImportService, /function openFileForTrack\(trackId\)/);
+assert.match(coreAudioImportService, /function handleFileInputChange\(event\)/);
+assert.match(coreAudioImportService, /function bindFileInput\(/);
+assert.doesNotMatch(
+  appCore,
+  /\$\('audio-file-input'\)\.addEventListener\('change'/
+);
 
 assert.doesNotMatch(appCore, /\bPERF\s*\./);
 assert.doesNotMatch(appCore, /\bDAW\s*\./);
