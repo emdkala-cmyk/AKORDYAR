@@ -21,7 +21,6 @@
     let _archViewMode = localStorage.getItem('arch_view_mode') || 'card';
     let _archEditSongId = null;
     let _archLoading = false;
-    let _archSearchIndex = null;
     let _archProjectImportRouteService = null;
     let _archiveProjectPersistenceService = null;
     let _archiveBatchImportService = null;
@@ -32,6 +31,7 @@
     let _archiveArtistUiService = null;
     let _archiveArtistImageService = null;
     let _archiveRenderService = null;
+    let _archiveSearchService = null;
 
     function getArchiveRuntimeAdapter() {
       const adapter = window.ArchiveRuntimeAdapter;
@@ -160,12 +160,32 @@
       return getArchiveNormalizationService().normalizeSong(data, fileName);
     }
 
-    function archExtractSearchText(song) {
-      return getArchiveNormalizationService().extractSearchText(song);
-    }
-
     function archNormText(value) {
       return getArchiveNormalizationService().normalizeText(value);
+    }
+
+    // --- Search/index bridge ---
+    function getArchiveSearchService() {
+      if (!_archiveSearchService) {
+        const create = window.ArchiveSearchService?.create;
+        if (typeof create !== 'function') {
+          throw new Error('ArchiveSearchService is not loaded. Check script order.');
+        }
+        _archiveSearchService = create({
+          normalizeText: archNormText,
+          extractSearchText: song =>
+            getArchiveNormalizationService().extractSearchText(song)
+        });
+      }
+      return _archiveSearchService;
+    }
+
+    function archResetSearchCache() {
+      getArchiveSearchService().clear();
+    }
+
+    function archExtractSearchText(song) {
+      return getArchiveSearchService().getSearchText(song);
     }
 
     // --- Artist canonicalization bridge ---
@@ -374,7 +394,7 @@
           normalizeSong: archNormalize,
           generateId: archGenId,
           resetSearchCache: () => {
-            _archSearchIndex = null;
+            archResetSearchCache();
             _archArtistCache = null;
           },
           renderArchive: archRender,
@@ -410,7 +430,7 @@
             'ادغام'
           ),
           resetSearchCache: () => {
-            _archSearchIndex = null;
+            archResetSearchCache();
             _archArtistCache = null;
           },
           renderArchive: archRender,
@@ -503,7 +523,7 @@
           renderArtists: archRenderArtists,
           updateActiveFilters: archUpdateActiveFilters,
           resetSearchCache: () => {
-            _archSearchIndex = null;
+            archResetSearchCache();
             _archArtistCache = null;
           },
           escapeHtml: escH,
@@ -879,11 +899,11 @@
       s.timeSignature=$('aeTimeSig').value; s.genre=$('aeGenre').value;
       s.categories=$('aeCategory').value.split(',').map(c=>c.trim()).filter(Boolean);
       s.notes=$('aeNotes').value.trim(); s.updatedAt=new Date().toISOString();
-      edSetAllSongs(songs); _archSearchIndex=null; _archArtistCache=null; archEditClose(); archRender(); archRenderArtists(); archUpdateActiveFilters(); toast('مشخصات به‌روزرسانی شد');
+      edSetAllSongs(songs); archResetSearchCache(); _archArtistCache=null; archEditClose(); archRender(); archRenderArtists(); archUpdateActiveFilters(); toast('مشخصات به‌روزرسانی شد');
     }
 
     // --- Refresh ---
-    function archRefresh() { _archSearchIndex=null; _archArtistCache=null; archMigrate(edGetAllSongs()); archRender(); archRenderArtists(); toast('آرشیو تازه‌سازی شد'); }
+    function archRefresh() { archResetSearchCache(); _archArtistCache=null; archMigrate(edGetAllSongs()); archRender(); archRenderArtists(); toast('آرشیو تازه‌سازی شد'); }
 
     // ===== ARTIST SLIDER SYSTEM =====
     let _archArtistCache = null;
