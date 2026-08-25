@@ -2386,123 +2386,28 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
       });
     })(); // End toolbar IIFE
 
-    // ===== Ruler & Playhead (global scope, uses global refs) =====
-    (function() {
-      const lanes = $('lanes-container');
-      const scroll = $('tl-scroll');
-      if (!lanes || !scroll) return;
-
-      const startPointerDrag = (target, startEvent, onMove, onEnd = () => {}) => {
-        const pointerId = startEvent.pointerId;
-        target.setPointerCapture?.(pointerId);
-        const move = (event) => {
-          if (event.pointerId === pointerId) onMove(event);
-        };
-        const end = (event) => {
-          if (event.pointerId !== pointerId) return;
-          target.releasePointerCapture?.(pointerId);
-          target.removeEventListener('pointermove', move);
-          target.removeEventListener('pointerup', end);
-          target.removeEventListener('pointercancel', end);
-          onEnd(event);
-        };
-        target.addEventListener('pointermove', move);
-        target.addEventListener('pointerup', end);
-        target.addEventListener('pointercancel', end);
-      };
-
-      // Scroll wheel zoom on timeline
-      // Ctrl+Alt+wheel = vertical zoom (lane height)
-      // Ctrl+wheel or Alt+wheel = horizontal zoom (pxPerSecond)
-      scroll.addEventListener('wheel', (e) => {
-        if (!e.altKey && !e.ctrlKey) return; e.preventDefault();
-        if (e.ctrlKey && e.altKey) {
-          // Vertical zoom: Ctrl+Alt+wheel
-          const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
-          setVerticalZoom(getEditorDAW().laneHeight * factor);
-        } else {
-          // Horizontal zoom: Ctrl+wheel or Alt+wheel
-          const factor = e.deltaY < 0 ? 1.12 : 1 / 1.12; setZoom(getEditorDAW().pxPerSecond * factor, e.clientX);
-        }
-      }, { passive: false });
-
-      const beginScrub = (e) => {
-  if (getEditorDAW().isRecording) { toast('در حال ضبط — برای جابه‌جایی پلی‌هد ابتدا توقف کنید'); return; }
-  clearEditorTextSelection();
-  edClearChordSelection();
-
-  // Shift+click on playhead-hit: toggle playhead selection (draggable)
-  if (e.shiftKey && e.currentTarget === $('playhead-hit')) {
-    e.preventDefault();
-    getEditorDAW().selectedPlayhead = !getEditorDAW().selectedPlayhead;
-    $('main-playhead').classList.toggle('selected', getEditorDAW().selectedPlayhead);
-    if (getEditorDAW().selectedPlayhead) {
-      // Start dragging the selected playhead
-      const startX = e.clientX; const origTime = getEditorDAW().playhead;
-      const startY = e.clientY; const origPxPerSec = getEditorDAW().pxPerSecond;
-      const onMove = (ev) => {
-        const dx = ev.clientX - startX;
-        seekTransport(Math.max(0, origTime + xToTime(dx)), false);
-        // Cubase-style vertical zoom: up = zoom in, down = zoom out
-        const dy = startY - ev.clientY;
-        if (Math.abs(dy) > 3) {
-          const zoomFactor = 1 + dy * 0.002;
-          setZoom(clamp(origPxPerSec * zoomFactor, 4, 800), ev.clientX);
-        }
-        // Auto-scroll timeline
-        autoScrollToPlayhead();
-      };
-      startPointerDrag(e.currentTarget, e, onMove);
-    }
-    return;
-  }
-
-  clearSelection();
-  getEditorDAW().selectedPlayhead = false; $('main-playhead').classList.remove('selected');
-  e.preventDefault();
-
-  // Cubase-style: click on upper half of ruler to set locators
-  const ruler = $('timeline-ruler');
-  if (ruler) {
-    const rulerRect = ruler.getBoundingClientRect();
-    const localY = e.clientY - rulerRect.top;
-    const isUpperHalf = localY < rulerRect.height * 0.5;
-
-    if (isUpperHalf && getEditorDAW().loopEnabled) {
-      const t = clientToTime(e.clientX);
-      if (e.ctrlKey || e.metaKey) {
-        // Ctrl+Click = set right locator
-        getEditorDAW().loopB = Math.max(t, getEditorDAW().loopA + 0.5);
-        renderLoopRegion(); saveState();
-      } else {
-        // Click = set left locator
-        getEditorDAW().loopA = Math.min(t, getEditorDAW().loopB - 0.5);
-        renderLoopRegion(); saveState();
-      }
-      return;
-    }
-  }
-
-  seekTransport(clientToTime(e.clientX), true);
-
-        const scrubStartX = e.clientX; const scrubStartY = e.clientY; const scrubOrigPxPerSec = getEditorDAW().pxPerSecond;
-        const move = (ev) => {
-          seekTransport(clientToTime(ev.clientX), true);
-          // Cubase-style vertical zoom: up = zoom in, down = zoom out
-          const dy = scrubStartY - ev.clientY;
-          if (Math.abs(dy) > 3) {
-            const zoomFactor = 1 + dy * 0.002;
-            setZoom(clamp(scrubOrigPxPerSec * zoomFactor, 4, 800), ev.clientX);
-          }
-          // Auto-scroll timeline
-          autoScrollToPlayhead();
-        };
-        startPointerDrag(e.currentTarget, e, move);
-      };
-      $('timeline-ruler').addEventListener('pointerdown', beginScrub);
-      $('playhead-hit').addEventListener('pointerdown', beginScrub);
-
-      toast(t('dawReady'));
+    // ===== Ruler & Playhead =====
+    const editorTimelineInteractionService =
+      window.EditorTimelineInteractionService?.create?.({
+        documentRef: document,
+        getElement: id => $(id),
+        getDAW: () => getEditorDAW(),
+        setVerticalZoom: value => setVerticalZoom(value),
+        setZoom: (...args) => setZoom(...args),
+        toast,
+        translate: t,
+        clearEditorTextSelection,
+        clearChordSelection: () => edClearChordSelection(),
+        clearSelection,
+        seekTransport,
+        xToTime,
+        clientToTime,
+        clamp,
+        autoScrollToPlayhead,
+        renderLoopRegion,
+        saveState
+      });
+    editorTimelineInteractionService?.init?.();
 
       // Global deselect: clicking anywhere clears all selections
       document.addEventListener('mousedown', (e) => {
@@ -2571,7 +2476,6 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
       audioDropService?.bind?.(tlScroll);
       // Init sync UI
       initSyncUI();
-    })();
 
     /* ===================================================================
        LYRIC & CHORD EDITOR (integrated into workspace)

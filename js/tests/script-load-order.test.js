@@ -343,6 +343,10 @@ assert.ok(
     scriptIndex('js/app/editor.js')
 );
 assert.ok(
+  scriptIndex('js/editor/EditorTimelineInteractionService.js') <
+    scriptIndex('js/app/editor.js')
+);
+assert.ok(
   scriptIndex('js/editor/LyricPositionMapper.js') <
     scriptIndex('js/editor/EditorRawSongParserService.js')
 );
