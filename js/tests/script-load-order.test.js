@@ -511,6 +511,14 @@ assert.ok(
     scriptIndex('js/app/core.js')
 );
 assert.ok(
+  scriptIndex('js/editor/SyncAnalysis.js') <
+    scriptIndex('js/editor/EditorSyncAnalysisUiService.js')
+);
+assert.ok(
+  scriptIndex('js/editor/EditorSyncAnalysisUiService.js') <
+    scriptIndex('js/app/core.js')
+);
+assert.ok(
   scriptIndex('js/editor/EditorHydrationService.js') <
     scriptIndex('js/app/editor.js')
 );

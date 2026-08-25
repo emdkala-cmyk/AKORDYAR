@@ -29,6 +29,9 @@ const editorMutationService = read('js/editor/EditorMutationService.js');
 const editorChordQuantizeService = read('js/editor/EditorChordQuantizeService.js');
 const editorChordInteractionService = read('js/editor/EditorChordInteractionService.js');
 const editorLyricsRenderer = read('js/editor/EditorLyricsRenderer.js');
+const editorSyncAnalysisUiService = read(
+  'js/editor/EditorSyncAnalysisUiService.js'
+);
 const editor = executableLines(read('js/app/editor.js'));
 const appCore = executableLines(read('js/app/core.js'));
 const search = executableLines(read('js/app/search.js'));
@@ -87,8 +90,10 @@ assert.doesNotMatch(editorLyricsRenderer, /\bDAW\b/);
 assert.doesNotMatch(editorLyricsRenderer, /\bPERF\b/);
 assert.match(editorLyricsRenderer, /function render/);
 assert.match(appCore, /function requireEditorSongStateService\(\)/);
-assert.match(appCore, /function detectTempo\(\)[\s\S]*getSyncTimes\(\)/);
-assert.match(appCore, /function detectKey\(\)[\s\S]*getChords\(\)/);
+assert.match(editorSyncAnalysisUiService, /function detectTempo\(\)[\s\S]*getSyncTimes/);
+assert.match(editorSyncAnalysisUiService, /function detectKey\(\)[\s\S]*getChords/);
+assert.doesNotMatch(appCore, /function detectTempo\(/);
+assert.doesNotMatch(appCore, /function detectKey\(/);
 
 assert.doesNotMatch(appCore, /\bPERF\s*\./);
 assert.doesNotMatch(appCore, /\bDAW\s*\./);

@@ -33,6 +33,7 @@ for (const activeScript of [
   'js/editor/EditorAudioStorageService.js',
   'js/editor/EditorAudioStorageFacadeService.js',
   'js/editor/EditorPopupTimelineSyncService.js',
+  'js/editor/EditorSyncAnalysisUiService.js',
   'js/editor/EditorLyricsChordInteractionService.js',
   'js/editor/EditorProjectFileService.js',
   'js/editor/EditorProjectExportRouteService.js',
