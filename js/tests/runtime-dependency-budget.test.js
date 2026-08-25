@@ -34,6 +34,7 @@ const editorSyncAnalysisUiService = read(
 );
 const midiMonitorService = read('js/app/MidiMonitorService.js');
 const coreGridQuantizeService = read('js/app/CoreGridQuantizeService.js');
+const coreMetronomeService = read('js/app/CoreMetronomeService.js');
 const editor = executableLines(read('js/app/editor.js'));
 const appCore = executableLines(read('js/app/core.js'));
 const search = executableLines(read('js/app/search.js'));
@@ -104,6 +105,13 @@ assert.match(coreGridQuantizeService, /function snapTime\(/);
 assert.match(coreGridQuantizeService, /function quantizeSelectedChords\(/);
 assert.doesNotMatch(appCore, /function getActiveQuantizeGridStep\(/);
 assert.doesNotMatch(appCore, /function quantizeSelectedChords\(/);
+assert.match(coreMetronomeService, /function setCountInBars\(value\)/);
+assert.match(coreMetronomeService, /function startMetronome\(/);
+assert.match(coreMetronomeService, /function checkMetronomeTick\(/);
+assert.doesNotMatch(appCore, /function setCountInBars\(value\)/);
+assert.doesNotMatch(appCore, /function alignPlayheadToNearestMeasure\(/);
+assert.doesNotMatch(appCore, /function startMetronome\(/);
+assert.doesNotMatch(appCore, /function checkMetronomeTick\(/);
 
 assert.doesNotMatch(appCore, /\bPERF\s*\./);
 assert.doesNotMatch(appCore, /\bDAW\s*\./);
@@ -119,8 +127,7 @@ assert.doesNotMatch(
   /globalScope\.DAW\s*=\s*\{\s*audioContext:/,
   'core must not publish a placeholder DAW'
 );
-assert.match(appCore, /function setCountInBars\(value\)/);
-assert.match(appCore, /alignPlayheadToNearestMeasure/);
+assert.match(appCore, /CoreMetronomeService/);
 assert.match(appCore, /requireEditorSongRuntimeService\(\)\.setSong/);
 assert.doesNotMatch(appCore, /EdCurAdapter\?\./);
 assert.doesNotMatch(appCore, /\bedCur\b/);

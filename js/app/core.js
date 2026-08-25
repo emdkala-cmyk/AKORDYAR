@@ -67,6 +67,9 @@ function customPrompt(message, defaultValue = '') {
 if (typeof window !== 'undefined') window.customPrompt = customPrompt;
 
     const editorTransportState = globalScope.EditorTransportStateService.create();
+    let transportSchedulingService = null;
+    let audioContextServiceBridge = null;
+    let countInSchedulerBridge = null;
     const coreGridQuantizeRuntime =
       globalScope.CoreGridQuantizeService?.create?.({
         documentRef: document,
@@ -117,85 +120,60 @@ if (typeof window !== 'undefined') window.customPrompt = customPrompt;
     });
     coreGridQuantizeRuntime.bindModalDismiss();
 
-    function alignPlayheadToNearestMeasure(config) {
-      const daw = getEditorDAW();
-      const current = Number.isFinite(daw.playhead) ? daw.playhead : 0;
-      const aligned = PlayheadMath.snapToNearestMeasureStart(
-        current,
-        config?.measureDuration,
-        getProjectEnd()
+    const coreMetronomeRuntime =
+      globalScope.CoreMetronomeService?.create?.({
+        getElement: id => $(id),
+        getTransportState: () => editorTransportState,
+        getDAW: () => getEditorDAW(),
+        getProjectEnd: () => getProjectEnd(),
+        seekTransport: (...args) => seekTransport(...args),
+        stopAllVoices: (...args) => stopAllVoices(...args),
+        updatePlayheadUI: (...args) => updatePlayheadUI(...args),
+        playheadMath: PlayheadMath,
+        getGridConfig: (...args) => getTimeSignatureGridConfig(...args),
+        getSchedulingService: () => transportSchedulingService,
+        getCountInScheduler: () => countInSchedulerBridge,
+        ensureAudioCtx: (...args) => ensureAudioCtx(...args),
+        getMetroSound: () => APP_SETTINGS.metroSound || 'classic'
+      });
+    if (!coreMetronomeRuntime) {
+      throw new Error(
+        'CoreMetronomeService باید قبل از app/core.js بارگذاری شود.'
       );
-
-      if (Math.abs(aligned - current) < 0.0005) return aligned;
-
-      if (daw.isPlaying) {
-        seekTransport(aligned, true, true);
-      } else {
-        daw.playhead = aligned;
-        stopAllVoices();
-        updatePlayheadUI();
-      }
-      return aligned;
     }
-
-    function setCountInBars(value) {
-      editorTransportState.countInBars = Math.max(0, Number(value) || 0);
-      if (isCountInRunning()) cancelCountIn();
-      if (!editorTransportState.countInBars) return;
-
-      const bpm = parseInt($('edTempo')?.value) || 120;
-      const sig = $('edTimeSig')?.value || '4/4';
-      alignPlayheadToNearestMeasure(getTimeSignatureGridConfig(sig, bpm));
-    }
-
-    let transportSchedulingService = null;
-    let audioContextServiceBridge = null;
-    let countInSchedulerBridge = null;
-
-    function getMetronomeSchedulerBridge() {
-      return transportSchedulingService?.getMetronomeScheduler?.() || null;
-    }
-
-    function isCountInRunning() {
-      return Boolean(transportSchedulingService?.isCountInRunning?.());
-    }
-
-    function cancelCountIn() {
-      return transportSchedulingService?.cancelCountIn?.() || false;
-    }
-    function toggleMetronome() {
-      editorTransportState.metroActive = !editorTransportState.metroActive;
-      $('metroToggleBtn').textContent = editorTransportState.metroActive ? '🔊' : '🔇';
-      if (editorTransportState.metroActive && getEditorDAW().isPlaying) startMetronome();
-      else stopMetronome();
-    }
-
-    function startMetronome() {
-      const bpm = parseInt($('edTempo')?.value) || 120;
-      const timeSignature = $('edTimeSig')?.value || '4/4';
-      ensureAudioCtx();
-      const started = transportSchedulingService?.startMetronome?.({
-        bpm,
-        timeSignature,
-        sound: APP_SETTINGS.metroSound || 'classic'
-      }) || false;
-      editorTransportState.metroTimer = started ? true : null;
-    }
-
-    function stopMetronome() {
-      transportSchedulingService?.stopMetronome?.();
-      editorTransportState.metroTimer = null;
-    }
-
-    function checkMetronomeTick(playheadTime) {
-      if (!editorTransportState.metroActive || !getEditorDAW().isPlaying) return;
-      const bpm = parseInt($('edTempo')?.value) || 120;
-      const timeSignature = $('edTimeSig')?.value || '4/4';
-      return transportSchedulingService?.checkLegacyTick?.(
-        playheadTime,
-        { bpm, timeSignature }
-      ) || null;
-    }
+    const {
+      alignPlayheadToNearestMeasure,
+      setCountInBars,
+      getMetronomeSchedulerBridge,
+      isCountInRunning,
+      cancelCountIn,
+      toggleMetronome,
+      startMetronome,
+      stopMetronome,
+      checkMetronomeTick
+    } = coreMetronomeRuntime;
+    Object.assign(globalScope, {
+      alignPlayheadToNearestMeasure,
+      setCountInBars,
+      getMetronomeSchedulerBridge,
+      isCountInRunning,
+      cancelCountIn,
+      toggleMetronome,
+      startMetronome,
+      stopMetronome,
+      checkMetronomeTick
+    });
+    corePublicApi.publish({
+      alignPlayheadToNearestMeasure,
+      setCountInBars,
+      getMetronomeSchedulerBridge,
+      isCountInRunning,
+      cancelCountIn,
+      toggleMetronome,
+      startMetronome,
+      stopMetronome,
+      checkMetronomeTick
+    });
 
     const TIMELINE_PANEL_HEIGHT_KEY = 'akordyar.timelinePanelHeight';
     const DEFAULT_TIMELINE_PANEL_HEIGHT = 320;
