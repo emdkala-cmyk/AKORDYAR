@@ -36,6 +36,9 @@ const midiMonitorService = read('js/app/MidiMonitorService.js');
 const coreGridQuantizeService = read('js/app/CoreGridQuantizeService.js');
 const coreMetronomeService = read('js/app/CoreMetronomeService.js');
 const coreTransportService = read('js/app/CoreTransportService.js');
+const corePerformanceModeService = read(
+  'js/app/CorePerformanceModeService.js'
+);
 const corePanelLayoutService = read('js/app/CorePanelLayoutService.js');
 const coreTimelineGeometryService = read('js/app/CoreTimelineGeometryService.js');
 const coreTimelineRendererService = read('js/app/CoreTimelineRendererService.js');
@@ -320,6 +323,15 @@ assert.match(appCore, /CoreTransportService/);
 assert.doesNotMatch(appCore, /function startTransport\(\)/);
 assert.doesNotMatch(appCore, /function pauseTransport\(\)/);
 assert.doesNotMatch(appCore, /function getArrangerEnd\(\)/);
+assert.match(corePerformanceModeService, /async function openPerfMode\(\)/);
+assert.match(corePerformanceModeService, /function perfTogglePlay\(\)/);
+assert.match(corePerformanceModeService, /function perfTranspose\(/);
+assert.match(corePerformanceModeService, /function startPerfTimer\(\)/);
+assert.match(appCore, /CorePerformanceModeService/);
+assert.doesNotMatch(appCore, /async function openPerfMode\(\)/);
+assert.doesNotMatch(appCore, /function perfTogglePlay\(\)/);
+assert.doesNotMatch(appCore, /function perfTranspose\(/);
+assert.doesNotMatch(appCore, /function startPerfTimer\(\)/);
 assert.match(appCore, /requireEditorSongRuntimeService\(\)\.setSong/);
 assert.doesNotMatch(appCore, /EdCurAdapter\?\./);
 assert.doesNotMatch(appCore, /\bedCur\b/);

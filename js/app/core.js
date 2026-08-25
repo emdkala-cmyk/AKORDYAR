@@ -3635,7 +3635,6 @@ let syncTapKeyHandler = null;
     let perfStageMode = false;
     let perfPauseMode = false;
     let perfLiveTranspose = 0;
-    let perfTimer = null, perfStartTime = 0;
 
     // Crossfade state
     let _arrCrossfadeGain = null;
@@ -3651,77 +3650,132 @@ let syncTapKeyHandler = null;
     // این فلگ فعال می‌شه و یک poll مستقل از tick، منتظر اتمام prep می‌مونه
     let _arrWaitPollActive = false;
 
-    async function openPerfMode() {
-      if (!editingArr || !editingArr.items.length) { toast(t('emptySetlist')); return; }
-      arrPerformData = editingArr;
-      arrPerformIdx = 0;
-      arrPerformActive = true;
-      perfModeActive = true;
-      perfLiveTranspose = 0;
-      perfPauseMode = !!editingArr.pauseBetween;
-      _arrNextState = null;
-
-      const panel = $('arrPerfOverlay');
-      panel.style.display = 'flex';
-      $('perfArrangerName').textContent = '🎤 ' + (editingArr.name || 'اجرا');
-      $('perfPauseModeBtn').classList.toggle('arr-stl-active', perfPauseMode);
-
-      // درگ پنل
-      _setupPerfPanelDrag(panel);
-
-      closeArrangerModal();
-      renderPerfUI();
-      await loadArrSong(0);
-      renderPerfUI();
-      startPerfTimer();
-
-      // ─── Background preload همه آهنگ‌های ارنجر ───
-      // این کار تضمین می‌کنه که وقتی به آهنگ بعدی می‌رسیم، صدا از قبل لود شده.
-      // preload به‌صورت غیرمسدودکننده در پس‌زمینه انجام می‌شه.
-      _startBackgroundPreload();
-
-      // باز کردن Player View و Singer View مثل F9
-      if (typeof openLyricOnlyPopup === 'function') openLyricOnlyPopup();
-      if (typeof openLyricPopup === 'function') setTimeout(openLyricPopup, 300);
-    }
-
-    // درگ پنل اجرا
-    function _setupPerfPanelDrag(panel) {
-      const handle = $('arrPerfDragHandle');
-      if (!handle || handle._dragSetup) return;
-      handle._dragSetup = true;
-      let dragging = false, startX, startY, origX, origY;
-      handle.addEventListener('pointerdown', (e) => {
-        if (e.button !== 0) return;
-        if (e.target.tagName === 'BUTTON') return;
-        dragging = true;
-        const rect = panel.getBoundingClientRect();
-        startX = e.clientX; startY = e.clientY;
-        origX = rect.left; origY = rect.top;
-        e.preventDefault();
-        startEditorPointerDrag(handle, e, move, () => { dragging = false; });
+    const corePerformanceModeRuntime =
+      globalScope.CorePerformanceModeService?.create?.({
+        getElement: id => $(id),
+        getActiveElement: () => document.activeElement,
+        getEditingArr: () => editingArr,
+        getPerformanceState: () => ({
+          arrPerformData,
+          arrPerformIdx,
+          arrPerformActive,
+          perfModeActive,
+          perfStageMode,
+          perfPauseMode,
+          perfLiveTranspose,
+          arrNextState: _arrNextState,
+          bgPreloadActive: _bgPreloadActive,
+          arrWaitPollActive: _arrWaitPollActive,
+          arrPreparePending,
+          arrHasLoggedNoNextSong: _arrHasLoggedNoNextSong,
+          arrPrepStartedForIndex: _arrPrepStartedForIndex
+        }),
+        updatePerformanceState: patch => {
+          if (Object.prototype.hasOwnProperty.call(patch, 'arrPerformData')) {
+            arrPerformData = patch.arrPerformData;
+          }
+          if (Object.prototype.hasOwnProperty.call(patch, 'arrPerformIdx')) {
+            arrPerformIdx = patch.arrPerformIdx;
+          }
+          if (Object.prototype.hasOwnProperty.call(patch, 'arrPerformActive')) {
+            arrPerformActive = patch.arrPerformActive;
+          }
+          if (Object.prototype.hasOwnProperty.call(patch, 'perfModeActive')) {
+            perfModeActive = patch.perfModeActive;
+          }
+          if (Object.prototype.hasOwnProperty.call(patch, 'perfStageMode')) {
+            perfStageMode = patch.perfStageMode;
+          }
+          if (Object.prototype.hasOwnProperty.call(patch, 'perfPauseMode')) {
+            perfPauseMode = patch.perfPauseMode;
+          }
+          if (Object.prototype.hasOwnProperty.call(patch, 'perfLiveTranspose')) {
+            perfLiveTranspose = patch.perfLiveTranspose;
+          }
+          if (Object.prototype.hasOwnProperty.call(patch, 'arrNextState')) {
+            _arrNextState = patch.arrNextState;
+          }
+          if (Object.prototype.hasOwnProperty.call(patch, 'bgPreloadActive')) {
+            _bgPreloadActive = patch.bgPreloadActive;
+          }
+          if (Object.prototype.hasOwnProperty.call(patch, 'arrWaitPollActive')) {
+            _arrWaitPollActive = patch.arrWaitPollActive;
+          }
+          if (Object.prototype.hasOwnProperty.call(patch, 'arrPreparePending')) {
+            arrPreparePending = patch.arrPreparePending;
+          }
+          if (
+            Object.prototype.hasOwnProperty.call(
+              patch,
+              'arrHasLoggedNoNextSong'
+            )
+          ) {
+            _arrHasLoggedNoNextSong = patch.arrHasLoggedNoNextSong;
+          }
+          if (
+            Object.prototype.hasOwnProperty.call(
+              patch,
+              'arrPrepStartedForIndex'
+            )
+          ) {
+            _arrPrepStartedForIndex = patch.arrPrepStartedForIndex;
+          }
+        },
+        getDAW: () => getEditorDAW(),
+        getArrangerMarkers: () => getArrangerMarkers(),
+        ensureArrItem: (...args) => ensureArrItem(...args),
+        loadArrSong: (...args) => loadArrSong(...args),
+        renderPerfUI: (...args) => renderPerfUI(...args),
+        renderPerformancePanel: (...args) => renderPerfUI(...args),
+        startBackgroundPreload: (...args) =>
+          _startBackgroundPreload(...args),
+        closeArrangerModal: (...args) => closeArrangerModal(...args),
+        openLyricOnlyPopup: (...args) =>
+          openLyricOnlyPopup(...args),
+        openLyricPopup: (...args) => openLyricPopup(...args),
+        pauseTransport: (...args) => pauseTransport(...args),
+        startTransport: (...args) => startTransport(...args),
+        seekTransport: (...args) => seekTransport(...args),
+        ensureAudioCtx: (...args) => ensureAudioCtx(...args),
+        scheduleAllFromPlayhead: (...args) =>
+          scheduleAllFromPlayhead(...args),
+        saveArrangers: (...args) => saveArrangers(...args),
+        getSongState: () => requireEditorSongStateService(),
+        saveSong: (...args) => edSaveSong(...args),
+        handleTimingChange: (...args) => handleTimingChange(...args),
+        startPointerDrag: (...args) =>
+          startEditorPointerDrag(...args),
+        clamp: (...args) => clamp(...args),
+        translate: key => t(key),
+        toast: message => toast(message),
+        schedule: (...args) => setTimeout(...args),
+        setIntervalRef: (...args) => setInterval(...args),
+        clearIntervalRef: (...args) => clearInterval(...args),
+        now: () => Date.now(),
+        logger: console
       });
-      const move = (e) => {
-        if (!dragging) return;
-        panel.style.left = (origX + e.clientX - startX) + 'px';
-        panel.style.top = (origY + e.clientY - startY) + 'px';
-        panel.style.right = 'auto';
-      };
+    if (!corePerformanceModeRuntime) {
+      throw new Error(
+        'CorePerformanceModeService باید قبل از app/core.js بارگذاری شود.'
+      );
     }
-
-    function perfStop() {
-      arrPerformActive = false;
-      perfModeActive = false;
-      _arrNextState = null;
-      _bgPreloadActive = false; // توقف background preload
-      _arrWaitPollActive = false; // توقف wait poll
-      arrPreparePending = false; // reset prep flag
-      _arrHasLoggedNoNextSong = false; // reset no-next-song log flag
-      _arrPrepStartedForIndex = -1;    // reset prep log flag
-      pauseTransport();
-      $('arrPerfOverlay').style.display = 'none';
-      stopPerfTimer();
-    }
+    const {
+      openPerfMode,
+      perfStop,
+      perfTogglePauseMode,
+      perfTogglePlay,
+      perfRestartSong,
+      perfPrevSong,
+      perfNextSong,
+      perfTranspose,
+      perfTempoChange,
+      perfJumpToSong,
+      startPerfTimer,
+      stopPerfTimer,
+      startArrangerPerform
+    } = corePerformanceModeRuntime;
+    Object.assign(globalScope, corePerformanceModeRuntime);
+    corePublicApi.publish(corePerformanceModeRuntime);
 
     /**
      * _startBackgroundPreload — preload تمام آهنگ‌های ارنجر در پس‌زمینه
@@ -3788,101 +3842,6 @@ let syncTapKeyHandler = null;
         console.log('[BG Preload] Complete');
         _bgPreloadActive = false;
       })();
-    }
-
-    function perfTogglePauseMode() {
-      document.activeElement?.blur();
-      perfPauseMode = !perfPauseMode;
-      $('perfPauseModeBtn').classList.toggle('arr-stl-active', perfPauseMode);
-    }
-
-    function perfTogglePlay() {
-      document.activeElement?.blur();
-      if (getEditorDAW().isPlaying) {
-        pauseTransport();
-        $('perfPlayBtn').textContent = '▶';
-      } else {
-        ensureAudioCtx();
-        if (getEditorDAW().playhead <= 0) {
-          const markers = getArrangerMarkers();
-          seekTransport(
-            arrPerformActive && markers.enabled === true ? (markers.start || 0) : 0,
-            false,
-            true
-          );
-        }
-        startTransport();
-        $('perfPlayBtn').textContent = '⏸';
-      }
-    }
-
-    function perfRestartSong() {
-      document.activeElement?.blur();
-      const markers = getArrangerMarkers();
-      seekTransport(
-        arrPerformActive && markers.enabled === true ? (markers.start || 0) : 0,
-        false,
-        true
-      );
-      ensureAudioCtx();
-      startTransport();
-      $('perfPlayBtn').textContent = '⏸';
-    }
-
-    function perfPrevSong() {
-      document.activeElement?.blur();
-      if (arrPerformIdx > 0) {
-        arrPerformActive = true;
-        loadArrSong(arrPerformIdx - 1);
-        renderPerfUI();
-      }
-    }
-
-    function perfNextSong() {
-      document.activeElement?.blur();
-      if (arrPerformData && arrPerformIdx < arrPerformData.items.length - 1) {
-        arrPerformActive = true;
-        loadArrSong(arrPerformIdx + 1);
-        renderPerfUI();
-      }
-    }
-
-    // Per-song transpose during performance
-    function perfTranspose(semi) {
-      document.activeElement?.blur();
-      if (!arrPerformData) return;
-      const setting = ensureArrItem(arrPerformData, arrPerformIdx);
-      setting.transpose = (setting.transpose || 0) + semi;
-      // Apply transpose to all audio tracks
-      getEditorDAW().tracks.forEach(t => {
-        if (t.type === 'audio') {
-          t.transpose = (t.transpose || 0) + semi;
-        }
-      });
-      if (getEditorDAW().isPlaying) scheduleAllFromPlayhead();
-      saveArrangers();
-      perfLiveTranspose += semi;
-      renderPerfUI();
-    }
-
-    // Tempo change during performance
-    function perfTempoChange(delta) {
-      const cur = parseInt($('edTempo')?.value) || 120;
-      const newVal = clamp(cur + delta, 20, 300);
-      $('edTempo').value = newVal;
-      if (requireEditorSongStateService().setTempo(newVal)) {
-        edSaveSong();
-        handleTimingChange();
-      }
-      renderPerfUI();
-    }
-
-    // Jump to specific song from performance sidebar
-    function perfJumpToSong(idx) {
-      if (idx < 0 || !arrPerformData || idx >= arrPerformData.items.length) return;
-      arrPerformActive = true;
-      loadArrSong(idx);
-      renderPerfUI();
     }
 
     // Render performance mode UI
@@ -4052,27 +4011,6 @@ let syncTapKeyHandler = null;
       // Scroll to current in sidebar
       const currentItem = setlistEl.querySelector('.pf-current');
       if (currentItem) currentItem.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }
-
-    // Timer for performance
-    function startPerfTimer() {
-      stopPerfTimer();
-      perfStartTime = Date.now();
-      perfTimer = setInterval(() => {
-        if (!perfModeActive) return;
-        const elapsed = Date.now() - perfStartTime;
-        const min = Math.floor(elapsed / 60000);
-        const sec = Math.floor((elapsed % 60000) / 1000);
-        $('perfTime').textContent = `${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
-      }, 1000);
-    }
-    function stopPerfTimer() {
-      if (perfTimer) { clearInterval(perfTimer); perfTimer = null; }
-    }
-
-    // Override startArrangerPerform to use new perf mode
-    async function startArrangerPerform() {
-      await openPerfMode();
     }
 
     // Pre-build the next song's full DAW state while current plays
