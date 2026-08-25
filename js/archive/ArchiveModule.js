@@ -30,6 +30,7 @@
     let _archiveSelectionFilterService = null;
     let _archiveMutationService = null;
     let _archiveArtistUiService = null;
+    let _archiveArtistImageService = null;
 
     function getArchiveRuntimeAdapter() {
       const adapter = window.ArchiveRuntimeAdapter;
@@ -1099,107 +1100,41 @@ const DEFAULT_ARTISTS = [
       return (parts[0].charAt(0) + parts[parts.length-1].charAt(0)).toUpperCase();
     }
 
-    // ===== ARTIST IMAGE MANAGEMENT =====
-    const ARCH_IMG_MAX_SIZE = 512;
-    const ARCH_IMG_MAX_BYTES = 2 * 1024 * 1024; // 2MB
-    const ARCH_IMG_ALLOWED_TYPES = ['image/png','image/jpeg','image/webp'];
+    // Artist image facade — public names remain stable for editor.js and HTML actions.
+    function getArchiveArtistImageService() {
+      if (!_archiveArtistImageService) {
+        const create = window.ArchiveArtistImageService?.create;
+        if (typeof create !== 'function') {
+          throw new Error('ArchiveArtistImageService is not loaded. Check script order.');
+        }
+        _archiveArtistImageService = create({
+          storage: window.localStorage,
+          documentRef: window.document,
+          FileReaderCtor: window.FileReader,
+          ImageCtor: window.Image,
+          getDefaultArtists: () => DEFAULT_ARTISTS,
+          artistKey: archArtistKey,
+          refreshArtists: archRenderArtists,
+          toast
+        });
+      }
+      return _archiveArtistImageService;
+    }
 
     function archGetArtistImage(normalizedName) {
-      const key = archArtistKey(normalizedName);
-      // Check localStorage first (user-uploaded images)
-      try {
-        const userImg = localStorage.getItem('arch_artist_img_' + key);
-        if (userImg) return userImg;
-      } catch(_) {}
-      // Check bundled images from DEFAULT_ARTISTS (match by canonical key)
-      const defaultArtist = DEFAULT_ARTISTS.find(a => archArtistKey(a.normalizedName) === key);
-      if (defaultArtist && defaultArtist.image && defaultArtist.image.type === 'bundled' && defaultArtist.image.src) {
-        return defaultArtist.image.src;
-      }
-      // Fallback: match by displayName or aliases
-      const byAlias = DEFAULT_ARTISTS.find(a =>
-        archArtistKey(a.displayName) === key ||
-        (a.aliases && a.aliases.some(alias => archArtistKey(alias) === key))
-      );
-      if (byAlias && byAlias.image && byAlias.image.type === 'bundled' && byAlias.image.src) {
-        return byAlias.image.src;
-      }
-      // Backward compat: migrate old localStorage keys
-      try {
-        if (defaultArtist) {
-          for (const oldKey of [defaultArtist.displayName, defaultArtist.id, defaultArtist.normalizedName]) {
-            if (oldKey && oldKey !== key) {
-              const oldImg = localStorage.getItem('arch_artist_img_' + oldKey);
-              if (oldImg) {
-                localStorage.setItem('arch_artist_img_' + key, oldImg);
-                localStorage.removeItem('arch_artist_img_' + oldKey);
-                return oldImg;
-              }
-            }
-          }
-        }
-      } catch(_) {}
-      return null;
+      return getArchiveArtistImageService().get(normalizedName);
     }
     function archSetArtistImage(normalizedName, dataUrl) {
-      try { localStorage.setItem('arch_artist_img_' + normalizedName, dataUrl); } catch(e) {
-        console.warn('Artist image save error:', e);
-        toast('خطا در ذخیره تصویر: حجم تصویر بیش از حد مجاز است');
-      }
+      return getArchiveArtistImageService().set(normalizedName, dataUrl);
     }
     function archRemoveArtistImage(normalizedName) {
-      try { localStorage.removeItem('arch_artist_img_' + normalizedName); } catch(_) {}
+      return getArchiveArtistImageService().remove(normalizedName);
     }
-
-    // Resize and crop image to square 512x512
     function archProcessImage(file) {
-      return new Promise((resolve, reject) => {
-        if (!file) { reject(new Error('فایلی انتخاب نشد')); return; }
-        if (!ARCH_IMG_ALLOWED_TYPES.includes(file.type)) { reject(new Error('فرمت فایل مجاز نیست (فقط PNG, JPG, WebP)')); return; }
-        if (file.size > ARCH_IMG_MAX_BYTES) { reject(new Error('حجم فایل بیش از 2 مگابایت است')); return; }
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          const img = new Image();
-          img.onload = () => {
-            const canvas = document.createElement('canvas');
-            canvas.width = ARCH_IMG_MAX_SIZE;
-            canvas.height = ARCH_IMG_MAX_SIZE;
-            const ctx = canvas.getContext('2d');
-            // Center crop to square
-            const minDim = Math.min(img.width, img.height);
-            const sx = (img.width - minDim) / 2;
-            const sy = (img.height - minDim) / 2;
-            ctx.drawImage(img, sx, sy, minDim, minDim, 0, 0, ARCH_IMG_MAX_SIZE, ARCH_IMG_MAX_SIZE);
-            // Compress to JPEG with quality
-            const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-            resolve(dataUrl);
-          };
-          img.onerror = () => reject(new Error('خطا در بارگذاری تصویر'));
-          img.src = e.target.result;
-        };
-        reader.onerror = () => reject(new Error('خطا در خواندن فایل'));
-        reader.readAsDataURL(file);
-      });
+      return getArchiveArtistImageService().process(file);
     }
-
-    // Open file picker for artist image
     function archPickArtistImage(normalizedName, mode) {
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = 'image/png,image/jpeg,image/webp';
-      input.onchange = async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        try {
-          const dataUrl = await archProcessImage(file);
-          archSetArtistImage(normalizedName, dataUrl);
-          archRenderArtists();
-          toast('تصویر خواننده ذخیره شد');
-        } catch(err) {
-          toast('خطا: ' + err.message);
-        }
-      };
-      input.click();
+      return getArchiveArtistImageService().pick(normalizedName, mode);
     }
 
     // Artist UI facade — public names remain stable for editor.js and HTML actions.
