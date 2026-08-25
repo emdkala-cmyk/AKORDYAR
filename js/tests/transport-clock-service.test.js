@@ -9,8 +9,13 @@ const coreSource = fs.readFileSync(
   path.join(projectRoot, 'js', 'app', 'core.js'),
   'utf8'
 );
+const transportRuntimeSource = fs.readFileSync(
+  path.join(projectRoot, 'js', 'core', 'EditorTransportRuntimeService.js'),
+  'utf8'
+);
 
-assert.match(coreSource, /TransportClockService\?\.create/);
+assert.match(coreSource, /EditorTransportRuntimeService\.create/);
+assert.match(transportRuntimeSource, /TransportClockService\?\.create/);
 assert.doesNotMatch(coreSource, /function getTransportClockSnapshot\(/);
 
 let performanceTime = 1000;

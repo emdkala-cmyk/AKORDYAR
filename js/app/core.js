@@ -823,53 +823,39 @@ const requestRenderSyncLyrics = debounce(() => { renderSyncLyrics(); }, 120);
       return daw.audioCtx;
     }
 
-    const transportClockService =
-      typeof globalScope.TransportClockService?.create === 'function'
-        ? globalScope.TransportClockService.create({
-            getDAW: () => getEditorDAW(),
-            playheadMath: PlayheadMath,
-            getNow: () => performance.now()
-          })
-        : null;
-    if (!transportClockService) {
-      throw new Error('TransportClockService باید قبل از app/core.js بارگذاری شود.');
-    }
+    const editorTransportRuntimeService =
+      globalScope.EditorTransportRuntimeService.create({
+        getDAW: () => getEditorDAW(),
+        getMeterConfig: getTimeSignatureGridConfig,
+        getLoop: () => {
+          const daw = getEditorDAW();
+          return {
+            enabled: Boolean(daw.loopEnabled),
+            start: daw.loopA,
+            end: daw.loopB
+          };
+        },
+        contextProvider: () => {
+          try {
+            return getEditorDAW()?.audioCtx || null;
+          } catch (_) {
+            return null;
+          }
+        },
+        playheadMath: PlayheadMath,
+        getNow: () => performance.now(),
+        scheduleAheadTime: 1.5,
+        logger: console
+      });
     const setTransportOrigin = (...args) =>
-      transportClockService.setOrigin(...args);
+      editorTransportRuntimeService.setOrigin(...args);
     const getTransportClockSnapshot = (...args) =>
-      transportClockService.getSnapshot(...args);
+      editorTransportRuntimeService.getClockSnapshot(...args);
     const getTransportPlayhead = (...args) =>
-      transportClockService.getPlayhead(...args);
-
-    if (typeof globalScope.TransportSchedulingService?.create !== 'function') {
-      throw new Error('TransportSchedulingService باید قبل از app/core.js بارگذاری شود.');
-    }
-    transportSchedulingService = globalScope.TransportSchedulingService.create({
-      getDAW: () => getEditorDAW(),
-      getMeterConfig: getTimeSignatureGridConfig,
-      getLoop: () => {
-        const daw = getEditorDAW();
-        return {
-          enabled: Boolean(daw.loopEnabled),
-          start: daw.loopA,
-          end: daw.loopB
-        };
-      },
-      getClockSnapshot: getTransportClockSnapshot,
-      contextProvider: () => {
-        try {
-          return getEditorDAW()?.audioCtx || null;
-        } catch (_) {
-          return null;
-        }
-      },
-      scheduleAheadTime: 1.5,
-      logger: console
-    });
-    audioContextServiceBridge =
-      transportSchedulingService.getAudioContextService?.() || null;
-    countInSchedulerBridge =
-      transportSchedulingService.getCountInScheduler?.() || null;
+      editorTransportRuntimeService.getPlayhead(...args);
+    transportSchedulingService = editorTransportRuntimeService.schedulingService;
+    audioContextServiceBridge = editorTransportRuntimeService.audioContextService;
+    countInSchedulerBridge = editorTransportRuntimeService.countInScheduler;
 
     const playbackTimelineController =
       globalScope.PlaybackTimelineController?.create({

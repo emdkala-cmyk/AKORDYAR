@@ -139,6 +139,10 @@ assert.ok(
     scriptIndex('js/app/core.js')
 );
 assert.ok(
+  scriptIndex('js/core/EditorTransportRuntimeService.js') <
+    scriptIndex('js/app/core.js')
+);
+assert.ok(
   scriptIndex('js/core/ElectronMenuCommandService.js') <
     scriptIndex('js/app/core.js')
 );
