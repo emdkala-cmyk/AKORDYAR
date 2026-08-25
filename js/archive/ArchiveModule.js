@@ -24,6 +24,7 @@
     let _archiveCurrentSongService = null;
     let _archiveBatchImportService = null;
     let _archiveTransferService = null;
+    let _archiveXmlExportService = null;
     let _archiveLifecycleService = null;
     let _archiveSelectionFilterService = null;
     let _archiveMutationService = null;
@@ -645,6 +646,25 @@
       return _archiveTransferService;
     }
 
+    function getArchiveXmlExportService() {
+      if (!_archiveXmlExportService) {
+        const create = window.ArchiveXmlExportService?.create;
+        if (typeof create !== 'function') {
+          throw new Error('ArchiveXmlExportService is not loaded. Check script order.');
+        }
+        _archiveXmlExportService = create({
+          getSong: getArchiveSongOrNull,
+          syncMetadata: song => SongMetadata.syncFromDom(song, { includeKey: false }),
+          getShowSaveFilePicker: () => window.showSaveFilePicker,
+          documentRef: window.document,
+          BlobCtor: window.Blob,
+          URLRef: window.URL,
+          toast
+        });
+      }
+      return _archiveXmlExportService;
+    }
+
     // --- Lifecycle bridge ---
     function getArchiveLifecycleService() {
       if (!_archiveLifecycleService) {
@@ -1142,64 +1162,7 @@ saveState();
     }
 
     async function edExportXML() {
-      const song = getArchiveSongOrNull();
-      if (!song) { toast('ترانه‌ای باز نیست'); return; }
-      SongMetadata.syncFromDom(song, {includeKey: false});
-
-      const esc = (s) => String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-      let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
-      xml += '<song>\n';
-      xml += `  <title>${esc(song.title)}</title>\n`;
-      xml += `  <artist>${esc(song.artist)}</artist>\n`;
-      xml += `  <key>${esc(song.key)}${song.keyMode === 'min' ? 'm' : ''}</key>\n`;
-      xml += `  <timeSignature>${esc(song.timeSignature)}</timeSignature>\n`;
-      xml += `  <tempo>${song.tempo || 120}</tempo>\n`;
-      xml += `  <genre>${esc(song.genre)}</genre>\n`;
-      xml += `  <transpose>${song.transpose || 0}</transpose>\n`;
-
-      // Chords
-      xml += '  <chords>\n';
-      (song.chords || []).forEach(ch => {
-        xml += `    <chord name="${esc(ch.name)}" line="${ch.lineIndex}" char="${ch.charIndex}" anchor="${esc(ch.anchorType)}" />\n`;
-      });
-      xml += '  </chords>\n';
-
-      // Lyrics line by line
-      xml += '  <lyrics>\n';
-      (song.lyrics || '').split('\n').forEach((line, i) => {
-        xml += `    <line index="${i}">${esc(line)}</line>\n`;
-      });
-      xml += '  </lyrics>\n';
-
-      // Styles
-      const st = song.styles || {};
-      xml += '  <styles>\n';
-      xml += `    <text size="${st.tSize||23}" color="${esc(st.tColor||'#0fa966')}" font="${esc(st.tFont||'Vazirmatn')}" bold="${st.tBold?'true':'false'}" align="${esc(st.align||'center')}" />\n`;
-      xml += `    <chord size="${st.cSize||23}" color="${esc(st.cColor||'#e6aa28')}" font="${esc(st.cFont||'JetBrains Mono')}" />\n`;
-      xml += '  </styles>\n';
-
-      xml += '</song>';
-
-      const defaultName = (song.title || 'ترانه جدید') + '.xml';
-      const blob = new Blob([xml], { type: 'application/xml' });
-
-      if (window.showSaveFilePicker) {
-        try {
-          const handle = await window.showSaveFilePicker({
-            suggestedName: defaultName,
-            types: [{ description: 'فایل XML', accept: { 'application/xml': ['.xml'] } }]
-          });
-          const writable = await handle.createWritable();
-          await writable.write(blob);
-          await writable.close();
-          toast('خروجی XML ذخیره شد');
-          return;
-        } catch (e) { if (e.name === 'AbortError') return; }
-      }
-      // Fallback
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a'); a.href = url; a.download = defaultName; a.click(); URL.revokeObjectURL(url);
-      toast('خروجی XML ذخیره شد');
+      return getArchiveXmlExportService().exportXml();
     }
 
     // Import — loads metadata, then asks user to select audio files

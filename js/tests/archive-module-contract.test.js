@@ -73,6 +73,10 @@ assert.ok(
     scriptIndex('js/archive/ArchiveModule.js')
 );
 assert.ok(
+  scriptIndex('js/archive/ArchiveXmlExportService.js') <
+    scriptIndex('js/archive/ArchiveModule.js')
+);
+assert.ok(
   scriptIndex('js/archive/ArchiveLifecycleService.js') <
     scriptIndex('js/archive/ArchiveModule.js')
 );
