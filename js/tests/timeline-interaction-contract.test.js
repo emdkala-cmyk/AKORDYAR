@@ -7,6 +7,7 @@ const read = file => fs.readFileSync(path.join(root, file), 'utf8');
 
 const core = read('js/app/core.js');
 const coreSettings = read('js/app/CoreSettingsService.js');
+const coreHighlight = read('js/app/CoreHighlightService.js');
 const corePanelLayout = read('js/app/CorePanelLayoutService.js');
 const coreTimelineRenderer = read('js/app/CoreTimelineRendererService.js');
 const coreClipInteraction = read('js/app/CoreClipInteractionService.js');
@@ -38,6 +39,7 @@ assert.doesNotMatch(
 assert.match(core, /EditorTransportStateService\.create\(\)/);
 assert.match(transportState, /returnToStartOnPause:\s*true/);
 assert.match(coreSettings, /function previewMetronomeSound/);
+assert.match(coreHighlight, /function setHighlightEffect\(effect\)/);
 assert.match(html, /data-action="previewMetroSound"/);
 assert.match(editor, /function toggleSelectedTrackHeight/);
 assert.match(editor, /item\.id === track\.id \? expandedHeight : MIN_LANE_HEIGHT/);

@@ -1642,57 +1642,26 @@ function applyState(stateStr) {
       toast(getEditorDAW().playheadMode === 'center' ? 'پلی‌هدر ثابت در مرکز' : 'اسکرول صفحه‌ای');
     }
 
-    /* ===== HIGHLIGHT EFFECT ===== */
-    const HL_EFFECTS = ['neon', 'frost', 'shift', 'depth', 'pulse'];
-    const HL_NAMES = { neon: 'Neon Glow', frost: 'Frosted Glass', shift: 'Color Shift', depth: 'Double Shadow', pulse: 'Pulse Glow' };
-
-    function getHighlightEffect() {
-      return requireEditorSongStateService().getPresentationSnapshot()?.styles
-        ?.highlightEffect || 'depth';
-    }
-
-    function setHighlightEffect(effect) {
-      if (!HL_EFFECTS.includes(effect)) return;
-      if (!requireEditorSongStateService().setHighlightEffect(effect, HL_EFFECTS)) return;
-      // Update selector UI
-      document.querySelectorAll('.hl-opt').forEach(el => {
-        el.classList.toggle('active', el.dataset.effect === effect);
+    const coreHighlightRuntime =
+      globalScope.CoreHighlightService?.create?.({
+        documentRef: document,
+        getElement: id => $(id),
+        getSongState: () => requireEditorSongStateService(),
+        getPopup: () =>
+          typeof _lyricPopup !== 'undefined' ? _lyricPopup : null,
+        isPopupOpen: popup => isPopupOpen(popup),
+        popupDocument: popup => popupDocument(popup),
+        saveSong: () => {
+          if (typeof edSaveSong === 'function') edSaveSong();
+        }
       });
-      const nameEl = $('hl-effect-name');
-      if (nameEl) nameEl.textContent = HL_NAMES[effect] || effect;
-      // Apply to editor container
-      applyHighlightClassToEditor();
-      // Apply to popup
-      applyHighlightClassToPopup();
-      edSaveSong();
+    if (!coreHighlightRuntime) {
+      throw new Error(
+        'CoreHighlightService باید قبل از app/core.js بارگذاری شود.'
+      );
     }
-
-    function applyHighlightClassToEditor() {
-      const ed = $('editor');
-      if (!ed) return;
-      HL_EFFECTS.forEach(hl => ed.classList.remove('hl-' + hl));
-      ed.classList.add('hl-' + getHighlightEffect());
-    }
-
-    function applyHighlightClassToPopup() {
-      if (!isPopupOpen(_lyricPopup)) return;
-      const popupDoc = popupDocument(_lyricPopup);
-      if (!popupDoc) return;
-      const body = popupDoc.body;
-      if (!body) return;
-      HL_EFFECTS.forEach(hl => body.classList.remove('hl-' + hl));
-      body.classList.add('hl-' + getHighlightEffect());
-    }
-
-    function initHighlightEffect() {
-      const effect = getHighlightEffect();
-      document.querySelectorAll('.hl-opt').forEach(el => {
-        el.classList.toggle('active', el.dataset.effect === effect);
-      });
-      const nameEl = $('hl-effect-name');
-      if (nameEl) nameEl.textContent = HL_NAMES[effect] || effect;
-      applyHighlightClassToEditor();
-    }
+    Object.assign(globalScope, coreHighlightRuntime);
+    corePublicApi.publish(coreHighlightRuntime);
 
     /* ===== LOOP A-B ===== */
     function toggleLoop() {

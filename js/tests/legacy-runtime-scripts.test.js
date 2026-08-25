@@ -53,6 +53,7 @@ for (const activeScript of [
   'js/app/CoreMixerBridgeService.js',
   'js/app/CoreRecordingService.js',
   'js/app/CoreSettingsService.js',
+  'js/app/CoreHighlightService.js',
   'js/editor/EditorProjectFileService.js',
   'js/editor/EditorProjectExportRouteService.js',
   'js/editor/EditorProjectImportRouteService.js',
