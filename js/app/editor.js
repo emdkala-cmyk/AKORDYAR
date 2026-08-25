@@ -21,6 +21,28 @@ function editorPopupDocument(popup) {
   return editorPopupWindowService?.getDocument?.(popup) || null;
 }
 
+const editorPopupTimelineSyncService =
+  window.EditorPopupTimelineSyncService?.create?.({
+    documentRef: document,
+    windowRef: window,
+    bridge: window.WindowBridge,
+    getPopup: () => (typeof _lyricPopup !== 'undefined' ? _lyricPopup : null),
+    isOpen: editorPopupIsOpen,
+    getDocument: editorPopupDocument,
+    getSong: () => window.EditorRuntimeAdapter?.getSong?.() || null,
+    getDAW: () => getEditorDAW(),
+    getProjectEnd: () => getProjectEnd(),
+    getTimeSignatureGridConfig: (signature, bpm) =>
+      getTimeSignatureGridConfig(signature, bpm),
+    timeToX: time => timeToX(time),
+    getTransportPlayhead: () => getTransportPlayhead(),
+    logger: console
+  });
+
+function safeMirrorTimeline() {
+  return editorPopupTimelineSyncService?.render?.();
+}
+
 let edAudioStorageService = null;
 function getEditorAudioStorageService() {
   if (
@@ -4813,278 +4835,6 @@ if ($('edDoBoth')) {
     function executeMidiMappedFunction(funcId) {
       const fn = ACTION_FUNCTIONS[funcId];
       if (fn) fn();
-    }
-
-    // ======== تابع ایمن برای کپی آکوردها ========
-    function safeMirrorTimeline() {
-      try {
-        if (!editorPopupIsOpen(_lyricPopup)) return;
-        const popupDoc = editorPopupDocument(_lyricPopup);
-        if (!popupDoc) return;
-        const targetDiv = popupDoc.getElementById('playerChordMirror');
-        if (!targetDiv) return;
-
-        const sourceTimeline = document.querySelector('.track-lane.chord-lane');
-        if (!sourceTimeline || sourceTimeline.children.length === 0) return;
-
-        // ۱. کپی برداری بدون حذف هیچ المانی (برای حفظ یکپارچگی ایندکس‌ها)
-        const clone = sourceTimeline.cloneNode(true);
-
-        targetDiv.innerHTML = '';
-        targetDiv.appendChild(clone);
-
-        // استایل کانتینر — ثابت، بدون اسکرول، پلی‌هد وسطش می‌ماند
-        targetDiv.style.direction = 'ltr';
-        targetDiv.style.overflow = 'hidden';
-        targetDiv.style.position = 'relative';
-        targetDiv.style.backgroundColor = '#0D1017';
-
-        const mirrorH = targetDiv.clientHeight || 90;
-        const RULER_H = 18;
-        clone.style.direction = 'ltr';
-        clone.style.position = 'absolute';
-        clone.style.top = RULER_H + 'px';
-        clone.style.left = '0';
-        clone.style.width = sourceTimeline.scrollWidth + 'px';
-        clone.style.height = (mirrorH - RULER_H) + 'px';
-        clone.style.display = 'block';
-        clone.style.backgroundColor = 'transparent';
-
-        // ── خط کشی بالا (شماره میزان) مثل تایم لاین اصلی ──
-        let mirrorRuler = targetDiv.querySelector('.mirror-ruler');
-        if (!mirrorRuler) {
-          mirrorRuler = popupDoc.createElement('div');
-          mirrorRuler.className = 'mirror-ruler';
-          mirrorRuler.style.cssText = 'position:absolute;top:0;left:0;height:' + RULER_H + 'px;width:100%;overflow:hidden;z-index:5;pointer-events:none;background:rgba(13,16,23,0.95);border-bottom:1px solid rgba(255,255,255,0.1);';
-          targetDiv.appendChild(mirrorRuler);
-        }
-        let rulerInner = mirrorRuler.querySelector('.mirror-ruler-inner');
-        if (!rulerInner) {
-          rulerInner = popupDoc.createElement('div');
-          rulerInner.className = 'mirror-ruler-inner';
-          rulerInner.style.cssText = 'position:absolute;top:0;height:100%;white-space:nowrap;font-size:8px;color:rgba(255,255,255,0.5);font-family:JetBrains Mono,monospace;line-height:' + RULER_H + 'px;';
-          mirrorRuler.appendChild(rulerInner);
-        }
-        rulerInner.innerHTML = '';
-        rulerInner.style.width = sourceTimeline.scrollWidth + 'px';
-
-        // ── اعداد و پارامترهای گرید ──
-        const _glen = getProjectEnd();
-        const _gbpm = edCur?.tempo || 120;
-        const _gsig = edCur?.timeSignature || '4/4';
-        const _gcfg = getTimeSignatureGridConfig(_gsig, _gbpm);
-        const _gbeatsPerBar = _gcfg.beatsPerMeasure;
-        const _gbeatDur = _gcfg.beatDuration;
-        const _gbarDur = _gcfg.measureDuration;
-        const _gpxPerSec = getEditorDAW().pxPerSecond;
-        targetDiv.dataset.mirrorPps = String(_gpxPerSec);
-        const _gpxPerBar = _gbarDur * _gpxPerSec;
-        let _gbarStep = 1;
-        if (_gpxPerBar > 120) _gbarStep = 1;
-        else if (_gpxPerBar > 60) _gbarStep = 2;
-        else if (_gpxPerBar > 30) _gbarStep = 4;
-        else if (_gpxPerBar > 15) _gbarStep = 8;
-        else if (_gpxPerBar > 8) _gbarStep = 16;
-        else _gbarStep = 32;
-
-        // شماره میزان‌ها روی رولر
-        for (let _bar = 1; _bar * _gbarDur <= _glen; _bar++) {
-          if ((_bar - 1) % _gbarStep !== 0) continue;
-          const _x = timeToX((_bar - 1) * _gbarDur);
-          const _span = popupDoc.createElement('span');
-          _span.className = 'mirror-ruler-label';
-          _span.style.cssText = 'position:absolute;left:' + _x + 'px;top:0;padding-left:2px;';
-          _span.textContent = _bar;
-          rulerInner.appendChild(_span);
-        }
-
-        // ── رسم خطوط گرید روی کانواس داخل کلون (مثل drawLaneGrid) ──
-        let gridCanvas = clone.querySelector('canvas.lane-grid');
-        if (!gridCanvas) {
-          gridCanvas = popupDoc.createElement('canvas');
-          gridCanvas.className = 'lane-grid';
-          clone.insertBefore(gridCanvas, clone.firstChild);
-        }
-        gridCanvas.style.cssText = 'position:absolute;top:0;left:0;pointer-events:none;z-index:0;display:block;';
-        gridCanvas.width = Math.min(Math.ceil(sourceTimeline.scrollWidth), 20000);
-        gridCanvas.height = (mirrorH - RULER_H);
-        gridCanvas.style.width = gridCanvas.width + 'px';
-        gridCanvas.style.height = (mirrorH - RULER_H) + 'px';
-
-        const _gctx = gridCanvas.getContext('2d');
-        _gctx.clearRect(0, 0, gridCanvas.width, gridCanvas.height);
-        // خطوط میزان (پررنگ‌تر)
-        _gctx.strokeStyle = 'rgba(255,255,255,0.12)';
-        _gctx.lineWidth = 1;
-        let _gBarCount = 0;
-        for (let _bar = 1; _bar * _gbarDur <= _glen && _gBarCount < 500; _bar++) {
-          const _x = Math.round((_bar * _gbarDur) * _gpxPerSec) + 0.5;
-          if (_x > gridCanvas.width) break;
-          _gctx.beginPath(); _gctx.moveTo(_x, 0); _gctx.lineTo(_x, gridCanvas.height); _gctx.stroke();
-          _gBarCount++;
-        }
-        // خطوط ضرب (کمرنگ‌تر)
-        if (_gpxPerSec > 10) {
-          _gctx.strokeStyle = 'rgba(255,255,255,0.04)';
-          let _gBeatCount = 0;
-          for (let _beat = 0; _beat * _gbeatDur <= _glen && _gBeatCount < 500; _beat++) {
-            if (_beat % _gbeatsPerBar === 0) continue;
-            const _x = Math.round((_beat * _gbeatDur) * _gpxPerSec) + 0.5;
-            if (_x > gridCanvas.width) break;
-            _gctx.beginPath(); _gctx.moveTo(_x, 0); _gctx.lineTo(_x, gridCanvas.height); _gctx.stroke();
-            _gBeatCount++;
-          }
-        }
-        // ساب ضرب (زمانی که زوم خیلی زیاد است)
-        if (_gpxPerSec > 40) {
-          const _gSubBeatDur = _gbeatDur / _gcfg.subdivisionsPerBeat;
-          _gctx.strokeStyle = 'rgba(255,255,255,0.02)';
-          let _gSubCount = 0;
-          for (let _sub = 0; _sub * _gSubBeatDur <= _glen && _gSubCount < 500; _sub++) {
-            if (_sub % _gcfg.subdivisionsPerBeat === 0) continue;
-            const _x = Math.round((_sub * _gSubBeatDur) * _gpxPerSec) + 0.5;
-            if (_x > gridCanvas.width) break;
-            _gctx.beginPath(); _gctx.moveTo(_x, 0); _gctx.lineTo(_x, gridCanvas.height); _gctx.stroke();
-            _gSubCount++;
-          }
-        }
-
-        // ۲. ساخت پلی‌هد — ثابت در وسط کانتینر
-        let mirrorPlayhead = targetDiv.querySelector('.mirror-playhead');
-        if (!mirrorPlayhead) {
-            mirrorPlayhead = popupDoc.createElement('div');
-            mirrorPlayhead.className = 'mirror-playhead';
-            mirrorPlayhead.style.cssText = 'position: absolute; top: 0; bottom: 0; width: 2px; background: #00F2FE; z-index: 100; box-shadow: 0 0 10px rgba(0,242,254,0.8); pointer-events: none; left: 50%;';
-            targetDiv.appendChild(mirrorPlayhead);
-        } else {
-            // اگر از قبل وجود دارد، مطمئن شو در کانتینر باشد نه در کلون
-            mirrorPlayhead.style.left = '50%';
-        }
-
-        const sourceClips = sourceTimeline.children;
-        const cloneClips = clone.children;
-
-        for (let i = 0; i < cloneClips.length; i++) {
-            let clip = cloneClips[i];
-            let sourceClip = sourceClips[i]; // تطابق دقیق یک به یک
-
-            if (clip.classList.contains('mirror-playhead')) continue;
-
-            // کانواس گرید را مخفی نکن
-            if (clip.tagName === 'CANVAS') continue;
-
-            // مخفی کردن دستگیره‌ها به جای حذف کردن
-            if (clip.classList.contains('lane-resize-handle')) {
-                clip.style.display = 'none';
-                continue;
-            }
-
-            let text = clip.textContent || "";
-            text = text.trim();
-
-            if (text === '') {
-                clip.style.display = 'none';
-                continue;
-            }
-
-            // ۳. کپی مستقیم موقعیت و سایز از المان اصلی (حل مشکل شیفت میزان)
-            if (sourceClip) {
-                let cs = window.getComputedStyle(sourceClip);
-                clip.style.left = cs.left !== 'auto' ? cs.left : '0px';
-                clip.style.right = cs.right !== 'auto' ? cs.right : 'auto';
-                clip.style.width = cs.width;
-                clip.style.transform = cs.transform;
-            }
-
-            // استایل‌دهی بصری — دقیقاً مثل لاین آکورد تایم‌لاین
-            clip.style.position = 'absolute';
-            clip.style.display = 'flex';
-            clip.style.alignItems = 'center';
-            clip.style.justifyContent = 'center';
-            clip.style.boxSizing = 'border-box';
-            clip.style.direction = 'ltr';
-            clip.style.opacity = '1';
-            clip.style.visibility = 'visible';
-            clip.style.background = 'linear-gradient(180deg, #4a2b5e, #2d1b3a)';
-            clip.style.color = '#fff';
-            clip.style.border = '1px solid #9F7AEA';
-            clip.style.borderRadius = '7px';
-            clip.style.padding = '0 10px';
-            clip.style.fontSize = '18px';
-            clip.style.fontWeight = '800';
-            clip.style.fontFamily = "'JetBrains Mono', monospace";
-            clip.style.height = Math.max(28, mirrorH - 24) + 'px';
-            clip.style.top = Math.max(6, (mirrorH - parseInt(clip.style.height)) / 2) + 'px';
-            clip.style.boxShadow = '0 2px 8px rgba(0,0,0,0.35)';
-            clip.style.pointerEvents = 'none';
-            clip.style.overflow = 'hidden';
-
-            let innerSpan = clip.querySelector('span, div');
-            if (innerSpan) {
-                innerSpan.style.direction = 'ltr';
-                innerSpan.style.color = '#fff';
-                innerSpan.style.fontSize = '18px';
-                innerSpan.style.fontWeight = '800';
-                innerSpan.style.fontFamily = "'JetBrains Mono', monospace";
-                innerSpan.style.display = 'inline';
-            }
-        }
-
-        targetDiv.scrollLeft = 0;
-        startMirrorSync();
-
-      } catch (e) {
-        console.error("Mirror Error:", e);
-      }
-    }
-
-    // ======== موتور همگام‌سازی زنده پلی‌هد و اسکرول ========
-    // The popup owns the render loop.  The callback below only reads the
-    // authoritative AudioContext-derived transport position from the parent.
-    function installMirrorSyncLoop(popupDoc) {
-      if (!popupDoc?.body) return;
-      const script = popupDoc.createElement('script');
-      script.textContent = '(function(){if(window.__akordMirrorLoopStarted)return;window.__akordMirrorLoopStarted=true;function frame(){try{window._syncMirrorTimeline?.()}catch(_){}if(!window.closed)window.requestAnimationFrame(frame)}frame()})();';
-      popupDoc.body.appendChild(script);
-    }
-
-    function syncMirrorTimelineFrame() {
-      try {
-        if (!editorPopupIsOpen(_lyricPopup)) return;
-        const popupDoc = editorPopupDocument(_lyricPopup);
-        if (!popupDoc) return;
-        const targetDiv = popupDoc.getElementById('playerChordMirror');
-        if (!targetDiv) return;
-
-        const daw = getEditorDAW();
-        const time = daw?.isPlaying && typeof getTransportPlayhead === 'function'
-          ? getTransportPlayhead()
-          : (Number.isFinite(daw?.playhead) ? daw.playhead : 0);
-        const pxPerSecond = Math.max(1, Number(daw?.pxPerSecond) || 70);
-        if (targetDiv.dataset.mirrorPps !== String(pxPerSecond)) {
-          safeMirrorTimeline();
-          return;
-        }
-        const mirrorPlayhead = targetDiv.querySelector('.mirror-playhead');
-        const clone = targetDiv.querySelector('.track-lane, [class*="chord"]');
-        if (!mirrorPlayhead || !clone) return;
-
-        const offset = (targetDiv.clientWidth / 2) - (Math.max(0, time) * pxPerSecond);
-        clone.style.transform = 'translate3d(' + offset + 'px,0,0)';
-        const rulerInner = targetDiv.querySelector('.mirror-ruler-inner');
-        if (rulerInner) {
-          rulerInner.style.transform = 'translate3d(' + offset + 'px,0,0)';
-        }
-      } catch (_) {}
-    }
-
-    function startMirrorSync() {
-      if (!editorPopupIsOpen(_lyricPopup)) return;
-      const popupDoc = editorPopupDocument(_lyricPopup);
-      if (!popupDoc) return;
-      window.WindowBridge?.set?.(_lyricPopup, '_syncMirrorTimeline', syncMirrorTimelineFrame);
-      syncMirrorTimelineFrame();
-      installMirrorSyncLoop(popupDoc);
     }
 
     // History must be attached before lifecycle initialization. The service
