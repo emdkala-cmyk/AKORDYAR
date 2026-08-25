@@ -1840,26 +1840,27 @@ function applyState(stateStr) {
     let _lyricOnlyMessageCleanup = null;
     let _chordLineMessageCleanup = null;
     let _focusMode = false;
-    let _savedGridRows = ''; // saved gridTemplateRows before focus mode
-    function toggleFocusMode() {
-      _focusMode = !_focusMode;
-      document.body.classList.toggle('focus-mode', _focusMode);
-      // Override inline gridTemplateRows from timeline-sep drag
-      const grid = $('app-container') || document.querySelector('.app-container');
-      if (grid) {
-        if (_focusMode) {
-          _savedGridRows = grid.style.gridTemplateRows;
-          grid.style.gridTemplateRows = '';
-        } else {
-          grid.style.gridTemplateRows = _savedGridRows || '';
-        }
-      }
-      if (_focusMode) toast(t('focusMode'));
-      else toast(t('normalMode'));
-      if (requireEditorSongStateService().currentSong()) {
-        setTimeout(() => edRenderChords(), 50);
-      }
+    const coreFocusModeRuntime =
+      globalScope.CoreFocusModeService?.create?.({
+        documentRef: document,
+        getElement: id => $(id),
+        getFocusMode: () => _focusMode,
+        setFocusMode: value => {
+          _focusMode = value;
+        },
+        getSongState: () => requireEditorSongStateService(),
+        schedule: (...args) => setTimeout(...args),
+        renderChords: () => edRenderChords(),
+        toast: message => toast(message),
+        translate: key => t(key)
+      });
+    if (!coreFocusModeRuntime) {
+      throw new Error(
+        'CoreFocusModeService باید قبل از app/core.js بارگذاری شود.'
+      );
     }
+    Object.assign(globalScope, coreFocusModeRuntime);
+    corePublicApi.publish(coreFocusModeRuntime);
 
     function installPopupHighlightLoop(popup, doc) {
       if (!popup || !doc?.body) return;

@@ -27,6 +27,7 @@ const files = [
   'js/app/CoreMovableWindowBridgeService.js',
   'js/app/CoreLoopVisualService.js',
   'js/app/CorePopupWindowBridgeService.js',
+  'js/app/CoreFocusModeService.js',
   'js/app/core.js',
   'js/app/editor.js',
   'js/app/search.js',

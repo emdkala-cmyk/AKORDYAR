@@ -58,6 +58,7 @@ const coreLoopVisualService = read('js/app/CoreLoopVisualService.js');
 const corePopupWindowBridgeService = read(
   'js/app/CorePopupWindowBridgeService.js'
 );
+const coreFocusModeService = read('js/app/CoreFocusModeService.js');
 const coreMixerBridgeService = read('js/app/CoreMixerBridgeService.js');
 const editor = executableLines(read('js/app/editor.js'));
 const appCore = executableLines(read('js/app/core.js'));
@@ -215,6 +216,7 @@ assert.match(coreLoopVisualService, /function renderLoopRegion\(\)/);
 assert.match(coreLoopVisualService, /function bindLoopDrag\(\)/);
 assert.match(corePopupWindowBridgeService, /function isPopupOpen\(popup\)/);
 assert.match(corePopupWindowBridgeService, /function openPopupWindow\(name, features\)/);
+assert.match(coreFocusModeService, /function toggleFocusMode\(\)/);
 assert.doesNotMatch(
   appCore,
   /function deleteSelected\(\)/
@@ -226,6 +228,7 @@ assert.doesNotMatch(appCore, /function setHighlightEffect\(effect\)/);
 assert.doesNotMatch(appCore, /function getEditorMovableWindowService\(\)/);
 assert.doesNotMatch(appCore, /function renderLoopRegion\(\)/);
 assert.doesNotMatch(appCore, /function openPopupWindow\(name, features\)/);
+assert.doesNotMatch(appCore, /function toggleFocusMode\(\)/);
 assert.doesNotMatch(
   appCore,
   /function getClipboardService\(\)/
