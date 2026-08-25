@@ -696,29 +696,24 @@ function getMidiScoreController() {
       edSaveSong();
     }
 
+    const editorMidiConnectionService = window.EditorMidiConnectionService.create({
+      navigatorRef: window.navigator,
+      getMidiAccess: () => midiAccess,
+      setMidiAccess: value => { midiAccess = value; },
+      getSyncActive: () => midiSyncActive,
+      setSyncActive: value => { midiSyncActive = Boolean(value); },
+      onMessage: handleMIDIMessage,
+      toast,
+      logger: console
+    });
+
     function toggleMIDITab() {
-      toggleTab('tab-midi'); const tab = $('tab-midi');
+      toggleTab('tab-midi');
+      const tab = $('tab-midi');
       if (tab.classList.contains('active-pink')) {
-        if (navigator.requestMIDIAccess) {
-          navigator.requestMIDIAccess().then(function(ma) {
-            midiAccess = ma;
-            midiAccess.inputs.forEach(input => input.onmidimessage = handleMIDIMessage);
-            toast('MIDI وصل شد - پیام‌ها دریافت میشه');
-            if (!midiSyncActive) {
-              midiSyncActive = true;
-              $('tab-midi-sync').classList.add('active-pink');
-              $('midiSyncLabel').textContent = 'ON';
-              toast('همگام‌سازی خودکار فعال شد');
-            }
-          }).catch(function(e) { console.error('MIDI Error:', e); toast('خطا در اتصال MIDI: ' + (e.message || e)); });
-        } else { toast('MIDI پشتیبانی نمیشه (HTTPS لازمه)'); }
-      } else {
-        if (midiAccess) { midiAccess.inputs.forEach(input => input.onmidimessage = null); }
-        midiSyncActive = false;
-        $('tab-midi-sync')?.classList.remove('active-pink');
-        if ($('midiSyncLabel')) $('midiSyncLabel').textContent = 'OFF';
-        toast('MIDI قطع شد');
+        return editorMidiConnectionService.connect();
       }
+      return editorMidiConnectionService.disconnect();
     }
 
     let editorMidiChordService = null;
