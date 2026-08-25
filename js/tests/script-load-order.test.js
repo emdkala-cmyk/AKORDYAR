@@ -315,6 +315,10 @@ assert.ok(
     scriptIndex('js/app/core.js')
 );
 assert.ok(
+  scriptIndex('js/editor/EditorShortcutStoreService.js') <
+    scriptIndex('js/editor/KeyboardMappingService.js')
+);
+assert.ok(
   scriptIndex('js/editor/KeyboardMappingService.js') <
     scriptIndex('js/editor/EditorKeyboardService.js')
 );

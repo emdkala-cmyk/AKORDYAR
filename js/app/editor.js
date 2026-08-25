@@ -1003,46 +1003,19 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
 
     /* ===================== KEYBOARD ===================== */
     // ===== SHORTCUT SYSTEM =====
-    const SHORTCUT_DEFAULTS = [
-      { id: 'undo',          label: 'برگشت (Undo)',           code: 'KeyZ',    ctrl: true,  shift: false },
-      { id: 'redo',          label: 'جلو (Redo)',              code: 'KeyY',    ctrl: true,  shift: false },
-      { id: 'play',          label: 'پخش / توقف',             code: 'Space',   ctrl: false, shift: false },
-      { id: 'metronome',     label: 'روشن/خاموش مترونوم',     code: 'KeyC',    ctrl: false, shift: false },
-      { id: 'split',         label: 'برش در پخشگر',           code: 'KeyS',    ctrl: false, shift: false },
-      { id: 'copy',          label: 'کپی',                    code: 'KeyC',    ctrl: true,  shift: false },
-      { id: 'cut',           label: 'بریدن',                   code: 'KeyX',    ctrl: true,  shift: false },
-      { id: 'paste',         label: 'چسباندن',                 code: 'KeyV',    ctrl: true,  shift: false },
-      { id: 'selectAll',     label: 'انتخاب همه',              code: 'KeyA',    ctrl: true,  shift: false },
-      { id: 'duplicate',     label: 'کپی + چسباندن',            code: 'KeyD',    ctrl: true,  shift: false },
-      { id: 'delete',        label: 'حذف انتخاب‌شده',          code: 'Delete',  ctrl: false, shift: false },
-      { id: 'loop',          label: 'روشن/خاموش حلقه',         code: 'NumpadDivide', ctrl: false, shift: false },
-      { id: 'loopA',         label: 'شروع حلقه',               code: 'KeyI',    ctrl: false, shift: false },
-      { id: 'loopB',         label: 'پایان حلقه',              code: 'KeyO',    ctrl: false, shift: false },
-      { id: 'fullscreen',    label: 'پنجره تمام‌صفحه',         code: 'F9',      ctrl: false, shift: false },
-      { id: 'focusMode',     label: 'حالت تمرکز',              code: 'F10',     ctrl: false, shift: false },
-      { id: 'seekBack',      label: 'عقب‌رفتن',               code: 'ArrowLeft',  ctrl: false, shift: false },
-      { id: 'seekFwd',       label: 'جلورفتن',                 code: 'ArrowRight', ctrl: false, shift: false },
-      { id: 'goStart',       label: 'رفتن به ابتدا',           code: 'Home',    ctrl: false, shift: false },
-      { id: 'setLoopFromSel',label: 'محدوده loop از selection',  code: 'KeyP',    ctrl: false, shift: false },
-    ];
-
-    let SHORTCUTS = {};
-    function loadShortcuts() {
-      try { SHORTCUTS = JSON.parse(localStorage.getItem('ed_shortcuts') || '{}'); } catch(_) { SHORTCUTS = {}; }
-    }
-    function saveShortcuts() { localStorage.setItem('ed_shortcuts', JSON.stringify(SHORTCUTS)); }
-    function getShortcut(id) {
-      const def = SHORTCUT_DEFAULTS.find(s => s.id === id);
-      return SHORTCUTS[id] || (def ? { code: def.code, ctrl: def.ctrl, shift: def.shift } : null);
-    }
-    function matchShortcut(e, id) {
-      const sk = getShortcut(id); if (!sk) return false;
-      const mod = e.ctrlKey || e.metaKey;
-      return e.code === sk.code && mod === !!sk.ctrl && e.shiftKey === !!sk.shift;
+    const shortcutStore = window.EditorShortcutStoreService.create({
+      storage: localStorage
+    });
+    const SHORTCUT_DEFAULTS = shortcutStore.shortcutDefaults;
+    const SHORTCUTS = shortcutStore.shortcuts;
+    function loadShortcuts() { return shortcutStore.loadShortcuts(); }
+    function saveShortcuts() { return shortcutStore.saveShortcuts(); }
+    function getShortcut(id) { return shortcutStore.getShortcut(id); }
+    function matchShortcut(event, id) {
+      return shortcutStore.matchShortcut(event, id);
     }
     function formatKeyName(code) {
-      const map = { 'Space':'Space','KeyA':'A','KeyB':'B','KeyC':'C','KeyD':'D','KeyE':'E','KeyF':'F','KeyG':'G','KeyH':'H','KeyI':'I','KeyJ':'J','KeyK':'K','KeyL':'L','KeyM':'M','KeyN':'N','KeyO':'O','KeyP':'P','KeyQ':'Q','KeyR':'R','KeyS':'S','KeyT':'T','KeyU':'U','KeyV':'V','KeyW':'W','KeyX':'X','KeyY':'Y','KeyZ':'Z','Delete':'Del','Backspace':'Bksp','Home':'Home','End':'End','F9':'F9','F10':'F10','ArrowLeft':'←','ArrowRight':'→','ArrowUp':'↑','ArrowDown':'↓' };
-      return map[code] || code;
+      return shortcutStore.formatKeyName(code);
     }
     loadShortcuts();
 
@@ -2608,17 +2581,21 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
       openShortcutModal(); // re-render
       toast('شرتکات ذخیره شد');
     }
-    function resetShortcuts() { SHORTCUTS = {}; localStorage.removeItem('ed_shortcuts'); openShortcutModal(); toast('شرتکات به پیش‌فرض بازگشت'); }
+    function resetShortcuts() { shortcutStore.resetShortcuts(); openShortcutModal(); toast('شرتکات به پیش‌فرض بازگشت'); }
 
     // ===== MIDI MAP (MIDI Learn) =====
-    let MIDI_MAPS = {};
+    const MIDI_MAPS = shortcutStore.midiMaps;
     let midiLearnActive = false;
     let midiLearnTargetId = null;
-    function loadMidiMaps() { try { MIDI_MAPS = JSON.parse(localStorage.getItem('ed_midi_maps') || '{}'); } catch(_) { MIDI_MAPS = {}; } }
-    function saveMidiMaps() { localStorage.setItem('ed_midi_maps', JSON.stringify(MIDI_MAPS)); }
-    function getMidiMap(note) { return MIDI_MAPS['n' + note] || null; }
-    function setMidiMap(note, funcId) { MIDI_MAPS['n' + note] = funcId; saveMidiMaps(); }
-    function removeMidiMap(note) { delete MIDI_MAPS['n' + note]; saveMidiMaps(); }
+    function loadMidiMaps() { return shortcutStore.loadMidiMaps(); }
+    function saveMidiMaps() { return shortcutStore.saveMidiMaps(); }
+    function getMidiMap(note) { return shortcutStore.getMidiMap(note); }
+    function setMidiMap(note, funcId) {
+      return shortcutStore.setMidiMap(note, funcId);
+    }
+    function removeMidiMap(note) {
+      return shortcutStore.removeMidiMap(note);
+    }
     function executeMidiMappedFunction(funcId) { const fn = ACTION_FUNCTIONS[funcId]; if (fn) fn(); }
     function startMidiLearn(funcId) {
       midiLearnActive = true;
@@ -5618,8 +5595,7 @@ if ($('edDoBoth')) {
       closeShortcutModal: () => closeShortcutModal(),
       resetShortcuts: () => resetShortcuts(),
       clearMidiMaps: () => {
-        MIDI_MAPS = {};
-        saveMidiMaps();
+        shortcutStore.clearMidiMaps();
         openShortcutModal();
         toast('Mapping های MIDI پاک شد');
       },
