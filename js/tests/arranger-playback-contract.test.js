@@ -11,6 +11,15 @@ const editor = fs.readFileSync(
   path.join(projectRoot, 'js', 'app', 'editor.js'),
   'utf8'
 );
+const markerController = fs.readFileSync(
+  path.join(
+    projectRoot,
+    'js',
+    'editor',
+    'EditorArrangerMarkerControllerService.js'
+  ),
+  'utf8'
+);
 const html = fs.readFileSync(
   path.join(projectRoot, 'Akordyar.html'),
   'utf8'
@@ -25,6 +34,11 @@ assert.ok(
   html.indexOf('js/editor/ArrangerMarkerService.js') <
     html.indexOf('js/editor/EditorHydrationService.js'),
   'arranger marker service must load before hydration'
+);
+assert.ok(
+  html.indexOf('js/editor/EditorArrangerMarkerControllerService.js') <
+    html.indexOf('js/app/core.js'),
+  'arranger marker controller must load before core'
 );
 assert.match(core, /ArrangerPlaybackPolicyService/);
 assert.match(core, /!arrPerformActive && !getEditorDAW\(\)\.isRecording/);
@@ -52,8 +66,9 @@ assert.match(html, /data-action="setArrangerB"/);
 assert.match(html, /data-action="toggleArrangerMarkers"/);
 assert.match(html, /id="arranger-marker-controls"/);
 assert.match(html, /id="arranger-markers-overlay"/);
-assert.match(core, /function renderArrangerMarkers/);
-assert.match(core, /markers\.enabled === true/);
+assert.match(core, /EditorArrangerMarkerControllerService\.create/);
+assert.match(markerController, /function renderArrangerMarkers/);
+assert.match(markerController, /markers\.enabled === true/);
 assert.match(editor, /toggleArrangerMarkers:\s*\(\)\s*=>\s*toggleArrangerMarkers\(\)/);
 
 console.log('Arranger playback contract tests passed');

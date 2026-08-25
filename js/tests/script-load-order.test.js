@@ -200,6 +200,14 @@ assert.ok(
 );
 assert.ok(
   scriptIndex('js/editor/ArrangerMarkerService.js') <
+    scriptIndex('js/editor/EditorArrangerMarkerControllerService.js')
+);
+assert.ok(
+  scriptIndex('js/editor/EditorArrangerMarkerControllerService.js') <
+    scriptIndex('js/app/core.js')
+);
+assert.ok(
+  scriptIndex('js/editor/ArrangerMarkerService.js') <
     scriptIndex('js/editor/EditorSongTransitionService.js')
 );
 assert.ok(
@@ -208,6 +216,14 @@ assert.ok(
 );
 assert.ok(
   scriptIndex('js/editor/ArrangerPlaybackPolicyService.js') <
+    scriptIndex('js/app/core.js')
+);
+assert.ok(
+  scriptIndex('js/core/WaveformService.js') <
+    scriptIndex('js/core/EditorWaveformBridgeService.js')
+);
+assert.ok(
+  scriptIndex('js/core/EditorWaveformBridgeService.js') <
     scriptIndex('js/app/core.js')
 );
 assert.ok(

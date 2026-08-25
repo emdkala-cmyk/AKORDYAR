@@ -1092,17 +1092,18 @@ function isHistoryApplying() {
   return getHistoryService().isApplying();
 }
     const timeToX = (t) => t * getEditorDAW().pxPerSecond;
-    // WaveformService initialization
-    window.waveformService = new window.WaveformService({
-      ensureAudioCtx: () => ensureAudioCtx(),
-      setAudioContext: (ctx) => {
-        if (!getEditorDAW().audioCtx) getEditorDAW().audioCtx = ctx;
-      },
-      getWaveCache: () => getEditorDAW().waveCache,
-      documentRef: document,
-      clamp: (value, min, max) => clamp(value, min, max),
-      timeToX: (value) => timeToX(value)
-    });
+    const waveformBridge =
+      globalScope.EditorWaveformBridgeService.create({
+        ensureAudioCtx: () => ensureAudioCtx(),
+        setAudioContext: (ctx) => {
+          if (!getEditorDAW().audioCtx) getEditorDAW().audioCtx = ctx;
+        },
+        getWaveCache: () => getEditorDAW().waveCache,
+        documentRef: document,
+        clamp: (value, min, max) => clamp(value, min, max),
+        timeToX: (value) => timeToX(value)
+      });
+    window.waveformService = waveformBridge.service;
     const xToTime = (x) => x / getEditorDAW().pxPerSecond;
 
     function getProjectEnd() {
@@ -1142,19 +1143,19 @@ function applyState(stateStr) {
 }
 
     async function decodeFileToBuffer(file) {
-      return window.waveformService.decodeFileToBuffer(file);
+      return waveformBridge.decodeFileToBuffer(file);
     }
 
     function peaksFromBuffer(buffer, buckets = 2000) {
-      return window.waveformService.peaksFromBuffer(buffer, buckets);
+      return waveformBridge.peaksFromBuffer(buffer, buckets);
     }
 
     function drawWaveToCanvas(peaks, w, h) {
-      return window.waveformService.drawWaveToCanvas(peaks, w, h);
+      return waveformBridge.drawWaveToCanvas(peaks, w, h);
     }
 
     function refreshClipWaveImage(clip) {
-      return window.waveformService.refreshClipWaveImage(clip);
+      return waveformBridge.refreshClipWaveImage(clip);
     }
 
     function updateTrackMix(trackId) {
@@ -2770,84 +2771,49 @@ sels.forEach(c => {
       toast('محدوده پاک شد');
     }
 
+    const arrangerMarkerController =
+      globalScope.EditorArrangerMarkerControllerService.create({
+        getDAW: () => getEditorDAW(),
+        markerService: globalScope.ArrangerMarkerService,
+        getProjectEnd: () => getProjectEnd(),
+        timeToX: value => timeToX(value),
+        xToTime: value => xToTime(value),
+        clamp: (value, min, max) => clamp(value, min, max),
+        getElement: id => $(id),
+        documentRef: document,
+        isPerforming: () => arrPerformActive,
+        startPointerDrag: (...args) =>
+          startEditorPointerDrag(...args),
+        saveState: () => saveState(),
+        saveSong: () => {
+          if (typeof edSaveSong === 'function') edSaveSong();
+        },
+        toast: message => toast(message),
+        formatTime: value => formatTime(value)
+      });
+
     function getArrangerMarkers() {
-      const daw = getEditorDAW();
-      const normalize = globalScope.ArrangerMarkerService?.normalize;
-      if (typeof normalize === 'function') {
-        daw.arrangerMarkers = normalize(daw.arrangerMarkers);
-      } else if (!daw.arrangerMarkers || typeof daw.arrangerMarkers !== 'object') {
-        daw.arrangerMarkers = { enabled: false, start: 0, end: 0 };
-      }
-      return daw.arrangerMarkers;
+      return arrangerMarkerController.getArrangerMarkers();
     }
 
     function persistArrangerMarkers() {
-      saveState();
-      if (typeof edSaveSong === 'function') edSaveSong();
+      return arrangerMarkerController.persistArrangerMarkers();
     }
 
     function setArrangerA() {
-      if (arrPerformActive) {
-        toast('markerهای ارنجر هنگام اجرا قابل تغییر نیستند');
-        return;
-      }
-      const markers = getArrangerMarkers();
-      markers.enabled = true;
-      const maxTime = getProjectEnd();
-      const start = Math.min(
-        clamp(getEditorDAW().playhead, 0, maxTime),
-        Math.max(0, maxTime - 0.5)
-      );
-      markers.start = start;
-      if (!(markers.end > start)) {
-        markers.end = Math.min(maxTime, Math.max(start + 0.5, start + 5));
-      }
-      renderArrangerMarkers();
-      persistArrangerMarkers();
-      toast('شروع ارنجر A: ' + formatTime(markers.start));
+      return arrangerMarkerController.setArrangerA();
     }
 
     function setArrangerB() {
-      if (arrPerformActive) {
-        toast('markerهای ارنجر هنگام اجرا قابل تغییر نیستند');
-        return;
-      }
-      const markers = getArrangerMarkers();
-      markers.enabled = true;
-      const end = Math.max(
-        0.5,
-        clamp(getEditorDAW().playhead, 0, getProjectEnd())
-      );
-      markers.end = end;
-      if (!(markers.end > markers.start)) {
-        markers.start = Math.max(0, end - 5);
-      }
-      renderArrangerMarkers();
-      persistArrangerMarkers();
-      toast('تعویض ارنجر B: ' + formatTime(markers.end));
+      return arrangerMarkerController.setArrangerB();
     }
 
     function clearArrangerMarkers() {
-      if (arrPerformActive) {
-        toast('markerهای ارنجر هنگام اجرا قابل تغییر نیستند');
-        return;
-      }
-      getEditorDAW().arrangerMarkers = { enabled: false, start: 0, end: 0 };
-      renderArrangerMarkers();
-      persistArrangerMarkers();
-      toast('markerهای ارنجر پاک شد');
+      return arrangerMarkerController.clearArrangerMarkers();
     }
 
     function toggleArrangerMarkers() {
-      if (arrPerformActive) {
-        toast('markerهای ارنجر هنگام اجرا قابل تغییر نیستند');
-        return;
-      }
-      const markers = getArrangerMarkers();
-      markers.enabled = markers.enabled !== true;
-      renderArrangerMarkers();
-      persistArrangerMarkers();
-      toast(markers.enabled ? 'A/B ارنجر فعال شد' : 'A/B ارنجر غیرفعال شد');
+      return arrangerMarkerController.toggleArrangerMarkers();
     }
 
     // P key: set loop range from selection (no activate)
@@ -2923,86 +2889,10 @@ sels.forEach(c => {
     }
 
     function renderArrangerMarkers() {
-      const markers = getArrangerMarkers();
-      const enabled = markers.enabled === true;
-      const start = Number(markers.start);
-      const end = Number(markers.end);
-      const hasRange = enabled && Number.isFinite(start) && Number.isFinite(end) && end > start;
-      const toggle = $('arranger-marker-toggle');
-      const controls = $('arranger-marker-controls');
-      const rulerOverlay = $('arranger-markers-overlay');
-      const timelineOverlay = $('arranger-markers-timeline-overlay');
-      const markerA = $('arranger-marker-a');
-      const markerB = $('arranger-marker-b');
-      const lineA = $('arranger-marker-line-a');
-      const lineB = $('arranger-marker-line-b');
-
-      if (toggle) {
-        toggle.classList.toggle('arranger-marker-enabled', enabled);
-        toggle.setAttribute('aria-pressed', String(enabled));
-        toggle.title = enabled ? 'غیرفعال‌سازی A/B ارنجر' : 'فعال‌سازی A/B ارنجر';
-      }
-      if (controls) controls.style.display = enabled ? 'flex' : 'none';
-      [rulerOverlay, timelineOverlay].forEach(el => {
-        if (el) el.style.display = hasRange ? 'block' : 'none';
-      });
-      if (!hasRange) return;
-
-      const xA = timeToX(start);
-      const xB = timeToX(end);
-      if (markerA) markerA.style.left = `${xA - 8}px`;
-      if (markerB) markerB.style.left = `${xB - 8}px`;
-      if (lineA) lineA.style.left = `${xA}px`;
-      if (lineB) lineB.style.left = `${xB}px`;
+      return arrangerMarkerController.renderArrangerMarkers();
     }
 
-    (function initArrangerMarkerDrag() {
-      let dragTarget = null;
-
-      $('arranger-marker-a')?.addEventListener('pointerdown', (event) => {
-        if (event.button !== 0 || arrPerformActive) return;
-        event.stopPropagation();
-        event.preventDefault();
-        dragTarget = 'A';
-        startEditorPointerDrag(event.currentTarget, event, onDragMove, onDragUp);
-      });
-      $('arranger-marker-b')?.addEventListener('pointerdown', (event) => {
-        if (event.button !== 0 || arrPerformActive) return;
-        event.stopPropagation();
-        event.preventDefault();
-        dragTarget = 'B';
-        startEditorPointerDrag(event.currentTarget, event, onDragMove, onDragUp);
-      });
-
-      function onDragMove(event) {
-        if (!dragTarget) return;
-        const inner = $('tl-inner');
-        if (!inner) return;
-        const rect = inner.getBoundingClientRect();
-        const markers = getArrangerMarkers();
-        const time = clamp(
-          xToTime(event.clientX - rect.left),
-          0,
-          getProjectEnd()
-        );
-        if (dragTarget === 'A') {
-          markers.start = Math.max(
-            0,
-            Math.min(time, markers.end > 0 ? markers.end - 0.5 : time)
-          );
-        } else {
-          markers.end = Math.max(time, markers.start + 0.5);
-        }
-        renderArrangerMarkers();
-      }
-
-      function onDragUp() {
-        if (dragTarget) persistArrangerMarkers();
-        dragTarget = null;
-        document.removeEventListener('mousemove', onDragMove);
-        document.removeEventListener('mouseup', onDragUp);
-      }
-    })();
+    arrangerMarkerController.bindDrag();
 
     // Cubase-style locator dragging on ruler
     (function initLoopDrag() {
