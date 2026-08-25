@@ -20,6 +20,7 @@
     const _archState = _archiveStateController.state;
     let _archProjectImportRouteService = null;
     let _archiveProjectPersistenceService = null;
+    let _archiveProjectFileImportService = null;
     let _archiveBatchImportService = null;
     let _archiveTransferService = null;
     let _archiveLifecycleService = null;
@@ -311,6 +312,58 @@
         });
       }
       return _archiveProjectPersistenceService;
+    }
+
+    function getArchiveProjectFileImportService() {
+      if (!_archiveProjectFileImportService) {
+        const create = window.ArchiveProjectFileImportService?.create;
+        if (typeof create !== 'function') {
+          throw new Error('ArchiveProjectFileImportService is not loaded. Check script order.');
+        }
+        _archiveProjectFileImportService = create({
+          getDAW: getArchiveDAW,
+          getSong: getArchiveSong,
+          getElement: id => $(id),
+          setEditorSong,
+          setProjectFilePath: setEditorProjectFilePath,
+          clearProjectFilePath: clearEditorProjectFilePath,
+          pauseTransport,
+          stopAllVoices,
+          updateNextIdFromClips,
+          getArrangerMarkers: getArchiveArrangerMarkers,
+          ensureAudioCtx,
+          updateTrackMix,
+          setImportParsed: value => { _importParsed = value; },
+          applyImportChords,
+          loadAudioBlobsForProject,
+          saveAudioBlobsForProject,
+          peaksFromBuffer,
+          refreshClipWaveImage,
+          base64ToUint8,
+          decodeWebMToBuffer,
+          decompressBytes: value => getAudioCompressionService()?.decompressBytes(value) || value,
+          resampleFloat32,
+          getFileHandle,
+          decodeFileToBuffer,
+          getAudioDirHandle: () => _audioDirHandle,
+          loadDirHandle,
+          saveDirHandle,
+          loadAudioFromHardDrive,
+          getIsElectron: () => isElectron,
+          resetHistory,
+          resetPerformanceSerialization,
+          syncToolbar: edSyncToolbar,
+          renderEditor: edRenderEditor,
+          initHighlightEffect,
+          saveState,
+          saveSong: edSaveSong,
+          renderAll,
+          toast,
+          logError: console.error,
+          getGlobal: () => window
+        });
+      }
+      return _archiveProjectFileImportService;
     }
 
     // --- Artist UI bridge ---
@@ -1379,250 +1432,13 @@ saveState();
 
     // Import — loads metadata, then asks user to select audio files
     async function edImportProject() {
-      const daw = getArchiveDAW();
       const input = $('import-file-input');
       input.value = '';
       input.onchange = async (e) => {
         const files = e.target.files;
         if (!files || !files.length) return;
         if (files.length === 1) {
-          // Single file: load as current project (existing behavior)
-          const file = files[0];
-          try {
-            if (file._projectFilePath) {
-              setEditorProjectFilePath(file._projectFilePath);
-            } else if (typeof clearEditorProjectFilePath === 'function') {
-              clearEditorProjectFilePath();
-            }
-            toast('در حال لود پروژه...');
-            const text = await file.text();
-            const data = JSON.parse(text);
-            if (!data || typeof data !== 'object') throw new Error('Invalid');
-            pauseTransport(); stopAllVoices();
-            daw.clips = []; daw.sections = []; daw.selectedIds.clear(); daw.selectedSectionIds = new Set(); daw.bufferCache.clear(); daw.waveCache.clear();
-            daw.loopEnabled = false; daw.loopA = 0; daw.loopB = 10;
-            daw.arrangerMarkers = { enabled: false, start: 0, end: 0 };
-            setEditorSong(data);
-            const song = getArchiveSong();
-            if (!song.styles) song.styles = {};
-            const defaults = { tSize:38,tColor:'#0fa966',tFont:'Vazirmatn',tBold:true,align:'center', cSize:38,cColor:'#e6aa28',cFont:'JetBrains Mono' };
-            Object.keys(defaults).forEach(k => { if (song.styles[k] === undefined) song.styles[k] = defaults[k]; });
-            if (!song.timeSignature) song.timeSignature = '4/4';
-            if (!song.tempo) song.tempo = 120;
-            if (!song.genre) song.genre = '';
-
-            // Auto-import raw format: has rawText but no lyrics/chords → parse it
-            if (song.rawText && !song.lyrics) {
-              _importParsed = song;
-              $('importText').value = song.rawText;
-              $('importUrl').value = song.url || '';
-              applyImportChords();
-              _importParsed = null;
-            }
-
-            if (song._dawTracks) daw.tracks = JSON.parse(JSON.stringify(song._dawTracks));
-            if (song._dawClips) daw.clips = JSON.parse(JSON.stringify(song._dawClips));
-            if (song._dawSections) daw.sections = JSON.parse(JSON.stringify(song._dawSections)); else daw.sections = [];
-            updateNextIdFromClips();
-            // Migrate any old section clips from daw.clips to daw.sections
-            const _impOldSections = daw.clips.filter(c => c.type === 'section');
-            if (_impOldSections.length > 0) {
-              _impOldSections.forEach(c => { daw.sections.push({ id: c.id, trackId: c.trackId, label: c.name, start: c.start, duration: c.duration, color: c.color }); });
-              daw.clips = daw.clips.filter(c => c.type !== 'section');
-            }
-            if (song._dawLoop) { daw.loopEnabled = !!song._dawLoop.loopEnabled; daw.loopA = song._dawLoop.loopA||0; daw.loopB = song._dawLoop.loopB||10; }
-            daw.arrangerMarkers = getArchiveArrangerMarkers(song);
-            ensureAudioCtx();
-            daw.tracks.forEach(tr => {
-              if (tr.type === 'audio') {
-                if (tr.transpose === undefined) tr.transpose = 0;
-                tr._pannerNode = daw.audioCtx.createStereoPanner(); tr._gainNode = daw.audioCtx.createGain();
-                tr._pannerNode.connect(tr._gainNode); tr._gainNode.connect(daw.masterGain); updateTrackMix(tr.id);
-              }
-            });
-            resetHistory(); resetPerformanceSerialization();
-            edSyncToolbar(); edRenderEditor(true);
-            initHighlightEffect();
-            const loopBtn = $('loopToggleBtn');
-            if (loopBtn) loopBtn.classList.toggle('loop-active', daw.loopEnabled);
-
-            // First: try loading audio from IndexedDB (same browser/session)
-            const audioClips = daw.clips.filter(c => c.type !== 'chord');
-            if (audioClips.length > 0) {
-              try {
-                await loadAudioBlobsForProject(song.id);
-              } catch(e) {}
-
-              // Re-create waveforms for clips that have buffers
-              daw.clips.forEach(c => {
-                if (c.type !== 'chord' && c.bufferKey && daw.bufferCache.has(c.bufferKey)) {
-                  const buffer = daw.bufferCache.get(c.bufferKey);
-                  c.sourceDuration = buffer.duration;
-                  c._peaks = peaksFromBuffer(buffer, 2000);
-                  refreshClipWaveImage(c);
-                }
-              });
-
-              // Second: restore from embedded audio in backup file
-              const stillMissing = audioClips.filter(c => c.bufferKey && !daw.bufferCache.has(c.bufferKey));
-              if (stillMissing.length > 0 && song._embeddedAudio && Object.keys(song._embeddedAudio).length > 0) {
-                ensureAudioCtx();
-                let restored = 0;
-                for (const clip of stillMissing) {
-                  const embedded = song._embeddedAudio[clip.bufferKey];
-                  if (!embedded) continue;
-                  try {
-                    let buf;
-                    if (embedded.format === 'wav' || embedded.format === 'webm-opus') {
-                      const audioData = base64ToUint8(embedded.data);
-                      buf = await decodeWebMToBuffer(audioData);
-                    } else if (embedded.format === 'float32-b64') {
-                      const numCh = embedded.channels || 1;
-                      buf = daw.audioCtx.createBuffer(numCh, embedded.length, embedded.sampleRate);
-                      for (let i = 0; i < numCh; i++) {
-                        const chBytes = base64ToUint8(embedded.data[i]);
-                        buf.getChannelData(i).set(new Float32Array(chBytes.buffer));
-                      }
-                    } else if (embedded.format === 'opus-b64') {
-                      const compressed = base64ToUint8(embedded.data);
-                      const decompressed = await decompressBytes(compressed);
-                      const int16 = new Int16Array(decompressed.buffer);
-                      const float32 = new Float32Array(int16.length);
-                      for (let j = 0; j < int16.length; j++) float32[j] = int16[j] < 0 ? int16[j] / 0x8000 : int16[j] / 0x7FFF;
-                      const upsampled = resampleFloat32(float32, embedded.sampleRate, embedded.originalSampleRate || embedded.sampleRate);
-                      const ch = embedded.originalChannels || 1;
-                      buf = daw.audioCtx.createBuffer(ch, upsampled.length, embedded.originalSampleRate || embedded.sampleRate);
-                      for (let c = 0; c < ch; c++) buf.getChannelData(c).set(upsampled);
-                    } else if (embedded.format === 'int16b64') {
-                      const channels = Array.isArray(embedded.data) ? embedded.data : [embedded.data];
-                      buf = daw.audioCtx.createBuffer(channels.length, embedded.length, embedded.sampleRate);
-                      channels.forEach((chB64, i) => {
-                        if (i < buf.numberOfChannels) {
-                          const bytes = base64ToUint8(chB64);
-                          const int16 = new Int16Array(bytes.buffer);
-                          const float32 = new Float32Array(int16.length);
-                          for (let j = 0; j < int16.length; j++) float32[j] = int16[j] < 0 ? int16[j] / 0x8000 : int16[j] / 0x7FFF;
-                          buf.getChannelData(i).set(float32);
-                        }
-                      });
-                    } else {
-                      const chData = Array.isArray(embedded.data) ? embedded.data : [embedded.data];
-                      buf = daw.audioCtx.createBuffer(chData.length, embedded.length, embedded.sampleRate);
-                      chData.forEach((ch, i) => { if (i < buf.numberOfChannels && ch) buf.getChannelData(i).set(new Float32Array(ch)); });
-                    }
-                    daw.bufferCache.set(clip.bufferKey, buf);
-                    clip.sourceDuration = buf.duration;
-                    clip._peaks = peaksFromBuffer(buf, 2000);
-                    refreshClipWaveImage(clip);
-                    restored++;
-                  } catch(_) {}
-                }
-                if (restored > 0) toast(`بازیابی صدا: ${restored} فایل از بکآپ`);
-                saveAudioBlobsForProject(song.id).catch(() => {});
-              }
-
-              // Third: if still missing, try loading from file paths then directory
-              const stillMissing2 = audioClips.filter(c => c.bufferKey && !daw.bufferCache.has(c.bufferKey));
-              if (stillMissing2.length > 0 && song._audioPaths && song._audioPaths.length > 0) {
-                // اول از filePath (Electron) لود کن
-                if (isElectron && window.electronAPI) {
-                  for (const ap of song._audioPaths) {
-                    if (!ap.filePath) continue;
-                    const clip = daw.clips.find(c => c.type !== 'chord' && c.bufferKey === ap.bufferKey);
-                    if (!clip || daw.bufferCache.has(clip.bufferKey)) continue;
-                    try {
-                      console.log('[LINK] Import: Loading from path:', ap.filePath);
-                      const audioBuffer = await loadAudioFromHardDrive(ap.filePath);
-                      daw.bufferCache.set(clip.bufferKey, audioBuffer);
-                      clip.sourceDuration = audioBuffer.duration;
-                      clip._peaks = peaksFromBuffer(audioBuffer, 2000);
-                      clip._filePath = ap.filePath;
-                      refreshClipWaveImage(clip);
-                    } catch (e) {
-                      console.warn('[LINK] Import: File not found:', ap.filePath, e.message);
-                    }
-                  }
-                }
-                // لود از FileHandle ذخیره‌شده در IndexedDB
-                const stillAfterPath3 = audioClips.filter(c => c.bufferKey && !daw.bufferCache.has(c.bufferKey));
-                if (stillAfterPath3.length > 0) {
-                  for (const clip of stillAfterPath3) {
-                    try {
-                      const handle = await getFileHandle(clip.bufferKey);
-                      if (!handle) continue;
-                      const perm = await handle.requestPermission({ mode: 'read' });
-                      if (perm !== 'granted') continue;
-                      const file = await handle.getFile();
-                      const { buffer } = await decodeFileToBuffer(file);
-                      daw.bufferCache.set(clip.bufferKey, buffer);
-                      clip.sourceDuration = buffer.duration;
-                      clip._peaks = peaksFromBuffer(buffer, 2000);
-                      refreshClipWaveImage(clip);
-                      console.log('[HANDLE] Auto-reloaded (import):', clip.fileName);
-                    } catch(e) { console.warn('[HANDLE] Auto-reload failed:', clip.bufferKey); }
-                  }
-                }
-                // بعد از پوشه لود کن
-                const stillMissing3 = audioClips.filter(c => c.bufferKey && !daw.bufferCache.has(c.bufferKey));
-                if (stillMissing3.length > 0) {
-                  let dirHandle = _audioDirHandle;
-                  if (!dirHandle) { try { await loadDirHandle(); dirHandle = _audioDirHandle; } catch(_){} }
-                  if (!dirHandle) {
-                    try {
-                      dirHandle = await window.showDirectoryPicker({ mode: 'read' });
-                      await saveDirHandle(dirHandle);
-                    } catch(_) {}
-                  }
-                  if (dirHandle) {
-                    const perm = await dirHandle.requestPermission({ mode: 'read' });
-                    if (perm === 'granted') {
-                      const notFound = [];
-                      for (const ap of song._audioPaths) {
-                        const clip = daw.clips.find(c => c.type !== 'chord' && c.bufferKey === ap.bufferKey);
-                        if (!clip || daw.bufferCache.has(clip.bufferKey)) continue;
-                        const candidates = [ap.fileName, ap.fileName ? ap.fileName.replace(/\.[^.]+$/, '') : ''];
-                        let loaded = false;
-                        for (const name of candidates) {
-                          if (!name) continue;
-                          try {
-                            const fileHandle = await dirHandle.getFileHandle(name);
-                            const file = await fileHandle.getFile();
-                            const { buffer } = await decodeFileToBuffer(file);
-                            daw.bufferCache.set(clip.bufferKey, buffer);
-                            clip.sourceDuration = buffer.duration;
-                            clip._peaks = peaksFromBuffer(buffer, 2000);
-                            refreshClipWaveImage(clip);
-                            loaded = true;
-                            break;
-                          } catch(_) {}
-                        }
-                        if (!loaded) notFound.push(ap.fileName || ap.name || 'نام‌ناشناخته');
-                      }
-                      if (notFound.length > 0) {
-                        toast('فایل‌های صوتی پیدا نشد: ' + notFound.join(', '));
-                      }
-                    }
-                  }
-                }
-              }
-            }
-
-            // Re-create waveforms for all clips that have buffers
-            daw.clips.forEach(c => {
-              if (c.type !== 'chord' && c.bufferKey && daw.bufferCache.has(c.bufferKey) && !c._peaks) {
-                const buffer = daw.bufferCache.get(c.bufferKey);
-                c.sourceDuration = buffer.duration;
-                c._peaks = peaksFromBuffer(buffer, 2000);
-                refreshClipWaveImage(c);
-              }
-            });
-
-            await saveAudioBlobsForProject(song.id).catch(e => console.warn('Audio save error:', e));
-            saveState();
-            edSaveSong();
-            renderAll();
-            toast('پروژه لود شد: ' + file.name);
-          } catch (err) { console.error(err); toast('خطا در لود فایل!'); }
+          return getArchiveProjectFileImportService().importSingle(files[0]);
         } else {
           // Multiple files: import all into archive, load last one as current project
           const existing = edGetAllSongs();

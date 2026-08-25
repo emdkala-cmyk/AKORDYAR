@@ -1,0 +1,128 @@
+const assert = require('node:assert/strict');
+const ArchiveProjectFileImportService = require(
+  '../archive/ArchiveProjectFileImportService.js'
+);
+
+function createElement(value = '') {
+  return {
+    value,
+    classList: {
+      toggles: [],
+      toggle(...args) {
+        this.toggles.push(args);
+      }
+    }
+  };
+}
+
+const elements = new Map([
+  ['importText', createElement()],
+  ['importUrl', createElement()],
+  ['loopToggleBtn', createElement()]
+]);
+const daw = {
+  clips: [],
+  sections: [],
+  selectedIds: new Set(['old']),
+  selectedSectionIds: new Set(['old-section']),
+  bufferCache: new Map([['old', {}]]),
+  waveCache: new Map([['old', {}]]),
+  loopEnabled: true,
+  loopA: 2,
+  loopB: 4,
+  arrangerMarkers: { enabled: true, start: 2, end: 4 },
+  tracks: [],
+  masterGain: {}
+};
+let currentSong = null;
+let importedParsed = 'previous';
+const calls = [];
+const toasts = [];
+
+const service = ArchiveProjectFileImportService.create({
+  getDAW: () => daw,
+  getSong: () => currentSong,
+  getElement: id => elements.get(id),
+  setEditorSong: song => {
+    currentSong = song;
+  },
+  setProjectFilePath: value => calls.push(['path', value]),
+  clearProjectFilePath: () => calls.push(['clear-path']),
+  pauseTransport: () => calls.push(['pause']),
+  stopAllVoices: () => calls.push(['stop']),
+  updateNextIdFromClips: () => calls.push(['next-id']),
+  getArrangerMarkers: () => ({ enabled: true, start: 1, end: 8 }),
+  ensureAudioCtx: () => calls.push(['audio-context']),
+  updateTrackMix: () => calls.push(['track-mix']),
+  setImportParsed: value => {
+    importedParsed = value;
+  },
+  applyImportChords: () => {
+    calls.push(['apply-import']);
+    currentSong.lyrics = 'متن پردازش‌شده';
+  },
+  loadAudioBlobsForProject: async () => calls.push(['load-blobs']),
+  saveAudioBlobsForProject: async () => calls.push(['save-blobs']),
+  resetHistory: () => calls.push(['history']),
+  resetPerformanceSerialization: () => calls.push(['performance']),
+  syncToolbar: () => calls.push(['toolbar']),
+  renderEditor: value => calls.push(['editor', value]),
+  initHighlightEffect: () => calls.push(['highlight']),
+  saveState: () => calls.push(['state']),
+  saveSong: () => calls.push(['save-song']),
+  renderAll: () => calls.push(['render-all']),
+  toast: message => toasts.push(message),
+  logError: error => calls.push(['error', error.message])
+});
+
+(async () => {
+  const result = await service.importSingle({
+    name: 'RawSong.akordyar',
+    _projectFilePath: 'C:\\Projects\\RawSong.akordyar',
+    text: async () => JSON.stringify({
+      id: 'song-1',
+      title: 'ترانه',
+      rawText: 'C  متن',
+      url: 'https://example.test/song'
+    })
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(currentSong.title, 'ترانه');
+  assert.equal(currentSong.lyrics, 'متن پردازش‌شده');
+  assert.equal(currentSong.styles.tSize, 38);
+  assert.equal(currentSong.timeSignature, '4/4');
+  assert.equal(currentSong.tempo, 120);
+  assert.equal(currentSong.genre, '');
+  assert.equal(importedParsed, null);
+  assert.deepEqual(daw.selectedIds, new Set());
+  assert.deepEqual(daw.selectedSectionIds, new Set());
+  assert.deepEqual(daw.arrangerMarkers, { enabled: true, start: 1, end: 8 });
+  assert.deepEqual(elements.get('loopToggleBtn').classList.toggles.at(-1), [
+    'loop-active',
+    false
+  ]);
+  assert.deepEqual(calls.slice(0, 3), [
+    ['path', 'C:\\Projects\\RawSong.akordyar'],
+    ['pause'],
+    ['stop']
+  ]);
+  assert.ok(calls.some(call => call[0] === 'apply-import'));
+  assert.ok(calls.some(call => call[0] === 'state'));
+  assert.ok(calls.some(call => call[0] === 'save-song'));
+  assert.ok(calls.some(call => call[0] === 'render-all'));
+  assert.equal(toasts.at(-1), 'پروژه لود شد: RawSong.akordyar');
+
+  const failed = await service.importSingle({
+    name: 'broken.akordyar',
+    text: async () => '{broken'
+  });
+  assert.equal(failed.ok, false);
+  assert.match(toasts.at(-1), /خطا در لود فایل/);
+  assert.ok(calls.some(call => call[0] === 'error'));
+
+  console.log('ArchiveProjectFileImportService tests passed');
+})().catch(error => {
+  console.error(error);
+  process.exitCode = 1;
+});
