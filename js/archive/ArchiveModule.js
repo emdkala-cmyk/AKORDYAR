@@ -478,6 +478,18 @@
       return _archiveReadOnlyService;
     }
 
+    function getArchiveMetadataEditService() {
+      const create = window.ArchiveMetadataEditService?.create;
+      if (typeof create !== 'function') throw new Error('ArchiveMetadataEditService is not loaded. Check script order.');
+      return create({
+        getElement: id => $(id), getAllSongs: edGetAllSongs, setAllSongs: edSetAllSongs,
+        getEditSongId: () => _archState.editSongId, setEditSongId: value => { _archState.editSongId = value; },
+        artistKey: archArtistKey, pushUndo: archPushUndo, resetSearchCache: archResetSearchCache,
+        resetArtistCache: () => { _archState.artistCache = null; }, render: archRender, renderArtists: archRenderArtists,
+        updateActiveFilters: archUpdateActiveFilters, toast, OptionCtor: window.Option
+      });
+    }
+
     // --- Batch import bridge ---
     function getArchiveBatchImportService() {
       if (!_archiveBatchImportService) {
@@ -873,28 +885,10 @@
 
     // --- Edit Metadata ---
     function archEditOpen(id) {
-      const songs=edGetAllSongs(); const s=songs.find(x=>String(x.id)===String(id)); if (!s) return;
-      _archState.editSongId=id;
-      $('aeTitle').value=s.title||''; $('aeArtist').value=s.artist||''; $('aeAlbum').value=s.album||'';
-      $('aeKey').value=s.key||'C'; $('aeKeyMode').value=s.keyMode||'maj';
-      $('aeBpm').value=s.tempo||s.bpm||120; $('aeTimeSig').value=s.timeSignature||'4/4';
-      $('aeGenre').value=s.genre||''; $('aeCategory').value=(s.categories||[]).join(', ');
-      $('aeNotes').value=s.notes||'';
-      const ks=$('aeKey'); if (ks.options.length<=1) ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'].forEach(n=>ks.add(new Option(n,n)));
-      $('archiveEditOverlay').classList.add('show');
+      return getArchiveMetadataEditService().open(id);
     }
-    function archEditClose() { $('archiveEditOverlay').classList.remove('show'); _archState.editSongId=null; }
-    function archEditSave() {
-      if (!_archState.editSongId) return;
-      archPushUndo('ویرایش مشخصات'); const songs=edGetAllSongs(); const s=songs.find(x=>String(x.id)===String(_archState.editSongId));
-      if (!s) return;
-      s.title=$('aeTitle').value.trim()||'بدون نام'; s.artist=$('aeArtist').value.trim(); s.artistKey=archArtistKey(s.artist); s.album=$('aeAlbum').value.trim();
-      s.key=$('aeKey').value; s.keyMode=$('aeKeyMode').value; s.tempo=parseInt($('aeBpm').value)||120; s.bpm=s.tempo;
-      s.timeSignature=$('aeTimeSig').value; s.genre=$('aeGenre').value;
-      s.categories=$('aeCategory').value.split(',').map(c=>c.trim()).filter(Boolean);
-      s.notes=$('aeNotes').value.trim(); s.updatedAt=new Date().toISOString();
-      edSetAllSongs(songs); archResetSearchCache(); _archState.artistCache=null; archEditClose(); archRender(); archRenderArtists(); archUpdateActiveFilters(); toast('مشخصات به‌روزرسانی شد');
-    }
+    function archEditClose() { return getArchiveMetadataEditService().close(); }
+    function archEditSave() { return getArchiveMetadataEditService().save(); }
 
     // --- Refresh ---
     function archRefresh() { archResetSearchCache(); _archState.artistCache=null; archMigrate(edGetAllSongs()); archRender(); archRenderArtists(); toast('آرشیو تازه‌سازی شد'); }
