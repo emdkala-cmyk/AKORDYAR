@@ -51,6 +51,9 @@ const coreClipboardBridgeService = read(
 const coreRecordingService = read('js/app/CoreRecordingService.js');
 const coreSettingsService = read('js/app/CoreSettingsService.js');
 const coreHighlightService = read('js/app/CoreHighlightService.js');
+const coreMovableWindowBridgeService = read(
+  'js/app/CoreMovableWindowBridgeService.js'
+);
 const coreMixerBridgeService = read('js/app/CoreMixerBridgeService.js');
 const editor = executableLines(read('js/app/editor.js'));
 const appCore = executableLines(read('js/app/core.js'));
@@ -200,6 +203,10 @@ assert.match(coreSettingsService, /function applyTheme\(name\)/);
 assert.match(coreSettingsService, /function previewMetronomeSound\(/);
 assert.match(coreHighlightService, /function setHighlightEffect\(effect\)/);
 assert.match(coreHighlightService, /function initHighlightEffect\(\)/);
+assert.match(
+  coreMovableWindowBridgeService,
+  /function getEditorMovableWindowService\(\)/
+);
 assert.doesNotMatch(
   appCore,
   /function deleteSelected\(\)/
@@ -208,6 +215,7 @@ assert.doesNotMatch(appCore, /function startRec\(\)/);
 assert.doesNotMatch(appCore, /function finishRec\(blob\)/);
 assert.doesNotMatch(appCore, /function previewMetronomeSound\(/);
 assert.doesNotMatch(appCore, /function setHighlightEffect\(effect\)/);
+assert.doesNotMatch(appCore, /function getEditorMovableWindowService\(\)/);
 assert.doesNotMatch(
   appCore,
   /function getClipboardService\(\)/

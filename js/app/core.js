@@ -1613,26 +1613,21 @@ function applyState(stateStr) {
         toast(`✔ Chord Line با موفقیت از Lyrics Chord همگام شد (${appliedCount} آکورد).`);
       }
     }
-    // Generic: drag windows from their title/header
-    let editorMovableWindowService = null;
-    function getEditorMovableWindowService() {
-      if (!editorMovableWindowService) {
-        const create = globalScope.EditorMovableWindowService?.create;
-        if (typeof create !== 'function') {
-          throw new Error('EditorMovableWindowService is not loaded. Check script order.');
-        }
-        editorMovableWindowService = create({
-          documentRef: document,
-          windowRef: window,
-          startPointerDrag: (...args) => globalScope.startEditorPointerDrag(...args)
-        });
-      }
-      return editorMovableWindowService;
+    const coreMovableWindowRuntime =
+      globalScope.CoreMovableWindowBridgeService?.create?.({
+        documentRef: document,
+        windowRef: window,
+        startPointerDrag: (...args) =>
+          globalScope.startEditorPointerDrag?.(...args)
+      });
+    if (!coreMovableWindowRuntime) {
+      throw new Error(
+        'CoreMovableWindowBridgeService باید قبل از app/core.js بارگذاری شود.'
+      );
     }
-    function initMovableWindows() {
-      return getEditorMovableWindowService().bind();
-    }
-    initMovableWindows();
+    Object.assign(globalScope, coreMovableWindowRuntime);
+    corePublicApi.publish(coreMovableWindowRuntime);
+    coreMovableWindowRuntime.initMovableWindows();
 
     // Playhead mode toggle
     function togglePlayheadMode() {
