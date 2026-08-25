@@ -1310,6 +1310,7 @@ function applyState(stateStr) {
     Object.assign(globalScope, coreSettingsRuntime);
     corePublicApi.publish(coreSettingsRuntime);
     coreSettingsRuntime.initialize();
+    let syncChordLinePopup;
     const coreChordLineSyncRuntime =
       globalScope.CoreChordLineSyncService?.create?.({
         getSongState: () => requireEditorSongStateService(),
@@ -1517,7 +1518,6 @@ function applyState(stateStr) {
     /* ===== POPUP WINDOW FULLSCREEN ===== */
     let _lyricPopup = null;
     let _lyricOnlyMessageCleanup = null;
-    let _chordLineMessageCleanup = null;
     let _focusMode = false;
     const coreFocusModeRuntime =
       globalScope.CoreFocusModeService?.create?.({
@@ -1685,282 +1685,34 @@ function applyState(stateStr) {
 
     // ===== CHORD LINE POPUP (detachable, small) =====
     let _chordLinePopup = null;
-    function openChordLinePopup() {
-      if (isPopupOpen(_chordLinePopup)) { focusPopupWindow(_chordLinePopup); return; }
-      _chordLinePopup = openPopupWindow('chordLinePopup', 'width=650,height=400,menubar=no,toolbar=no,location=no,status=no');
-      if (!_chordLinePopup) { toast(t('popupBlocked')); return; }
-      syncChordLinePopup();
-    }
-    function syncChordLinePopup() {
-      if (!isPopupOpen(_chordLinePopup)) return;
-      const snapshot = requireEditorSongStateService().getPresentationSnapshot();
-      if (!snapshot) return;
-      const doc = popupDocument(_chordLinePopup);
-      if (!doc) return;
-      const { title, artist, key, keyMode, lyrics, styles } = snapshot;
-      const keyStr = key + (keyMode === 'min' ? 'm' : '');
-      const { tSize, tColor, tFont, tBold, align, cSize, cColor, cFont } = styles;
-      const lines = lyrics.split('\n');
-      // Use independent chordLineClips state - this is the source of truth for Chord Line display
-      const chordLineClips = snapshot.chordLineClips;
-      const transpose = snapshot.transpose;
-      // Render chords from chordLineClips with transpose applied
-      const chords = chordLineClips.map(ch => ({ 
-        lineIndex: ch.lineIndex, 
-        charIndex: ch.charIndex, 
-        anchorType: ch.anchorType, 
-        _name: ch.name ? edTransposeChord(ch.name, transpose) : '' 
-      }));
-
-      doc.title = title + ' — ' + artist + ' | Chord Line';
-      doc.documentElement.dir = 'rtl';
-      doc.documentElement.lang = 'fa';
-      doc.head.innerHTML = `
-        <style>
-          @font-face { font-family: 'Vazirmatn'; src: url('../fonts/Vazirmatn-Regular.woff2') format('woff2'); font-weight: normal; }
-          @font-face { font-family: 'Vazirmatn Bold'; src: url('../fonts/Vazirmatn-Bold.woff2') format('woff2'); }
-          @font-face { font-family: 'Vazirmatn Thin'; src: url('../fonts/Vazirmatn-Thin.woff2') format('woff2'); }
-          @font-face { font-family: 'Vazirmatn Black'; src: url('../fonts/Vazirmatn-Black.woff2') format('woff2'); }
-          @font-face { font-family: 'BArshia'; src: url('../fonts/BArshia.woff2') format('woff2'); }
-          @font-face { font-family: 'BFarnaz'; src: url('../fonts/BFarnaz.woff2') format('woff2'); }
-          @font-face { font-family: 'BJadid'; src: url('../fonts/BJadidBd.woff2') format('woff2'); }
-          @font-face { font-family: 'BZar'; src: url('../fonts/BZar.woff2') format('woff2'); font-weight: normal; }
-          @font-face { font-family: 'BZar Bold'; src: url('../fonts/BZarBd.woff2') format('woff2'); }
-          @font-face { font-family: 'Lalezar'; src: url('../fonts/Lalezar-Regular.woff2') format('woff2'); }
-          @font-face { font-family: 'Mada'; src: url('../fonts/Mada-Bold.woff2') format('woff2'); }
-          @font-face { font-family: 'Rubik'; src: url('../fonts/Rubik-Bold.woff2') format('woff2'); }
-          @font-face { font-family: 'JetBrains Mono'; src: url('../fonts/JetBrainsMono-Regular.woff2') format('woff2'); font-weight: normal; }
-          @font-face { font-family: 'JetBrains Mono Bold'; src: url('../fonts/JetBrainsMono-Bold.woff2') format('woff2'); }
-          * { box-sizing: border-box; margin: 0; padding: 0; }
-          body { background: #0F131E; color: #E2E8F0; font-family: 'Vazirmatn', sans-serif; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
-          .clp-header { text-align: center; padding: 8px 12px 4px; background: linear-gradient(180deg, #1C2333, #161B26); border-bottom: 1px solid #232B3E; }
-          .clp-header .title { font-size: 15px; font-weight: 900; color: #00F2FE; }
-          .clp-header .sub { font-size: 10px; color: #718096; }
-          .clp-controls { display: flex; gap: 8px; padding: 8px 12px; background: #161B26; border-bottom: 1px solid #232B3E; align-items: center; justify-content: center; }
-          .clp-btn { background: #232B3E; color: #E2E8F0; border: 1px solid #2D3748; padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; transition: all 0.15s; }
-          .clp-btn:hover { background: #2D3748; border-color: #4A5568; }
-          .clp-btn:active { transform: translateY(1px); }
-          .clp-btn-primary { background: #0fa966; border-color: #0fa966; color: #fff; }
-          .clp-btn-primary:hover { background: #0c8a54; }
-          .clp-body { flex: 1; overflow: auto; padding: 16px 20px; position: relative; line-height: 2.4; }
-          .clp-body { flex: 1; overflow-y: auto; padding: 16px; }
-          .eline { min-height: 1.2em; white-space: pre-wrap; }
-          .clp-chord { position: absolute; pointer-events: none; font-weight: bold; color: ${cColor}; font-family: '${cFont}', monospace; font-size: ${cSize}px; direction: ltr; white-space: nowrap; z-index: 5; }
-          .clp-chord-line { position: absolute; width: 2px; pointer-events: none; opacity: .4; background: ${cColor}; z-index: 4; }
-          .clp-active { color: #FF2E93 !important; text-shadow: 0 0 8px rgba(255,46,147,0.5); }
-          .clp-active-bg { background: rgba(255,46,147,0.08); border-radius: 6px; }
-        </style>`;
-      let html = `<div class="clp-header"><div class="title">${title}</div><div class="sub">${artist} · ${keyStr}</div></div>`;
-      // Add controls container with Sync and Transpose buttons
-      html += `<div class="clp-controls">
-        <button class="clp-btn clp-btn-primary" id="clpSyncBtn" title="بروزرسانی Chord Line از Lyrics Chord">🔄 سینک</button>
-        <button class="clp-btn" id="clpTransDown" title="بمل">♭</button>
-        <span id="clpTransVal" style="color:#718096;font-size:12px;font-weight:600;min-width:24px;text-align:center;display:inline-block;">${transpose > 0 ? '+' : ''}${transpose}</span>
-        <button class="clp-btn" id="clpTransUp" title="دیز">♯</button>
-        <button class="clp-btn" id="clpCopyBtn" title="کپی آکوردها">✔ کپی</button>
-      </div>`;
-      html += `<div class="clp-body" id="clpBody">`;
-      lines.forEach((line, i) => {
-        html += `<div class="eline" data-li="${i}" style="font-size:${tSize}px;color:${tColor};font-family:'${tFont}';font-weight:${tBold};text-align:${align};">${line || '\u200B'}</div>`;
-      });
-      html += '</div>';
-      doc.body.innerHTML = html;
-
-      // Attach event listeners to controls
-      const syncBtn = doc.getElementById('clpSyncBtn');
-      const transUpBtn = doc.getElementById('clpTransUp');
-      const transDownBtn = doc.getElementById('clpTransDown');
-      const transValSpan = doc.getElementById('clpTransVal');
-      const copyBtn = doc.getElementById('clpCopyBtn');
-
-      // Sync button: copy chords from Lyrics to chordLineClips with spatial ordering
-      if (syncBtn) {
-        syncBtn.onclick = () => {
-          const songState = requireEditorSongStateService();
-          const song = songState.currentSong();
-          if (!song) return;
-          
-      // 1. Extract chords from the current song (parsed from lyrics)
-          const lyricsChords = songState.getChords(song);
-          
-          // If no chords in Lyrics
-          if (lyricsChords.length === 0) { 
-            toast('هیچ آکوردی در Lyrics Chord وجود ندارد.');
-            return; 
-          }
-          
-          // 2. Sort chords by spatial position from right to left (RTL reading order)
-          // For Persian text: index 0 is on the far right, higher indices go to the left
-          // So ascending sort (a.charIndex - b.charIndex) gives us right-to-left order
-          const lyricsChordsInSyncOrder = [...lyricsChords].sort((a, b) => {
-            if (a.lineIndex !== b.lineIndex) {
-              return a.lineIndex - b.lineIndex;
-            }
-            // Ascending order: smaller charIndex (right side) comes first
-            return a.charIndex - b.charIndex;
-          });
-          
-          // 3. Get current Chord Line clips
-          const currentChordLineClips = songState.getChordLineClips(song);
-          
-          // If Chord Line is empty
-          if (currentChordLineClips.length === 0) {
-            toast('برای همگام‌سازی، ابتدا حداقل یک آکورد در Chord Line ایجاد کنید.');
-            return;
-          }
-          
-          // 4. Apply Lyrics chords to Chord Line from left to right
-          let appliedCount = Math.min(lyricsChordsInSyncOrder.length, currentChordLineClips.length);
-          
-          for (let i = 0; i < appliedCount; i++) {
-            currentChordLineClips[i].name = lyricsChordsInSyncOrder[i].name;
-          }
-          
-          // 5. Update state and re-render
-          songState.setChordLineClips(currentChordLineClips, song);
-          songState.markChordLineSynced(song);
-          syncChordLinePopup();
-          
-          // Show result message
-          if (lyricsChordsInSyncOrder.length > currentChordLineClips.length) {
-            toast(`فقط ${appliedCount} آکورد اول Lyrics روی ${currentChordLineClips.length} آکورد موجود در Chord Line اعمال شد.`);
-          } else {
-            toast(`✔ Chord Line با موفقیت از Lyrics Chord همگام شد (${appliedCount} آکورد).`);
-          }
-        };
-      }
-
-      // Transpose Up button: only modify chordLineClips
-      if (transUpBtn) {
-        transUpBtn.onclick = () => {
-          const songState = requireEditorSongStateService();
-          if (!songState.getChordLineClips().length) return;
-          const newTranspose = songState.getTranspose() + 1;
-          songState.setTranspose(newTranspose);
-          // Update transpose display
-          if (transValSpan) transValSpan.textContent = (newTranspose > 0 ? '+' : '') + newTranspose;
-          // Re-render chords with new transpose (only affects chordLineClips)
-          syncChordLinePopup();
-        };
-      }
-
-      // Transpose Down button: only modify chordLineClips
-      if (transDownBtn) {
-        transDownBtn.onclick = () => {
-          const songState = requireEditorSongStateService();
-          if (!songState.getChordLineClips().length) return;
-          const newTranspose = songState.getTranspose() - 1;
-          songState.setTranspose(newTranspose);
-          // Update transpose display
-          if (transValSpan) transValSpan.textContent = (newTranspose > 0 ? '+' : '') + newTranspose;
-          // Re-render chords with new transpose (only affects chordLineClips)
-          syncChordLinePopup();
-        };
-      }
-
-      // Copy button: copy chord names to clipboard
-      if (copyBtn) {
-        copyBtn.onclick = () => {
-          const songState = requireEditorSongStateService();
-          const chordLineClips = songState.getChordLineClips();
-          if (chordLineClips.length === 0) {
-            toast('آکوردی برای کپی وجود ندارد');
-            return;
-          }
-          const transpose = songState.getTranspose();
-          const chordNames = chordLineClips
-            .map(ch => ch.name ? edTransposeChord(ch.name, transpose) : '')
-            .filter(n => n);
-          if (chordNames.length === 0) {
-            toast('آکوردی برای کپی وجود ندارد');
-            return;
-          }
-          const textToCopy = chordNames.join(' ');
-          navigator.clipboard.writeText(textToCopy).then(() => {
-            toast('✔ ' + chordNames.length + ' آکورد کپی شد');
-          }).catch(() => {
-            toast('خطا در کپی');
-          });
-        };
-      }
-
-      // Render chords
-      const pb = doc.getElementById('clpBody');
-      const wrapRect = pb.getBoundingClientRect();
-      const GAP = Math.max(10, cSize * 0.6);
-      const MARGIN = 5;
-
-      chords.forEach(ch => {
-        if (!ch._name) return;
-        const lineEl = pb.children[ch.lineIndex];
-        if (!lineEl) return;
-
-        const segs = [];
-        let total = 0;
-        const walker = doc.createTreeWalker(lineEl, NodeFilter.SHOW_TEXT);
-        let node;
-        while ((node = walker.nextNode())) {
-          segs.push({ node, start: total, len: node.textContent.length });
-          total += node.textContent.length;
-        }
-        if (!segs.length) return;
-
-        const len = total;
-        const r = doc.createRange();
-        if (ch.anchorType === 'LineStart') {
-          const s = segs[0]; r.setStart(s.node, 0); r.setEnd(s.node, Math.min(1, s.len));
-        } else if (ch.anchorType === 'LineEnd') {
-          const s = segs[segs.length - 1]; const p = Math.max(0, s.len - 1);
-          r.setStart(s.node, p); r.setEnd(s.node, Math.min(p + 1, s.len));
-        } else {
-          const ci = Math.min(ch.charIndex, Math.max(0, len - 1));
-          const s = segs.find(sg => ci >= sg.start && ci < sg.start + sg.len) || segs[segs.length - 1];
-          const local = Math.max(0, ci - s.start);
-          r.setStart(s.node, Math.min(local, s.len));
-          r.setEnd(s.node, Math.min(local + 1, s.len));
-        }
-        const rect = r.getBoundingClientRect();
-        const x = (ch.anchorType === 'LineStart') ? rect.right + MARGIN : (ch.anchorType === 'LineEnd') ? rect.left - MARGIN : (rect.left + rect.right) / 2;
-        const top = rect.top - wrapRect.top + pb.scrollTop - cSize - GAP;
-
-        const el = doc.createElement('span');
-        el.className = 'clp-chord';
-        el.textContent = ch._name;
-        el.style.top = top + 'px';
-        el.style.left = (x - wrapRect.left - el.offsetWidth / 2) + 'px';
-        pb.appendChild(el);
-
-        const ln = doc.createElement('div');
-        ln.className = 'clp-chord-line';
-        ln.style.left = (x - wrapRect.left) + 'px';
-        ln.style.top = (top + cSize) + 'px';
-        ln.style.height = Math.max(4, GAP) + 'px';
-        pb.appendChild(ln);
-      });
-
-      // Sync playhead highlight
-      _chordLineMessageCleanup?.();
-      _chordLineMessageCleanup = popupWindowBridge?.onMessage?.({
+    const coreChordLinePopupRuntime =
+      globalScope.CoreChordLinePopupService?.create?.({
+        getPopup: () => _chordLinePopup,
+        setPopup: popup => {
+          _chordLinePopup = popup;
+        },
+        getSongState: () => requireEditorSongStateService(),
+        isPopupOpen: popup => isPopupOpen(popup),
+        popupDocument: popup => popupDocument(popup),
+        openPopupWindow: (...args) => openPopupWindow(...args),
+        focusPopupWindow: popup => focusPopupWindow(popup),
+        popupWindowBridge,
         windowRef: window,
-        getSource: () => _chordLinePopup,
-        type: 'syncUpdate',
-        handler: ev => {
-          if (!isPopupOpen(_chordLinePopup)) {
-            _chordLineMessageCleanup?.();
-            _chordLineMessageCleanup = null;
-            return;
-          }
-          const body = popupDocument(_chordLinePopup)?.getElementById('clpBody');
-          if (!body) return;
-          [...body.children].forEach(el => {
-            if (!el.dataset.li) return;
-            const li = +el.dataset.li;
-            el.classList.toggle('clp-active', li === ev.data.activeIdx);
-            el.classList.toggle('clp-active-bg', li === ev.data.activeIdx);
-          });
-        }
-      }) || null;
+        navigatorRef: window.navigator,
+        nodeFilter: window.NodeFilter,
+        transposeChord: (...args) => edTransposeChord(...args),
+        translate: key => t(key),
+        toast: message => toast(message)
+      });
+    if (!coreChordLinePopupRuntime) {
+      throw new Error(
+        'CoreChordLinePopupService باید قبل از app/core.js بارگذاری شود.'
+      );
     }
+    const { openChordLinePopup } = coreChordLinePopupRuntime;
+    syncChordLinePopup = coreChordLinePopupRuntime.syncChordLinePopup;
+    Object.assign(globalScope, coreChordLinePopupRuntime);
+    corePublicApi.publish(coreChordLinePopupRuntime);
 
     // === Player View persistent settings (survives popup rebuilds) ===
     const _pvSettingsKey = 'achord_player_view_settings';
