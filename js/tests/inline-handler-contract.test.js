@@ -29,8 +29,12 @@ const archiveModule = fs.readFileSync(
   path.join(projectRoot, 'js/archive/ArchiveModule.js'),
   'utf8'
 );
-assert.match(archiveModule, /data-action="archToggleSelect"/);
-assert.match(archiveModule, /data-action="archSelectAll"/);
+const archiveRenderService = fs.readFileSync(
+  path.join(projectRoot, 'js/archive/ArchiveRenderService.js'),
+  'utf8'
+);
+assert.match(archiveRenderService, /data-action="archToggleSelect"/);
+assert.match(archiveRenderService, /data-action="archSelectAll"/);
 assert.match(archiveModule, /const actions = \{\s*archExitReadOnly/);
 
 const projectHub = fs.readFileSync(

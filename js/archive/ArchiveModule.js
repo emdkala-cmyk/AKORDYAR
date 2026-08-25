@@ -31,6 +31,7 @@
     let _archiveMutationService = null;
     let _archiveArtistUiService = null;
     let _archiveArtistImageService = null;
+    let _archiveRenderService = null;
 
     function getArchiveRuntimeAdapter() {
       const adapter = window.ArchiveRuntimeAdapter;
@@ -337,6 +338,23 @@
         });
       }
       return _archiveArtistUiService;
+    }
+
+    // --- Render bridge ---
+    function getArchiveRenderService() {
+      if (!_archiveRenderService) {
+        const create = window.ArchiveRenderService?.create;
+        if (typeof create !== 'function') {
+          throw new Error('ArchiveRenderService is not loaded. Check script order.');
+        }
+        _archiveRenderService = create({
+          documentRef: window.document,
+          requestFrame: callback => window.requestAnimationFrame(callback),
+          escapeHtml: escH,
+          syncSelectAll: archSyncSelectAllCheckbox
+        });
+      }
+      return _archiveRenderService;
     }
 
     // --- Batch import bridge ---
@@ -647,7 +665,6 @@
       const tempoRange = $('filterTempo')?.value||'';
       const keyFilter = $('filterKey')?.value||'';
       const sort = $('filterSort')?.value||'newest';
-      const genreMap = {sad:'غمگین',happy:'شاد',heavy:'سنگین',romantic:'عاشقانه',energetic:'انرژیک',calm:'آرام',epic:'حماسی',pop:'پاپ',rock:'راک',jazz:'جاز',classical:'کلاسیک',folk:'سنتی',electronic:'الکترونیک',hiphop:'هیپ‌هاپ',other:'سایر'};
       const activeAll = allSongs.filter(s=>!s.deletedAt);
       $('tabCountAll').textContent=activeAll.length;
       $('tabCountFav').textContent=activeAll.filter(s=>s.favorite).length;
@@ -678,58 +695,22 @@
       const isTrash=_archCurrentTab==='trash';
       $('archiveStatusText').textContent=isTrash?'سطل زباله':_archCurrentTab==='fav'?'علاقه‌مندی‌ها':'همه ترانه‌ها';
       $('archiveFilterBar').style.display=isTrash?'none':'';
-      const list=$('archiveList'); list.innerHTML='';
-      if (!songs.length) { list.innerHTML=`<div class="archive-empty"><div class="archive-empty-icon">${isTrash?'🗑':'🎵'}</div>${q?'نتیجه‌ای یافت نشد':isTrash?'سطل زباله خالی است':_archCurrentTab==='fav'?'ترانه‌ای در علاقه‌مندی نیست':'آرشیو خالی است'}</div>`; return; }
-      const activeId=getArchiveSongOrNull()?.id;
-      if (_archViewMode==='table') {
-        let headerHtml='<table class="archive-table archive-table-header"><thead><tr>';
-        if (_archSelectMode) headerHtml+='<th style="width:36px;"><input type="checkbox" class="arch-select-all-cb archive-card-check" data-action="archSelectAll" aria-label="انتخاب همه"></th>';
-        headerHtml+='<th>عنوان</th><th>خواننده</th><th>گام</th><th>BPM</th><th>میزان</th><th>تاریخ</th><th>عملیات</th></tr></thead></table>';
-        let bodyHtml='<div class="archive-table-body"><table class="archive-table archive-table-body-inner"><tbody>';
-        for (const s of songs) {
-          const kl=s.key?s.key+((s.keyMode||'maj')==='min'?'m':''):'—';
-          const ds=s.updatedAt?new Date(s.updatedAt).toLocaleDateString('fa-IR'):'—';
-          bodyHtml+=`<tr class="${s.id===activeId?'active-load':''} ${_archSelectedIds.has(s.id)?'selected-row':''}" data-song-id="${s.id}" tabindex="0">`;
-          if (_archSelectMode) bodyHtml+=`<td style="width:36px;"><input type="checkbox" class="archive-card-check" data-action="archToggleSelect" data-song-id="${escH(s.id)}" ${_archSelectedIds.has(s.id)?'checked':''} aria-label="انتخاب"></td>`;
-          bodyHtml+=`<td style="font-weight:700;">${escH(s.title||'بدون نام')}</td><td>${escH(s.artist||'—')}</td><td style="color:#FFA500;font-weight:700;font-family:JetBrains Mono,monospace;">${kl}</td><td style="color:#FF6BA8;">${s.tempo||s.bpm||'—'}</td><td>${s.timeSignature||'—'}</td><td style="font-size:0.72rem;color:var(--text-secondary);">${ds}</td>`;
-          bodyHtml+=`<td><div class="at-actions"><button data-arch-action="open" data-song-id="${s.id}" title="بازکردن" aria-label="بازکردن">▶</button> <button data-arch-action="menu" data-song-id="${s.id}" title="بیشتر" aria-label="بیشتر">⋯</button></div></td></tr>`;
-        }
-        bodyHtml+='</tbody></table></div>';
-        list.innerHTML=headerHtml+bodyHtml;
-        // Sync select all
-        requestAnimationFrame(archSyncSelectAllCheckbox);
-      } else {
-        for (const s of songs) {
-          const tags=[];
-          if (s.timeSignature) tags.push(`<span class="archive-tag archive-tag-sig">${s.timeSignature}</span>`);
-          if (s.tempo||s.bpm) tags.push(`<span class="archive-tag archive-tag-tempo">${s.tempo||s.bpm} BPM</span>`);
-          if (s.key) { const kl=s.key+((s.keyMode||'maj')==='min'?'m':''); tags.push(`<span class="archive-tag archive-tag-key">${kl}</span>`); }
-          if (s.genre&&genreMap[s.genre]) tags.push(`<span class="archive-tag archive-tag-genre">${genreMap[s.genre]}</span>`);
-          if (s.categories?.length) s.categories.forEach(c=>tags.push(`<span class="archive-tag archive-tag-cat">${escH(c)}</span>`));
-          const ds=s.updatedAt?new Date(s.updatedAt).toLocaleDateString('fa-IR'):'';
-          const isTrashed=!!s.deletedAt;
-          const div=document.createElement('div');
-          div.className='archive-card'+(s.id===activeId?' active-load':'')+(s.favorite?' fav-card':'');
-          div.dataset.songId=s.id; div.tabIndex=0; div.setAttribute('role','button');
-          div.setAttribute('aria-label',(s.title||'بدون نام')+' '+(s.artist||''));
-          let inner='';
-          if (_archSelectMode) inner+=`<input type="checkbox" class="archive-card-check" data-action="archToggleSelect" data-song-id="${escH(s.id)}" ${_archSelectedIds.has(s.id)?'checked':''} aria-label="انتخاب">`;
-          inner+=`<div class="archive-card-body"><div class="archive-card-top"><div class="archive-card-title">${escH(s.title||'بدون نام')}</div></div><div class="archive-card-artist">${escH(s.artist||'—')}</div>`;
-          if (tags.length) inner+=`<div class="archive-card-meta">${tags.join('')}</div>`;
-          if (ds) inner+=`<div class="archive-card-date">${isTrashed?'حذف شده: ':''}${ds}</div>`;
-          inner+=`</div><div class="archive-card-actions">`;
-          inner+=`<button data-arch-action="fav" data-song-id="${s.id}" class="btn-fav ${s.favorite?'is-fav':''}" title="${s.favorite?'حذف از علاقه‌مندی':'افزودن به علاقه‌مندی'}" aria-label="علاقه‌مندی" type="button">${s.favorite?'⭐':'☆'}</button>`;
-          if (isTrashed) {
-            inner+=`<button data-arch-action="restore" data-song-id="${s.id}" class="btn-load" title="بازیابی" aria-label="بازیابی" type="button">♻️</button>`;
-            inner+=`<button data-arch-action="permanent-delete" data-song-id="${s.id}" class="btn-del" title="حذف دائمی" aria-label="حذف دائمی" type="button">✕</button>`;
-          } else {
-            inner+=`<button data-arch-action="open" data-song-id="${s.id}" class="btn-load" title="بازکردن" aria-label="بازکردن" type="button">▶</button>`;
-            inner+=`<button data-arch-action="menu" data-song-id="${s.id}" class="btn-menu" title="بیشتر" aria-label="بیشتر" type="button">⋯</button>`;
-          }
-          inner+=`</div>`; div.innerHTML=inner; list.appendChild(div);
-        }
-        requestAnimationFrame(archSyncSelectAllCheckbox);
+      const list = $('archiveList');
+      list.innerHTML = '';
+      if (!songs.length) {
+        getArchiveRenderService().renderEmpty(list, {
+          query: q,
+          isTrash,
+          currentTab: _archCurrentTab
+        });
+        return;
       }
+      getArchiveRenderService().render(list, songs, {
+        viewMode: _archViewMode,
+        selectMode: _archSelectMode,
+        selectedIds: _archSelectedIds,
+        activeId: getArchiveSongOrNull()?.id
+      });
     }
     function escH(s) { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
 
