@@ -30,6 +30,7 @@ for (const activeScript of [
   'js/editor/ArrangerMarkerService.js',
   'js/editor/ArrangerPlaybackPolicyService.js',
   'js/editor/AudioRecoveryService.js',
+  'js/editor/EditorAudioStorageService.js',
   'js/editor/EditorProjectFileService.js',
   'js/editor/EditorProjectExportRouteService.js',
   'js/editor/EditorProjectImportRouteService.js',

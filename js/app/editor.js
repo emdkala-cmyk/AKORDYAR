@@ -21,6 +21,86 @@ function editorPopupDocument(popup) {
   return editorPopupWindowService?.getDocument?.(popup) || null;
 }
 
+let edAudioStorageService = null;
+function getEditorAudioStorageService() {
+  if (
+    !edAudioStorageService &&
+    typeof window.EditorAudioStorageService?.create === 'function'
+  ) {
+    edAudioStorageService = window.EditorAudioStorageService.create({
+      indexedDBRef: window.indexedDB,
+      BlobCtor: window.Blob,
+      fetchRef: (...args) => window.fetch(...args),
+      urlRef: window.URL,
+      getDAW: () => getEditorDAW(),
+      ensureAudioCtx,
+      getWavEncoder: () => getEditorProjectExportService()?.audioBufferToWav,
+      getElement: id => document.getElementById(id),
+      getStorageEstimate: () => window.navigator?.storage?.estimate?.(),
+      compressionServiceFactory: () => window.AudioCompressionService?.create?.(),
+      toast,
+      logger: console
+    });
+  }
+  return edAudioStorageService;
+}
+
+function getAudioCompressionService() {
+  return getEditorAudioStorageService()?.getAudioCompressionService?.() || null;
+}
+
+function openAudioDB() {
+  return getEditorAudioStorageService()?.openAudioDB?.();
+}
+
+function saveFileHandle(...args) {
+  return getEditorAudioStorageService()?.saveFileHandle?.(...args);
+}
+
+function getFileHandle(...args) {
+  return getEditorAudioStorageService()?.getFileHandle?.(...args);
+}
+
+function saveAudioBlobToDB(...args) {
+  return getEditorAudioStorageService()?.saveAudioBlobToDB?.(...args);
+}
+
+function getAudioBlobFromDB(...args) {
+  return getEditorAudioStorageService()?.getAudioBlobFromDB?.(...args);
+}
+
+function saveAudioBlobsForProject(...args) {
+  return getEditorAudioStorageService()?.saveAudioBlobsForProject?.(...args);
+}
+
+function loadAudioBlobsForProject(...args) {
+  return getEditorAudioStorageService()?.loadAudioBlobsForProject?.(...args);
+}
+
+function deleteAudioBlobsForProject(...args) {
+  return getEditorAudioStorageService()?.deleteAudioBlobsForProject?.(...args);
+}
+
+function formatBytes(...args) {
+  return getEditorAudioStorageService()?.formatBytes?.(...args);
+}
+
+function base64ToUint8(...args) {
+  return getEditorAudioStorageService()?.base64ToUint8?.(...args);
+}
+
+function decodeWebMToBuffer(...args) {
+  return getEditorAudioStorageService()?.decodeWebMToBuffer?.(...args);
+}
+
+function resampleFloat32(...args) {
+  return getEditorAudioStorageService()?.resampleFloat32?.(...args);
+}
+
+function refreshStorageInfo(...args) {
+  return getEditorAudioStorageService()?.refreshStorageInfo?.(...args);
+}
+
 let edSongTransitionService = null;
 function getEditorSongTransitionService() {
   if (
@@ -2632,57 +2712,6 @@ function edBlankSong() {
   }
 
     // -- Unified Save/Load (Timeline + Lyrics + Audio) --
-    // IndexedDB for audio blob storage
-    let audioDB = null;
-    let audioCompressionService = null;
-    function getAudioCompressionService() {
-      if (
-        !audioCompressionService &&
-        typeof window.AudioCompressionService?.create === 'function'
-      ) {
-        audioCompressionService = window.AudioCompressionService.create();
-      }
-      return audioCompressionService;
-    }
-
-    function openAudioDB() {
-      if (audioDB) return Promise.resolve(audioDB);
-      return new Promise((resolve, reject) => {
-        const req = indexedDB.open('AchordAudioDB', 2);
-        req.onupgradeneeded = e => {
-          const db = e.target.result;
-          if (!db.objectStoreNames.contains('audioBlobs')) db.createObjectStore('audioBlobs');
-          if (!db.objectStoreNames.contains('fileHandles')) db.createObjectStore('fileHandles');
-        };
-        req.onsuccess = e => { audioDB = e.target.result; resolve(audioDB); };
-        req.onerror = () => reject(req.error);
-      });
-    }
-
-    // ===== ذخیره FileHandle در IndexedDB برای لود اتوماتیک بدون سوال =====
-    async function saveFileHandle(bufferKey, handle) {
-      try {
-        const db = await openAudioDB();
-        return new Promise((resolve, reject) => {
-          const tx = db.transaction('fileHandles', 'readwrite');
-          tx.objectStore('fileHandles').put(handle, bufferKey);
-          tx.oncomplete = () => resolve();
-          tx.onerror = () => reject(tx.error);
-        });
-      } catch(e) { console.warn('[HANDLE] Save error:', e); }
-    }
-
-    async function getFileHandle(bufferKey) {
-      try {
-        const db = await openAudioDB();
-        return new Promise((resolve, reject) => {
-          const tx = db.transaction('fileHandles', 'readonly');
-          const req = tx.objectStore('fileHandles').get(bufferKey);
-          req.onsuccess = () => resolve(req.result || null);
-          req.onerror = () => reject(req.error);
-        });
-      } catch(e) { return null; }
-    }
     // ===== مودال سفارشی بله/نه جای confirm() =====
     let _copyModalResolver = null;
     function askAudioCopyMode(fileName) {
@@ -2700,66 +2729,6 @@ function edBlankSong() {
       });
     }
 
-    /**
-     * saveAudioBlobToDB — ذخیره Blob فایل صوتی در IndexedDB (نه Base64)
-     *
-     * این تابع برای حالتی هست که کاربر «نه» می‌زنه ولی فایل در مرورگر هست.
-     * قبلاً کد showOpenFilePicker رو صدا می‌زد و دوباره از کاربر فایل می‌خواست.
-     * حالا به‌جای اون، همون فایل درگ‌شده رو به‌صورت Blob در IndexedDB ذخیره می‌کنیم.
-     * اینطوری برای لود بعدی، نیازی به سوال از کاربر نیست.
-     *
-     * @param {string} bufferKey - کلید یکتای بافر
-     * @param {File|Blob} file - فایل صوتی
-     * @param {string} fileName - نام فایل
-     */
-    async function saveAudioBlobToDB(bufferKey, file, fileName) {
-      try {
-        const db = await openAudioDB();
-        return new Promise((resolve, reject) => {
-          const tx = db.transaction('fileHandles', 'readwrite');
-          // ذخیره به‌صورت Blob خام (نه Base64) — حجم کمتر و لود سریع‌تر
-          const record = {
-            type: 'blob',
-            blob: file,
-            fileName: fileName,
-            size: file.size,
-            lastModified: file.lastModified || Date.now()
-          };
-          tx.objectStore('fileHandles').put(record, bufferKey);
-          tx.oncomplete = () => {
-            console.log(`[BLOB] Saved to IndexedDB: ${fileName} (${(file.size/1024/1024).toFixed(2)} MB)`);
-            resolve();
-          };
-          tx.onerror = () => reject(tx.error);
-        });
-      } catch(e) {
-        console.warn('[BLOB] Save error:', e);
-      }
-    }
-
-    /**
-     * getAudioBlobFromDB — خواندن Blob فایل صوتی از IndexedDB
-     * @param {string} bufferKey
-     * @returns {Promise<{blob:Blob, fileName:string}|null>}
-     */
-    async function getAudioBlobFromDB(bufferKey) {
-      try {
-        const db = await openAudioDB();
-        return new Promise((resolve, reject) => {
-          const tx = db.transaction('fileHandles', 'readonly');
-          const req = tx.objectStore('fileHandles').get(bufferKey);
-          req.onsuccess = () => {
-            const result = req.result;
-            if (result && result.type === 'blob' && result.blob) {
-              resolve({ blob: result.blob, fileName: result.fileName });
-            } else {
-              resolve(null);
-            }
-          };
-          req.onerror = () => reject(req.error);
-        });
-      } catch(e) { return null; }
-    }
     // Event listeners for modal buttons
     document.addEventListener('DOMContentLoaded', () => {
       const yesBtn = $('audioCopyYes');
@@ -2767,256 +2736,6 @@ function edBlankSong() {
       if (yesBtn) yesBtn.onclick = () => { const m = $('audioCopyModal'); if (m) m.style.display = 'none'; if (_copyModalResolver) { _copyModalResolver(true); _copyModalResolver = null; } };
       if (noBtn) noBtn.onclick = () => { const m = $('audioCopyModal'); if (m) m.style.display = 'none'; if (_copyModalResolver) { _copyModalResolver(false); _copyModalResolver = null; } };
     });
-
-    /**
-     * saveAudioBlobsForProject — ذخیره فایل‌های صوتی embedded در IndexedDB
-     *
-     * استراتژی جدید (بهبود حجم):
-     *   1. اگر فایل اصلی (Blob) در _originalBlob ذخیره شده، همون رو مستقیم ذخیره می‌کنیم
-     *      (این حالت بهترین هست چون فایل MP3 اصلی بدون تغییر ذخیره می‌شه)
-     *   2. در غیر این صورت، AudioBuffer رو به WAV encode می‌کنیم و با CompressionStream
-     *      فشرده می‌کنیم (حدود ۵-۱۰ برابر کوچکتر از Float32Array خام)
-     *
-     * قبلاً این تابع Float32Array خام رو به‌صورت JSON ذخیره می‌کرد که بسیار حجیم بود
-     * (یک آهنگ ۳ دقیقه‌ای = ~۱۵۰ مگابایت).
-     */
-    async function saveAudioBlobsForProject(projectId) {
-      const db = await openAudioDB();
-      return new Promise(async (resolve, reject) => {
-        const tx = db.transaction('audioBlobs', 'readwrite');
-        const store = tx.objectStore('audioBlobs');
-
-        // فقط کلیپ‌هایی که _embedded:true دارند ذخیره میشوند
-        const embeddedClips = getEditorDAW().clips.filter(c =>
-          c.type !== 'chord' && c.bufferKey && c._embedded
-        );
-
-        // First clear old data for this project
-        store.delete(projectId);
-
-        if (embeddedClips.length === 0) { resolve(); return; }
-
-        // ─── مرحله 1: ذخیره Blob های اصلی (اگه موجود باشن) ───
-        // این fast path هست — اگه فایل MP3 اصلی رو داریم، همون رو ذخیره می‌کنیم
-        const allBlobs = [];
-        for (const clip of embeddedClips) {
-          const key = clip.bufferKey;
-          const buffer = getEditorDAW().bufferCache.get(key);
-          if (!buffer) continue;
-
-          // اگه Blob اصلی ذخیره شده، از اون استفاده کن
-          if (clip._originalBlob) {
-            const blob = clip._originalBlob;
-            allBlobs.push({
-              key,
-              format: 'blob',
-              mimeType: blob.type || 'audio/mpeg',
-              fileName: clip.fileName || clip.name || (key + '.mp3'),
-              size: blob.size,
-              duration: buffer.duration,
-              sampleRate: buffer.sampleRate,
-              channels: buffer.numberOfChannels,
-              blob: blob
-            });
-            console.log(`[Audio Save] Saved original blob: ${clip.fileName} (${(blob.size/1024/1024).toFixed(2)} MB)`);
-          } else {
-            // ─── مرحله 2: encode به WAV و فشرده‌سازی ───
-            try {
-              const wavEncoder = getEditorProjectExportService()?.audioBufferToWav;
-              if (typeof wavEncoder !== 'function') {
-                throw new Error('Audio WAV encoder is unavailable');
-              }
-              const wavBytes = wavEncoder(buffer);
-              const compressed =
-                await getAudioCompressionService()?.compressBytes(wavBytes);
-              if (!compressed?.blob || !compressed.format) {
-                throw new Error('Audio compression service is unavailable');
-              }
-              allBlobs.push({
-                key,
-                format: compressed.format,
-                mimeType: compressed.format === 'wav-deflate'
-                  ? 'application/octet-stream'
-                  : 'audio/wav',
-                fileName: (clip.fileName || clip.name || key).replace(/\.[^.]+$/, '') +
-                  (compressed.format === 'wav-deflate' ? '.wav.deflate' : '.wav'),
-                size: compressed.blob.size,
-                duration: buffer.duration,
-                sampleRate: buffer.sampleRate,
-                channels: buffer.numberOfChannels,
-                blob: compressed.blob
-              });
-              console.log(`[Audio Save] Saved ${compressed.format}: ${clip.fileName} (raw=${(wavBytes.length/1024/1024).toFixed(2)}MB → stored=${(compressed.blob.size/1024/1024).toFixed(2)}MB)`);
-            } catch (e) {
-              console.warn(`[Audio Save] Failed to encode ${clip.fileName}:`, e);
-            }
-          }
-        }
-
-        if (allBlobs.length === 0) { resolve(); return; }
-        store.put(allBlobs, projectId);
-        tx.oncomplete = () => resolve();
-        tx.onerror = () => reject(tx.error);
-      });
-    }
-
-    async function loadAudioBlobsForProject(projectId) {
-      const db = await openAudioDB();
-      return new Promise(async (resolve, reject) => {
-        const tx = db.transaction('audioBlobs', 'readonly');
-        const store = tx.objectStore('audioBlobs');
-        const req = store.get(projectId);
-        req.onsuccess = async () => {
-          const allBufs = req.result;
-          if (!allBufs) { resolve(); return; }
-          ensureAudioCtx();
-          for (const entry of allBufs) {
-            try {
-              let buffer = null;
-
-              if (entry.format === 'blob' && entry.blob) {
-                // ─── فرمت جدید: Blob اصلی (MP3, WAV, etc.) ───
-                const arrayBuffer = await entry.blob.arrayBuffer();
-                buffer = await getEditorDAW().audioCtx.decodeAudioData(arrayBuffer);
-                console.log(`[Audio Load] Loaded blob: ${entry.fileName}`);
-              } else if (entry.format === 'wav' && entry.blob) {
-                const arrayBuffer = await entry.blob.arrayBuffer();
-                buffer = await getEditorDAW().audioCtx.decodeAudioData(arrayBuffer);
-                console.log(`[Audio Load] Loaded WAV: ${entry.fileName}`);
-              } else if (entry.format === 'wav-deflate' && entry.blob) {
-                // ─── فرمت جدید: WAV فشرده‌شده با deflate ───
-                const compressedBytes = new Uint8Array(await entry.blob.arrayBuffer());
-                const wavBytes =
-                  await getAudioCompressionService()?.decompressBytes(
-                    compressedBytes
-                  );
-                const wavBlob = new Blob([wavBytes], { type: 'audio/wav' });
-                const arrayBuffer = await wavBlob.arrayBuffer();
-                buffer = await getEditorDAW().audioCtx.decodeAudioData(arrayBuffer);
-                console.log(`[Audio Load] Loaded WAV+deflate: ${entry.fileName}`);
-              } else if (entry.data) {
-                // ─── فرمت قدیمی: Float32Array ───
-                const chData = Array.isArray(entry.data) ? entry.data : [entry.data];
-                buffer = getEditorDAW().audioCtx.createBuffer(chData.length, entry.length, entry.sampleRate);
-                chData.forEach((ch, i) => { if (i < buffer.numberOfChannels) buffer.getChannelData(i).set(ch); });
-                console.log(`[Audio Load] Loaded legacy Float32: ${entry.key}`);
-              }
-
-              if (buffer) {
-                getEditorDAW().bufferCache.set(entry.key, buffer);
-              }
-            } catch (e) {
-              console.warn(`[Audio Load] Failed to load ${entry.key}:`, e);
-            }
-          }
-          resolve();
-        };
-        req.onerror = () => reject(req.error);
-      });
-    }
-    async function deleteAudioBlobsForProject(projectId) {
-      try { const db = await openAudioDB(); return new Promise((resolve) => { const tx = db.transaction('audioBlobs','readwrite'); tx.objectStore('audioBlobs').delete(projectId); tx.oncomplete = () => resolve(); tx.onerror = () => resolve(); }); } catch(e) {}
-    }
-
-    // ===== AUDIO BACKUP & RECOVERY =====
-    function formatBytes(bytes) {
-      if (bytes === 0) return '0 B';
-      const k = 1024, sizes = ['B', 'KB', 'MB', 'GB'];
-      const i = Math.floor(Math.log(bytes) / Math.log(k));
-      return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-    }
-
-    function base64ToUint8(b64) {
-      const binary = atob(b64);
-      const bytes = new Uint8Array(binary.length);
-      for (let i = 0; i < binary.length; i += 65536) {
-        const end = Math.min(i + 65536, binary.length);
-        for (let j = i; j < end; j++) bytes[j] = binary.charCodeAt(j);
-      }
-      return bytes;
-    }
-
-    async function decodeWebMToBuffer(webmUint8) {
-      const blob = new Blob([webmUint8], { type: 'audio/webm' });
-      const url = URL.createObjectURL(blob);
-      try {
-        ensureAudioCtx();
-        const response = await fetch(url);
-        const arrayBuffer = await response.arrayBuffer();
-        const audioBuffer = await getEditorDAW().audioCtx.decodeAudioData(arrayBuffer);
-        URL.revokeObjectURL(url);
-        return audioBuffer;
-      } catch(e) {
-        URL.revokeObjectURL(url);
-        throw e;
-      }
-    }
-
-    // Legacy format helpers (for importing old backup files)
-    function resampleFloat32(src, srcRate, dstRate) {
-      if (srcRate === dstRate) return src;
-      const ratio = srcRate / dstRate;
-      const newLen = Math.round(src.length / ratio);
-      const out = new Float32Array(newLen);
-      for (let i = 0; i < newLen; i++) {
-        const pos = i * ratio; const i0 = Math.floor(pos); const i1 = Math.min(i0 + 1, src.length - 1); const frac = pos - i0;
-        out[i] = src[i0] * (1 - frac) + src[i1] * frac;
-      }
-      return out;
-    }
-    async function refreshStorageInfo() {
-      try {
-        const infoBar = $('storageInfoBar');
-        if (!infoBar) return;
-        infoBar.style.display = 'block';
-
-        // Estimate total usage via navigator.storage
-        let usageBytes = 0, quotaBytes = 0;
-        if (navigator.storage && navigator.storage.estimate) {
-          const est = await navigator.storage.estimate();
-          usageBytes = est.usage || 0;
-          quotaBytes = est.quota || 0;
-        }
-
-        // Count audio blobs specifically
-        let audioCount = 0, audioBytes = 0;
-        try {
-          const db = await openAudioDB();
-          const tx = db.transaction('audioBlobs', 'readonly');
-          const store = tx.objectStore('audioBlobs');
-          const allKeys = await new Promise(r => { const req = store.getAllKeys(); req.onsuccess = () => r(req.result); req.onerror = () => r([]); });
-          audioCount = allKeys.length;
-          for (const key of allKeys) {
-            const data = await new Promise(r => { const req2 = store.get(key); req2.onsuccess = () => r(req2.result); req2.onerror = () => r(null); });
-            if (data) {
-              for (const entry of (Array.isArray(data) ? data : [])) {
-                for (const ch of (entry.data || [])) {
-                  if (ch) audioBytes += ch.byteLength || 0;
-                }
-              }
-            }
-          }
-        } catch(_) {}
-
-        // Update UI
-        const pct = quotaBytes > 0 ? Math.min(100, (usageBytes / quotaBytes) * 100) : 0;
-        const bar = $('storageBarInner');
-        const txt = $('storageText');
-        if (bar) {
-          bar.style.width = pct.toFixed(1) + '%';
-          bar.style.background = pct > 80 ? 'linear-gradient(90deg,#e6aa28,#ff4444)' : pct > 50 ? 'linear-gradient(90deg,#22d364,#e6aa28)' : 'linear-gradient(90deg,#22d364,#00F2FE)';
-        }
-        if (txt) {
-          txt.innerHTML = `مجموع: ${formatBytes(usageBytes)} / ${formatBytes(quotaBytes)} (${pct.toFixed(1)}%)` +
-            (audioCount > 0 ? `<br>صدا: ${audioCount} فایل · ${formatBytes(audioBytes)}` : '<br>فایل صوتی ذخیره نشده');
-        }
-
-        // Warn if near limit
-        if (pct > 85) {
-          toast('⚠️ حافظه مرورگر پر است! خروجی کامل بگیرید');
-        }
-      } catch(e) { console.warn('Storage info error:', e); }
-    }
 
     let edProjectFileService = null;
     function getEditorProjectFileService() {

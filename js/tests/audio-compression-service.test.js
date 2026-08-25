@@ -4,25 +4,25 @@ const path = require('node:path');
 const AudioCompressionService = require('../core/AudioCompressionService.js');
 
 const projectRoot = path.resolve(__dirname, '..', '..');
-const editorSource = fs.readFileSync(
-  path.join(projectRoot, 'js', 'app', 'editor.js'),
+const storageSource = fs.readFileSync(
+  path.join(projectRoot, 'js', 'editor', 'EditorAudioStorageService.js'),
   'utf8'
 );
 
 assert.match(
-  editorSource,
-  /getEditorProjectExportService\(\)\?\.audioBufferToWav/
+  storageSource,
+  /getWavEncoder\(\)/
 );
 assert.match(
-  editorSource,
+  storageSource,
   /getAudioCompressionService\(\)\?\.compressBytes/
 );
 assert.match(
-  editorSource,
+  storageSource,
   /getAudioCompressionService\(\)\?\.decompressBytes/
 );
 assert.doesNotMatch(
-  editorSource,
+  storageSource,
   /const wavBytes = audioBufferToWav\(buffer\)/
 );
 
