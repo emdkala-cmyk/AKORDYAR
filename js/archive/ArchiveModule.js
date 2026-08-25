@@ -31,6 +31,7 @@
     let _archiveSearchService = null;
     let _archiveListViewService = null;
     let _archiveSongLoadService = null;
+    let _archiveReadOnlyService = null;
 
     function getArchiveRuntimeAdapter() {
       const adapter = window.ArchiveRuntimeAdapter;
@@ -444,6 +445,39 @@
       return _archiveSongLoadService;
     }
 
+    // --- Read-only load bridge ---
+    function getArchiveReadOnlyService() {
+      if (!_archiveReadOnlyService) {
+        const create = window.ArchiveReadOnlyService?.create;
+        if (typeof create !== 'function') {
+          throw new Error('ArchiveReadOnlyService is not loaded. Check script order.');
+        }
+        _archiveReadOnlyService = create({
+          documentRef: window.document,
+          getElement: id => $(id),
+          getAllSongs: edGetAllSongs,
+          getCurrentSong: getArchiveSongOrNull,
+          setAllSongs: edSetAllSongs,
+          setEditorSong,
+          generateId: archGenId,
+          ensureSongParsed,
+          closeArchive: archClose,
+          loadProject: loadProjectData,
+          getLoading: () => _archState.loading,
+          setLoading: value => {
+            _archState.loading = value;
+          },
+          setReadOnly: value => {
+            if (typeof editorState !== 'undefined') editorState.readOnly = value;
+            else window._editorReadOnly = value;
+          },
+          toast,
+          logError: console.error
+        });
+      }
+      return _archiveReadOnlyService;
+    }
+
     // --- Batch import bridge ---
     function getArchiveBatchImportService() {
       if (!_archiveBatchImportService) {
@@ -783,68 +817,16 @@
 
     // --- Load Read-Only ---
     async function archLoadSongReadOnly(id) {
-      if (_archState.loading) return;
-      _archState.loading = true;
-      try {
-        const songs = edGetAllSongs();
-        const s = songs.find(x => String(x.id) === String(id));
-        if (!s || s.deletedAt) { toast('ترانه یافت نشد'); _archState.loading=false; return; }
-        toast('در حال باز کردن ترانه...');
-        // Parse rawText if lyrics/chords are missing (bulk import case)
-        ensureSongParsed(s);
-        archClose();
-        await loadProjectData(s);
-        // Enable read-only mode
-        if (typeof editorState !== 'undefined') editorState.readOnly = true;
-        else window._editorReadOnly = true;
-        const all2 = edGetAllSongs();
-        const idx2 = all2.findIndex(x => String(x.id) === String(getArchiveSong().id));
-        if (idx2 > -1) { all2[idx2].lastOpenedAt = new Date().toISOString(); edSetAllSongs(all2); }
-        // Show read-only banner
-        archShowReadOnlyBanner();
-        toast('ترانه در حالت فقط‌خواندنی باز شد');
-      } catch(err) {
-        console.error('Archive readonly load error:', err);
-        toast('خطا در لود ترانه: ' + (err.message || 'خطای ناشناخته'));
-      } finally { _archState.loading = false; }
+      return getArchiveReadOnlyService().loadReadOnly(id);
     }
     function archShowReadOnlyBanner() {
-      let banner = $('readOnlyBanner');
-      if (!banner) { banner = document.createElement('div'); banner.id = 'readOnlyBanner'; banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;background:rgba(255,165,0,0.95);color:#000;text-align:center;padding:8px;font-weight:700;font-size:0.85rem;display:flex;justify-content:center;align-items:center;gap:12px;'; document.body.appendChild(banner); }
-      banner.innerHTML = '👁 حالت فقط‌خواندنی | <button data-action="archExitReadOnly" style="background:#000;color:#fff;border:none;padding:4px 12px;border-radius:6px;cursor:pointer;font-weight:700;" type="button">خروج از فقط‌خواندنی</button> <button data-action="archCreateEditableCopy" style="background:#fff;color:#000;border:none;padding:4px 12px;border-radius:6px;cursor:pointer;font-weight:700;" type="button">ایجاد نسخه قابل ویرایش</button>';
-      if (!banner._actionListenerAttached) {
-        const actions = {
-          archExitReadOnly,
-          archCreateEditableCopy
-        };
-        banner.addEventListener('click', event => {
-          const control = event.target.closest('[data-action]');
-          if (!control) return;
-          const action = actions[control.dataset.action];
-          if (typeof action === 'function') action(event, control);
-        });
-        banner._actionListenerAttached = true;
-      }
-      banner.style.display = 'flex';
+      return getArchiveReadOnlyService().showBanner();
     }
     function archExitReadOnly() {
-      if (typeof editorState !== 'undefined') editorState.readOnly = false;
-      else window._editorReadOnly = false;
-      const b = $('readOnlyBanner'); if (b) b.remove();
-      toast('حالت فقط‌خواندنی غیرفعال شد');
+      return getArchiveReadOnlyService().exitReadOnly();
     }
     async function archCreateEditableCopy() {
-      const sourceSong = getArchiveSongOrNull();
-      if (!sourceSong) return;
-      archExitReadOnly();
-      const copy = JSON.parse(JSON.stringify(sourceSong));
-      copy.id = archGenId();
-      copy.title = (copy.title || 'بدون نام') + ' (نسخه قابل ویرایش)';
-      copy.createdAt = new Date().toISOString();
-      copy.updatedAt = new Date().toISOString();
-      const songs = edGetAllSongs(); songs.unshift(copy); edSetAllSongs(songs);
-      setEditorSong(copy);
-      toast('نسخه قابل ویرایش ساخته شد');
+      return getArchiveReadOnlyService().createEditableCopy();
     }
 
     // --- Bulk Actions ---
