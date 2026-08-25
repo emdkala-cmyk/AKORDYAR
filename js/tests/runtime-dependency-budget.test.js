@@ -54,6 +54,7 @@ const coreHighlightService = read('js/app/CoreHighlightService.js');
 const coreMovableWindowBridgeService = read(
   'js/app/CoreMovableWindowBridgeService.js'
 );
+const coreLoopVisualService = read('js/app/CoreLoopVisualService.js');
 const coreMixerBridgeService = read('js/app/CoreMixerBridgeService.js');
 const editor = executableLines(read('js/app/editor.js'));
 const appCore = executableLines(read('js/app/core.js'));
@@ -207,6 +208,8 @@ assert.match(
   coreMovableWindowBridgeService,
   /function getEditorMovableWindowService\(\)/
 );
+assert.match(coreLoopVisualService, /function renderLoopRegion\(\)/);
+assert.match(coreLoopVisualService, /function bindLoopDrag\(\)/);
 assert.doesNotMatch(
   appCore,
   /function deleteSelected\(\)/
@@ -216,6 +219,7 @@ assert.doesNotMatch(appCore, /function finishRec\(blob\)/);
 assert.doesNotMatch(appCore, /function previewMetronomeSound\(/);
 assert.doesNotMatch(appCore, /function setHighlightEffect\(effect\)/);
 assert.doesNotMatch(appCore, /function getEditorMovableWindowService\(\)/);
+assert.doesNotMatch(appCore, /function renderLoopRegion\(\)/);
 assert.doesNotMatch(
   appCore,
   /function getClipboardService\(\)/

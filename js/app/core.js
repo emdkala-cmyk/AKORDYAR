@@ -1659,6 +1659,29 @@ function applyState(stateStr) {
     corePublicApi.publish(coreHighlightRuntime);
 
     /* ===== LOOP A-B ===== */
+    const coreLoopVisualRuntime =
+      globalScope.CoreLoopVisualService?.create?.({
+        getDAW: () => getEditorDAW(),
+        getElement: id => $(id),
+        documentRef: document,
+        timeToX: value => timeToX(value),
+        xToTime: value => xToTime(value),
+        clamp: (value, min, max) => clamp(value, min, max),
+        getProjectEnd: () => getProjectEnd(),
+        startPointerDrag: (...args) =>
+          globalScope.startEditorPointerDrag?.(...args),
+        saveState: (...args) => saveState(...args)
+      });
+    if (!coreLoopVisualRuntime) {
+      throw new Error(
+        'CoreLoopVisualService باید قبل از app/core.js بارگذاری شود.'
+      );
+    }
+    const { renderLoopRegion } = coreLoopVisualRuntime;
+    Object.assign(globalScope, coreLoopVisualRuntime);
+    corePublicApi.publish(coreLoopVisualRuntime);
+    coreLoopVisualRuntime.bindLoopDrag();
+
     function toggleLoop() {
       if (arrPerformActive) {
         toast('لوپ در حالت ارنجر غیرفعال است');
@@ -1776,75 +1799,11 @@ function applyState(stateStr) {
       toast('Loop ON: ' + formatTime(getEditorDAW().loopA) + ' → ' + formatTime(getEditorDAW().loopB));
     }
 
-    function renderLoopRegion() {
-      const strip = $('loop-strip');
-      const locators = $('loop-locators');
-      const locLeft = $('loop-loc-left');
-      const locRight = $('loop-loc-right');
-      const hasRange = getEditorDAW().loopA < getEditorDAW().loopB;
-
-      if (!hasRange) {
-        if (strip) strip.style.display = 'none';
-        if (locators) locators.style.display = 'none';
-        return;
-      }
-
-      const xA = timeToX(getEditorDAW().loopA);
-      const xB = timeToX(getEditorDAW().loopB);
-      const w = xB - xA;
-
-      if (strip) {
-        strip.style.display = 'block';
-        strip.style.left = xA + 'px';
-        strip.style.width = w + 'px';
-        if (getEditorDAW().loopEnabled) {
-          strip.classList.add('loop-active');
-          strip.classList.remove('loop-inactive');
-        } else {
-          strip.classList.remove('loop-active');
-          strip.classList.add('loop-inactive');
-        }
-      }
-      if (locators) locators.style.display = 'block';
-      if (locLeft) locLeft.style.left = (xA - 5) + 'px';
-      if (locRight) locRight.style.left = (xB - 5) + 'px';
-    }
-
     function renderArrangerMarkers() {
       return arrangerMarkerController.renderArrangerMarkers();
     }
 
     arrangerMarkerController.bindDrag();
-
-    // Cubase-style locator dragging on ruler
-    (function initLoopDrag() {
-      let dragTarget = null;
-
-      $('loop-loc-left')?.addEventListener('pointerdown', (e) => { if (e.button !== 0) return; e.stopPropagation(); e.preventDefault(); dragTarget = 'A'; addDragListeners(e.currentTarget, e); });
-      $('loop-loc-right')?.addEventListener('pointerdown', (e) => { if (e.button !== 0) return; e.stopPropagation(); e.preventDefault(); dragTarget = 'B'; addDragListeners(e.currentTarget, e); });
-
-      function addDragListeners(target, event) {
-        startEditorPointerDrag(target, event, onDragMove, onDragUp);
-      }
-      function onDragMove(e) {
-        if (!dragTarget) return;
-        const inner = $('tl-inner');
-        if (!inner) return;
-        const rect = inner.getBoundingClientRect();
-        const t = clamp(xToTime(e.clientX - rect.left), 0, getProjectEnd());
-        if (dragTarget === 'A') {
-          getEditorDAW().loopA = Math.min(t, getEditorDAW().loopB - 0.5);
-        } else {
-          getEditorDAW().loopB = Math.max(t, getEditorDAW().loopA + 0.5);
-        }
-        renderLoopRegion();
-      }
-      function onDragUp() {
-        if (dragTarget) { dragTarget = null; saveState(); }
-        document.removeEventListener('mousemove', onDragMove);
-        document.removeEventListener('mouseup', onDragUp);
-      }
-    })();
 
     /* ===== POPUP WINDOW FULLSCREEN ===== */
     const popupWindowBridge = globalScope.WindowBridge;
