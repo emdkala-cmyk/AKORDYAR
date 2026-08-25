@@ -1024,7 +1024,7 @@ function applyState(stateStr) {
         }
         el.addEventListener(
           'pointerdown',
-          event => coreClipInteractionRuntime.onClipMouseDown(event)
+          event => onClipMouseDown(event)
         );
         lane.appendChild(el);
       });
@@ -1208,7 +1208,7 @@ function applyState(stateStr) {
     if (!coreClipInteractionRuntime) throw new Error(
       'CoreClipInteractionService باید قبل از app/core.js بارگذاری شود.'
     );
-    const {
+    let {
       getMarqueeLaneElements,
       onClipMouseDown,
       onDocMouseMove,
