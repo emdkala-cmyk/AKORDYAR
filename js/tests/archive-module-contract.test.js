@@ -81,6 +81,10 @@ assert.ok(
     scriptIndex('js/archive/ArchiveModule.js')
 );
 assert.ok(
+  scriptIndex('js/archive/ArchiveArtistUiService.js') <
+    scriptIndex('js/archive/ArchiveModule.js')
+);
+assert.ok(
   scriptIndex('js/editor/EditorProjectImportRouteService.js') <
     scriptIndex('js/archive/ArchiveModule.js')
 );

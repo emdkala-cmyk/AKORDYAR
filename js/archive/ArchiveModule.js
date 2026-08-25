@@ -29,6 +29,7 @@
     let _archiveLifecycleService = null;
     let _archiveSelectionFilterService = null;
     let _archiveMutationService = null;
+    let _archiveArtistUiService = null;
 
     function getArchiveRuntimeAdapter() {
       const adapter = window.ArchiveRuntimeAdapter;
@@ -288,6 +289,53 @@
         });
       }
       return _archiveProjectPersistenceService;
+    }
+
+    // --- Artist UI bridge ---
+    function getArchiveArtistUiService() {
+      if (!_archiveArtistUiService) {
+        const create = window.ArchiveArtistUiService?.create;
+        if (typeof create !== 'function') {
+          throw new Error('ArchiveArtistUiService is not loaded. Check script order.');
+        }
+        _archiveArtistUiService = create({
+          getElement: id => $(id),
+          documentRef: window.document,
+          storage: window.localStorage,
+          getAllSongs: edGetAllSongs,
+          getDefaultArtists: () => DEFAULT_ARTISTS,
+          artistKey: archArtistKey,
+          matchDefaultArtist,
+          normalizeText: archNormText,
+          getArtistImage: archGetArtistImage,
+          avatarColor: archAvatarColor,
+          getInitials: archGetInitials,
+          escapeHtml: escH,
+          getArtistCache: () => _archArtistCache,
+          setArtistCache: value => {
+            _archArtistCache = value;
+          },
+          getArtistFilter: () => _archArtistFilter,
+          setArtistFilter: value => {
+            _archArtistFilter = value;
+          },
+          render: archRender,
+          refreshArtists: archRenderArtists,
+          updateActiveFilters: archUpdateActiveFilters,
+          pickArtistImage: archPickArtistImage,
+          removeArtistImage: archRemoveArtistImage,
+          toast,
+          getSectionCollapsed: () => _archArtistSectionCollapsed,
+          setSectionCollapsed: value => {
+            _archArtistSectionCollapsed = value;
+          },
+          getFullscreen: () => _archFullscreen,
+          setFullscreen: value => {
+            _archFullscreen = value;
+          }
+        });
+      }
+      return _archiveArtistUiService;
     }
 
     // --- Batch import bridge ---
@@ -858,10 +906,8 @@
     // ===== ARTIST SLIDER SYSTEM =====
     let _archArtistCache = null;
     let _archArtistFilter = null;
-    let _archArtistSliderPos = 0;
     let _archArtistSectionCollapsed = localStorage.getItem('arch_artists_collapsed') === 'true';
     let _archFullscreen = false;
-    let _archArtistCtxTarget = null;
 
     // ===== DEFAULT ARTISTS =====
 const DEFAULT_ARTISTS = [
@@ -1156,288 +1202,28 @@ const DEFAULT_ARTISTS = [
       input.click();
     }
 
-    // Build artist list from archive songs + defaults
-    function archBuildArtistList() {
-      const songs = edGetAllSongs().filter(s => !s.deletedAt);
-      const map = new Map();
-      // Add default artists first (by canonical key)
-      for (const da of DEFAULT_ARTISTS) {
-        const key = archArtistKey(da.normalizedName);
-        if (!map.has(key)) {
-          map.set(key, { normalizedName: key, displayName: da.displayName, count: 0, lastDate: null, favorite: !!da.favorite });
-        }
-      }
-      // Add from songs — match to default artist by canonical key
-      for (const s of songs) {
-        const raw = (s.artist || s.artistName || s.singer || '').trim();
-        const matchedDefault = matchDefaultArtist(raw);
-        // Use the matched default artist's normalizedName if found, otherwise use canonical key
-        const key = matchedDefault ? archArtistKey(matchedDefault.normalizedName) : archArtistKey(raw);
-        if (!map.has(key)) {
-          map.set(key, { normalizedName: key, displayName: matchedDefault ? matchedDefault.displayName : (raw || 'خواننده نامشخص'), count: 0, lastDate: null, favorite: false });
-        }
-        const a = map.get(key);
-        a.count++;
-        if (s.updatedAt && (!a.lastDate || s.updatedAt > a.lastDate)) a.lastDate = s.updatedAt;
-      }
-      return Array.from(map.values()).sort((a, b) => b.count - a.count);
-    }
-
-    // Render artist slider
-    function archRenderArtists() {
-      _archArtistCache = archBuildArtistList();
-      archFilterArtists();
-    }
-
-    // Filter artists by search
-    function archFilterArtists() {
-      if (!_archArtistCache) _archArtistCache = archBuildArtistList();
-      const q = archNormText($('artistSearchInput')?.value || '');
-      $('artistSearchClear')?.classList.toggle('show', !!$('artistSearchInput')?.value);
-      let filtered = _archArtistCache;
-      if (q) filtered = filtered.filter(a => a.normalizedName.includes(q) || archNormText(a.displayName).includes(q) || (a.aliases && a.aliases.some(alias => archNormText(alias).includes(q))));
-      const container = $('artistSliderContainer');
-      if (!container) return;
-      // Stop animation before rebuilding
-      container.classList.remove('slider-running', 'slider-paused');
-      container.innerHTML = '';
-      // "All" card
-      const allCard = document.createElement('div');
-      allCard.className = 'artist-card' + (!_archArtistFilter ? ' active' : '');
-      allCard.tabIndex = 0;
-      allCard.setAttribute('role', 'option');
-      allCard.setAttribute('aria-selected', !_archArtistFilter);
-      const totalSongs = _archArtistCache.reduce((sum, a) => sum + a.count, 0);
-      allCard.innerHTML = `<div class="artist-card-avatar" style="background:linear-gradient(135deg,#1a202c,#2d3748);"><div class="avatar-initials">♪</div></div><div class="artist-card-name">همه</div><div class="artist-card-count">${totalSongs} ترانه</div>`;
-      allCard.onclick = () => {
-        _archArtistFilter = null;
-        container.querySelectorAll('.artist-card').forEach(c => c.classList.remove('active'));
-        allCard.classList.add('active');
-        archRender(); archUpdateActiveFilters();
-      };
-      allCard.onkeydown = (e) => { if (e.key === 'Enter') allCard.onclick(); };
-      container.appendChild(allCard);
-      // Artist cards
-      for (const a of filtered) {
-        const card = document.createElement('div');
-        const artistKey = a.normalizedName; // already canonical from archBuildArtistList
-        const isActive = _archArtistFilter === artistKey;
-        card.className = 'artist-card' + (isActive ? ' active' : '');
-        card.tabIndex = 0;
-        card.setAttribute('role', 'option');
-        card.setAttribute('aria-selected', isActive);
-        card.setAttribute('aria-label', a.displayName + ' - ' + a.count + ' ترانه');
-        card.dataset.artistKey = artistKey;
-        const img = archGetArtistImage(artistKey);
-        const bgColor = archAvatarColor(artistKey);
-        const initials = archGetInitials(a.displayName);
-        const avatarHtml = img ? `<img src="${img}" alt="${escH(a.displayName)}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=avatar-initials style=background:${bgColor}>${initials}</div>'">` : `<div class="avatar-initials" style="background:${bgColor}">${initials}</div>`;
-        card.innerHTML = `<div class="artist-card-avatar">${avatarHtml}</div><span class="artist-card-tooltip">${escH(a.displayName)}</span><button class="artist-card-menu-btn" aria-label="عملیات خواننده">⋯</button>`;
-        card.onmouseenter = () => { _sliderPaused = true; };
-        card.onmouseleave = () => { _sliderPaused = false; };
-        card.onclick = (e) => {
-          if (e.target.closest('.artist-card-menu-btn')) {
-            e.stopPropagation();
-            archArtistCtxShow(e, artistKey);
-            return;
-          }
-          // Click animation
-          card.classList.remove('clicked');
-          void card.offsetWidth;
-          card.classList.add('clicked');
-          setTimeout(() => card.classList.remove('clicked'), 600);
-          _archArtistFilter = _archArtistFilter === artistKey ? null : artistKey;
-          container.querySelectorAll('.artist-card').forEach(c => c.classList.remove('active'));
-          if (_archArtistFilter) card.classList.add('active');
-          else container.querySelector('.artist-card')?.classList.add('active');
-          archRender(); archUpdateActiveFilters();
-        };
-        card.onkeydown = (e) => { if (e.key === 'Enter') card.onclick(e); };
-        container.appendChild(card);
-      }
-      if (!filtered.length && q) {
-        container.innerHTML = '<div class="artist-slider-empty">خواننده مورد نظر یافت نشد</div>';
-      }
-      // Position 3D carousel
-      if (filtered.length > 0) {
-        requestAnimationFrame(() => {
-          archPositionCards3D();
-          // If searching and found matches, spin to the first match
-          if (q && filtered.length >= 1) {
-            archStopAutoScroll();
-            const cards = container.querySelectorAll('.artist-card');
-            const angleStep = 360 / Math.max(cards.length, 1);
-            // The matched artist is at index 1 (index 0 is "All" card)
-            const targetIndex = 1;
-            if (targetIndex < cards.length) {
-              const targetAngle = targetIndex * angleStep;
-              // Smoothly rotate to bring target to front
-              const startAngle = _sliderAngle;
-              const diff = targetAngle - (startAngle % 360);
-              const normalizedDiff = ((diff % 360) + 540) % 360 - 180;
-              _sliderAngle = startAngle + normalizedDiff;
-              const c = $('artistSliderContainer');
-              if (c) {
-                c.style.transition = 'transform 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
-                c.style.transform = `rotateY(${-_sliderAngle}deg)`;
-                setTimeout(() => { c.style.transition = ''; }, 850);
-              }
-            }
-          } else {
-            archStartAutoScroll();
-          }
-        });
-      } else {
-        archStopAutoScroll();
-      }
-      $('artistCountLabel').textContent = `(${filtered.length} خواننده)`;
-      archUpdateSliderNav();
-    }
-
-    // ===== ARTIST CONTEXT MENU =====
+    // Artist UI facade — public names remain stable for editor.js and HTML actions.
+    function archBuildArtistList() { return getArchiveArtistUiService().buildArtistList(); }
+    function archRenderArtists() { return getArchiveArtistUiService().renderArtists(); }
+    function archFilterArtists() { return getArchiveArtistUiService().filterArtists(); }
     function archArtistCtxShow(e, normalizedName) {
-      _archArtistCtxTarget = normalizedName;
-      const menu = $('artistCtxMenu');
-      if (!menu) return;
-      const hasImg = !!archGetArtistImage(normalizedName);
-      const items = menu.querySelectorAll('.acm-item');
-      if (items[0]) items[0].style.display = hasImg ? 'none' : '';
-      if (items[1]) items[1].style.display = hasImg ? '' : 'none';
-      if (items[2]) items[2].style.display = hasImg ? '' : 'none';
-      if (items[3]) items[3].style.display = hasImg ? '' : 'none';
-      if (items[4]) items[4].style.display = hasImg ? '' : 'none';
-      const cx = e.clientX || e.pageX || 100;
-      const cy = e.clientY || e.pageY || 100;
-      menu.style.left = Math.min(cx, window.innerWidth - 200) + 'px';
-      menu.style.top = Math.min(cy, window.innerHeight - 200) + 'px';
-      menu.classList.add('show');
-      e.preventDefault();
-      e.stopPropagation();
+      return getArchiveArtistUiService().showArtistContext(e, normalizedName);
     }
     function archArtistCtx(action) {
-      $('artistCtxMenu').classList.remove('show');
-      const norm = _archArtistCtxTarget;
-      if (!norm) return;
-      if (action === 'set-image' || action === 'change-image') {
-        archPickArtistImage(norm);
-      } else if (action === 'remove-image') {
-        archRemoveArtistImage(norm);
-        archRenderArtists();
-        toast('تصویر خواننده حذف شد');
-      } else if (action === 'reset-image') {
-        archRemoveArtistImage(norm);
-        archRenderArtists();
-        toast('تصویر به حالت پیش‌فرض بازگشت');
-      }
+      return getArchiveArtistUiService().artistContextAction(action);
     }
-
-    // 3D Carousel Slider
-    let _sliderAngle = 0;
-    let _sliderSpeed = 0.08;
-    let _sliderPaused = false;
-    let _sliderAnimFrame = null;
-    let _sliderResumeTimeout = null;
-    let _sliderCardCount = 0;
-    const _sliderRadius = 460;
-
-    function archPositionCards3D() {
-      const c = $('artistSliderContainer');
-      if (!c) return;
-      const cards = c.querySelectorAll('.artist-card');
-      _sliderCardCount = cards.length;
-      if (_sliderCardCount === 0) return;
-      const angleStep = 360 / _sliderCardCount;
-      cards.forEach((card, i) => {
-        card.style.transform = `rotateY(${angleStep * i}deg) translateZ(${_sliderRadius}px)`;
-      });
-    }
-
-    function archSliderLoop() {
-      const c = $('artistSliderContainer');
-      if (!c || _sliderCardCount === 0) {
-        _sliderAnimFrame = requestAnimationFrame(archSliderLoop);
-        return;
-      }
-      if (!_sliderPaused) {
-        _sliderAngle += _sliderSpeed;
-        if (_sliderAngle >= 360) _sliderAngle -= 360;
-        c.style.transform = `rotateY(${-_sliderAngle}deg)`;
-      }
-      _sliderAnimFrame = requestAnimationFrame(archSliderLoop);
-    }
-
-    function archArtistSlide(dir) {
-      const step = 360 / Math.max(_sliderCardCount, 1);
-      _sliderAngle += dir * step;
-      _sliderPaused = true;
-      clearTimeout(_sliderResumeTimeout);
-      _sliderResumeTimeout = setTimeout(() => { _sliderPaused = false; }, 150);
-    }
-
-    function archUpdateSliderNav() {
-      const p = $('artistPrevBtn'), n = $('artistNextBtn');
-      if (p) p.disabled = false;
-      if (n) n.disabled = false;
-    }
-
-    function archStartAutoScroll() {
-      _sliderPaused = false;
-      if (!_sliderAnimFrame) _sliderAnimFrame = requestAnimationFrame(archSliderLoop);
-    }
-
-    function archStopAutoScroll() {
-      _sliderPaused = true;
-      if (_sliderAnimFrame) { cancelAnimationFrame(_sliderAnimFrame); _sliderAnimFrame = null; }
-    }
-
-    function archResetAutoScroll() {
-      _sliderAngle = 0;
-      _sliderPaused = false;
-      const c = $('artistSliderContainer');
-      if (c) c.style.transform = 'rotateY(0deg)';
-      if (_sliderAnimFrame) { cancelAnimationFrame(_sliderAnimFrame); _sliderAnimFrame = null; }
-      archPositionCards3D();
-      _sliderAnimFrame = requestAnimationFrame(archSliderLoop);
-    }
-
-    function archHandleWheel(e) {
-      if (Math.abs(e.deltaY) < 1) return;
-      e.preventDefault();
-      const step = 360 / Math.max(_sliderCardCount, 1);
-      _sliderAngle += (e.deltaY > 0 ? 1 : -1) * step * 0.3;
-      const c = $('artistSliderContainer');
-      if (c) c.style.transform = `rotateY(${-_sliderAngle}deg)`;
-      _sliderPaused = true;
-      clearTimeout(_sliderResumeTimeout);
-      _sliderResumeTimeout = setTimeout(() => { _sliderPaused = false; }, 150);
-    }
-
-    // Toggle artist section
+    function archPositionCards3D() { return getArchiveArtistUiService().positionCards3D(); }
+    function archArtistSlide(dir) { return getArchiveArtistUiService().slide(dir); }
+    function archUpdateSliderNav() { return getArchiveArtistUiService().updateSliderNav(); }
+    function archStartAutoScroll() { return getArchiveArtistUiService().startAutoScroll(); }
+    function archStopAutoScroll() { return getArchiveArtistUiService().stopAutoScroll(); }
+    function archResetAutoScroll() { return getArchiveArtistUiService().resetAutoScroll(); }
+    function archHandleWheel(e) { return getArchiveArtistUiService().handleWheel(e); }
     function archToggleArtistSection() {
-      _archArtistSectionCollapsed = !_archArtistSectionCollapsed;
-      localStorage.setItem('arch_artists_collapsed', _archArtistSectionCollapsed);
-      const section = $('artistSliderSection');
-      if (section) section.classList.toggle('collapsed', _archArtistSectionCollapsed);
+      return getArchiveArtistUiService().toggleArtistSection();
     }
-
-    // Toggle fullscreen
     function archToggleFullscreen() {
-      _archFullscreen = !_archFullscreen;
-      const dialog = document.querySelector('.archive-modal-dialog');
-      if (!dialog) return;
-      if (_archFullscreen) {
-        dialog.style.width = '100vw';
-        dialog.style.height = '100vh';
-        dialog.style.maxWidth = '100vw';
-        dialog.style.maxHeight = '100vh';
-        dialog.style.borderRadius = '0';
-      } else {
-        dialog.style.width = 'min(96vw,1600px)';
-        dialog.style.height = 'min(92vh,1000px)';
-        dialog.style.maxWidth = '';
-        dialog.style.maxHeight = 'min(92vh,1000px)';
-        dialog.style.borderRadius = '';
-      }
+      return getArchiveArtistUiService().toggleFullscreen();
     }
 
 
@@ -1507,80 +1293,9 @@ function archUpdateActiveFilters() {
 
 
 
-    // Initialize artist section on open
+    // Initialize artist section on open.
     function archInitArtistSection() {
-      const section = $('artistSliderSection');
-      if (section) section.classList.toggle('collapsed', _archArtistSectionCollapsed);
-      if ($('artistSearchInput') && !$('artistSearchInput')._archBound) {
-        $('artistSearchInput')._archBound = true;
-        let artistDebounce = null;
-        $('artistSearchInput').addEventListener('input', () => {
-          clearTimeout(artistDebounce);
-          artistDebounce = setTimeout(archFilterArtists, 200);
-        });
-        // Wheel on track
-        const track = document.querySelector('.artist-slider-track');
-        if (track) {
-          track.addEventListener('wheel', archHandleWheel, { passive: false });
-          track.addEventListener('mouseenter', () => { _sliderPaused = true; });
-          track.addEventListener('mouseleave', () => { _sliderPaused = false; });
-        }
-        // Keyboard on container
-        const container = $('artistSliderContainer');
-        if (container) {
-          container.addEventListener('keydown', (e) => {
-            if (e.key === 'ArrowRight') { archArtistSlide(1); e.preventDefault(); }
-            if (e.key === 'ArrowLeft') { archArtistSlide(-1); e.preventDefault(); }
-          });
-        }
-        // Close artist context menu on click outside
-        $('archiveModal').addEventListener('click', (e) => { if (!e.target.closest('.artist-ctx-menu') && !e.target.closest('.artist-card-menu-btn')) $('artistCtxMenu').classList.remove('show'); });
-        // Resizable divider for artist section
-        const divider = $('artistResizeDivider');
-        if (divider && !divider._archBound) {
-          divider._archBound = true;
-          divider.style.touchAction = 'none';
-          let pointerId = null, startY, startHeight;
-          const stopResize = () => {
-            if (pointerId === null) return;
-            pointerId = null;
-            divider.classList.remove('active');
-            document.body.style.cursor = '';
-            document.body.style.userSelect = '';
-          };
-          divider.addEventListener('pointerdown', (e) => {
-            pointerId = e.pointerId;
-            startY = e.clientY;
-            const section = $('artistSliderSection');
-            startHeight = section ? section.offsetHeight : 200;
-            divider.classList.add('active');
-            document.body.style.cursor = 'ns-resize';
-            document.body.style.userSelect = 'none';
-            divider.setPointerCapture?.(e.pointerId);
-            e.preventDefault();
-          });
-          divider.addEventListener('pointermove', (e) => {
-            if (pointerId !== e.pointerId) return;
-            const diff = e.clientY - startY;
-            const newHeight = Math.max(80, Math.min(500, startHeight + diff));
-            const section = $('artistSliderSection');
-            if (section) {
-              section.style.maxHeight = newHeight + 'px';
-              section.style.height = newHeight + 'px';
-              const body = $('artistSliderBody');
-              if (body) body.style.maxHeight = (newHeight - 44) + 'px';
-            }
-          });
-          divider.addEventListener('pointerup', (e) => {
-            if (pointerId !== e.pointerId) return;
-            divider.releasePointerCapture?.(e.pointerId);
-            stopResize();
-          });
-          divider.addEventListener('pointercancel', stopResize);
-        }
-      }
-      // Start animation every time modal opens
-      archResetAutoScroll();
+      return getArchiveArtistUiService().bindArtistSection();
     }
     async function edNewSong() {
       const daw = getArchiveDAW();
