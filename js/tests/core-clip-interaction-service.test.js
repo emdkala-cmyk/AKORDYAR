@@ -1,4 +1,5 @@
 const assert = require('node:assert/strict');
+require('../app/CoreClipDragService.js');
 const ClipInteraction = require('../app/CoreClipInteractionService.js');
 
 function createElement({

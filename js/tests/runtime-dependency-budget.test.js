@@ -42,6 +42,7 @@ const coreClipService = read('js/app/CoreClipService.js');
 const coreAudioImportService = read('js/app/CoreAudioImportService.js');
 const coreClipEditService = read('js/app/CoreClipEditService.js');
 const coreSelectionService = read('js/app/CoreSelectionService.js');
+const coreClipDragService = read('js/app/CoreClipDragService.js');
 const coreClipInteractionService = read('js/app/CoreClipInteractionService.js');
 const coreMixerBridgeService = read('js/app/CoreMixerBridgeService.js');
 const editor = executableLines(read('js/app/editor.js'));
@@ -165,6 +166,16 @@ assert.match(coreSelectionService, /function setSelection\(ids\)/);
 assert.match(coreSelectionService, /function clearSelection\(\)/);
 assert.doesNotMatch(appCore, /function setSelection\(ids\)/);
 assert.doesNotMatch(appCore, /function clearSelection\(\)/);
+assert.match(coreClipDragService, /function update\(event\)/);
+assert.match(coreClipDragService, /function finish\(\)/);
+assert.doesNotMatch(
+  coreClipInteractionService,
+  /function updateResizeDrag\(delta, daw\)/
+);
+assert.doesNotMatch(
+  coreClipInteractionService,
+  /function updateMoveDrag\(delta, daw\)/
+);
 assert.match(
   coreClipInteractionService,
   /function onClipMouseDown\(event\)/

@@ -21,6 +21,7 @@ const APPLICATION_CHUNKS = Object.freeze([
   'app/CoreAudioImportService.js',
   'app/CoreClipEditService.js',
   'app/CoreSelectionService.js',
+  'app/CoreClipDragService.js',
   'app/CoreClipInteractionService.js',
   'app/CoreMixerBridgeService.js',
   'core/AudioCompressionService.js',

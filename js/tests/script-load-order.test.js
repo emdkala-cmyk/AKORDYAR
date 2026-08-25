@@ -175,6 +175,10 @@ assert.ok(
     scriptIndex('js/app/core.js')
 );
 assert.ok(
+  scriptIndex('js/app/CoreClipDragService.js') <
+    scriptIndex('js/app/CoreClipInteractionService.js')
+);
+assert.ok(
   scriptIndex('js/app/CoreClipInteractionService.js') <
     scriptIndex('js/app/core.js')
 );

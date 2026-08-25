@@ -1,7 +1,8 @@
 /*
  * CoreClipInteractionService
  *
- * Owns clip pointer events, drag/resize updates and marquee selection.
+ * Owns clip pointer events and marquee selection. Drag/resize mutations are
+ * delegated to CoreClipDragService.
  * The service keeps the existing DAW state contract while allowing core.js
  * to provide only the runtime dependencies and public bridge.
  */
@@ -69,6 +70,24 @@
       (selection.setClipSelection || setClipSelection)(...args);
     const selectSections = (...args) =>
       (selection.setSectionSelection || setSectionSelection)(...args);
+    const clipDragService =
+      globalScope.CoreClipDragService?.create?.({
+        documentRef,
+        getDAW,
+        getClip,
+        xToTime,
+        snapTime,
+        roundMs,
+        clamp,
+        ensureTimelineFits,
+        refreshClipWaveImage,
+        saveState,
+        scheduleAllFromPlayhead,
+        renderAll
+      });
+    if (!clipDragService) throw new Error(
+      'CoreClipDragService باید قبل از CoreClipInteractionService بارگذاری شود.'
+    );
 
     function getSelectedSectionIds(daw) {
       if (!(daw.selectedSectionIds instanceof Set)) {
@@ -243,99 +262,6 @@
       );
     }
 
-    function updateDragOverLane(event, daw) {
-      const pointerTarget =
-        documentRef?.elementFromPoint?.(event.clientX, event.clientY) ||
-        event.target;
-      const targetLane = pointerTarget?.closest?.('.track-lane');
-      if (!targetLane) {
-        dragOverLaneTrackId = null;
-        return;
-      }
-
-      const laneTrackId = targetLane.dataset?.trackId;
-      const targetTrack = (daw.tracks || []).find(
-        track => track.id === laneTrackId
-      );
-      dragOverLaneTrackId =
-        targetTrack?.type === 'audio' ? laneTrackId : null;
-    }
-
-    function updateMoveDrag(delta, daw) {
-      daw.drag.items.forEach(item => {
-        const target = item._isSection
-          ? (daw.sections || []).find(section => section.id === item.id)
-          : getClip(item.id);
-        if (!target) return;
-        target.start = Math.max(
-          0,
-          roundMs(snapTime(item.origStart + delta))
-        );
-        ensureTimelineFits(
-          target.start + (target.duration || item.origDur) + 5
-        );
-      });
-    }
-
-    function updateResizeDrag(delta, daw) {
-      const item = daw.drag.items.find(
-        entry => entry.id === daw.drag.primaryId
-      );
-      const clip = getClip(daw.drag.primaryId);
-      if (!item || !clip) return;
-
-      if (daw.drag.edge === 'right') {
-        const maxDur = clip.type === 'chord'
-          ? 1000
-          : clip.sourceDuration - clip.offset;
-        clip.duration = clamp(
-          roundMs(snapTime(item.origDur + delta)),
-          0.03,
-          maxDur
-        );
-        if (clip.type === 'audio') refreshClipWaveImage(clip);
-        return;
-      }
-
-      let newStart = item.origStart + delta;
-      let newOffset = item.origOffset + delta;
-      let newDuration = item.origDur - delta;
-      if (clip.type === 'chord') {
-        if (newStart < 0) {
-          newDuration += newStart;
-          newStart = 0;
-        }
-        if (newDuration > 0.03) {
-          clip.start = roundMs(snapTime(newStart));
-          clip.duration = roundMs(
-            item.origStart + item.origDur - snapTime(newStart)
-          );
-        }
-        return;
-      }
-
-      if (newOffset < 0) {
-        newStart -= newOffset;
-        newDuration += newOffset;
-        newOffset = 0;
-      }
-      if (newStart < 0) {
-        const shift = -newStart;
-        newStart = 0;
-        newOffset += shift;
-        newDuration -= shift;
-      }
-      if (
-        newDuration >= 0.03 &&
-        newOffset + newDuration <= clip.sourceDuration + 1e-6
-      ) {
-        clip.start = roundMs(newStart);
-        clip.offset = roundMs(newOffset);
-        clip.duration = roundMs(newDuration);
-        refreshClipWaveImage(clip);
-      }
-    }
-
     function intersects(element, x1, y1, x2, y2, innerRect) {
       const rect = element.getBoundingClientRect();
       const cx1 = rect.left - innerRect.left;
@@ -392,14 +318,7 @@
 
     function onDocMouseMove(event) {
       const daw = getDAW();
-      if (daw.drag) {
-        const delta = xToTime(event.clientX - daw.drag.startX);
-        if (daw.drag.type === 'move') {
-          updateDragOverLane(event, daw);
-          updateMoveDrag(delta, daw);
-        } else if (daw.drag.type === 'resize') {
-          updateResizeDrag(delta, daw);
-        }
+      if (clipDragService.update(event)) {
         renderRuler();
         renderClips();
         updateHud();
@@ -409,21 +328,7 @@
 
     function onDocMouseUp() {
       const daw = getDAW();
-      if (daw.drag) {
-        if (daw.drag.type === 'move' && dragOverLaneTrackId) {
-          daw.drag.items.forEach(item => {
-            const clip = getClip(item.id);
-            if (clip && !item._isSection) {
-              clip.trackId = dragOverLaneTrackId;
-            }
-          });
-        }
-        dragOverLaneTrackId = null;
-        daw.drag = null;
-        saveState();
-        if (daw.isPlaying) scheduleAllFromPlayhead();
-        renderAll();
-      }
+      clipDragService.finish();
       if (daw.marquee) {
         daw.marquee = null;
         const box = getElement('marquee');
