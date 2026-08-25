@@ -736,14 +736,25 @@ function getMidiScoreController() {
     }
 
     // ===== MIDI TRANSPORT SYNC =====
-    let midiClockRunning = false;
     let midiSyncActive = false;
-    let lastClockTime = 0;
-    let clockCount = 0;
-    let clockDetectTimer = null;
-    let clockIntervals = [];
-    let midiSyncStartTime = 0;
-    let midiSyncBPM = 0;
+    const editorMidiTransportService = window.EditorMidiTransportService.create({
+      getSyncActive: () => midiSyncActive,
+      getDAW: () => getEditorDAW(),
+      seekTransport,
+      startTransport,
+      pauseTransport,
+      getNow: () => performance.now(),
+      onTempoChange: newBPM => {
+        const tempoInput = $('edTempo');
+        if (tempoInput) tempoInput.value = newBPM;
+        if (getEditorSongStateService()?.setTempo?.(newBPM)) {
+          edSaveSong();
+        }
+        toast(`تمپوی کیوبیس: ${newBPM} BPM`);
+      },
+      schedule: (callback, delay) => setTimeout(callback, delay),
+      cancel: timer => clearTimeout(timer)
+    });
 
     function handleMIDIMessage(e) {
       const [status] = e.data;
@@ -752,111 +763,7 @@ function getMidiScoreController() {
       updateMidiMonitor(e.data);
       updateMidiStatusDot();
 
-      // MIDI Start (0xFA)
-      if (status === 0xFA) {
-        midiClockRunning = true;
-        if (midiSyncActive) {
-          seekTransport(0, false);
-          if (!getEditorDAW().isPlaying) startTransport();
-        }
-        return;
-      }
-      // MIDI Stop (0xFC)
-      if (status === 0xFC) {
-        midiClockRunning = false;
-        if (midiSyncActive && getEditorDAW().isPlaying) {
-          pauseTransport();
-        }
-        return;
-      }
-      // MIDI Continue (0xFB)
-      if (status === 0xFB) {
-        midiClockRunning = true;
-        if (midiSyncActive && !getEditorDAW().isPlaying) {
-          startTransport();
-        }
-        return;
-      }
-      // MIDI Clock (0xF8)
-      if (status === 0xF8) {
-        if (midiSyncActive) {
-          const now = performance.now();
-
-          if (!midiClockRunning) {
-            // شروع پخش
-            midiClockRunning = true;
-            clockIntervals = [];
-            clockCount = 0;
-            midiSyncStartTime = now;
-            if (!getEditorDAW().isPlaying) {
-              seekTransport(0, false);
-              startTransport();
-            }
-          }
-
-          // محاسبه تمپو از فاصله بین پالس‌ها
-          // MIDI Clock = 24 pulses per beat
-          // BPM = 60 / (interval_per_beat)
-          // interval_per_beat = avg_interval * 24
-          if (lastClockTime > 0) {
-            const interval = now - lastClockTime;
-            if (interval > 5 && interval < 100) { // فقط فاصله‌های معقول
-              clockIntervals.push(interval);
-              if (clockIntervals.length > 48) clockIntervals.shift(); // حداکثر ۴۸ پالس آخر
-
-              // محاسبه میانگین فاصله
-              if (clockCount % 24 === 0 && clockIntervals.length >= 12) {
-                const avgInterval = clockIntervals.reduce((a, b) => a + b, 0) / clockIntervals.length;
-                const beatInterval = avgInterval * 24; // فاصله هر بیت
-                const newBPM = Math.round(60000 / beatInterval);
-
-                // فقط اگه تمپو تغییر کرده، آپدیت کن
-                if (newBPM >= 20 && newBPM <= 300 && newBPM !== midiSyncBPM) {
-                  midiSyncBPM = newBPM;
-                  $('edTempo').value = newBPM;
-                  if (getEditorSongStateService()?.setTempo?.(newBPM)) {
-                    edSaveSong();
-                  }
-                  toast(`تمپوی کیوبیس: ${newBPM} BPM`);
-                }
-              }
-            }
-          }
-          lastClockTime = now;
-          clockCount++;
-
-          // تایمر توقف
-          clearTimeout(clockDetectTimer);
-          clockDetectTimer = setTimeout(() => {
-            if (midiClockRunning && midiSyncActive) {
-              midiClockRunning = false;
-              lastClockTime = 0;
-              clockIntervals = [];
-              if (getEditorDAW().isPlaying) pauseTransport();
-            }
-          }, 500);
-        }
-        return;
-      }
-      // MTC Quarter Frame (0xF1)
-      if (status === 0xF1) {
-        return;
-      }
-      // SysEx (0xF0) - MTC Full Message
-      if (status === 0xF0) {
-        const msg = e.data;
-        if (msg.length >= 10 && msg[1] === 0x7F && msg[3] === 0x01 && msg[4] === 0x01) {
-          const hours = msg[5] & 0x1F;
-          const minutes = msg[6] & 0x3F;
-          const seconds = msg[7] & 0x3F;
-          const frames = msg[8] & 0x1F;
-          const totalSeconds = hours * 3600 + minutes * 60 + seconds + frames / 30;
-          if (midiSyncActive) {
-            seekTransport(totalSeconds, false);
-          }
-        }
-        return;
-      }
+      if (editorMidiTransportService.handleMessage(e.data)) return;
 
       // Regular MIDI Note messages
       const note = e.data[1];
