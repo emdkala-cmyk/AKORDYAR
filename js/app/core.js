@@ -66,92 +66,6 @@ function customPrompt(message, defaultValue = '') {
 }
 if (typeof window !== 'undefined') window.customPrompt = customPrompt;
 
-    // ===== MIDI MONITOR =====
-    let midiMonitorAutoScroll = true;
-    const midiMsgTypes = {
-      0x80: 'Note Off', 0x90: 'Note On', 0xA0: 'Aftertouch',
-      0xB0: 'Control', 0xC0: 'Program', 0xD0: 'Channel', 0xE0: 'Pitch',
-      0xF0: 'SysEx', 0xF1: 'MTC', 0xF8: 'Clock', 0xFA: 'Start', 0xFC: 'Stop', 0xFB: 'Continue', 0xFE: 'ActiveSense'
-    };
-    const noteNames = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
-
-    function toggleMidiMonitor() {
-      const mon = $('midiMonitor');
-      mon.classList.toggle('show');
-    }
-
-    function logMidiMsg(dir, msg) {
-      const body = $('midiMonitorBody');
-      if (!body) return;
-      const status = msg[0] & 0xF0;
-      const channel = msg[0] & 0x0F;
-      const type = midiMsgTypes[status] || midiMsgTypes[msg[0]] || 'Unknown';
-      const hex = [...msg].map(b => '0x' + b.toString(16).padStart(2, '0').toUpperCase()).join(' ');
-
-      let detail = '';
-      if (status === 0x90 && msg[2] > 0) {
-        const noteName = noteNames[msg[1] % 12] + (Math.floor(msg[1] / 12) - 1);
-        detail = `${noteName} vel:${msg[2]}`;
-      } else if (status === 0x80 || (status === 0x90 && msg[2] === 0)) {
-        const noteName = noteNames[msg[1] % 12] + (Math.floor(msg[1] / 12) - 1);
-        detail = `${noteName} off`;
-      } else if (status === 0xB0) {
-        detail = `CC${msg[1]} val:${msg[2]}`;
-      } else if (status === 0xC0) {
-        detail = `prog:${msg[1]}`;
-      } else if (msg[0] === 0xFA) detail = '▶ START';
-      else if (msg[0] === 0xFC) detail = '⏹ STOP';
-      else if (msg[0] === 0xFB) detail = '⏯ CONTINUE';
-      else if (msg[0] === 0xF8) detail = '⏱ CLOCK';
-
-      const now = new Date();
-      const time = now.toLocaleTimeString('fa', { hour12: false });
-
-      const div = document.createElement('div');
-      div.className = 'midi-msg';
-      const dirClass = dir === 'IN' ? 'in' : dir === 'OUT' ? 'out' : 'sys';
-      div.innerHTML = `<span class="dir ${dirClass}">${dir}</span><span class="data">${type} ch${channel} ${detail}</span><span class="time">${hex}</span>`;
-      body.appendChild(div);
-
-      // Keep max 200 messages
-      while (body.children.length > 200) body.removeChild(body.firstChild);
-      if (midiMonitorAutoScroll) body.scrollTop = body.scrollHeight;
-    }
-
-    function clearMidiLog() { $('midiMonitorBody').innerHTML = ''; }
-
-    function toggleMidiMonitorAutoScroll() {
-      midiMonitorAutoScroll = !midiMonitorAutoScroll;
-    }
-
-    // Update MIDI monitor on every message
-    function updateMidiMonitor(msg) {
-      logMidiMsg('IN', msg);
-    }
-
-    function updateMidiMonitorOut(msg) {
-      logMidiMsg('OUT', msg);
-    }
-
-    // Update status dot
-    function updateMidiStatusDot() {
-      const dot = $('midiStatusDot');
-      if (dot) {
-        dot.className = 'midi-status-dot ' + (midiAccess ? 'connected' : 'disconnected');
-      }
-    }
-
-    // Update chord display in monitor
-    function updateMidiChordDisplay(name, notes) {
-      const info = $('midiChordInfo');
-      const nameEl = $('midiChordName');
-      const notesEl = $('midiChordNotes');
-      if (info && nameEl && name) {
-        info.style.display = 'block';
-        nameEl.textContent = name;
-        notesEl.textContent = notes || '';
-      }
-    }
     const editorTransportState = globalScope.EditorTransportStateService.create();
 
     function alignPlayheadToNearestMeasure(config) {
@@ -592,7 +506,6 @@ const requestRenderSyncLyrics = debounce(() => { renderSyncLyrics(); }, 120);
 
     let activeMidiNotes = new Set(), midiTimeout = null, isRecordingChords = false, currentRecordingClipId = null;
     let currentChord = { root: 'None', type: 'None', tension: '', bass: 'None' };
-    let midiAccess = null;
     // Playhead scroll mode: 'page' (scrolls page by page) or 'center' (stationary center)
     getEditorDAW().playheadMode = 'page';
     // Arranger transition boundary (B). Looping itself stays disabled.

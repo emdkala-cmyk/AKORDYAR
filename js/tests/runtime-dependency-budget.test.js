@@ -32,6 +32,7 @@ const editorLyricsRenderer = read('js/editor/EditorLyricsRenderer.js');
 const editorSyncAnalysisUiService = read(
   'js/editor/EditorSyncAnalysisUiService.js'
 );
+const midiMonitorService = read('js/app/MidiMonitorService.js');
 const editor = executableLines(read('js/app/editor.js'));
 const appCore = executableLines(read('js/app/core.js'));
 const search = executableLines(read('js/app/search.js'));
@@ -94,6 +95,10 @@ assert.match(editorSyncAnalysisUiService, /function detectTempo\(\)[\s\S]*getSyn
 assert.match(editorSyncAnalysisUiService, /function detectKey\(\)[\s\S]*getChords/);
 assert.doesNotMatch(appCore, /function detectTempo\(/);
 assert.doesNotMatch(appCore, /function detectKey\(/);
+assert.match(midiMonitorService, /function updateMidiMonitor\(/);
+assert.match(midiMonitorService, /function updateMidiStatusDot\(/);
+assert.doesNotMatch(appCore, /midiMsgTypes/);
+assert.doesNotMatch(appCore, /function updateMidiMonitor\(/);
 
 assert.doesNotMatch(appCore, /\bPERF\s*\./);
 assert.doesNotMatch(appCore, /\bDAW\s*\./);

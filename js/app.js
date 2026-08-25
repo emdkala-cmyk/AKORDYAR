@@ -11,6 +11,7 @@ const APPLICATION_CHUNKS = Object.freeze([
   'app/constants.js',
   'core/CorePublicApi.js',
   'app/AppI18nService.js',
+  'app/MidiMonitorService.js',
   'core/AudioCompressionService.js',
   'core/TransportClockService.js',
   'core/TransportSchedulingService.js',
