@@ -125,6 +125,102 @@ if (typeof window !== 'undefined') window.customPrompt = customPrompt;
     });
     coreGridQuantizeRuntime.bindModalDismiss();
 
+    const coreTransportRuntime =
+      globalScope.CoreTransportService?.create?.({
+        getDAW: () => getEditorDAW(),
+        getElement: id => $(id),
+        getTransportState: () => editorTransportState,
+        ensureAudioCtx: (...args) => ensureAudioCtx(...args),
+        cancelCountIn: (...args) => cancelCountIn(...args),
+        isCountInRunning: (...args) => isCountInRunning(...args),
+        getProjectEnd: (...args) => getProjectEnd(...args),
+        snapTime: (...args) => snapTime(...args),
+        playheadMath: PlayheadMath,
+        setTransportOrigin: (...args) => setTransportOrigin(...args),
+        getTransportPlayhead: (...args) =>
+          getTransportPlayhead(...args),
+        updatePlayheadUI: (...args) => updatePlayheadUI(...args),
+        scheduleAllFromPlayhead: (...args) =>
+          scheduleAllFromPlayhead(...args),
+        stopAllVoices: (...args) => stopAllVoices(...args),
+        startMetronome: (...args) => startMetronome(...args),
+        stopMetronome: (...args) => stopMetronome(...args),
+        getMetronomeSchedulerBridge: () =>
+          getMetronomeSchedulerBridge(),
+        checkMetronomeTick: (...args) =>
+          checkMetronomeTick(...args),
+        getCountInScheduler: () => countInSchedulerBridge,
+        alignPlayheadToNearestMeasure: (...args) =>
+          alignPlayheadToNearestMeasure(...args),
+        getTimeSignatureGridConfig: (...args) =>
+          getTimeSignatureGridConfig(...args),
+        getAppSettings: () => getAppSettings(),
+        getRecordingRuntime: () => recordingRuntime,
+        getAudioContextService: () => audioContextServiceBridge,
+        getArrangerState: () => ({
+          active: arrPerformActive,
+          data: arrPerformData,
+          index: arrPerformIdx,
+          selectionEnd,
+          nextState: _arrNextState,
+          preparePending: arrPreparePending,
+          prepStartedForIndex: _arrPrepStartedForIndex,
+          waitPollActive: _arrWaitPollActive,
+          isCrossfading: _arrIsCrossfading,
+          perfModeActive,
+          perfPauseMode,
+          playbackPolicy: arrangerPlaybackPolicy
+        }),
+        setArrangerPreparePending: value => {
+          arrPreparePending = value;
+        },
+        setArrangerPrepStartedForIndex: value => {
+          _arrPrepStartedForIndex = value;
+        },
+        setArrangerWaitPollActive: value => {
+          _arrWaitPollActive = value;
+        },
+        clearArrangerNextState: () => {
+          _arrNextState = null;
+        },
+        prepareNextArrSong: (...args) => prepareNextArrSong(...args),
+        loadArrSong: (...args) => loadArrSong(...args),
+        hotSwapToNextSong: (...args) => hotSwapToNextSong(...args),
+        arrCrossfadeSwap: (...args) => arrCrossfadeSwap(...args),
+        renderPerfUI: (...args) => renderPerfUI(...args),
+        publishPlaybackSync: (...args) => publishPlaybackSync(...args),
+        updateSyncHighlight: (...args) => updateSyncHighlight(...args),
+        isSyncActive: () => syncActive,
+        isLyricPopupOpen: () =>
+          typeof isPopupOpen === 'function' && isPopupOpen(_lyricPopup),
+        requestAnimationFrameRef: (...args) =>
+          globalScope.requestAnimationFrame?.(...args),
+        cancelAnimationFrameRef: (...args) =>
+          globalScope.cancelAnimationFrame?.(...args),
+        performanceRef: globalScope.performance,
+        toast: message => toast(message),
+        logger: console
+      });
+    if (!coreTransportRuntime) {
+      throw new Error(
+        'CoreTransportService باید قبل از app/core.js بارگذاری شود.'
+      );
+    }
+    const {
+      seekTransport,
+      updateReturnToStartButton,
+      toggleReturnToStart,
+      togglePlay,
+      startTransport,
+      pauseTransport,
+      stopTransport,
+      getArrangerEnd,
+      transportToStart,
+      transportToEnd
+    } = coreTransportRuntime;
+    Object.assign(globalScope, coreTransportRuntime);
+    corePublicApi.publish(coreTransportRuntime);
+
     const coreMetronomeRuntime =
       globalScope.CoreMetronomeService?.create?.({
         getElement: id => $(id),
@@ -1136,295 +1232,6 @@ function applyState(stateStr) {
     }
 
     let recordingRuntime = null;
-
-    function seekTransport(t, keepPlaying = true, noSnap = false) {
-      if (isCountInRunning()) cancelCountIn();
-      getEditorDAW().playhead = PlayheadMath.clamp(
-        noSnap ? t : snapTime(t),
-        getProjectEnd()
-      );
-      if (getEditorDAW().isPlaying) setTransportOrigin(getEditorDAW().playhead);
-      updatePlayheadUI();
-      if (getEditorDAW().isPlaying && !getEditorDAW().isScrubbing) {
-        scheduleAllFromPlayhead();
-        if (editorTransportState.metroActive) startMetronome();
-      } else {
-        stopAllVoices();
-      }
-      if (typeof publishPlaybackSync === 'function') publishPlaybackSync();
-    }
-
-    // Return-to-start on pause (Cubase style)
-    let playStartPos = 0;
-
-    function updateReturnToStartButton() {
-      const btn = $('returnToStartBtn');
-      if (!btn) return;
-      btn.classList.toggle('active', editorTransportState.returnToStartOnPause);
-      btn.style.background = editorTransportState.returnToStartOnPause ? 'var(--accent-teal)' : '';
-      btn.style.color = editorTransportState.returnToStartOnPause ? '#000' : '';
-      btn.style.borderColor = editorTransportState.returnToStartOnPause ? 'var(--accent-teal)' : '';
-      btn.setAttribute('aria-pressed', String(editorTransportState.returnToStartOnPause));
-    }
-
-    function toggleReturnToStart() {
-      editorTransportState.returnToStartOnPause = !editorTransportState.returnToStartOnPause;
-      updateReturnToStartButton();
-      toast(editorTransportState.returnToStartOnPause ? 'برگشت به ابتدا فعال شد' : 'برگشت به ابتدا غیرفعال شد');
-    }
-
-    function togglePlay() {
-      if (getEditorDAW().isPlaying) {
-        if (editorTransportState.returnToStartOnPause) {
-          const savedPos = playStartPos;
-          pauseTransport();
-          seekTransport(savedPos, false);
-        } else {
-          pauseTransport();
-        }
-      } else if (isCountInRunning()) {
-        pauseTransport();
-      } else {
-        playStartPos = getEditorDAW().playhead;
-        startTransport();
-      }
-    }
-
-    function startTransport() {
-      ensureAudioCtx();
-      cancelCountIn();
-
-      const beginPlayback = (transportStartAudioTime = null) => {
-        getEditorDAW().isPlaying = true;
-        getEditorDAW().isScrubbing = false;
-        setTransportOrigin(
-          getEditorDAW().playhead,
-          transportStartAudioTime
-        );
-        if (typeof publishPlaybackSync === 'function') publishPlaybackSync();
-        $('play-btn').style.color = 'var(--accent-neon-pink)';
-        scheduleAllFromPlayhead();
-
-        // Update perf play button
-        if (perfModeActive) $('perfPlayBtn').textContent = '⏸';
-
-        // Start the continuous metronome only after count-in completes.
-        if (editorTransportState.metroActive && !editorTransportState.metroTimer) startMetronome();
-      };
-
-      const tick = (rafTimestamp) => {
-        if (!getEditorDAW().isPlaying) return;
-        if (!getEditorDAW().isScrubbing) getEditorDAW().playhead = getTransportPlayhead();
-
-        // Loop A-B: if playhead reaches B, jump back to A (math delegated to PlayheadMath)
-        if (getEditorDAW().loopEnabled && !arrPerformActive && !getEditorDAW().isRecording && getEditorDAW().playhead >= getEditorDAW().loopB) {
-          var looped = PlayheadMath.applyLoop(getEditorDAW().playhead, getEditorDAW().loopEnabled, getEditorDAW().loopA, getEditorDAW().loopB);
-          getEditorDAW().playhead = looped.playhead;
-          setTransportOrigin(getEditorDAW().playhead);
-          scheduleAllFromPlayhead({
-            preserveVoices: true,
-            loopOnly: true
-          });
-        }
-
-        updatePlayheadUI({
-          performanceTime: Number.isFinite(rafTimestamp)
-            ? rafTimestamp
-            : performance.now()
-        });
-        // Look-ahead scheduler runs independently of RAF. Only fall back to
-        // RAF-based beat checking when the scheduler is unavailable.
-        if (!getMetronomeSchedulerBridge()) checkMetronomeTick(getEditorDAW().playhead);
-        // ─── Early prep: وقتی ۱۵ ثانیه به انتها مونده، شروع به ساختن state آهنگ بعدی کن ───
-        // این زمان زیاد هست تا مطمئن بشیم حتی برای فایل‌های بزرگ هم کافیه.
-        if (arrPerformActive && !_arrNextState && !arrPreparePending) {
-          const end = getArrangerEnd();
-          if (end > 0 && getEditorDAW().playhead >= end - 15) {
-            // فقط اگر قبلاً برای این ایندکس prep شروع نشده، لاگ بزن
-            if (_arrPrepStartedForIndex !== arrPerformIdx + 1) {
-              _arrPrepStartedForIndex = arrPerformIdx + 1;
-              console.log(`[Arranger] Starting prep at ${getEditorDAW().playhead.toFixed(1)}s (end: ${end.toFixed(1)}s)`);
-            }
-            arrPreparePending = true;
-            prepareNextArrSong()
-              .then(() => { arrPreparePending = false; })
-              .catch((e) => {
-                console.error('[Arranger] Prep failed:', e);
-                arrPreparePending = false;
-                _arrNextState = null;
-              });
-          }
-        }
-        if (getEditorDAW().playhead >= (arrPerformActive ? getArrangerEnd() : getProjectEnd())) {
-          // Gapless arranger: hot-swap if next song is ready
-          // Guard: اگر در حال کراس‌فید هستیم، صبر کن تا تموم شه
-          if (arrPerformActive && _arrNextState && !_arrIsCrossfading) {
-            const crossfadeDur = arrPerformData?.crossfade || 0;
-            if (crossfadeDur > 0) arrCrossfadeSwap();
-            else hotSwapToNextSong();
-            getEditorDAW().rafId = requestAnimationFrame(tick); return;
-          }
-          // اگر کراس‌فید در حال اجراست، به تیک بعدی منتقل شو
-          if (_arrIsCrossfading) {
-            getEditorDAW().rafId = requestAnimationFrame(tick); return;
-          }
-          // ─── اگر _arrNextState آماده نیست ولی prep در حال اجراست: صبر کن (وارد حالت pause شو) ───
-          // به‌جای stop، playback رو pause می‌کنیم تا وقتی prep تموم شد، ادامه بدیم
-          if (arrPerformActive && !_arrNextState && arrPreparePending) {
-            console.log('[Arranger] Reached end but prep still running. Entering wait mode...');
-            // playback رو متوقف کن ولی transport رو stop نکن
-            stopAllVoices();
-            getEditorDAW().isPlaying = false;
-            // ─── مکانیزم poll مستقل از tick ───
-            // چون tick با getEditorDAW().isPlaying=false متوقف می‌شه، یک poll جداگانه می‌سازیم
-            // که وقتی prep تموم شد، hot-swap رو انجام بده
-            if (!_arrWaitPollActive) {
-              _arrWaitPollActive = true;
-              const waitPoll = () => {
-                if (!arrPerformActive) { _arrWaitPollActive = false; return; }
-                if (_arrNextState) {
-                  console.log('[Arranger] Prep finished during wait — hot-swapping now');
-                  _arrWaitPollActive = false;
-                  if (arrPerformData?.crossfade > 0) arrCrossfadeSwap();
-                  else hotSwapToNextSong();
-                } else if (!arrPreparePending) {
-                  // prep تموم شده ولی _arrNextState هنوز null — fallback
-                  console.warn('[Arranger] Prep finished but no next state — fallback to loadArrSong');
-                  _arrWaitPollActive = false;
-                  arrPreparePending = true;
-                  loadArrSong(arrPerformIdx + 1)
-                    .then(() => { arrPreparePending = false; })
-                    .catch((e) => { console.error(e); arrPreparePending = false; });
-                } else {
-                  // هنوز صبر کن
-                  setTimeout(waitPoll, 100);
-                }
-              };
-              setTimeout(waitPoll, 100);
-            }
-            return;
-          }
-          // ─── اگر نه prep در حال اجراست و نه _arrNextState آماده‌ست: fallback به loadArrSong ───
-          if (arrPerformActive && !_arrNextState && !arrPreparePending) {
-            console.warn('[Arranger] Next song not ready and no prep running — fallback to loadArrSong');
-            arrPreparePending = true;
-            loadArrSong(arrPerformIdx + 1)
-              .then(() => { arrPreparePending = false; })
-              .catch((e) => {
-                console.error('[Arranger] Fallback loadArrSong failed:', e);
-                arrPreparePending = false;
-              });
-            return;
-          }
-          stopTransport(); return;
-        }
-        // Update sync highlight during playback (works for both sync mode and popup)
-        if (syncActive) updateSyncHighlight();
-        else if (isPopupOpen(_lyricPopup)) updateSyncHighlight();
-        getEditorDAW().rafId = requestAnimationFrame(tick);
-      };
-
-      // Count-in runs before project playback and is independent from the metronome.
-      if (editorTransportState.countInBars > 0 && countInSchedulerBridge) {
-        const bpm = parseInt($('edTempo')?.value) || 120;
-        const sig = $('edTimeSig')?.value || '4/4';
-        const config = getTimeSignatureGridConfig(sig, bpm);
-        // Count-in always starts from a downbeat.
-        alignPlayheadToNearestMeasure(config);
-        getEditorDAW().isPlaying = false;
-        getEditorDAW().isScrubbing = false;
-        if (getEditorDAW().rafId) {
-          cancelAnimationFrame(getEditorDAW().rafId);
-          getEditorDAW().rafId = null;
-        }
-        stopAllVoices();
-        if (editorTransportState.metroTimer) stopMetronome();
-        $('play-btn').style.color = 'var(--accent-cyan-glow)';
-        toast('🔢 شمارش: ' + editorTransportState.countInBars + ' میزان');
-        const scheduledCountIn = countInSchedulerBridge.start({
-          bars: editorTransportState.countInBars,
-          bpm,
-          timeSignature: sig,
-          soundType: getAppSettings().metroSound || 'classic',
-          onComplete: ({ endTime }) => {
-            beginPlayback(endTime);
-            if (getEditorDAW().rafId) cancelAnimationFrame(getEditorDAW().rafId);
-            getEditorDAW().rafId = requestAnimationFrame(tick);
-          }
-        });
-        if (scheduledCountIn) return;
-
-        toast('مترونوم در دسترس نیست؛ پخش بدون کانتین شروع شد');
-      }
-
-      beginPlayback();
-      if (getEditorDAW().rafId) cancelAnimationFrame(getEditorDAW().rafId);
-      getEditorDAW().rafId = requestAnimationFrame(tick);
-    }
-
-    function pauseTransport() {
-      cancelCountIn();
-      if (getEditorDAW().isRecording) recordingRuntime?.endRec?.();
-      if (getEditorDAW().isPlaying && !getEditorDAW().isScrubbing) {
-        getEditorDAW().playhead = getTransportPlayhead();
-      }
-      getEditorDAW().isPlaying = false; getEditorDAW().isScrubbing = false; if (getEditorDAW().rafId) cancelAnimationFrame(getEditorDAW().rafId); getEditorDAW().rafId = null; stopAllVoices(); $('play-btn').style.color = 'var(--accent-cyan-glow)'; updatePlayheadUI();
-      getEditorDAW().playOriginAudio = null;
-      audioContextServiceBridge?.stopAll?.();
-
-      // Auto-stop metronome
-      if (editorTransportState.metroTimer) stopMetronome();
-
-      // Clear sync highlights in editor
-      const editorEl = $('editor');
-      if (editorEl) [...editorEl.children].forEach(el => { el.classList.remove('sync-playing', 'sync-done'); });
-
-      // Update perf play button
-      if (perfModeActive) $('perfPlayBtn').textContent = '▶';
-      if (typeof publishPlaybackSync === 'function') publishPlaybackSync();
-    }
-    function stopTransport() { pauseTransport(); getEditorDAW().playhead = 0; updatePlayheadUI();
-      if (typeof publishPlaybackSync === 'function') publishPlaybackSync();
-      // Auto-advance arranger when song finishes
-      if (arrPerformActive && arrPerformData) {
-        // If pause mode, don't auto-advance
-        if (perfPauseMode && perfModeActive) {
-          if (perfModeActive) renderPerfUI();
-          return;
-        }
-        loadArrSong(arrPerformIdx + 1);
-      }
-      // Update perf UI play button
-      if (perfModeActive) { $('perfPlayBtn').textContent = '▶'; renderPerfUI(); }
-    }
-    // SyncHub uses these explicit hooks for timeline controls requested by the
-    // phone Player View. The registry keeps the legacy aliases intact.
-    corePublicApi.publish({
-      startTransport,
-      pauseTransport,
-      stopTransport,
-      seekTransport
-    });
-    // Arranger end: B is the transition point for the current song.
-    // If a legacy song has no valid B, fall back to its timeline end.
-    function getArrangerEnd() {
-      if (arrPerformActive && selectionEnd > 0) return selectionEnd;
-      if (arrPerformActive && arrangerPlaybackPolicy?.getTimelineEnd) {
-        const contentEnd = arrangerPlaybackPolicy.getTimelineEnd({
-          clips: getEditorDAW().clips,
-          sections: getEditorDAW().sections
-        });
-        if (contentEnd > 0) return contentEnd;
-      }
-      if (selectionEnd > 0) return selectionEnd;
-      // Fallback: end of last clip/section in current project
-      let end = 0;
-      getEditorDAW().clips.forEach(c => end = Math.max(end, c.start + c.duration));
-      getEditorDAW().sections.forEach(s => end = Math.max(end, s.start + s.duration));
-      return end > 0 ? end : getProjectEnd();
-    }
-    function transportToStart() { seekTransport(0); }
-    function transportToEnd() { let end = 0; getEditorDAW().clips.forEach(c => end = Math.max(end, c.start + c.duration)); seekTransport(end); }
 
     const coreRecordingRuntime =
       globalScope.CoreRecordingService?.create?.({

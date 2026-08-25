@@ -35,6 +35,7 @@ const editorSyncAnalysisUiService = read(
 const midiMonitorService = read('js/app/MidiMonitorService.js');
 const coreGridQuantizeService = read('js/app/CoreGridQuantizeService.js');
 const coreMetronomeService = read('js/app/CoreMetronomeService.js');
+const coreTransportService = read('js/app/CoreTransportService.js');
 const corePanelLayoutService = read('js/app/CorePanelLayoutService.js');
 const coreTimelineGeometryService = read('js/app/CoreTimelineGeometryService.js');
 const coreTimelineRendererService = read('js/app/CoreTimelineRendererService.js');
@@ -312,6 +313,13 @@ assert.doesNotMatch(
   'core must not publish a placeholder DAW'
 );
 assert.match(appCore, /CoreMetronomeService/);
+assert.match(coreTransportService, /function startTransport\(\)/);
+assert.match(coreTransportService, /function pauseTransport\(\)/);
+assert.match(coreTransportService, /function getArrangerEnd\(\)/);
+assert.match(appCore, /CoreTransportService/);
+assert.doesNotMatch(appCore, /function startTransport\(\)/);
+assert.doesNotMatch(appCore, /function pauseTransport\(\)/);
+assert.doesNotMatch(appCore, /function getArrangerEnd\(\)/);
 assert.match(appCore, /requireEditorSongRuntimeService\(\)\.setSong/);
 assert.doesNotMatch(appCore, /EdCurAdapter\?\./);
 assert.doesNotMatch(appCore, /\bedCur\b/);

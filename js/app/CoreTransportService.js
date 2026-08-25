@@ -1,0 +1,523 @@
+/*
+ * CoreTransportService
+ *
+ * Owns the editor transport facade: seek, play/pause/stop, count-in,
+ * playhead ticking and the arranger boundary hand-off. The service does not
+ * own DAW state; all stateful operations are injected so legacy callers keep
+ * using the same public functions.
+ */
+(function attachCoreTransportService(globalScope) {
+  'use strict';
+
+  function create({
+    getDAW = () => globalScope.getEditorDAW?.() || globalScope.DAW,
+    getElement = id => globalScope.document?.getElementById?.(id),
+    getTransportState = () => ({}),
+    ensureAudioCtx = () => globalScope.ensureAudioCtx?.(),
+    cancelCountIn = () => globalScope.cancelCountIn?.(),
+    isCountInRunning = () => Boolean(globalScope.isCountInRunning?.()),
+    getProjectEnd = () => 0,
+    snapTime = value => value,
+    playheadMath = globalScope.PlayheadMath,
+    setTransportOrigin = (...args) =>
+      globalScope.setTransportOrigin?.(...args),
+    getTransportPlayhead = (...args) =>
+      globalScope.getTransportPlayhead?.(...args) || 0,
+    updatePlayheadUI = (...args) =>
+      globalScope.updatePlayheadUI?.(...args),
+    scheduleAllFromPlayhead = (...args) =>
+      globalScope.scheduleAllFromPlayhead?.(...args),
+    stopAllVoices = (...args) =>
+      globalScope.stopAllVoices?.(...args),
+    startMetronome = (...args) =>
+      globalScope.startMetronome?.(...args),
+    stopMetronome = (...args) =>
+      globalScope.stopMetronome?.(...args),
+    getMetronomeSchedulerBridge = () =>
+      globalScope.getMetronomeSchedulerBridge?.() || null,
+    checkMetronomeTick = (...args) =>
+      globalScope.checkMetronomeTick?.(...args),
+    getCountInScheduler = () =>
+      globalScope.countInSchedulerBridge || null,
+    alignPlayheadToNearestMeasure = (...args) =>
+      globalScope.alignPlayheadToNearestMeasure?.(...args),
+    getTimeSignatureGridConfig = (...args) =>
+      globalScope.getTimeSignatureGridConfig?.(...args),
+    getAppSettings = () => ({}),
+    getRecordingRuntime = () => null,
+    getAudioContextService = () => null,
+    getArrangerState = () => ({}),
+    setArrangerPreparePending = () => {},
+    setArrangerPrepStartedForIndex = () => {},
+    setArrangerWaitPollActive = () => {},
+    clearArrangerNextState = () => {},
+    prepareNextArrSong = () => Promise.resolve(),
+    loadArrSong = () => Promise.resolve(),
+    hotSwapToNextSong = () => {},
+    arrCrossfadeSwap = () => {},
+    renderPerfUI = () => {},
+    publishPlaybackSync = () => {},
+    updateSyncHighlight = () => {},
+    isSyncActive = () => false,
+    isLyricPopupOpen = () => false,
+    requestAnimationFrameRef = (...args) =>
+      globalScope.requestAnimationFrame?.(...args),
+    cancelAnimationFrameRef = (...args) =>
+      globalScope.cancelAnimationFrame?.(...args),
+    performanceRef = globalScope.performance || { now: () => Date.now() },
+    toast = () => {},
+    logger = globalScope.console || console
+  } = {}) {
+    let playStartPos = 0;
+
+    function readDAW() {
+      return getDAW?.();
+    }
+
+    function readTransportState() {
+      return getTransportState?.() || {};
+    }
+
+    function readArrangerState() {
+      return getArrangerState?.() || {};
+    }
+
+    function getArrangerEnd() {
+      const arranger = readArrangerState();
+      const selectionEnd = Number(arranger.selectionEnd) || 0;
+      if (arranger.active && selectionEnd > 0) return selectionEnd;
+
+      if (arranger.active && arranger.playbackPolicy?.getTimelineEnd) {
+        const contentEnd = arranger.playbackPolicy.getTimelineEnd({
+          clips: readDAW()?.clips || [],
+          sections: readDAW()?.sections || []
+        });
+        if (contentEnd > 0) return contentEnd;
+      }
+
+      if (selectionEnd > 0) return selectionEnd;
+
+      const daw = readDAW();
+      let end = 0;
+      (daw?.clips || []).forEach(clip => {
+        end = Math.max(end, clip.start + clip.duration);
+      });
+      (daw?.sections || []).forEach(section => {
+        end = Math.max(end, section.start + section.duration);
+      });
+      return end > 0 ? end : getProjectEnd();
+    }
+
+    function seekTransport(time, keepPlaying = true, noSnap = false) {
+      if (isCountInRunning()) cancelCountIn();
+      const daw = readDAW();
+      if (!daw) return;
+
+      const nextTime = noSnap ? time : snapTime(time);
+      daw.playhead = playheadMath?.clamp
+        ? playheadMath.clamp(nextTime, getProjectEnd())
+        : Math.max(0, Math.min(nextTime, getProjectEnd()));
+
+      if (daw.isPlaying) setTransportOrigin(daw.playhead);
+      updatePlayheadUI();
+
+      if (daw.isPlaying && !daw.isScrubbing) {
+        scheduleAllFromPlayhead();
+        const transportState = readTransportState();
+        if (transportState.metroActive) startMetronome();
+      } else {
+        stopAllVoices();
+      }
+      publishPlaybackSync();
+    }
+
+    function updateReturnToStartButton() {
+      const button = getElement('returnToStartBtn');
+      if (!button) return;
+      const enabled = Boolean(readTransportState().returnToStartOnPause);
+      button.classList.toggle('active', enabled);
+      button.style.background = enabled ? 'var(--accent-teal)' : '';
+      button.style.color = enabled ? '#000' : '';
+      button.style.borderColor = enabled ? 'var(--accent-teal)' : '';
+      button.setAttribute('aria-pressed', String(enabled));
+    }
+
+    function toggleReturnToStart() {
+      const state = readTransportState();
+      state.returnToStartOnPause = !state.returnToStartOnPause;
+      updateReturnToStartButton();
+      toast(
+        state.returnToStartOnPause
+          ? 'برگشت به ابتدا فعال شد'
+          : 'برگشت به ابتدا غیرفعال شد'
+      );
+    }
+
+    function setPlayButtonColor(color) {
+      const button = getElement('play-btn');
+      if (button) button.style.color = color;
+    }
+
+    function setPerformancePlayButton(value) {
+      if (!readArrangerState().perfModeActive) return;
+      const button = getElement('perfPlayBtn');
+      if (button) button.textContent = value;
+    }
+
+    function togglePlay() {
+      const daw = readDAW();
+      if (!daw) return;
+
+      if (daw.isPlaying) {
+        const state = readTransportState();
+        if (state.returnToStartOnPause) {
+          const savedPos = playStartPos;
+          pauseTransport();
+          seekTransport(savedPos, false);
+        } else {
+          pauseTransport();
+        }
+      } else if (isCountInRunning()) {
+        pauseTransport();
+      } else {
+        playStartPos = daw.playhead;
+        startTransport();
+      }
+    }
+
+    function runArrangerPreparation() {
+      setArrangerPreparePending(true);
+      let preparation;
+      try {
+        preparation = prepareNextArrSong();
+      } catch (error) {
+        logger?.error?.('[Arranger] Prep failed:', error);
+        setArrangerPreparePending(false);
+        return;
+      }
+      Promise.resolve(preparation)
+        .then(() => setArrangerPreparePending(false))
+        .catch(error => {
+          logger?.error?.('[Arranger] Prep failed:', error);
+          setArrangerPreparePending(false);
+          clearArrangerNextState();
+        });
+    }
+
+    function runArrangerFallbackLoad() {
+      const arranger = readArrangerState();
+      const nextIndex =
+        (Number.isFinite(arranger.index) ? arranger.index : -1) + 1;
+      setArrangerPreparePending(true);
+      let loading;
+      try {
+        loading = loadArrSong(nextIndex);
+      } catch (error) {
+        logger?.error?.('[Arranger] Fallback loadArrSong failed:', error);
+        setArrangerPreparePending(false);
+        return;
+      }
+      Promise.resolve(loading)
+        .then(() => setArrangerPreparePending(false))
+        .catch(error => {
+          logger?.error?.('[Arranger] Fallback loadArrSong failed:', error);
+          setArrangerPreparePending(false);
+        });
+    }
+
+    function waitForArrangerPreparation() {
+      const arranger = readArrangerState();
+      if (!arranger.active) {
+        setArrangerWaitPollActive(false);
+        return;
+      }
+
+      if (arranger.nextState) {
+        logger?.log?.(
+          '[Arranger] Prep finished during wait — hot-swapping now'
+        );
+        setArrangerWaitPollActive(false);
+        if ((arranger.data?.crossfade || 0) > 0) arrCrossfadeSwap();
+        else hotSwapToNextSong();
+        return;
+      }
+
+      if (!arranger.preparePending) {
+        logger?.warn?.(
+          '[Arranger] Prep finished but no next state — fallback to loadArrSong'
+        );
+        setArrangerWaitPollActive(false);
+        runArrangerFallbackLoad();
+        return;
+      }
+
+      globalScope.setTimeout?.(waitForArrangerPreparation, 100);
+    }
+
+    function handleTransportBoundary() {
+      const arranger = readArrangerState();
+      if (!arranger.active) {
+        stopTransport();
+        return true;
+      }
+
+      if (arranger.nextState && !arranger.isCrossfading) {
+        const crossfadeDuration = arranger.data?.crossfade || 0;
+        if (crossfadeDuration > 0) arrCrossfadeSwap();
+        else hotSwapToNextSong();
+        return false;
+      }
+
+      if (arranger.isCrossfading) return false;
+
+      if (arranger.preparePending) {
+        logger?.log?.(
+          '[Arranger] Reached end but prep still running. Entering wait mode...'
+        );
+        stopAllVoices();
+        const daw = readDAW();
+        if (daw) daw.isPlaying = false;
+
+        if (!arranger.waitPollActive) {
+          setArrangerWaitPollActive(true);
+          globalScope.setTimeout?.(waitForArrangerPreparation, 100);
+        }
+        return true;
+      }
+
+      logger?.warn?.(
+        '[Arranger] Next song not ready and no prep running — fallback to loadArrSong'
+      );
+      runArrangerFallbackLoad();
+      return true;
+    }
+
+    function startTransport() {
+      ensureAudioCtx();
+      cancelCountIn();
+
+      const beginPlayback = (transportStartAudioTime = null) => {
+        const daw = readDAW();
+        if (!daw) return;
+        daw.isPlaying = true;
+        daw.isScrubbing = false;
+        setTransportOrigin(daw.playhead, transportStartAudioTime);
+        publishPlaybackSync();
+        setPlayButtonColor('var(--accent-neon-pink)');
+        scheduleAllFromPlayhead();
+        setPerformancePlayButton('⏸');
+
+        const transportState = readTransportState();
+        if (transportState.metroActive && !transportState.metroTimer) {
+          startMetronome();
+        }
+      };
+
+      const tick = rafTimestamp => {
+        const daw = readDAW();
+        if (!daw?.isPlaying) return;
+        if (!daw.isScrubbing) daw.playhead = getTransportPlayhead();
+
+        const arranger = readArrangerState();
+        if (
+          daw.loopEnabled &&
+          !arranger.active &&
+          !daw.isRecording &&
+          daw.playhead >= daw.loopB
+        ) {
+          const looped = playheadMath?.applyLoop
+            ? playheadMath.applyLoop(
+                daw.playhead,
+                daw.loopEnabled,
+                daw.loopA,
+                daw.loopB
+              )
+            : { playhead: daw.playhead };
+          daw.playhead = looped.playhead;
+          setTransportOrigin(daw.playhead);
+          scheduleAllFromPlayhead({
+            preserveVoices: true,
+            loopOnly: true
+          });
+        }
+
+        updatePlayheadUI({
+          performanceTime: Number.isFinite(rafTimestamp)
+            ? rafTimestamp
+            : performanceRef.now()
+        });
+        if (!getMetronomeSchedulerBridge()) {
+          checkMetronomeTick(daw.playhead);
+        }
+
+        const currentArranger = readArrangerState();
+        if (
+          currentArranger.active &&
+          !currentArranger.nextState &&
+          !currentArranger.preparePending
+        ) {
+          const end = getArrangerEnd();
+          if (end > 0 && daw.playhead >= end - 15) {
+            const nextIndex =
+              (Number.isFinite(currentArranger.index)
+                ? currentArranger.index
+                : -1) + 1;
+            if (currentArranger.prepStartedForIndex !== nextIndex) {
+              setArrangerPrepStartedForIndex(nextIndex);
+              logger?.log?.(
+                `[Arranger] Starting prep at ${daw.playhead.toFixed(
+                  1
+                )}s (end: ${end.toFixed(1)}s)`
+              );
+            }
+            runArrangerPreparation();
+          }
+        }
+
+        const boundary = currentArranger.active
+          ? getArrangerEnd()
+          : getProjectEnd();
+        if (daw.playhead >= boundary) {
+          if (handleTransportBoundary()) {
+            return;
+          }
+        }
+
+        if (isSyncActive() || isLyricPopupOpen()) updateSyncHighlight();
+        daw.rafId = requestAnimationFrameRef(tick);
+      };
+
+      const transportState = readTransportState();
+      const countInScheduler = getCountInScheduler();
+      if (transportState.countInBars > 0 && countInScheduler) {
+        const bpm = parseInt(getElement('edTempo')?.value, 10) || 120;
+        const timeSignature = getElement('edTimeSig')?.value || '4/4';
+        const config = getTimeSignatureGridConfig(timeSignature, bpm);
+        alignPlayheadToNearestMeasure(config);
+
+        const daw = readDAW();
+        if (daw) {
+          daw.isPlaying = false;
+          daw.isScrubbing = false;
+          if (daw.rafId) {
+            cancelAnimationFrameRef(daw.rafId);
+            daw.rafId = null;
+          }
+        }
+        stopAllVoices();
+        if (readTransportState().metroTimer) stopMetronome();
+        setPlayButtonColor('var(--accent-cyan-glow)');
+        toast('🔢 شمارش: ' + transportState.countInBars + ' میزان');
+
+        const scheduledCountIn = countInScheduler.start({
+          bars: transportState.countInBars,
+          bpm,
+          timeSignature,
+          soundType: getAppSettings().metroSound || 'classic',
+          onComplete: ({ endTime }) => {
+            beginPlayback(endTime);
+            const currentDaw = readDAW();
+            if (currentDaw?.rafId) cancelAnimationFrameRef(currentDaw.rafId);
+            if (currentDaw) currentDaw.rafId = requestAnimationFrameRef(tick);
+          }
+        });
+        if (scheduledCountIn) return;
+
+        toast('مترونوم در دسترس نیست؛ پخش بدون کانتین شروع شد');
+      }
+
+      beginPlayback();
+      const daw = readDAW();
+      if (daw?.rafId) cancelAnimationFrameRef(daw.rafId);
+      if (daw) daw.rafId = requestAnimationFrameRef(tick);
+    }
+
+    function pauseTransport() {
+      cancelCountIn();
+      const daw = readDAW();
+      if (!daw) return;
+
+      if (daw.isRecording) getRecordingRuntime()?.endRec?.();
+      if (daw.isPlaying && !daw.isScrubbing) {
+        daw.playhead = getTransportPlayhead();
+      }
+      daw.isPlaying = false;
+      daw.isScrubbing = false;
+      if (daw.rafId) cancelAnimationFrameRef(daw.rafId);
+      daw.rafId = null;
+      stopAllVoices();
+      setPlayButtonColor('var(--accent-cyan-glow)');
+      updatePlayheadUI();
+      daw.playOriginAudio = null;
+      getAudioContextService()?.stopAll?.();
+
+      const transportState = readTransportState();
+      if (transportState.metroTimer) stopMetronome();
+
+      const editor = getElement('editor');
+      if (editor?.children) {
+        [...editor.children].forEach(element => {
+          element.classList.remove('sync-playing', 'sync-done');
+        });
+      }
+
+      setPerformancePlayButton('▶');
+      publishPlaybackSync();
+    }
+
+    function stopTransport() {
+      pauseTransport();
+      const daw = readDAW();
+      if (!daw) return;
+      daw.playhead = 0;
+      updatePlayheadUI();
+      publishPlaybackSync();
+
+      const arranger = readArrangerState();
+      if (arranger.active && arranger.data) {
+        if (arranger.perfPauseMode && arranger.perfModeActive) {
+          renderPerfUI();
+          return;
+        }
+        const nextIndex =
+          (Number.isFinite(arranger.index) ? arranger.index : -1) + 1;
+        loadArrSong(nextIndex);
+      }
+      setPerformancePlayButton('▶');
+      if (arranger.perfModeActive) renderPerfUI();
+    }
+
+    function transportToStart() {
+      seekTransport(0);
+    }
+
+    function transportToEnd() {
+      const daw = readDAW();
+      let end = 0;
+      (daw?.clips || []).forEach(clip => {
+        end = Math.max(end, clip.start + clip.duration);
+      });
+      seekTransport(end);
+    }
+
+    return Object.freeze({
+      seekTransport,
+      updateReturnToStartButton,
+      toggleReturnToStart,
+      togglePlay,
+      startTransport,
+      pauseTransport,
+      stopTransport,
+      getArrangerEnd,
+      transportToStart,
+      transportToEnd
+    });
+  }
+
+  const service = Object.freeze({ create });
+  globalScope.CoreTransportService = service;
+
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = service;
+  }
+})(typeof window !== 'undefined' ? window : globalThis);

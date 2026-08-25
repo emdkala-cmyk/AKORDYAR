@@ -215,6 +215,10 @@ assert.ok(
     scriptIndex('js/app/core.js')
 );
 assert.ok(
+  scriptIndex('js/app/CoreTransportService.js') <
+    scriptIndex('js/app/core.js')
+);
+assert.ok(
   scriptIndex('js/app/CoreLoopVisualService.js') <
     scriptIndex('js/app/core.js')
 );

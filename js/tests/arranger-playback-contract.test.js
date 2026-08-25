@@ -7,6 +7,10 @@ const core = fs.readFileSync(
   path.join(projectRoot, 'js', 'app', 'core.js'),
   'utf8'
 );
+const transportService = fs.readFileSync(
+  path.join(projectRoot, 'js', 'app', 'CoreTransportService.js'),
+  'utf8'
+);
 const editor = fs.readFileSync(
   path.join(projectRoot, 'js', 'app', 'editor.js'),
   'utf8'
@@ -41,7 +45,11 @@ assert.ok(
   'arranger marker controller must load before core'
 );
 assert.match(core, /ArrangerPlaybackPolicyService/);
-assert.match(core, /!arrPerformActive && !getEditorDAW\(\)\.isRecording/);
+assert.match(
+  transportService,
+  /!arranger\.active[\s\S]*!daw\.isRecording/
+);
+assert.match(transportService, /playheadMath\?\.applyLoop/);
 assert.match(core, /arrangerPlaybackPolicy\?\.createBoundary/);
 assert.match(core, /arrangerMarkers:\s*songData\._arrangerMarkers/);
 assert.match(core, /legacyLoopState:\s*songData\._dawLoop/);

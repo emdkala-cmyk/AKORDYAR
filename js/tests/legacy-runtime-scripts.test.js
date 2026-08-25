@@ -39,6 +39,7 @@ for (const activeScript of [
   'js/app/MidiMonitorService.js',
   'js/app/CoreGridQuantizeService.js',
   'js/app/CoreMetronomeService.js',
+  'js/app/CoreTransportService.js',
   'js/app/CorePanelLayoutService.js',
   'js/app/CoreTimelineGeometryService.js',
   'js/app/CoreTimelineRendererService.js',

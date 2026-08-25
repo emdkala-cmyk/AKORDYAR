@@ -14,6 +14,7 @@ const APPLICATION_CHUNKS = Object.freeze([
   'app/MidiMonitorService.js',
   'app/CoreGridQuantizeService.js',
   'app/CoreMetronomeService.js',
+  'app/CoreTransportService.js',
   'app/CorePanelLayoutService.js',
   'app/CoreTimelineGeometryService.js',
   'app/CoreTimelineRendererService.js',
