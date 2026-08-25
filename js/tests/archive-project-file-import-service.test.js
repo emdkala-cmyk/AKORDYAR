@@ -1,4 +1,5 @@
 const assert = require('node:assert/strict');
+require('../archive/ArchiveProjectAudioRecoveryService.js');
 const ArchiveProjectFileImportService = require(
   '../archive/ArchiveProjectFileImportService.js'
 );
@@ -38,6 +39,11 @@ let currentSong = null;
 let importedParsed = 'previous';
 const calls = [];
 const toasts = [];
+const recoveryCalls = [];
+const audioRecovery = {
+  restoreEmbeddedAudio: async () => recoveryCalls.push('embedded'),
+  restoreLinkedAudio: async () => recoveryCalls.push('linked')
+};
 
 const service = ArchiveProjectFileImportService.create({
   getDAW: () => daw,
@@ -71,6 +77,7 @@ const service = ArchiveProjectFileImportService.create({
   saveState: () => calls.push(['state']),
   saveSong: () => calls.push(['save-song']),
   renderAll: () => calls.push(['render-all']),
+  audioRecovery,
   toast: message => toasts.push(message),
   logError: error => calls.push(['error', error.message])
 });
@@ -120,6 +127,21 @@ const service = ArchiveProjectFileImportService.create({
   assert.equal(failed.ok, false);
   assert.match(toasts.at(-1), /خطا در لود فایل/);
   assert.ok(calls.some(call => call[0] === 'error'));
+
+  const audioResult = await service.importSingle({
+    name: 'AudioSong.akordyar',
+    text: async () => JSON.stringify({
+      id: 'song-audio',
+      title: 'ترانه صوتی',
+      _dawClips: [{
+        id: 'audio-1',
+        type: 'audio',
+        bufferKey: 'buffer-1'
+      }]
+    })
+  });
+  assert.equal(audioResult.ok, true);
+  assert.deepEqual(recoveryCalls, ['embedded', 'linked']);
 
   console.log('ArchiveProjectFileImportService tests passed');
 })().catch(error => {
