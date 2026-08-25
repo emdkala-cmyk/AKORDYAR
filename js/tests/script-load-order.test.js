@@ -51,6 +51,18 @@ assert.ok(
     scriptIndex('js/app/editor.js')
 );
 assert.ok(
+  scriptIndex('js/core/EditorRuntimeAdapter.js') <
+    scriptIndex('js/core/EditorMovableWindowService.js')
+);
+assert.ok(
+  scriptIndex('js/core/EditorMovableWindowService.js') <
+    scriptIndex('js/app/core.js')
+);
+assert.ok(
+  scriptIndex('js/core/EditorCustomPromptService.js') <
+    scriptIndex('js/app/core.js')
+);
+assert.ok(
   scriptIndex('js/app/constants.js') <
     scriptIndex('js/app/core.js')
 );

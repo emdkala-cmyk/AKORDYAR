@@ -22,59 +22,6 @@ if (isElectron) {
 // loadProject / resolveClipAudio به js/core/ProjectAudioService.js منتقل شده است.
 // wrapperهای سازگاری بلافاصله بعد از ensureAudioCtx() تعریف شده‌اند.
 
-/**
- * customPrompt — جایگزین window.prompt که در الکترون پشتیبانی نمی‌شه
- *
- * @param {string} message - پیام به کاربر
- * @param {string} defaultValue - مقدار پیش‌فرض
- * @returns {Promise<string|null>} - مقدار وارد شده یا null اگه کنسل بشه
- */
-function customPrompt(message, defaultValue = '') {
-  return new Promise((resolve) => {
-    const modal = document.getElementById('customPromptModal');
-    const titleEl = document.getElementById('customPromptTitle');
-    const inputEl = document.getElementById('customPromptInput');
-    const okBtn = document.getElementById('customPromptOk');
-    const cancelBtn = document.getElementById('customPromptCancel');
-
-    if (!modal || !inputEl || !okBtn || !cancelBtn) {
-      // fallback به window.prompt اگه مودال موجود نبود
-      resolve(window.prompt(message, defaultValue));
-      return;
-    }
-
-    if (titleEl) titleEl.textContent = message;
-    inputEl.value = defaultValue;
-
-    modal.style.display = 'flex';
-    setTimeout(() => { inputEl.focus(); inputEl.select(); }, 50);
-
-    const cleanup = () => {
-      modal.style.display = 'none';
-      okBtn.onclick = null;
-      cancelBtn.onclick = null;
-      inputEl.onkeydown = null;
-    };
-
-    okBtn.onclick = () => {
-      const val = inputEl.value;
-      cleanup();
-      resolve(val);
-    };
-
-    cancelBtn.onclick = () => {
-      cleanup();
-      resolve(null);
-    };
-
-    inputEl.onkeydown = (e) => {
-      if (e.key === 'Enter') { e.preventDefault(); okBtn.click(); }
-      if (e.key === 'Escape') { e.preventDefault(); cancelBtn.click(); }
-    };
-  });
-}
-if (typeof window !== 'undefined') window.customPrompt = customPrompt;
-
 // تشخیص محیط مرورگر/پنجره الکترون
 const isBrowser = typeof window !== 'undefined';
 
@@ -90,6 +37,34 @@ const corePublicApi = corePublicApiFactory.create({
   target: globalScope,
   namespace: 'AkordyarCoreApi'
 });
+
+let editorCustomPromptService = null;
+function getEditorCustomPromptService() {
+  if (!editorCustomPromptService) {
+    const create = globalScope.EditorCustomPromptService?.create;
+    if (typeof create !== 'function') {
+      throw new Error('EditorCustomPromptService is not loaded. Check script order.');
+    }
+    editorCustomPromptService = create({
+      documentRef: document,
+      windowRef: window,
+      schedule: window.setTimeout
+    });
+  }
+  return editorCustomPromptService;
+}
+
+/**
+ * customPrompt — جایگزین window.prompt که در الکترون پشتیبانی نمی‌شه
+ *
+ * @param {string} message - پیام به کاربر
+ * @param {string} defaultValue - مقدار پیش‌فرض
+ * @returns {Promise<string|null>} - مقدار وارد شده یا null اگه کنسل بشه
+ */
+function customPrompt(message, defaultValue = '') {
+  return getEditorCustomPromptService().prompt(message, defaultValue);
+}
+if (typeof window !== 'undefined') window.customPrompt = customPrompt;
 
     /* ===== I18N ===== */
     let currentLang = localStorage.getItem('appLang') || 'fa';
@@ -2700,31 +2675,23 @@ sels.forEach(c => {
     if (APP_SETTINGS.accent) { const r = document.documentElement.style; r.setProperty('--accent-teal', APP_SETTINGS.accent); r.setProperty('--accent-cyan-glow', APP_SETTINGS.accent); }
 
     // Generic: drag windows from their title/header
+    let editorMovableWindowService = null;
+    function getEditorMovableWindowService() {
+      if (!editorMovableWindowService) {
+        const create = globalScope.EditorMovableWindowService?.create;
+        if (typeof create !== 'function') {
+          throw new Error('EditorMovableWindowService is not loaded. Check script order.');
+        }
+        editorMovableWindowService = create({
+          documentRef: document,
+          windowRef: window,
+          startPointerDrag: (...args) => globalScope.startEditorPointerDrag(...args)
+        });
+      }
+      return editorMovableWindowService;
+    }
     function initMovableWindows() {
-      document.addEventListener('pointerdown', (e) => {
-        if (e.button !== 0) return;
-        const head = e.target.closest('h3, h4, .mv-head, .shortcut-panel-header');
-        if (!head) return;
-        if (head.closest('#arrangerModal')) return;
-        const panel = head.closest('.mv-window') || head.closest('.chord-editor') || head.closest('.icon-picker-panel') || head.closest('.arr-song-note-panel') || head.closest('.shortcut-panel');
-        if (!panel) return;
-        if (e.target.closest('button, input, select, textarea')) return;
-        e.preventDefault();
-        const r = panel.getBoundingClientRect();
-        const w = panel.offsetWidth, h = panel.offsetHeight;
-        panel.style.position = 'fixed';
-        panel.style.margin = '0';
-        panel.style.left = r.left + 'px';
-        panel.style.top = r.top + 'px';
-        const ox = e.clientX - r.left, oy = e.clientY - r.top;
-        const move = (me) => {
-          let x = me.clientX - ox, y = me.clientY - oy;
-          x = Math.max(-w + 60, Math.min(x, window.innerWidth - 40));
-          y = Math.max(0, Math.min(y, window.innerHeight - 30));
-          panel.style.left = x + 'px'; panel.style.top = y + 'px';
-        };
-        startEditorPointerDrag(head, e, move);
-      });
+      return getEditorMovableWindowService().bind();
     }
     initMovableWindows();
 
