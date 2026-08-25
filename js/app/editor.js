@@ -43,86 +43,6 @@ function safeMirrorTimeline() {
   return editorPopupTimelineSyncService?.render?.();
 }
 
-let edAudioStorageService = null;
-function getEditorAudioStorageService() {
-  if (
-    !edAudioStorageService &&
-    typeof window.EditorAudioStorageService?.create === 'function'
-  ) {
-    edAudioStorageService = window.EditorAudioStorageService.create({
-      indexedDBRef: window.indexedDB,
-      BlobCtor: window.Blob,
-      fetchRef: (...args) => window.fetch(...args),
-      urlRef: window.URL,
-      getDAW: () => getEditorDAW(),
-      ensureAudioCtx,
-      getWavEncoder: () => getEditorProjectExportService()?.audioBufferToWav,
-      getElement: id => document.getElementById(id),
-      getStorageEstimate: () => window.navigator?.storage?.estimate?.(),
-      compressionServiceFactory: () => window.AudioCompressionService?.create?.(),
-      toast,
-      logger: console
-    });
-  }
-  return edAudioStorageService;
-}
-
-function getAudioCompressionService() {
-  return getEditorAudioStorageService()?.getAudioCompressionService?.() || null;
-}
-
-function openAudioDB() {
-  return getEditorAudioStorageService()?.openAudioDB?.();
-}
-
-function saveFileHandle(...args) {
-  return getEditorAudioStorageService()?.saveFileHandle?.(...args);
-}
-
-function getFileHandle(...args) {
-  return getEditorAudioStorageService()?.getFileHandle?.(...args);
-}
-
-function saveAudioBlobToDB(...args) {
-  return getEditorAudioStorageService()?.saveAudioBlobToDB?.(...args);
-}
-
-function getAudioBlobFromDB(...args) {
-  return getEditorAudioStorageService()?.getAudioBlobFromDB?.(...args);
-}
-
-function saveAudioBlobsForProject(...args) {
-  return getEditorAudioStorageService()?.saveAudioBlobsForProject?.(...args);
-}
-
-function loadAudioBlobsForProject(...args) {
-  return getEditorAudioStorageService()?.loadAudioBlobsForProject?.(...args);
-}
-
-function deleteAudioBlobsForProject(...args) {
-  return getEditorAudioStorageService()?.deleteAudioBlobsForProject?.(...args);
-}
-
-function formatBytes(...args) {
-  return getEditorAudioStorageService()?.formatBytes?.(...args);
-}
-
-function base64ToUint8(...args) {
-  return getEditorAudioStorageService()?.base64ToUint8?.(...args);
-}
-
-function decodeWebMToBuffer(...args) {
-  return getEditorAudioStorageService()?.decodeWebMToBuffer?.(...args);
-}
-
-function resampleFloat32(...args) {
-  return getEditorAudioStorageService()?.resampleFloat32?.(...args);
-}
-
-function refreshStorageInfo(...args) {
-  return getEditorAudioStorageService()?.refreshStorageInfo?.(...args);
-}
-
 let edSongTransitionService = null;
 function getEditorSongTransitionService() {
   if (
@@ -3400,13 +3320,6 @@ if ($('edRedoBtn')) {
   };
 }
 
-
-    if ($('edRedoBtn')) {
-  $('edRedoBtn').onclick = () => {
-    redo();
-  };
-}
-
 if ($('edRemoveAsterisks')) {
   $('edRemoveAsterisks').onclick = () => {
     if (!edCur || edCur.editorLocked) return;
@@ -4829,12 +4742,6 @@ if ($('edDoBoth')) {
 
     function cancelMapping() {
       return getKeyboardMappingService()?.cancel?.();
-    }
-
-    // Execute MIDI mapped functions on Note On
-    function executeMidiMappedFunction(funcId) {
-      const fn = ACTION_FUNCTIONS[funcId];
-      if (fn) fn();
     }
 
     // History must be attached before lifecycle initialization. The service

@@ -31,6 +31,7 @@ for (const activeScript of [
   'js/editor/ArrangerPlaybackPolicyService.js',
   'js/editor/AudioRecoveryService.js',
   'js/editor/EditorAudioStorageService.js',
+  'js/editor/EditorAudioStorageFacadeService.js',
   'js/editor/EditorPopupTimelineSyncService.js',
   'js/editor/EditorLyricsChordInteractionService.js',
   'js/editor/EditorProjectFileService.js',

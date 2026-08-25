@@ -359,6 +359,10 @@ assert.ok(
     scriptIndex('js/app/editor.js')
 );
 assert.ok(
+  scriptIndex('js/editor/EditorAudioStorageFacadeService.js') <
+    scriptIndex('js/app/core.js')
+);
+assert.ok(
   scriptIndex('js/editor/LyricPositionMapper.js') <
     scriptIndex('js/editor/EditorRawSongParserService.js')
 );
