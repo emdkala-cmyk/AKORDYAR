@@ -816,8 +816,10 @@ function applyState(stateStr) {
             selectedClips,
             startPointerDrag: (...args) => startEditorPointerDrag(...args),
             getTimelineInner: () => $('tl-inner'),
-            onDocumentMouseMove: (...args) => onDocMouseMove(...args),
-            onDocumentMouseUp: (...args) => onDocMouseUp(...args),
+            onDocumentMouseMove: (...args) =>
+              coreClipInteractionRuntime.onDocMouseMove(...args),
+            onDocumentMouseUp: (...args) =>
+              coreClipInteractionRuntime.onDocMouseUp(...args),
             saveState
           });
       }
@@ -904,7 +906,11 @@ function applyState(stateStr) {
             openTimelineChordEditor(clip.id);
           });
         }
-        el.addEventListener('pointerdown', onClipMouseDown); lane.appendChild(el);
+        el.addEventListener(
+          'pointerdown',
+          event => coreClipInteractionRuntime.onClipMouseDown(event)
+        );
+        lane.appendChild(el);
       });
       getTimelineSectionRendererService()?.renderSections?.();
     }
@@ -1117,6 +1123,58 @@ function applyState(stateStr) {
     Object.assign(globalScope, { cutAtTime });
     corePublicApi.publish({ cutAtTime });
 
+    const coreClipInteractionRuntime =
+      globalScope.CoreClipInteractionService?.create?.({
+        documentRef: document,
+        getElement: id => $(id),
+        getDAW: () => getEditorDAW(),
+        getClip: clipId => getClip(clipId),
+        selectedClips: () => selectedClips(),
+        clearEditorTextSelection: () => clearEditorTextSelection(),
+        clearChordSelection: (...args) =>
+          globalScope.edClearChordSelection?.(...args),
+        renderClips: (...args) => renderClips(...args),
+        renderAll: (...args) => renderAll(...args),
+        renderRuler: (...args) => renderRuler(...args),
+        updateHud: (...args) => updateHud(...args),
+        clientToTime: (...args) => clientToTime(...args),
+        clientToInnerPoint: (...args) => clientToInnerPoint(...args),
+        xToTime: (...args) => xToTime(...args),
+        snapTime: (...args) => snapTime(...args),
+        roundMs: (...args) => roundMs(...args),
+        clamp: (...args) => clamp(...args),
+        ensureTimelineFits: (...args) => ensureTimelineFits(...args),
+        refreshClipWaveImage: (...args) =>
+          refreshClipWaveImage(...args),
+        peaksFromBuffer: (...args) => peaksFromBuffer(...args),
+        cutAtTime: (...args) => cutAtTime(...args),
+        openTimelineChordEditor: (...args) =>
+          openTimelineChordEditor(...args),
+        startPointerDrag: (...args) =>
+          startEditorPointerDrag(...args),
+        saveState: (...args) => saveState(...args),
+        scheduleAllFromPlayhead: (...args) =>
+          scheduleAllFromPlayhead(...args),
+        toast: (...args) => toast(...args),
+        uid: prefix => uid(prefix)
+      });
+    if (!coreClipInteractionRuntime) throw new Error(
+      'CoreClipInteractionService باید قبل از app/core.js بارگذاری شود.'
+    );
+    const {
+      getMarqueeLaneElements,
+      onClipMouseDown,
+      onDocMouseMove,
+      onDocMouseUp
+    } = coreClipInteractionRuntime;
+    Object.assign(globalScope, {
+      getMarqueeLaneElements,
+      onClipMouseDown,
+      onDocMouseMove,
+      onDocMouseUp
+    });
+    corePublicApi.publish(coreClipInteractionRuntime);
+
     function openTimelineChordEditor(clipId) {
       const clip = getClip(clipId);
       if (!clip || clip.type !== 'chord' || typeof openChordEditor !== 'function') return;
@@ -1124,217 +1182,6 @@ function applyState(stateStr) {
       if (clip._lastModalOpenAt && now - clip._lastModalOpenAt < 120) return;
       clip._lastModalOpenAt = now;
       openChordEditor(clipId);
-    }
-
-    function getMarqueeLaneElements(selector) {
-      const marquee = getEditorDAW().marquee;
-      const trackId = String(marquee?.trackId ?? '');
-      if (!trackId) return [];
-      const lane = Array.from(document.querySelectorAll('.track-lane'))
-        .find(element => String(element.dataset.trackId ?? '') === trackId);
-      return lane ? Array.from(lane.querySelectorAll(selector)) : [];
-    }
-
-    function onClipMouseDown(e) {
-  if (e.button !== 0) return;
-
-  clearEditorTextSelection();
-  edClearChordSelection();
-  if ($('editor')) $('editor').blur();
-
-  // Deselect sections when clicking on any clip
-  if (getEditorDAW().selectedSectionIds.size > 0) { getEditorDAW().selectedSectionIds.clear(); renderClips(); }
-
-  e.stopPropagation();
-  e.preventDefault();
-
-  const clipId = e.currentTarget.dataset.clipId;
-  const clip = getClip(clipId);
-  if (!clip) return;
-
-  // Check if track is locked
-  const track = getEditorDAW().tracks.find(t => t.id === clip.trackId);
-  if (track && track.locked) { toast('ترک قفل است'); return; }
-
-  edClearChordSelection();
-
-  // دبل‌کلیک سفارشی (native dblclick به خاطر preventDefault و بازسازی کلیپ‌ها قابل‌اعتماد نیست)
-  const _now = Date.now();
-  const _dx = Math.abs(e.clientX - (clip._clickX || 0));
-  const _dy = Math.abs(e.clientY - (clip._clickY || 0));
-  if (clip._clickTimer && (_now - (clip._clickTime || 0)) < 350 && _dx < 5 && _dy < 5) {
-    clearTimeout(clip._clickTimer); clip._clickTimer = null;
-    if (clip.type === 'chord') openTimelineChordEditor(clip.id);
-    return;
-  }
-  clip._clickX = e.clientX; clip._clickY = e.clientY; clip._clickTime = _now;
-  clip._clickTimer = setTimeout(() => { clip._clickTimer = null; }, 350);
-
-      // Shift+Click to Cut
-      if (e.shiftKey) {
-        const t = clientToTime(e.clientX);
-        cutAtTime(t, clip.trackId);
-        return;
-      }
-
-      // Alt+Click to Duplicate (Copy and immediately drag the copy)
-      if (e.altKey) {
-        const sels = selectedClips();
-        if (!sels.find(c => c.id === clipId)) getEditorDAW().selectedIds = new Set([clipId]);
-        
-        const toDuplicate = selectedClips();
-        const newIds = [];
-        const dragItems = [];
-        
-        toDuplicate.forEach(c => {
-            const newClip = { ...c, id: uid('c') };
-            delete newClip._peaks;
-            if (c.type === 'audio') {
-                const buf = getEditorDAW().bufferCache.get(c.bufferKey);
-                if (buf) newClip._peaks = peaksFromBuffer(buf, 2000);
-                refreshClipWaveImage(newClip);
-            }
-            getEditorDAW().clips.push(newClip);
-            newIds.push(newClip.id);
-            dragItems.push({ id: newClip.id, origStart: newClip.start, origDur: newClip.duration, origOffset: newClip.offset });
-        });
-        
-        getEditorDAW().selectedIds = new Set(newIds);
-        getEditorDAW().drag = { type: 'move', edge: null, primaryId: dragItems[0]?.id, startX: e.clientX, items: dragItems };
-        renderAll();
-        startEditorPointerDrag($('tl-inner') || e.currentTarget, e, onDocMouseMove, onDocMouseUp);
-        return;
-      }
-
-      if (e.ctrlKey || e.metaKey) { if (getEditorDAW().selectedIds.has(clipId)) getEditorDAW().selectedIds.delete(clipId); else getEditorDAW().selectedIds.add(clipId); renderClips(); return; }
-      // If clicking an already-selected clip, preserve the full multi-selection for cross-lane drag
-      if (!getEditorDAW().selectedIds.has(clipId)) { getEditorDAW().selectedIds = new Set([clipId]); getEditorDAW().selectedSectionIds.clear(); renderClips(); }
-
-      const edge = e.target.dataset.edge || null;
-      let dragItems;
-      if (edge) {
-        // Resize: only the clicked clip
-        dragItems = [{ id: clipId, origStart: clip.start, origDur: clip.duration, origOffset: clip.offset }];
-      } else {
-        // Move: all selected clips + all selected sections
-        dragItems = selectedClips().map(c => ({ id: c.id, origStart: c.start, origDur: c.duration, origOffset: c.offset }));
-        (getEditorDAW().sections || []).filter(s => getEditorDAW().selectedSectionIds.has(s.id)).forEach(s => dragItems.push({ id: s.id, origStart: s.start, origDur: s.duration, origOffset: 0, _isSection: true }));
-      }
-      getEditorDAW().drag = { type: edge ? 'resize' : 'move', edge, primaryId: clipId, startX: e.clientX, items: dragItems };
-      startEditorPointerDrag($('tl-inner') || e.currentTarget, e, onDocMouseMove, onDocMouseUp);
-    }
-
-    let dragOverLaneTrackId = null;
-
-    function onDocMouseMove(e) {
-      if (getEditorDAW().drag) {
-        const dt = xToTime(e.clientX - getEditorDAW().drag.startX);
-        
-        // Check if we're over a different track lane during move
-        if (getEditorDAW().drag.type === 'move') {
-          const pointerTarget = document.elementFromPoint(e.clientX, e.clientY) || e.target;
-          const targetLane = pointerTarget.closest('.track-lane');
-          if (targetLane) {
-            const laneTrackId = targetLane.dataset.trackId;
-            const targetTrack = getEditorDAW().tracks.find(t => t.id === laneTrackId);
-            // Only allow drop on audio tracks (not section or chord)
-            if (targetTrack && targetTrack.type === 'audio') {
-              dragOverLaneTrackId = laneTrackId;
-            } else {
-              dragOverLaneTrackId = null;
-            }
-          } else {
-            dragOverLaneTrackId = null;
-          }
-        }
-        
-        if (getEditorDAW().drag.type === 'move') {
-          getEditorDAW().drag.items.forEach(it => {
-            let item;
-            if (it._isSection) { item = (getEditorDAW().sections || []).find(s => s.id === it.id); }
-            else { item = getClip(it.id); }
-            if (!item) return;
-            item.start = Math.max(0, roundMs(snapTime(it.origStart + dt)));
-            ensureTimelineFits(item.start + (item.duration || it.origDur) + 5);
-          });
-        } else if (getEditorDAW().drag.type === 'resize') {
-          const it = getEditorDAW().drag.items.find(x => x.id === getEditorDAW().drag.primaryId); const clip = getClip(getEditorDAW().drag.primaryId); if (!it || !clip) return;
-          if (getEditorDAW().drag.edge === 'right') {
-            const maxDur = clip.type === 'chord' ? 1000 : clip.sourceDuration - clip.offset;
-            clip.duration = clamp(roundMs(snapTime(it.origDur + dt)), 0.03, maxDur); if (clip.type === 'audio') refreshClipWaveImage(clip);
-          } else {
-            let newStart = it.origStart + dt, newOffset = it.origOffset + dt, newDur = it.origDur - dt;
-            if (clip.type === 'chord') {
-               if (newStart < 0) { newDur += newStart; newStart = 0; }
-               if (newDur > 0.03) { clip.start = roundMs(snapTime(newStart)); clip.duration = roundMs(it.origStart + it.origDur - snapTime(newStart)); }
-            } else {
-               if (newOffset < 0) { newStart -= newOffset; newDur += newOffset; newOffset = 0; }
-               if (newStart < 0) { const sh = -newStart; newStart = 0; newOffset += sh; newDur -= sh; }
-               if (newDur >= 0.03 && newOffset + newDur <= clip.sourceDuration + 1e-6) { clip.start = roundMs(newStart); clip.offset = roundMs(newOffset); clip.duration = roundMs(newDur); refreshClipWaveImage(clip); }
-            }
-          }
-        }
-        renderRuler(); renderClips(); updateHud();
-      }
-      if (getEditorDAW().marquee) {
-        const p = clientToInnerPoint(e.clientX, e.clientY); const x1 = Math.min(getEditorDAW().marquee.x0, p.x), y1 = Math.min(getEditorDAW().marquee.y0, p.y);
-        const x2 = Math.max(getEditorDAW().marquee.x0, p.x), y2 = Math.max(getEditorDAW().marquee.y0, p.y); const box = $('marquee');
-        box.style.display = 'block'; box.style.left = x1 + 'px'; box.style.top = y1 + 'px'; box.style.width = (x2 - x1) + 'px'; box.style.height = (y2 - y1) + 'px';
-        // Select clips inside marquee
-        const clipIds = [];
-        const innerRect = $('tl-inner').getBoundingClientRect();
-        getMarqueeLaneElements('.clip').forEach(el => {
-          const clip = getClip(el.dataset.clipId);
-          if (!clip) return;
-          const r = el.getBoundingClientRect();
-          const cx1 = r.left - innerRect.left;
-          const cy1 = r.top - innerRect.top;
-          const cx2 = cx1 + r.width;
-          const cy2 = cy1 + r.height;
-          if (!(cx2 < x1 || cx1 > x2 || cy2 < y1 || cy1 > y2)) {
-            clipIds.push(el.dataset.clipId);
-          }
-        });
-        getEditorDAW().selectedIds = new Set(clipIds);
-        document.querySelectorAll('.clip').forEach(el => el.classList.toggle('selected', getEditorDAW().selectedIds.has(el.dataset.clipId)));
-        // Select sections inside marquee
-        const secIds = [];
-        getMarqueeLaneElements('.section-tag').forEach(el => {
-          const section = getEditorDAW().sections?.find(item => item.id === el.dataset.sectionId);
-          if (!section) return;
-          const r = el.getBoundingClientRect();
-          const cx1 = r.left - innerRect.left;
-          const cy1 = r.top - innerRect.top;
-          const cx2 = cx1 + r.width;
-          const cy2 = cy1 + r.height;
-          if (!(cx2 < x1 || cx1 > x2 || cy2 < y1 || cy1 > y2)) {
-            secIds.push(el.dataset.sectionId);
-          }
-        });
-        getEditorDAW().selectedSectionIds = new Set(secIds);
-        document.querySelectorAll('.section-tag').forEach(el => el.classList.toggle('selected', getEditorDAW().selectedSectionIds.has(el.dataset.sectionId)));
-      }
-    }
-
-    function onDocMouseUp() {
-      if (getEditorDAW().drag) {
-        // If we were dragging over a different track lane, move clips to that track
-        if (getEditorDAW().drag.type === 'move' && dragOverLaneTrackId) {
-          getEditorDAW().drag.items.forEach(it => {
-            const clip = getClip(it.id);
-            if (clip && !it._isSection) {
-              clip.trackId = dragOverLaneTrackId;
-            }
-          });
-        }
-        dragOverLaneTrackId = null;
-        getEditorDAW().drag = null;
-        saveState();
-        if (getEditorDAW().isPlaying) scheduleAllFromPlayhead();
-        renderAll();
-      }
-      if (getEditorDAW().marquee) { getEditorDAW().marquee = null; $('marquee').style.display = 'none'; renderClips(); }
-      document.removeEventListener('mousemove', onDocMouseMove); document.removeEventListener('mouseup', onDocMouseUp);
     }
 
     function seekTransport(t, keepPlaying = true, noSnap = false) {

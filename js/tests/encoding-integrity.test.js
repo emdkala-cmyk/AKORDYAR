@@ -15,6 +15,7 @@ const files = [
   'js/app/CoreClipService.js',
   'js/app/CoreAudioImportService.js',
   'js/app/CoreClipEditService.js',
+  'js/app/CoreClipInteractionService.js',
   'js/app/CoreMixerBridgeService.js',
   'js/app/core.js',
   'js/app/editor.js',

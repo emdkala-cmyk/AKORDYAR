@@ -8,6 +8,7 @@ const read = file => fs.readFileSync(path.join(root, file), 'utf8');
 const core = read('js/app/core.js');
 const corePanelLayout = read('js/app/CorePanelLayoutService.js');
 const coreTimelineRenderer = read('js/app/CoreTimelineRendererService.js');
+const coreClipInteraction = read('js/app/CoreClipInteractionService.js');
 const dawState = read('js/core/DAWRuntimeState.js');
 const transportState = read('js/core/EditorTransportStateService.js');
 const editor = read('js/app/editor.js');
@@ -87,9 +88,17 @@ assert.match(sectionRenderer, /section-tag/);
 assert.match(sectionRenderer, /selectedSectionIds/);
 assert.match(sectionRenderer, /resize-handle left/);
 assert.match(sectionRenderer, /resize-handle right/);
-assert.match(core, /function getMarqueeLaneElements\(selector\)/);
-assert.match(core, /getMarqueeLaneElements\('\.clip'\)/);
-assert.match(core, /getMarqueeLaneElements\('\.section-tag'\)/);
+assert.match(core, /CoreClipInteractionService/);
+assert.match(
+  coreClipInteraction,
+  /function getMarqueeLaneElements\(selector\)/
+);
+assert.match(coreClipInteraction, /getMarqueeLaneElements\('\.clip'\)/);
+assert.match(
+  coreClipInteraction,
+  /getMarqueeLaneElements\('\.section-tag'\)/
+);
+assert.doesNotMatch(core, /function getMarqueeLaneElements\(selector\)/);
 assert.match(core, /function openTimelineChordEditor\(clipId\)/);
 assert.match(
   corePanelLayout,

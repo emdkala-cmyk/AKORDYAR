@@ -171,6 +171,10 @@ assert.ok(
     scriptIndex('js/app/core.js')
 );
 assert.ok(
+  scriptIndex('js/app/CoreClipInteractionService.js') <
+    scriptIndex('js/app/core.js')
+);
+assert.ok(
   scriptIndex('js/app/CoreMixerBridgeService.js') <
     scriptIndex('js/app/core.js')
 );
