@@ -1714,79 +1714,27 @@ function applyState(stateStr) {
     Object.assign(globalScope, coreChordLinePopupRuntime);
     corePublicApi.publish(coreChordLinePopupRuntime);
 
-    // === Player View persistent settings (survives popup rebuilds) ===
-    const _pvSettingsKey = 'achord_player_view_settings';
-    const _pvDefaults = { font:'Vazirmatn', tColor:'#0fa966', cColor:'#e6aa28', hlColor:'#FF2E93', bgColor:'#0F131E', tSize:53, cSize:40, scaleLock:true, bold:true };
-    let _pvSettings = Object.assign({}, _pvDefaults);
-    try { const s = JSON.parse(localStorage.getItem(_pvSettingsKey)); if (s) _pvSettings = Object.assign({}, _pvDefaults, s); } catch(_) {}
-    function _pvSave() { try { localStorage.setItem(_pvSettingsKey, JSON.stringify(_pvSettings)); } catch(_) {} }
-    // Wheel handlers — re-attached on each syncLyricPopup() call
-    const _fontList = [
-      'Vazirmatn', 
-      'Vazirmatn Thin', 
-      'Vazirmatn Bold', 
-      'Vazirmatn Black', 
-      'BArshia', 
-      'BFarnaz', 
-      'BJadid', 
-      'BZar', 
-      'BZar Bold', 
-      'Lalezar'
-    ];
-    
-    // Helper to ensure font name is properly quoted for CSS
-    function _getFontFamilyCSS(fontName) {
-      return "'" + fontName + "', sans-serif";
+    const corePlayerViewSettingsRuntime =
+      globalScope.CorePlayerViewSettingsService?.create?.({
+        getPopup: () => _lyricPopup,
+        isPopupOpen: popup => isPopupOpen(popup),
+        popupDocument: popup => popupDocument(popup),
+        popupWindowBridge,
+        windowRef: window,
+        getSongState: () => requireEditorSongStateService(),
+        getDAW: () => getEditorDAW(),
+        getTransportPlayhead: () => getTransportPlayhead(),
+        installPopupHighlightLoop,
+        schedule: (...args) => setTimeout(...args),
+        EventCtor: window.Event
+      });
+    if (!corePlayerViewSettingsRuntime) {
+      throw new Error(
+        'CorePlayerViewSettingsService باید قبل از app/core.js بارگذاری شود.'
+      );
     }
-    function _pvSetupWheelHandlers() {
-      if (!isPopupOpen(_lyricPopup)) return;
-      const pDoc = popupDocument(_lyricPopup);
-      if (!pDoc) return;
-      // Remove old handler if exists
-      const previousWheelHandler = popupWindowBridge?.get?.(_lyricPopup, '_pvWheelHandler');
-      if (previousWheelHandler) {
-        pDoc.removeEventListener('wheel', previousWheelHandler);
-      }
-      // Create new handler
-      const handler = (e) => {
-        if (!isPopupOpen(_lyricPopup)) return;
-        const target = e.target;
-        // Ctrl+Wheel anywhere → lyric size
-        if (e.ctrlKey) {
-          e.preventDefault();
-          const delta = e.deltaY < 0 ? 1 : -1;
-          _pvSettings.tSize = Math.max(12, Math.min(55, _pvSettings.tSize + delta));
-          if (_pvSettings.scaleLock) {
-            _pvSettings.cSize = Math.max(8, Math.min(40, Math.round(_pvSettings.tSize * 0.7)));
-          }
-          _pvSave(); _pvApply();
-          return;
-        }
-        // Plain wheel on chord → chord size
-        if (target && target.classList && target.classList.contains('p-chord')) {
-          e.preventDefault();
-          const delta = e.deltaY < 0 ? 1 : -1;
-          _pvSettings.cSize = Math.max(8, Math.min(40, _pvSettings.cSize + delta));
-          if (_pvSettings.scaleLock) {
-            _pvSettings.tSize = Math.max(12, Math.min(55, Math.round(_pvSettings.cSize / 0.7)));
-          }
-          _pvSave(); _pvApply();
-          return;
-        }
-        // Wheel on font selector → cycle fonts
-        if (target && target.id === 'pv-font') {
-          e.preventDefault();
-          let idx = _fontList.indexOf(_pvSettings.font);
-          idx = e.deltaY < 0 ? (idx - 1 + _fontList.length) % _fontList.length : (idx + 1) % _fontList.length;
-          _pvSettings.font = _fontList[idx];
-          target.value = _pvSettings.font;
-          _pvSave(); _pvApply();
-          return;
-        }
-      };
-      popupWindowBridge?.set?.(_lyricPopup, '_pvWheelHandler', handler);
-      pDoc.addEventListener('wheel', handler, { passive: false });
-    }
+    Object.assign(globalScope, corePlayerViewSettingsRuntime);
+    corePublicApi.publish(corePlayerViewSettingsRuntime);
 
     function syncLyricPopup() {
       if (!isPopupOpen(_lyricPopup)) return;
@@ -1902,7 +1850,7 @@ function applyState(stateStr) {
 
         // Re-apply saved settings
         try {
-          const s = JSON.parse(localStorage.getItem('${_pvSettingsKey}')) || {};
+          const s = corePlayerViewSettingsRuntime.getSettings();
           lineEls.forEach(el => {
             el.style.fontSize = (s.tSize || tSize) + 'px';
             el.style.color = s.tColor || tColor;
@@ -2226,66 +2174,17 @@ body.hl-pulse .popup-sync-line.active::before { content: ''; position: absolute;
         window._pChordEls = _pChordEls;
         window._pChordLineEls = _pChordLineEls;
 
-        // === Wheel handlers ===
-        var _pvKey = '${_pvSettingsKey}';
-        function _pvLoad() { try { return JSON.parse(localStorage.getItem(_pvKey)) || {}; } catch(e) { return {}; } }
-        function _pvSaveLocal(s) { try { localStorage.setItem(_pvKey, JSON.stringify(s)); } catch(e) {} }
-        function _pvApplyLocal(s) {
-          document.body.style.background = s.bgColor || '#0F131E';
-          var fontName = s.font || 'Vazirmatn';
-          document.querySelectorAll('.eline').forEach(function(el) {
-            el.style.color = s.tColor || '#0fa966';
-            el.style.fontSize = (s.tSize || 38) + 'px';
-            el.style.fontWeight = s.bold ? 'bold' : 'normal';
-            el.style.fontFamily = fontName;
-          });
-          _pCfg.cSize = s.cSize || 38;
-          _pCfg.cColor = s.cColor || '#e6aa28';
-          _pCfg.cFont = fontName;
-          if (typeof _pScheduleChordRender === 'function') { _pScheduleChordRender('style'); }
-          else { _pRenderChords(); }
-        }
-        document.addEventListener('wheel', function(e) {
-          var s = _pvLoad(); if (!s.tSize) s.tSize = 20; if (!s.cSize) s.cSize = 14;
-          if (s.scaleLock === undefined) s.scaleLock = true;
-          var t = e.target;
-          if (t && t.id === 'pv-tSize') {
-            e.preventDefault();
-            s.tSize = Math.max(12, Math.min(55, s.tSize + (e.deltaY < 0 ? 1 : -1)));
-            if (s.scaleLock) s.cSize = Math.max(8, Math.min(40, Math.round(s.tSize * 0.7)));
-            t.value = s.tSize;
-            var tv = document.getElementById('pv-tSizeVal'); if (tv) tv.textContent = s.tSize;
-            var cs = document.getElementById('pv-cSize'); var cv = document.getElementById('pv-cSizeVal');
-            if (cs) cs.value = s.cSize; if (cv) cv.textContent = s.cSize;
-            _pvSaveLocal(s); _pvApplyLocal(s); return;
-          }
-          if (t && t.id === 'pv-cSize') {
-            e.preventDefault();
-            s.cSize = Math.max(8, Math.min(40, s.cSize + (e.deltaY < 0 ? 1 : -1)));
-            if (s.scaleLock) s.tSize = Math.max(12, Math.min(55, Math.round(s.cSize / 0.7)));
-            t.value = s.cSize;
-            var cv2 = document.getElementById('pv-cSizeVal'); if (cv2) cv2.textContent = s.cSize;
-            var ts = document.getElementById('pv-tSize'); var tv2 = document.getElementById('pv-tSizeVal');
-            if (ts) ts.value = s.tSize; if (tv2) tv2.textContent = s.tSize;
-            _pvSaveLocal(s); _pvApplyLocal(s); return;
-          }
-          if (t && t.id === 'pv-font') {
-            e.preventDefault();
-            var _fl = ['Vazirmatn','Vazirmatn Thin','Vazirmatn Bold','Vazirmatn Black','BArshia','BFarnaz','BJadid','BZar','BZar Bold','Lalezar'];
-            var idx = _fl.indexOf(s.font || 'Vazirmatn');
-            idx = e.deltaY < 0 ? (idx - 1 + _fl.length) % _fl.length : (idx + 1) % _fl.length;
-            s.font = _fl[idx]; t.value = s.font;
-            _pvSaveLocal(s); _pvApplyLocal(s); return;
-          }
-        }, { passive: false });
       `;
       popupDoc.body.appendChild(sc);
       // Override _pCfg with saved Player View settings (not editor defaults)
+      const playerViewSettings = corePlayerViewSettingsRuntime.getSettings();
       popupWindowBridge?.set?.(_lyricPopup, '_pCfg', {
-        cSize: _pvSettings.cSize,
-        cColor: _pvSettings.cColor,
+        cSize: playerViewSettings.cSize,
+        cColor: playerViewSettings.cColor,
         cFont: 'JetBrains Mono'
       });
+      corePlayerViewSettingsRuntime.initialize();
+      }
 
 // ==========================================
 // PART 3: Project Load & Audio Export (WAV)
@@ -2374,138 +2273,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }).bind();
   }
 });
-      // تنظیمات popup فقط از مسیر WindowBridge به runtime پنجره می‌رسد.
-      const initialPopupConfig = popupWindowBridge?.get?.(_lyricPopup, '_pCfg');
-      if (initialPopupConfig && typeof initialPopupConfig === 'object') {
-        initialPopupConfig.cSize = _pvSettings.cSize;
-        initialPopupConfig.cColor = _pvSettings.cColor;
-        popupWindowBridge?.set?.(_lyricPopup, '_pCfg', initialPopupConfig);
-      }
-      // Settings panel initialization — use persistent _pvSettings from outer scope
-      const _pvDoc = popupDocument(_lyricPopup);
-      if (!_pvDoc) return;
-      function _pvApply() {
-        const root = _pvDoc.body;
-        root.style.background = _pvSettings.bgColor;
-        // Apply to all lines
-        _pvDoc.querySelectorAll('.eline').forEach(el => {
-          el.style.color = _pvSettings.tColor;
-          el.style.fontSize = _pvSettings.tSize + 'px';
-          el.style.fontWeight = _pvSettings.bold ? 'bold' : 'normal';
-          el.style.fontFamily = _getFontFamilyCSS(_pvSettings.font);
-        });
-        // Update chord config and re-render through the popup bridge.
-        const popupConfig = popupWindowBridge?.get?.(_lyricPopup, '_pCfg');
-        if (popupConfig && typeof popupConfig === 'object') {
-          popupConfig.cSize = _pvSettings.cSize;
-          popupConfig.cColor = _pvSettings.cColor;
-          popupConfig.cFont = 'JetBrains Mono';
-          popupWindowBridge?.set?.(_lyricPopup, '_pCfg', popupConfig);
-          const scheduled = popupWindowBridge?.call?.(
-            _lyricPopup,
-            '_pScheduleChordRender',
-            'style'
-          );
-          if (!scheduled) {
-            popupWindowBridge?.call?.(_lyricPopup, '_pRenderChords');
-          }
-        }
-      }
-      // Toggle settings panel (auto-hide: clicking outside closes it)
-      const _pvToggle = _pvDoc.getElementById('pv-settings-toggle');
-      const _pvPanel = _pvDoc.getElementById('pv-settings');
-      if (_pvToggle && _pvPanel) {
-        _pvToggle.onclick = (e) => { e.stopPropagation(); _pvPanel.style.display = _pvPanel.style.display === 'none' ? 'block' : 'none'; };
-        _pvDoc.body.addEventListener('click', (e) => { if (!_pvPanel.contains(e.target) && e.target !== _pvToggle) _pvPanel.style.display = 'none'; });
-      }
-      // Wire up controls
-      const _pvFont = _pvDoc.getElementById('pv-font'); if (_pvFont) { _pvFont.value = _pvSettings.font; _pvFont.onchange = () => { _pvSettings.font = _pvFont.value; _pvSave(); _pvApply(); }; }
-      const _pvTC = _pvDoc.getElementById('pv-tColor'); if (_pvTC) { _pvTC.value = _pvSettings.tColor; _pvTC.oninput = () => { _pvSettings.tColor = _pvTC.value; _pvSave(); _pvApply(); }; }
-      const _pvCC = _pvDoc.getElementById('pv-cColor'); if (_pvCC) { _pvCC.value = _pvSettings.cColor; _pvCC.oninput = () => { _pvSettings.cColor = _pvCC.value; _pvSave(); _pvApply(); }; }
-      const _pvBG = _pvDoc.getElementById('pv-bgColor'); if (_pvBG) { _pvBG.value = _pvSettings.bgColor; _pvBG.oninput = () => { _pvSettings.bgColor = _pvBG.value; _pvSave(); _pvApply(); }; }
-      const _pvTS = _pvDoc.getElementById('pv-tSize'); const _pvTV = _pvDoc.getElementById('pv-tSizeVal');
-      if (_pvTS) { _pvTS.value = _pvSettings.tSize; if (_pvTV) _pvTV.textContent = _pvSettings.tSize; _pvTS.oninput = () => { _pvSettings.tSize = +_pvTS.value; if (_pvTV) _pvTV.textContent = _pvSettings.tSize; if (_pvSettings.scaleLock) { _pvSettings.cSize = Math.round(_pvSettings.tSize * 0.7); const cs = _pvDoc.getElementById('pv-cSize'); const cv = _pvDoc.getElementById('pv-cSizeVal'); if (cs) cs.value = _pvSettings.cSize; if (cv) cv.textContent = _pvSettings.cSize; } _pvSave(); _pvApply(); }; }
-      const _pvCS = _pvDoc.getElementById('pv-cSize'); const _pvCV = _pvDoc.getElementById('pv-cSizeVal');
-      if (_pvCS) { _pvCS.value = _pvSettings.cSize; if (_pvCV) _pvCV.textContent = _pvSettings.cSize; _pvCS.oninput = () => { _pvSettings.cSize = +_pvCS.value; if (_pvCV) _pvCV.textContent = _pvSettings.cSize; if (_pvSettings.scaleLock) { _pvSettings.tSize = Math.round(_pvSettings.cSize / 0.7); const ts = _pvDoc.getElementById('pv-tSize'); const tv = _pvDoc.getElementById('pv-tSizeVal'); if (ts) ts.value = _pvSettings.tSize; if (tv) tv.textContent = _pvSettings.tSize; } _pvSave(); _pvApply(); }; }
-      const _pvSL = _pvDoc.getElementById('pv-scaleLock'); if (_pvSL) { _pvSL.checked = _pvSettings.scaleLock; _pvSL.onchange = () => { _pvSettings.scaleLock = _pvSL.checked; _pvSave(); }; }
-      const _pvBold = _pvDoc.getElementById('pv-bold'); if (_pvBold) { _pvBold.checked = _pvSettings.bold; _pvBold.onchange = () => { _pvSettings.bold = _pvBold.checked; _pvSave(); _pvApply(); }; }
-      // Apply saved settings on load
-      _pvApply();
-      // ریسایز درگ‌کردنی نوار آکورد
-      (function() {
-        const _handle = _pvDoc.getElementById('chordMirrorHandle');
-        const _wrapper = _pvDoc.getElementById('chordMirrorResize');
-        const _mirror = _pvDoc.getElementById('playerChordMirror');
-        if (!_handle || !_wrapper || !_mirror) return;
-        let _dragging = false, _startY = 0, _startH = 0;
-        _handle.addEventListener('mousedown', function(e) {
-          e.preventDefault(); _dragging = true; _startY = e.clientY; _startH = _wrapper.offsetHeight;
-          _pvDoc.body.style.cursor = 'ns-resize'; _pvDoc.body.style.userSelect = 'none';
-        });
-        _pvDoc.addEventListener('mousemove', function(e) {
-          if (!_dragging) return;
-          const newH = Math.max(40, Math.min(300, _startH + (_startY - e.clientY)));
-          _wrapper.style.height = newH + 'px';
-          _mirror.style.height = (newH - 4) + 'px';
-        });
-        _pvDoc.addEventListener('mouseup', function() {
-          if (_dragging) { _dragging = false; _pvDoc.body.style.cursor = ''; _pvDoc.body.style.userSelect = ''; }
-        });
-      })();
-      // Highlight sync: update popup directly from main window (not postMessage)
-      // فقط class toggling — هیچ inline style reset — هیچ DOM rebuild
-      let _pvLastScrolledIdx = -999;
-      function _syncLyricPopupHighlight() {
-        if (!isPopupOpen(_lyricPopup)) return;
-        const popupBody = popupDocument(_lyricPopup)?.getElementById('popupBody');
-        if (!popupBody) return;
-        const times = requireEditorSongStateService().getSyncTimes();
-        const daw = getEditorDAW();
-        const t = daw?.isPlaying
-          ? getTransportPlayhead()
-          : (Number.isFinite(daw?.playhead) ? daw.playhead : 0);
-        let activeIdx = -1;
-        for (let i = 0; i < times.length; i++) {
-          if (Number.isFinite(times[i]) && times[i] <= t) activeIdx = i;
-          else if (Number.isFinite(times[i]) && times[i] > t) break;
-        }
-        // فقط class toggling — بدون reset inline styles
-        [...popupBody.children].forEach(el => {
-          if (!el.dataset.li) return;
-          const li = +el.dataset.li;
-          el.classList.toggle('active', li === activeIdx);
-          el.classList.toggle('done', (times[li] != null) && times[li] < t && li !== activeIdx);
-        });
-        // اسکرول فقط وقتی خط فعال عوض شده
-        if (activeIdx >= 0 && activeIdx !== _pvLastScrolledIdx) {
-          _pvLastScrolledIdx = activeIdx;
-          const activeEl = popupBody.querySelector('[data-li="' + activeIdx + '"]');
-          if (activeEl) {
-            const bodyH = popupBody.clientHeight;
-            popupBody.scrollTo({ top: activeEl.offsetTop - bodyH / 2 + activeEl.offsetHeight / 2, behavior: 'smooth' });
-          }
-        }
-      }
-      popupWindowBridge?.set?.(_lyricPopup, '_syncHighlight', _syncLyricPopupHighlight);
-      installPopupHighlightLoop(_lyricPopup, _pvDoc);
-      // Fallback chord render chain: اگر rAF اولیه در full rebuild fail شد
-      [200, 500, 1000].forEach(function(ms) {
-        setTimeout(function() {
-          try {
-            if (isPopupOpen(_lyricPopup)) {
-              popupWindowBridge?.call?.(_lyricPopup, '_pRenderChords');
-            }
-          } catch(_) {}
-        }, ms);
-      });
-      // Force Reflow: مجبور کردن مرورگر به محاسبه مجدد چیدمان
-      try {
-        const _pb = popupDocument(_lyricPopup)?.getElementById('popupBody');
-        if (_pb) void _pb.offsetHeight;
-        popupWindowBridge?.dispatch?.(_lyricPopup, new Event('resize'));
-      } catch(_) {}
-    }
-
     /* ===== SYNC / LINE GUIDE ===== */
     let syncCursor = 0,
     syncHistory = [],
