@@ -67,6 +67,55 @@ function customPrompt(message, defaultValue = '') {
 if (typeof window !== 'undefined') window.customPrompt = customPrompt;
 
     const editorTransportState = globalScope.EditorTransportStateService.create();
+    const coreGridQuantizeRuntime =
+      globalScope.CoreGridQuantizeService?.create?.({
+        documentRef: document,
+        getElement: id => $(id),
+        getTransportState: () => editorTransportState,
+        getSongState: () => requireEditorSongStateService(),
+        getDAW: () => getEditorDAW(),
+        timelineGrid: globalScope.TimelineGrid,
+        meter: globalScope.Meter,
+        quantizer: globalScope.EditorChordQuantizeService,
+        saveState: () => saveState(),
+        renderClips: () => renderClips(),
+        renderRuler: () => renderRuler(),
+        toast: message => toast(message),
+        round: value => roundMs(value)
+      });
+    if (!coreGridQuantizeRuntime) {
+      throw new Error(
+        'CoreGridQuantizeService باید قبل از app/core.js بارگذاری شود.'
+      );
+    }
+    const {
+      getTimeSignatureGridConfig,
+      getActiveQuantizeGridStep,
+      toggleSnap,
+      snapTime,
+      showQuantizeModal,
+      applyQuantize,
+      quantizeSelectedChords
+    } = coreGridQuantizeRuntime;
+    Object.assign(globalScope, {
+      getTimeSignatureGridConfig,
+      getActiveQuantizeGridStep,
+      toggleSnap,
+      snapTime,
+      showQuantizeModal,
+      applyQuantize,
+      quantizeSelectedChords
+    });
+    corePublicApi.publish({
+      getTimeSignatureGridConfig,
+      getActiveQuantizeGridStep,
+      toggleSnap,
+      snapTime,
+      showQuantizeModal,
+      applyQuantize,
+      quantizeSelectedChords
+    });
+    coreGridQuantizeRuntime.bindModalDismiss();
 
     function alignPlayheadToNearestMeasure(config) {
       const daw = getEditorDAW();
@@ -99,16 +148,6 @@ if (typeof window !== 'undefined') window.customPrompt = customPrompt;
       alignPlayheadToNearestMeasure(getTimeSignatureGridConfig(sig, bpm));
     }
 
-    // ===== SNAP TO GRID =====
-    /**
-     * getTimeSignatureGridConfig - تبدیل Time Signature به مشخصات گرید
-     * @param {string} timeSignature - رشته Time Signature مثل '4/4', '3/4', '6/8'
-     * @returns {object} شامل numerator, denominator, beatUnit, beatsPerMeasure, subdivisionsPerBeat, unitsPerMeasure, measureDuration, beatDuration
-     */
-    function getTimeSignatureGridConfig(timeSignature, bpm) {
-      return TimelineGrid.getTimeSignatureGridConfig(timeSignature, bpm || 120);
-    }
-
     let transportSchedulingService = null;
     let audioContextServiceBridge = null;
     let countInSchedulerBridge = null;
@@ -124,110 +163,6 @@ if (typeof window !== 'undefined') window.customPrompt = customPrompt;
     function cancelCountIn() {
       return transportSchedulingService?.cancelCountIn?.() || false;
     }
-    function toggleSnap() {
-      editorTransportState.snapEnabled = !editorTransportState.snapEnabled;
-      $('snapBtn').classList.toggle('active', editorTransportState.snapEnabled);
-      toast(editorTransportState.snapEnabled ? 'اسنپ فعال شد' : 'اسنپ غیرفعال شد');
-    }
-
-    function snapTime(time) {
-      if (!editorTransportState.snapEnabled) return time;
-      const timing = requireEditorSongStateService().getTimingContext();
-      const config = getTimeSignatureGridConfig(
-        timing.timeSignature,
-        timing.tempo
-      );
-      editorTransportState.snapValue = getActiveQuantizeGridStep(config);
-      return window.Meter.snapTimeToGrid(time, editorTransportState.snapValue);
-    }
-
-    // ===== QUANTIZE =====
-    function showQuantizeModal() {
-      $('quantizeModal').classList.toggle('show');
-    }
-
-    function getActiveQuantizeGridStep(config) {
-      const service = typeof EditorChordQuantizeService !== 'undefined'
-        ? EditorChordQuantizeService
-        : null;
-      return service?.gridStepForPreset?.(config, editorTransportState.snapPreset)
-        || Number(config?.beatDuration)
-        || editorTransportState.snapValue;
-    }
-
-    function applyQuantize(preset, sourceElement) {
-      const timing = requireEditorSongStateService().getTimingContext();
-      const bpm = timing.tempo;
-      const sig = timing.timeSignature;
-      const config = getTimeSignatureGridConfig(sig, bpm);
-      editorTransportState.snapPreset = preset || '1/4';
-      editorTransportState.snapValue = getActiveQuantizeGridStep(config);
-
-      // Update UI
-      document.querySelectorAll('.q-preset').forEach(el => el.classList.remove('active'));
-      (sourceElement?.closest?.('.q-preset') ||
-        document.querySelector(`.q-preset[data-value="${editorTransportState.snapPreset}"]`))?.classList.add('active');
-      editorTransportState.snapEnabled = true;
-      $('snapBtn').classList.add('active');
-
-      toast(`کوانتایز: ${preset} (${(editorTransportState.snapValue * 1000).toFixed(0)}ms)`);
-      $('quantizeModal').classList.remove('show');
-    }
-
-    // Close quantize modal on outside click
-    document.addEventListener('click', (e) => {
-      if (!e.target.closest('#quantizeModal') && !e.target.closest('[data-action="showQuantize"]')) {
-        $('quantizeModal')?.classList.remove('show');
-      }
-    });
-
-    /**
-     * quantizeSelectedChords — کوانتایز آکوردهای انتخاب‌شده در کورد لاین
-     *
-     * آکوردهای انتخاب‌شده را بر اساس پریست کوانتایز فعلی
-     * (snapValue) به نزدیک‌ترین نقطه گرید می‌چسباند.
-     *
-     * مثال:
-     *   - پریست 1/1 (یک میزان): آکوردها به ابتدای میزان می‌چسبند
-     *   - پریست 1/2 (نیم میزان): آکوردها به نزدیک‌ترین خط نیم میزان می‌چسبند
-     *   - پریست 1/4 (یک ضرب): آکوردها به نزدیک‌ترین ضرب می‌چسبند
-     *   - و ...
-     */
-    function quantizeSelectedChords() {
-      // فقط کلیپ‌های آکورد (chord) را انتخاب کن
-      const daw = getEditorDAW();
-      const selectedChordClips = daw.clips.filter(c => c.type === 'chord' && daw.selectedIds.has(c.id));
-      if (selectedChordClips.length === 0) {
-        toast('آکوردی در کورد لاین انتخاب نشده است');
-        return;
-      }
-
-      const songState = requireEditorSongStateService();
-      const timing = songState.getTimingContext();
-      const bpm = timing.tempo;
-      const sig = timing.timeSignature;
-      const config = getTimeSignatureGridConfig(sig, bpm);
-      const gridStep = getActiveQuantizeGridStep(config);
-      const quantizer = typeof EditorChordQuantizeService !== 'undefined'
-        ? EditorChordQuantizeService
-        : null;
-      const result = quantizer?.quantizeSelectedChords?.(
-        daw.clips,
-        daw.selectedIds,
-        gridStep,
-        { round: roundMs }
-      ) || { changed: false, count: 0 };
-
-      if (result.changed) {
-        saveState();
-        renderClips();
-        renderRuler();
-        toast(`کوانتایز شد: ${result.count} آکورد`);
-      } else {
-        toast('آکوردها از قبل روی گرید هستند');
-      }
-    }
-
     function toggleMetronome() {
       editorTransportState.metroActive = !editorTransportState.metroActive;
       $('metroToggleBtn').textContent = editorTransportState.metroActive ? '🔊' : '🔇';

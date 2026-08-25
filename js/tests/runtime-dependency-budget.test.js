@@ -33,6 +33,7 @@ const editorSyncAnalysisUiService = read(
   'js/editor/EditorSyncAnalysisUiService.js'
 );
 const midiMonitorService = read('js/app/MidiMonitorService.js');
+const coreGridQuantizeService = read('js/app/CoreGridQuantizeService.js');
 const editor = executableLines(read('js/app/editor.js'));
 const appCore = executableLines(read('js/app/core.js'));
 const search = executableLines(read('js/app/search.js'));
@@ -99,6 +100,10 @@ assert.match(midiMonitorService, /function updateMidiMonitor\(/);
 assert.match(midiMonitorService, /function updateMidiStatusDot\(/);
 assert.doesNotMatch(appCore, /midiMsgTypes/);
 assert.doesNotMatch(appCore, /function updateMidiMonitor\(/);
+assert.match(coreGridQuantizeService, /function snapTime\(/);
+assert.match(coreGridQuantizeService, /function quantizeSelectedChords\(/);
+assert.doesNotMatch(appCore, /function getActiveQuantizeGridStep\(/);
+assert.doesNotMatch(appCore, /function quantizeSelectedChords\(/);
 
 assert.doesNotMatch(appCore, /\bPERF\s*\./);
 assert.doesNotMatch(appCore, /\bDAW\s*\./);
