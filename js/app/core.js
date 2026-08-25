@@ -512,13 +512,6 @@ function requireLyricPositionMapper() {
   return window.LyricPositionMapper;
 }
 
-function requireChordLineSyncService() {
-  if (typeof window.ChordLineSyncService !== 'object' || !window.ChordLineSyncService) {
-    throw new Error('ChordLineSyncService در دسترس نیست. ترتیب scriptها در Akordyar.html را بررسی کنید.');
-  }
-  return window.ChordLineSyncService;
-}
-
 function requireEditorSongStateService() {
   if (
     typeof window.EditorSongStateService !== 'object' ||
@@ -1552,67 +1545,27 @@ function applyState(stateStr) {
     Object.assign(globalScope, coreSettingsRuntime);
     corePublicApi.publish(coreSettingsRuntime);
     coreSettingsRuntime.initialize();
-    function syncChordLineFromLyrics() {
-      const songState = requireEditorSongStateService();
-      const song = songState.currentSong();
-      if (!song) { toast('سندی برای سینک وجود ندارد'); return; }
-      
-          // 1. Extract chords from the current song (parsed from lyrics)
-      const lyricsChords = songState.getChords(song);
-      
-      // If no chords in Lyrics
-      if (lyricsChords.length === 0) { 
-        toast('هیچ آکوردی در Lyrics Chord وجود ندارد.');
-        return; 
-      }
-      
-      // 2. Sort chords by spatial position from right to left (RTL reading order)
-      // منطق مرتب‌سازی به js/editor/ChordLineSyncService.js منتقل شده است.
-      const lyricsChordsInSyncOrder = requireChordLineSyncService().sortLyricsChordsForSync(lyricsChords);
-      
-      // 3. Get current Chord Line clips from getEditorDAW().clips (the actual source of truth)
-      const chordTrack = getEditorDAW().tracks.find(t => t.type === 'chord');
-      let currentChordLineClips = [];
-      
-      if (chordTrack) {
-        // Get all chord clips sorted by start time (left to right on timeline)
-        currentChordLineClips = getEditorDAW().clips
-          .filter(c => c.type === 'chord' && c.trackId === chordTrack.id)
-          .sort((a, b) => a.start - b.start);
-      }
-      
-      // If Chord Line is empty
-      if (currentChordLineClips.length === 0) {
-        toast('برای همگام‌سازی، ابتدا حداقل یک آکورد در Chord Line ایجاد کنید.');
-        return;
-      }
-      
-      // 4. Apply Lyrics chords to Chord Line from left to right
-      // Only update the .name property of existing clips
-      // منطق اعمال به js/editor/ChordLineSyncService.js منتقل شده است.
-      const appliedCount = requireChordLineSyncService().applyChordNamesToClips(lyricsChordsInSyncOrder, currentChordLineClips);
-      
-      // 5. Update state and re-render
-      songState.markChordLineSynced(song);
-      
-      // Re-render Chord Line popup if open
-      if (isPopupOpen(_chordLinePopup)) {
-        syncChordLinePopup();
-      }
-      
-      // Save state to persist changes
-      saveState();
-      
-      // Re-render timeline to show updated chord clips
-      renderAll();
-      
-      // Show result message
-      if (lyricsChordsInSyncOrder.length > currentChordLineClips.length) {
-        toast(`فقط ${appliedCount} آکورد اول Lyrics روی ${currentChordLineClips.length} آکورد موجود در Chord Line اعمال شد.`);
-      } else {
-        toast(`✔ Chord Line با موفقیت از Lyrics Chord همگام شد (${appliedCount} آکورد).`);
-      }
+    const coreChordLineSyncRuntime =
+      globalScope.CoreChordLineSyncService?.create?.({
+        getSongState: () => requireEditorSongStateService(),
+        getDAW: () => getEditorDAW(),
+        getChordLineSyncService: () => globalScope.ChordLineSyncService,
+        isPopupOpen: popup => isPopupOpen(popup),
+        getChordLinePopup: () =>
+          typeof _chordLinePopup !== 'undefined' ? _chordLinePopup : null,
+        syncChordLinePopup: () => syncChordLinePopup(),
+        saveState: () => saveState(),
+        renderAll: () => renderAll(),
+        toast: message => toast(message)
+      });
+    if (!coreChordLineSyncRuntime) {
+      throw new Error(
+        'CoreChordLineSyncService باید قبل از app/core.js بارگذاری شود.'
+      );
     }
+    const { syncChordLineFromLyrics } = coreChordLineSyncRuntime;
+    Object.assign(globalScope, coreChordLineSyncRuntime);
+    corePublicApi.publish(coreChordLineSyncRuntime);
     const coreMovableWindowRuntime =
       globalScope.CoreMovableWindowBridgeService?.create?.({
         documentRef: document,

@@ -56,6 +56,9 @@ const coreMovableWindowBridgeService = read(
 );
 const coreLoopVisualService = read('js/app/CoreLoopVisualService.js');
 const coreLoopControlService = read('js/app/CoreLoopControlService.js');
+const coreChordLineSyncService = read(
+  'js/app/CoreChordLineSyncService.js'
+);
 const corePopupWindowBridgeService = read(
   'js/app/CorePopupWindowBridgeService.js'
 );
@@ -223,6 +226,10 @@ assert.match(
   coreLoopControlService,
   /function setLoopFromSelectionAndPlay\(\)/
 );
+assert.match(
+  coreChordLineSyncService,
+  /function syncChordLineFromLyrics\(\)/
+);
 assert.match(corePopupWindowBridgeService, /function isPopupOpen\(popup\)/);
 assert.match(corePopupWindowBridgeService, /function openPopupWindow\(name, features\)/);
 assert.match(coreFocusModeService, /function toggleFocusMode\(\)/);
@@ -246,6 +253,7 @@ assert.doesNotMatch(appCore, /function getEditorMovableWindowService\(\)/);
 assert.doesNotMatch(appCore, /function renderLoopRegion\(\)/);
 assert.doesNotMatch(appCore, /function toggleLoop\(\)/);
 assert.doesNotMatch(appCore, /function setLoopFromSelectionAndPlay\(\)/);
+assert.doesNotMatch(appCore, /function syncChordLineFromLyrics\(\)/);
 assert.doesNotMatch(appCore, /function openPopupWindow\(name, features\)/);
 assert.doesNotMatch(appCore, /function toggleFocusMode\(\)/);
 assert.doesNotMatch(
