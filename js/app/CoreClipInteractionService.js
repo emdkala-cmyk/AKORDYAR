@@ -16,6 +16,25 @@
     selectedClips = () => globalScope.selectedClips?.() || [],
     clearEditorTextSelection = () => {},
     clearChordSelection = () => globalScope.edClearChordSelection?.(),
+    selectionService = null,
+    clearSectionSelection = () => {},
+    toggleClipSelection = clipId => {
+      const daw = getDAW();
+      if (daw.selectedIds.has(clipId)) daw.selectedIds.delete(clipId);
+      else daw.selectedIds.add(clipId);
+    },
+    setSelection = ids => {
+      const daw = getDAW();
+      daw.selectedIds = new Set(ids || []);
+    },
+    setClipSelection = ids => {
+      const daw = getDAW();
+      daw.selectedIds = new Set(ids || []);
+    },
+    setSectionSelection = ids => {
+      const daw = getDAW();
+      daw.selectedSectionIds = new Set(ids || []);
+    },
     renderClips = () => {},
     renderAll = () => {},
     renderRuler = () => {},
@@ -39,6 +58,17 @@
     clearTimer = globalScope.clearTimeout
   } = {}) {
     let dragOverLaneTrackId = null;
+    const selection = selectionService || {};
+    const clearSections = (...args) =>
+      (selection.clearSectionSelection || clearSectionSelection)(...args);
+    const toggleClip = (...args) =>
+      (selection.toggleClipSelection || toggleClipSelection)(...args);
+    const selectAll = (...args) =>
+      (selection.setSelection || setSelection)(...args);
+    const selectClips = (...args) =>
+      (selection.setClipSelection || setClipSelection)(...args);
+    const selectSections = (...args) =>
+      (selection.setSectionSelection || setSectionSelection)(...args);
 
     function getSelectedSectionIds(daw) {
       if (!(daw.selectedSectionIds instanceof Set)) {
@@ -70,8 +100,7 @@
       const daw = getDAW();
       const selectedSectionIds = getSelectedSectionIds(daw);
       if (selectedSectionIds.size > 0) {
-        selectedSectionIds.clear();
-        renderClips();
+        clearSections({ render: true });
       }
 
       event.stopPropagation?.();
@@ -120,7 +149,7 @@
       if (event.altKey) {
         const selected = selectedClips();
         if (!selected.find(item => item.id === clipId)) {
-          daw.selectedIds = new Set([clipId]);
+          selectClips([clipId], { render: false });
         }
 
         const duplicates = selectedClips();
@@ -144,7 +173,7 @@
           });
         });
 
-        daw.selectedIds = new Set(newIds);
+        selectClips(newIds, { render: false });
         daw.drag = {
           type: 'move',
           edge: null,
@@ -163,16 +192,13 @@
       }
 
       if (event.ctrlKey || event.metaKey) {
-        if (daw.selectedIds.has(clipId)) daw.selectedIds.delete(clipId);
-        else daw.selectedIds.add(clipId);
-        renderClips();
+        toggleClip(clipId, { render: true });
         return;
       }
 
       if (!daw.selectedIds.has(clipId)) {
-        daw.selectedIds = new Set([clipId]);
-        selectedSectionIds.clear();
-        renderClips();
+        clearSections({ render: false });
+        selectAll([clipId]);
       }
 
       const edge = event.target?.dataset?.edge || null;
@@ -347,13 +373,7 @@
           clipIds.push(element.dataset.clipId);
         }
       });
-      daw.selectedIds = new Set(clipIds);
-      documentRef?.querySelectorAll?.('.clip')?.forEach?.(element => {
-        element.classList.toggle(
-          'selected',
-          daw.selectedIds.has(element.dataset?.clipId)
-        );
-      });
+      selectClips(clipIds, { render: false });
 
       const sectionIds = [];
       getMarqueeLaneElements('.section-tag').forEach(element => {
@@ -367,13 +387,7 @@
           sectionIds.push(element.dataset.sectionId);
         }
       });
-      daw.selectedSectionIds = new Set(sectionIds);
-      documentRef?.querySelectorAll?.('.section-tag')?.forEach?.(element => {
-        element.classList.toggle(
-          'selected',
-          daw.selectedSectionIds.has(element.dataset?.sectionId)
-        );
-      });
+      selectSections(sectionIds, { render: false });
     }
 
     function onDocMouseMove(event) {

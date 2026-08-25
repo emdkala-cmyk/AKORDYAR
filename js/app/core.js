@@ -1014,12 +1014,25 @@ function applyState(stateStr) {
   }, 1200);
 }
 
+    const coreSelectionRuntime =
+      globalScope.CoreSelectionService?.create?.({
+        documentRef: document,
+        getDAW: () => getEditorDAW(),
+        renderClips,
+        updateHud
+      });
+    if (!coreSelectionRuntime) throw new Error(
+      'CoreSelectionService باید قبل از app/core.js بارگذاری شود.'
+    );
+    corePublicApi.publish(coreSelectionRuntime);
+
     const coreAudioImportRuntime =
       globalScope.CoreAudioImportService?.create?.({
         getDAW: () => getEditorDAW(),
         getFileInput: () => $('audio-file-input'),
         renderTracks: (...args) => renderTracks(...args),
-        clearSelection: (...args) => clearSelection(...args),
+        clearSelection: (...args) =>
+          coreSelectionRuntime.clearSelection(...args),
         ensureAudioCtx: (...args) => ensureAudioCtx(...args),
         decodeFileToBuffer: (...args) => decodeFileToBuffer(...args),
         askAudioCopyMode: (...args) => askAudioCopyMode(...args),
@@ -1056,13 +1069,6 @@ function applyState(stateStr) {
     corePublicApi.publish({ openFileForTrack, importFileForTrack });
     bindFileInput();
 
-    function setSelection(ids) {
-  getEditorDAW().selectedIds = new Set(ids);
-  renderClips();
-  updateHud();
-}
-
-    function clearSelection() { getEditorDAW().selectedIds.clear(); getEditorDAW().selectedSectionIds.clear(); renderClips(); updateHud(); }
    function clearEditorTextSelection() {
      window.getSelection()?.removeAllRanges();
      $('editor')?.blur();
@@ -1133,6 +1139,7 @@ function applyState(stateStr) {
         clearEditorTextSelection: () => clearEditorTextSelection(),
         clearChordSelection: (...args) =>
           globalScope.edClearChordSelection?.(...args),
+        selectionService: coreSelectionRuntime,
         renderClips: (...args) => renderClips(...args),
         renderAll: (...args) => renderAll(...args),
         renderRuler: (...args) => renderRuler(...args),

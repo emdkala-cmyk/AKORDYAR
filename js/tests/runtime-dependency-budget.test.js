@@ -41,6 +41,7 @@ const coreTimelineRendererService = read('js/app/CoreTimelineRendererService.js'
 const coreClipService = read('js/app/CoreClipService.js');
 const coreAudioImportService = read('js/app/CoreAudioImportService.js');
 const coreClipEditService = read('js/app/CoreClipEditService.js');
+const coreSelectionService = read('js/app/CoreSelectionService.js');
 const coreClipInteractionService = read('js/app/CoreClipInteractionService.js');
 const coreMixerBridgeService = read('js/app/CoreMixerBridgeService.js');
 const editor = executableLines(read('js/app/editor.js'));
@@ -160,6 +161,10 @@ assert.doesNotMatch(
 assert.match(coreClipEditService, /function cutAtTime\(time, trackId = null\)/);
 assert.doesNotMatch(appCore, /function cutAtTime\(time, trackId = null\)/);
 assert.doesNotMatch(appCore, /\bsels\.forEach\(c =>/);
+assert.match(coreSelectionService, /function setSelection\(ids\)/);
+assert.match(coreSelectionService, /function clearSelection\(\)/);
+assert.doesNotMatch(appCore, /function setSelection\(ids\)/);
+assert.doesNotMatch(appCore, /function clearSelection\(\)/);
 assert.match(
   coreClipInteractionService,
   /function onClipMouseDown\(event\)/

@@ -171,6 +171,10 @@ assert.ok(
     scriptIndex('js/app/core.js')
 );
 assert.ok(
+  scriptIndex('js/app/CoreSelectionService.js') <
+    scriptIndex('js/app/core.js')
+);
+assert.ok(
   scriptIndex('js/app/CoreClipInteractionService.js') <
     scriptIndex('js/app/core.js')
 );
