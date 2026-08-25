@@ -236,8 +236,7 @@ if (typeof window !== 'undefined') window.customPrompt = customPrompt;
         notesEl.textContent = notes || '';
       }
     }
-    let metroActive = false, metroTimer = null;
-    let countInBars = 0; // 0=off, 1=1 bar, 2=2 bars before playback
+    const editorTransportState = globalScope.EditorTransportStateService.create();
 
     function alignPlayheadToNearestMeasure(config) {
       const daw = getEditorDAW();
@@ -261,9 +260,9 @@ if (typeof window !== 'undefined') window.customPrompt = customPrompt;
     }
 
     function setCountInBars(value) {
-      countInBars = Math.max(0, Number(value) || 0);
+      editorTransportState.countInBars = Math.max(0, Number(value) || 0);
       if (isCountInRunning()) cancelCountIn();
-      if (!countInBars) return;
+      if (!editorTransportState.countInBars) return;
 
       const bpm = parseInt($('edTempo')?.value) || 120;
       const sig = $('edTimeSig')?.value || '4/4';
@@ -271,10 +270,6 @@ if (typeof window !== 'undefined') window.customPrompt = customPrompt;
     }
 
     // ===== SNAP TO GRID =====
-    let snapEnabled = true;
-    let snapValue = 0.5; // derived from the active meter; compatibility cache only
-    let snapPreset = '1/4';
-
     /**
      * getTimeSignatureGridConfig - تبدیل Time Signature به مشخصات گرید
      * @param {string} timeSignature - رشته Time Signature مثل '4/4', '3/4', '6/8'
@@ -300,20 +295,20 @@ if (typeof window !== 'undefined') window.customPrompt = customPrompt;
       return transportSchedulingService?.cancelCountIn?.() || false;
     }
     function toggleSnap() {
-      snapEnabled = !snapEnabled;
-      $('snapBtn').classList.toggle('active', snapEnabled);
-      toast(snapEnabled ? 'اسنپ فعال شد' : 'اسنپ غیرفعال شد');
+      editorTransportState.snapEnabled = !editorTransportState.snapEnabled;
+      $('snapBtn').classList.toggle('active', editorTransportState.snapEnabled);
+      toast(editorTransportState.snapEnabled ? 'اسنپ فعال شد' : 'اسنپ غیرفعال شد');
     }
 
     function snapTime(time) {
-      if (!snapEnabled) return time;
+      if (!editorTransportState.snapEnabled) return time;
       const timing = requireEditorSongStateService().getTimingContext();
       const config = getTimeSignatureGridConfig(
         timing.timeSignature,
         timing.tempo
       );
-      snapValue = getActiveQuantizeGridStep(config);
-      return window.Meter.snapTimeToGrid(time, snapValue);
+      editorTransportState.snapValue = getActiveQuantizeGridStep(config);
+      return window.Meter.snapTimeToGrid(time, editorTransportState.snapValue);
     }
 
     // ===== QUANTIZE =====
@@ -325,9 +320,9 @@ if (typeof window !== 'undefined') window.customPrompt = customPrompt;
       const service = typeof EditorChordQuantizeService !== 'undefined'
         ? EditorChordQuantizeService
         : null;
-      return service?.gridStepForPreset?.(config, snapPreset)
+      return service?.gridStepForPreset?.(config, editorTransportState.snapPreset)
         || Number(config?.beatDuration)
-        || snapValue;
+        || editorTransportState.snapValue;
     }
 
     function applyQuantize(preset, sourceElement) {
@@ -335,17 +330,17 @@ if (typeof window !== 'undefined') window.customPrompt = customPrompt;
       const bpm = timing.tempo;
       const sig = timing.timeSignature;
       const config = getTimeSignatureGridConfig(sig, bpm);
-      snapPreset = preset || '1/4';
-      snapValue = getActiveQuantizeGridStep(config);
+      editorTransportState.snapPreset = preset || '1/4';
+      editorTransportState.snapValue = getActiveQuantizeGridStep(config);
 
       // Update UI
       document.querySelectorAll('.q-preset').forEach(el => el.classList.remove('active'));
       (sourceElement?.closest?.('.q-preset') ||
-        document.querySelector(`.q-preset[data-value="${snapPreset}"]`))?.classList.add('active');
-      snapEnabled = true;
+        document.querySelector(`.q-preset[data-value="${editorTransportState.snapPreset}"]`))?.classList.add('active');
+      editorTransportState.snapEnabled = true;
       $('snapBtn').classList.add('active');
 
-      toast(`کوانتایز: ${preset} (${(snapValue * 1000).toFixed(0)}ms)`);
+      toast(`کوانتایز: ${preset} (${(editorTransportState.snapValue * 1000).toFixed(0)}ms)`);
       $('quantizeModal').classList.remove('show');
     }
 
@@ -404,9 +399,9 @@ if (typeof window !== 'undefined') window.customPrompt = customPrompt;
     }
 
     function toggleMetronome() {
-      metroActive = !metroActive;
-      $('metroToggleBtn').textContent = metroActive ? '🔊' : '🔇';
-      if (metroActive && getEditorDAW().isPlaying) startMetronome();
+      editorTransportState.metroActive = !editorTransportState.metroActive;
+      $('metroToggleBtn').textContent = editorTransportState.metroActive ? '🔊' : '🔇';
+      if (editorTransportState.metroActive && getEditorDAW().isPlaying) startMetronome();
       else stopMetronome();
     }
 
@@ -419,16 +414,16 @@ if (typeof window !== 'undefined') window.customPrompt = customPrompt;
         timeSignature,
         sound: APP_SETTINGS.metroSound || 'classic'
       }) || false;
-      metroTimer = started ? true : null;
+      editorTransportState.metroTimer = started ? true : null;
     }
 
     function stopMetronome() {
       transportSchedulingService?.stopMetronome?.();
-      metroTimer = null;
+      editorTransportState.metroTimer = null;
     }
 
     function checkMetronomeTick(playheadTime) {
-      if (!metroActive || !getEditorDAW().isPlaying) return;
+      if (!editorTransportState.metroActive || !getEditorDAW().isPlaying) return;
       const bpm = parseInt($('edTempo')?.value) || 120;
       const timeSignature = $('edTimeSig')?.value || '4/4';
       return transportSchedulingService?.checkLegacyTick?.(
@@ -1199,12 +1194,12 @@ function applyState(stateStr) {
         timing.timeSignature,
         timing.tempo
       );
-      snapValue = getActiveQuantizeGridStep(config);
+      editorTransportState.snapValue = getActiveQuantizeGridStep(config);
       renderTracks();
       renderRuler();
       renderClips({ preserveWaveforms: true });
       updatePlayheadUI();
-      if (metroActive && getEditorDAW().isPlaying) startMetronome();
+      if (editorTransportState.metroActive && getEditorDAW().isPlaying) startMetronome();
     }
 
 
@@ -1935,7 +1930,7 @@ sels.forEach(c => {
       updatePlayheadUI();
       if (getEditorDAW().isPlaying && !getEditorDAW().isScrubbing) {
         scheduleAllFromPlayhead();
-        if (metroActive) startMetronome();
+        if (editorTransportState.metroActive) startMetronome();
       } else {
         stopAllVoices();
       }
@@ -1943,28 +1938,27 @@ sels.forEach(c => {
     }
 
     // Return-to-start on pause (Cubase style)
-    let returnToStartOnPause = true;
     let playStartPos = 0;
 
     function updateReturnToStartButton() {
       const btn = $('returnToStartBtn');
       if (!btn) return;
-      btn.classList.toggle('active', returnToStartOnPause);
-      btn.style.background = returnToStartOnPause ? 'var(--accent-teal)' : '';
-      btn.style.color = returnToStartOnPause ? '#000' : '';
-      btn.style.borderColor = returnToStartOnPause ? 'var(--accent-teal)' : '';
-      btn.setAttribute('aria-pressed', String(returnToStartOnPause));
+      btn.classList.toggle('active', editorTransportState.returnToStartOnPause);
+      btn.style.background = editorTransportState.returnToStartOnPause ? 'var(--accent-teal)' : '';
+      btn.style.color = editorTransportState.returnToStartOnPause ? '#000' : '';
+      btn.style.borderColor = editorTransportState.returnToStartOnPause ? 'var(--accent-teal)' : '';
+      btn.setAttribute('aria-pressed', String(editorTransportState.returnToStartOnPause));
     }
 
     function toggleReturnToStart() {
-      returnToStartOnPause = !returnToStartOnPause;
+      editorTransportState.returnToStartOnPause = !editorTransportState.returnToStartOnPause;
       updateReturnToStartButton();
-      toast(returnToStartOnPause ? 'برگشت به ابتدا فعال شد' : 'برگشت به ابتدا غیرفعال شد');
+      toast(editorTransportState.returnToStartOnPause ? 'برگشت به ابتدا فعال شد' : 'برگشت به ابتدا غیرفعال شد');
     }
 
     function togglePlay() {
       if (getEditorDAW().isPlaying) {
-        if (returnToStartOnPause) {
+        if (editorTransportState.returnToStartOnPause) {
           const savedPos = playStartPos;
           pauseTransport();
           seekTransport(savedPos, false);
@@ -1998,7 +1992,7 @@ sels.forEach(c => {
         if (perfModeActive) $('perfPlayBtn').textContent = '⏸';
 
         // Start the continuous metronome only after count-in completes.
-        if (metroActive && !metroTimer) startMetronome();
+        if (editorTransportState.metroActive && !editorTransportState.metroTimer) startMetronome();
       };
 
       const tick = (rafTimestamp) => {
@@ -2113,8 +2107,8 @@ sels.forEach(c => {
         getEditorDAW().rafId = requestAnimationFrame(tick);
       };
 
-      // Count-in runs before project playback and is independent from metroActive.
-      if (countInBars > 0 && countInSchedulerBridge) {
+      // Count-in runs before project playback and is independent from the metronome.
+      if (editorTransportState.countInBars > 0 && countInSchedulerBridge) {
         const bpm = parseInt($('edTempo')?.value) || 120;
         const sig = $('edTimeSig')?.value || '4/4';
         const config = getTimeSignatureGridConfig(sig, bpm);
@@ -2127,11 +2121,11 @@ sels.forEach(c => {
           getEditorDAW().rafId = null;
         }
         stopAllVoices();
-        if (metroTimer) stopMetronome();
+        if (editorTransportState.metroTimer) stopMetronome();
         $('play-btn').style.color = 'var(--accent-cyan-glow)';
-        toast('🔢 شمارش: ' + countInBars + ' میزان');
+        toast('🔢 شمارش: ' + editorTransportState.countInBars + ' میزان');
         const scheduledCountIn = countInSchedulerBridge.start({
-          bars: countInBars,
+          bars: editorTransportState.countInBars,
           bpm,
           timeSignature: sig,
           soundType: APP_SETTINGS.metroSound || 'classic',
@@ -2162,7 +2156,7 @@ sels.forEach(c => {
       audioContextServiceBridge?.stopAll?.();
 
       // Auto-stop metronome
-      if (metroTimer) stopMetronome();
+      if (editorTransportState.metroTimer) stopMetronome();
 
       // Clear sync highlights in editor
       const editorEl = $('editor');
@@ -2510,7 +2504,7 @@ sels.forEach(c => {
     function loadSettings(){
       try { APP_SETTINGS = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}'); }
       catch(_){ APP_SETTINGS = {}; }
-      returnToStartOnPause = APP_SETTINGS.returnToStart !== false;
+      editorTransportState.returnToStartOnPause = APP_SETTINGS.returnToStart !== false;
       updateReturnToStartButton();
     }
     function saveSettings(){ try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(APP_SETTINGS)); } catch(_){} }
@@ -2559,7 +2553,7 @@ sels.forEach(c => {
       APP_SETTINGS.metroSound = val || 'classic';
       saveSettings();
       previewMetronomeSound(APP_SETTINGS.metroSound);
-      if (metroActive && getEditorDAW().isPlaying) {
+      if (editorTransportState.metroActive && getEditorDAW().isPlaying) {
         stopMetronome();
         startMetronome();
       }
@@ -2573,10 +2567,10 @@ sels.forEach(c => {
     }
     function applySettingsToggles() {
       const metro = $('setMetronome').checked;
-      if (metro !== metroActive) toggleMetronome();
+      if (metro !== editorTransportState.metroActive) toggleMetronome();
       APP_SETTINGS.metronome = metro;
-      returnToStartOnPause = $('setReturnToStart')?.checked ?? true;
-      APP_SETTINGS.returnToStart = returnToStartOnPause;
+      editorTransportState.returnToStartOnPause = $('setReturnToStart')?.checked ?? true;
+      APP_SETTINGS.returnToStart = editorTransportState.returnToStartOnPause;
       updateReturnToStartButton();
       const wantLock = $('setSizeLock').checked;
       if (wantLock !== !!_sizeLocked) toggleSizeLock();
@@ -2588,8 +2582,8 @@ sels.forEach(c => {
       if ($('setTheme')) $('setTheme').value = APP_SETTINGS.theme || 'dark';
       if (APP_SETTINGS.accent && $('setAccent')) $('setAccent').value = APP_SETTINGS.accent;
       if ($('setMetroSound')) $('setMetroSound').value = APP_SETTINGS.metroSound || 'classic';
-      if ($('setMetronome')) $('setMetronome').checked = !!metroActive;
-      if ($('setReturnToStart')) $('setReturnToStart').checked = !!returnToStartOnPause;
+      if ($('setMetronome')) $('setMetronome').checked = !!editorTransportState.metroActive;
+      if ($('setReturnToStart')) $('setReturnToStart').checked = !!editorTransportState.returnToStartOnPause;
       if ($('setSizeLock')) $('setSizeLock').checked = !!_sizeLocked;
       $('settingsModal').classList.add('show');
       $('settingsModal').focus();
@@ -2663,8 +2657,8 @@ sels.forEach(c => {
       applyTheme('dark');
       const r = document.documentElement.style;
       r.removeProperty('--accent-teal'); r.removeProperty('--accent-cyan-glow'); r.removeProperty('--accent-neon-pink');
-      metroActive = false; if ($('metroToggleBtn')) $('metroToggleBtn').textContent = '🔇';
-      returnToStartOnPause = true;
+      editorTransportState.metroActive = false; if ($('metroToggleBtn')) $('metroToggleBtn').textContent = '🔇';
+      editorTransportState.returnToStartOnPause = true;
       updateReturnToStartButton();
       if (_sizeLocked) toggleSizeLock();
       openSettings();

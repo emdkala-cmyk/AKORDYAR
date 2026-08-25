@@ -63,6 +63,10 @@ assert.ok(
     scriptIndex('js/app/core.js')
 );
 assert.ok(
+  scriptIndex('js/core/EditorTransportStateService.js') <
+    scriptIndex('js/app/core.js')
+);
+assert.ok(
   scriptIndex('js/app/constants.js') <
     scriptIndex('js/app/core.js')
 );
