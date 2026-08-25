@@ -215,6 +215,10 @@ assert.ok(
     scriptIndex('js/app/core.js')
 );
 assert.ok(
+  scriptIndex('js/app/CoreLoopControlService.js') <
+    scriptIndex('js/app/core.js')
+);
+assert.ok(
   scriptIndex('js/app/CorePopupWindowBridgeService.js') <
     scriptIndex('js/app/core.js')
 );

@@ -56,6 +56,7 @@ for (const activeScript of [
   'js/app/CoreHighlightService.js',
   'js/app/CoreMovableWindowBridgeService.js',
   'js/app/CoreLoopVisualService.js',
+  'js/app/CoreLoopControlService.js',
   'js/app/CorePopupWindowBridgeService.js',
   'js/app/CoreFocusModeService.js',
   'js/app/CoreSyncModeBridgeService.js',

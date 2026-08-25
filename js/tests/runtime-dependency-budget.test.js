@@ -55,6 +55,7 @@ const coreMovableWindowBridgeService = read(
   'js/app/CoreMovableWindowBridgeService.js'
 );
 const coreLoopVisualService = read('js/app/CoreLoopVisualService.js');
+const coreLoopControlService = read('js/app/CoreLoopControlService.js');
 const corePopupWindowBridgeService = read(
   'js/app/CorePopupWindowBridgeService.js'
 );
@@ -217,6 +218,11 @@ assert.match(
 );
 assert.match(coreLoopVisualService, /function renderLoopRegion\(\)/);
 assert.match(coreLoopVisualService, /function bindLoopDrag\(\)/);
+assert.match(coreLoopControlService, /function toggleLoop\(\)/);
+assert.match(
+  coreLoopControlService,
+  /function setLoopFromSelectionAndPlay\(\)/
+);
 assert.match(corePopupWindowBridgeService, /function isPopupOpen\(popup\)/);
 assert.match(corePopupWindowBridgeService, /function openPopupWindow\(name, features\)/);
 assert.match(coreFocusModeService, /function toggleFocusMode\(\)/);
@@ -238,6 +244,8 @@ assert.doesNotMatch(appCore, /function previewMetronomeSound\(/);
 assert.doesNotMatch(appCore, /function setHighlightEffect\(effect\)/);
 assert.doesNotMatch(appCore, /function getEditorMovableWindowService\(\)/);
 assert.doesNotMatch(appCore, /function renderLoopRegion\(\)/);
+assert.doesNotMatch(appCore, /function toggleLoop\(\)/);
+assert.doesNotMatch(appCore, /function setLoopFromSelectionAndPlay\(\)/);
 assert.doesNotMatch(appCore, /function openPopupWindow\(name, features\)/);
 assert.doesNotMatch(appCore, /function toggleFocusMode\(\)/);
 assert.doesNotMatch(

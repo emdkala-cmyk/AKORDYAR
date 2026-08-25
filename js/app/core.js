@@ -1712,39 +1712,38 @@ function applyState(stateStr) {
     corePublicApi.publish(coreLoopVisualRuntime);
     coreLoopVisualRuntime.bindLoopDrag();
 
-    function toggleLoop() {
-      if (arrPerformActive) {
-        toast('لوپ در حالت ارنجر غیرفعال است');
-        return;
-      }
-      getEditorDAW().loopEnabled = !getEditorDAW().loopEnabled;
-      const btn = $('loopToggleBtn');
-      if (btn) btn.classList.toggle('loop-active', getEditorDAW().loopEnabled);
-      renderLoopRegion();
-      toast(getEditorDAW().loopEnabled ? 'Loop ON' : 'Loop OFF');
+    const coreLoopControlRuntime =
+      globalScope.CoreLoopControlService?.create?.({
+        getDAW: () => getEditorDAW(),
+        getElement: id => $(id),
+        isPerforming: () => arrPerformActive,
+        getSelectedClips: () => selectedClips(),
+        setSelectionEnd: value => {
+          selectionEnd = value;
+        },
+        renderLoopRegion: () => renderLoopRegion(),
+        updatePlayheadUI: () => updatePlayheadUI(),
+        startTransport: () => startTransport(),
+        stopAllVoices: () => stopAllVoices(),
+        cancelAnimationFrame: (...args) => cancelAnimationFrame(...args),
+        toast: message => toast(message),
+        formatTime: value => formatTime(value)
+      });
+    if (!coreLoopControlRuntime) {
+      throw new Error(
+        'CoreLoopControlService باید قبل از app/core.js بارگذاری شود.'
+      );
     }
-
-    function setLoopA() {
-      getEditorDAW().loopA = getEditorDAW().playhead;
-      if (getEditorDAW().loopB <= getEditorDAW().loopA) getEditorDAW().loopB = Math.max(getEditorDAW().loopA + 1, getEditorDAW().loopA + 5);
-      renderLoopRegion();
-      toast('Loop A: ' + formatTime(getEditorDAW().loopA));
-    }
-
-    function setLoopB() {
-      getEditorDAW().loopB = getEditorDAW().playhead;
-      if (getEditorDAW().loopA >= getEditorDAW().loopB) getEditorDAW().loopA = Math.max(0, getEditorDAW().loopB - 5);
-      renderLoopRegion();
-      toast('Loop B: ' + formatTime(getEditorDAW().loopB));
-    }
-
-    function clearLoop() {
-      getEditorDAW().loopA = 0;
-      getEditorDAW().loopB = 10;
-      selectionEnd = 0;
-      renderLoopRegion();
-      toast('محدوده پاک شد');
-    }
+    const {
+      toggleLoop,
+      setLoopA,
+      setLoopB,
+      clearLoop,
+      setLoopFromSelection,
+      setLoopFromSelectionAndPlay
+    } = coreLoopControlRuntime;
+    Object.assign(globalScope, coreLoopControlRuntime);
+    corePublicApi.publish(coreLoopControlRuntime);
 
     const arrangerMarkerController =
       globalScope.EditorArrangerMarkerControllerService.create({
@@ -1789,44 +1788,6 @@ function applyState(stateStr) {
 
     function toggleArrangerMarkers() {
       return arrangerMarkerController.toggleArrangerMarkers();
-    }
-
-    // P key: set loop range from selection (no activate)
-    function setLoopFromSelection() {
-      const sels = selectedClips();
-      if (!sels.length) { toast('آیتمی انتخاب نشده'); return; }
-      const starts = sels.map(c => c.start);
-      const ends = sels.map(c => c.start + c.duration);
-      getEditorDAW().loopA = Math.min(...starts);
-      getEditorDAW().loopB = Math.max(...ends);
-      selectionEnd = getEditorDAW().loopB;
-      getEditorDAW().loopEnabled = false;
-      renderLoopRegion();
-      toast('محدوده: ' + formatTime(getEditorDAW().loopA) + ' → ' + formatTime(getEditorDAW().loopB));
-    }
-
-    // Alt+P: set loop range from selection + activate + play from start
-    function setLoopFromSelectionAndPlay() {
-      if (arrPerformActive) {
-        toast('لوپ در حالت ارنجر غیرفعال است');
-        return;
-      }
-      const sels = selectedClips();
-      if (!sels.length) { toast('آیتمی انتخاب نشده'); return; }
-      const starts = sels.map(c => c.start);
-      const ends = sels.map(c => c.start + c.duration);
-      getEditorDAW().loopA = Math.min(...starts);
-      getEditorDAW().loopB = Math.max(...ends);
-      getEditorDAW().loopEnabled = true;
-      getEditorDAW().playhead = getEditorDAW().loopA;
-      const btn = $('loopToggleBtn');
-      if (btn) btn.classList.add('loop-active');
-      renderLoopRegion();
-      updatePlayheadUI();
-      // Stop any current playback, then start fresh from loopA
-      if (getEditorDAW().isPlaying) { getEditorDAW().isPlaying = false; if (getEditorDAW().rafId) cancelAnimationFrame(getEditorDAW().rafId); stopAllVoices(); }
-      startTransport();
-      toast('Loop ON: ' + formatTime(getEditorDAW().loopA) + ' → ' + formatTime(getEditorDAW().loopB));
     }
 
     function renderArrangerMarkers() {
