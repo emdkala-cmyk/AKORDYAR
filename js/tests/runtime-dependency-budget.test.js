@@ -38,6 +38,7 @@ const coreMetronomeService = read('js/app/CoreMetronomeService.js');
 const corePanelLayoutService = read('js/app/CorePanelLayoutService.js');
 const coreTimelineGeometryService = read('js/app/CoreTimelineGeometryService.js');
 const coreTimelineRendererService = read('js/app/CoreTimelineRendererService.js');
+const coreClipService = read('js/app/CoreClipService.js');
 const editor = executableLines(read('js/app/editor.js'));
 const appCore = executableLines(read('js/app/core.js'));
 const search = executableLines(read('js/app/search.js'));
@@ -141,6 +142,10 @@ assert.doesNotMatch(
   /function getTimelineTrackRendererService\(\)/
 );
 assert.doesNotMatch(appCore, /function updateTrackSelectionUI\(\)/);
+assert.match(coreClipService, /function splitClipAt\(clip, atTime\)/);
+assert.match(coreClipService, /function splitSelectedAtPlayhead\(\)/);
+assert.doesNotMatch(appCore, /function splitClipAt\(clip, atTime\)/);
+assert.doesNotMatch(appCore, /function splitSelectedAtPlayhead\(\)/);
 
 assert.doesNotMatch(appCore, /\bPERF\s*\./);
 assert.doesNotMatch(appCore, /\bDAW\s*\./);

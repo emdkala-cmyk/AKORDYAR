@@ -651,11 +651,25 @@ function isHistoryApplying() {
         timeToX: (value) => timeToX(value)
     });
     window.waveformService = waveformBridge.service;
-    function getClip(id) { return getEditorDAW().clips.find(c => c.id === id); }
-    function selectedClips() {
-      const daw = getEditorDAW();
-      return daw.clips.filter(c => daw.selectedIds.has(c.id));
-    }
+    const coreClipRuntime =
+      globalScope.CoreClipService?.create?.({
+        getDAW: () => getEditorDAW(),
+        uid: prefix => uid(prefix),
+        roundMs: value => roundMs(value),
+        refreshClipWaveImage: clip => refreshClipWaveImage(clip),
+        saveState: () => saveState(),
+        renderAll: (...args) => renderAll(...args),
+        scheduleAllFromPlayhead: (...args) => scheduleAllFromPlayhead(...args),
+        toast: message => toast(message),
+        translate: key => globalScope.t?.(key) ?? key
+      });
+    if (!coreClipRuntime) throw new Error(
+      'CoreClipService باید قبل از app/core.js بارگذاری شود.'
+    );
+    const { getClip, selectedClips, splitClipAt, splitSelectedAtPlayhead } =
+      coreClipRuntime;
+    Object.assign(globalScope, coreClipRuntime);
+    corePublicApi.publish(coreClipRuntime);
 
 function setEditorSong(song) {
   return requireEditorSongRuntimeService().setSong(song);
@@ -1125,21 +1139,6 @@ function applyState(stateStr) {
     function cutSelected() { getClipboardService()?.cutSelected(); }
     function pasteClipboard() { getClipboardService()?.pasteClipboard(); }
     function duplicateSelected() { getClipboardService()?.duplicateSelected(); }
-    function splitClipAt(clip, atTime) {
-      const t = roundMs(atTime); if (t <= clip.start + 0.01 || t >= clip.start + clip.duration - 0.01) return null;
-      const leftDur = roundMs(t - clip.start); const rightDur = roundMs(clip.duration - leftDur);
-      clip.duration = leftDur; if (clip.type === 'audio') refreshClipWaveImage(clip);
-      const right = { ...clip, id: uid('c'), start: t, duration: rightDur };
-      if (clip.type === 'audio') { right.offset = roundMs(clip.offset + leftDur); refreshClipWaveImage(right); }
-      getEditorDAW().clips.push(right); return right;
-    }
-
-    function splitSelectedAtPlayhead() {
-      const sels = selectedClips(); if (!sels.length) { toast(t('nothingSelected')); return; } const created = [];
-      sels.forEach(c => { const r = splitClipAt(c, getEditorDAW().playhead); if (r) created.push(r.id); });
-      if (created.length) { getEditorDAW().selectedIds = new Set(created); saveState(); renderAll(); if (getEditorDAW().isPlaying) scheduleAllFromPlayhead(); toast(t('splitDone')); }
-    }
-
     function cutAtTime(time, trackId = null) {
   const t = roundMs(time);
   if (!trackId) return false;
