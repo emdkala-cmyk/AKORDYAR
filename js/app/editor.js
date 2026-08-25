@@ -584,11 +584,8 @@ function getMidiScoreController() {
     }
 
     function updateChordPreview() {
+      const name = getEditorMidiChordService()?.formatChordName?.(currentChord) || 'None';
       const { root, type, tension, bass } = currentChord;
-      let name = 'None';
-      if (root !== 'None' && type !== 'None') {
-        name = `${root}${chordTypeDisplay(type)}${tension}${bass !== 'None' && bass !== root ? '/' + bass : ''}`;
-      }
       $('chord-preview').textContent = name;
       if ($('chordManual')) $('chordManual').value = name === 'None' ? '' : name;
 
@@ -678,7 +675,7 @@ function getMidiScoreController() {
             toast(t('selectCompleteChord'));
             return;
         }
-        name = `${root}${chordTypeDisplay(type)}${tension}${bass !== 'None' && bass !== root ? '/' + bass : ''}`;
+        name = getEditorMidiChordService()?.formatChordName?.(currentChord) || 'None';
       }
       if (getEditorDAW().editingChordClipId) {
         const clip = getClip(getEditorDAW().editingChordClipId);
@@ -724,28 +721,23 @@ function getMidiScoreController() {
       }
     }
 
-    function identifyChord(midiNotes) {
-      if (midiNotes.length < 3) return null; 
-      const sorted = [...midiNotes].sort((a, b) => a - b);
-      const bassMidi = sorted[0];
-      const bassNote = NOTES[bassMidi % 12];
-
-      const uniqueMidiNotes = [...new Set(sorted)];
-      
-      for (const rootMidi of uniqueMidiNotes) {
-        const intervals = uniqueMidiNotes.map(n => n - rootMidi).filter(i => i >= 0).sort((a, b) => a - b);
-        const uniqueIntervals = [...new Set(intervals)];
-
-        for (const tmpl of CHORD_TEMPLATES) {
-          const req = tmpl.req;
-          const hasAll = req.every(r => uniqueIntervals.includes(r));
-          if (hasAll) {
-            const rootName = NOTES[rootMidi % 12];
-            return { root: rootName, type: tmpl.type, tension: tmpl.tension, bass: (bassMidi % 12 === rootMidi % 12) ? 'None' : bassNote };
-          }
-        }
+    let editorMidiChordService = null;
+    function getEditorMidiChordService() {
+      if (
+        !editorMidiChordService &&
+        typeof window.EditorMidiChordService?.create === 'function'
+      ) {
+        editorMidiChordService = window.EditorMidiChordService.create({
+          notes: NOTES,
+          chordTemplates: CHORD_TEMPLATES,
+          formatType: chordTypeDisplay
+        });
       }
-      return null;
+      return editorMidiChordService;
+    }
+
+    function identifyChord(midiNotes) {
+      return getEditorMidiChordService()?.identifyChord?.(midiNotes) || null;
     }
 
     // ===== MIDI TRANSPORT SYNC =====
@@ -902,7 +894,7 @@ function getMidiScoreController() {
       const chord = identifyChord([...activeMidiNotes]);
       if (!chord) return;
 
-      const name = `${chord.root}${chordTypeDisplay(chord.type)}${chord.tension}${chord.bass !== 'None' && chord.bass !== chord.root ? '/' + chord.bass : ''}`;
+      const name = getEditorMidiChordService()?.formatChordName?.(chord) || 'None';
 
       // Show in MIDI monitor
       updateMidiChordDisplay(name, [...activeMidiNotes].map(n => noteNames[n % 12] + (Math.floor(n / 12) - 1)).join(', '));
