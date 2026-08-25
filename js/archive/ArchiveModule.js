@@ -27,6 +27,7 @@
     let _archiveBatchImportService = null;
     let _archiveTransferService = null;
     let _archiveLifecycleService = null;
+    let _archiveSelectionFilterService = null;
 
     function getArchiveRuntimeAdapter() {
       const adapter = window.ArchiveRuntimeAdapter;
@@ -379,6 +380,34 @@
       return _archiveLifecycleService;
     }
 
+    // --- Selection/filter bridge ---
+    function getArchiveSelectionFilterService() {
+      if (!_archiveSelectionFilterService) {
+        const create = window.ArchiveSelectionFilterService?.create;
+        if (typeof create !== 'function') {
+          throw new Error('ArchiveSelectionFilterService is not loaded. Check script order.');
+        }
+        _archiveSelectionFilterService = create({
+          getElement: id => $(id),
+          selectedIds: _archSelectedIds,
+          getSelectMode: () => _archSelectMode,
+          setSelectMode: value => {
+            _archSelectMode = value;
+          },
+          render: archRender,
+          getCurrentTab: () => _archCurrentTab,
+          getAllSongs: edGetAllSongs,
+          getArtistFilter: () => _archArtistFilter,
+          setArtistFilter: value => {
+            _archArtistFilter = value;
+          },
+          renderArtists: archRenderArtists,
+          updateActiveFilters: archUpdateActiveFilters
+        });
+      }
+      return _archiveSelectionFilterService;
+    }
+
     // --- Shared Load Project Data ---
     async function loadProjectData(data, options = {}) {
       return getArchiveProjectPersistenceService().load(data, options);
@@ -495,39 +524,32 @@
     function archSetTab(tab) { _archCurrentTab=tab; document.querySelectorAll('.archive-tabs .at-tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===tab)); archRender(); }
 
     // --- Select ---
-    function archToggleSelectMode() { _archSelectMode=!_archSelectMode; _archSelectedIds.clear(); $('archSelectBtn').classList.toggle('active-blue',_archSelectMode); $('archiveBulkBar').classList.toggle('show',_archSelectMode); archRender(); }
+    function archToggleSelectMode() {
+      return getArchiveSelectionFilterService().toggleMode();
+    }
     function archToggleSelect(id) {
-      if (_archSelectedIds.has(id)) _archSelectedIds.delete(id); else _archSelectedIds.add(id);
-      $('bulkCount').textContent = _archSelectedIds.size + ' انتخاب شده';
-      archSyncSelectAllCheckbox(); archRender();
+      return getArchiveSelectionFilterService().toggle(id);
     }
     function archSelectAll(checked) {
-      const visible = archGetVisibleSongIds();
-      if (checked) visible.forEach(id => _archSelectedIds.add(id));
-      else visible.forEach(id => _archSelectedIds.delete(id));
-      $('bulkCount').textContent = _archSelectedIds.size + ' انتخاب شده';
-      archRender();
+      return getArchiveSelectionFilterService().selectAll(checked);
     }
     function archSyncSelectAllCheckbox() {
-      const cb = $('archiveList').querySelector('.arch-select-all-cb');
-      if (!cb) return;
-      const visible = archGetVisibleSongIds();
-      if (!visible.length) { cb.checked=false; cb.indeterminate=false; return; }
-      const count = visible.filter(id => _archSelectedIds.has(id)).length;
-      cb.checked = count===visible.length;
-      cb.indeterminate = count>0&&count<visible.length;
+      return getArchiveSelectionFilterService().syncSelectAllCheckbox();
     }
     function archGetVisibleSongIds() {
-      const rows = $('archiveList').querySelectorAll('[data-song-id]');
-      return Array.from(rows).map(r => String(r.dataset.songId));
+      return getArchiveSelectionFilterService().getVisibleSongIds();
     }
     function archGetFilteredSongs() {
-      return edGetAllSongs().filter(s => { if (_archCurrentTab==='fav') return !s.deletedAt&&s.favorite; if (_archCurrentTab==='trash') return !!s.deletedAt; return !s.deletedAt; });
+      return getArchiveSelectionFilterService().getFilteredSongs();
     }
 
     // --- Filters ---
-    function archApplyFilters() { archRender(); }
-    function archClearFilters() { $('archiveSearch').value=''; $('archiveSearchClear').classList.remove('show'); ['filterSig','filterGenre','filterTempo','filterKey'].forEach(id=>$(id).value=''); $('filterSort').value='newest'; _archArtistFilter=null; archRenderArtists(); archRender(); archUpdateActiveFilters(); }
+    function archApplyFilters() {
+      return getArchiveSelectionFilterService().applyFilters();
+    }
+    function archClearFilters() {
+      return getArchiveSelectionFilterService().clearFilters();
+    }
 
     // --- Main Render ---
     function archRender() {
