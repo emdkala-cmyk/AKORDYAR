@@ -3999,46 +3999,37 @@ if ($('edDoBoth')) {
     function syncTransposeToTimelineChords() {
       return getEditorChordVersionService()?.syncTransposeToTimeline?.();
     }
-    function edFillCol(el, items, cb) { el.innerHTML = ''; items.forEach(v => { const d = document.createElement('div'); d.className = 'chord-item'; d.textContent = v === '' ? '—' : v; d.onclick = () => { [...el.children].forEach(c => c.classList.remove('active')); d.classList.add('active'); cb(v); updateChordPreview(); }; el.appendChild(d); }); }
 
-    function edOpenChordModal(idx) {
-      if (!edCur) return;
-      edChordIdx = idx;
-      edChordModalMode = 'editor';
-      // Set currentChord from existing chord
-      if (idx !== null && edCur.chords[idx]) {
-        const parsed = getEditorChordCommandService()?.parseName(edCur.chords[idx].name);
-        currentChord = parsed || { root: 'None', type: 'None', tension: '', bass: 'None' };
-      } else {
-        currentChord = { root: 'None', type: 'None', tension: '', bass: 'None' };
+    let edChordModalService = null;
+    function getEditorChordModalService() {
+      if (
+        !edChordModalService &&
+        typeof window.EditorChordModalService?.create === 'function'
+      ) {
+        edChordModalService = window.EditorChordModalService.create({
+          getSong: getCurrentEditorSong,
+          getChordCommandService: () => getEditorChordCommandService(),
+          getCurrentChord: () => currentChord,
+          setCurrentChord: value => { currentChord = value; },
+          getMode: () => edChordModalMode,
+          setMode: value => { edChordModalMode = value; },
+          getChordIndex: () => edChordIdx,
+          setChordIndex: value => { edChordIdx = value; },
+          setPendingAnchor: value => { edPendingAnchor = value; },
+          buildEditor: buildChordEditor,
+          translate: t
+        });
       }
-      // Update title and buttons for editor mode
-      $('chordModalTitle').textContent = t('editSongChord');
-      $('chordModalConfirmBtn').textContent = t('confirmBtn');
-      // Update preview and manual input
-      const currentChordName = (idx !== null && edCur.chords[idx]) ? edCur.chords[idx].name : '';
-      $('chord-preview').textContent = currentChordName || 'None';
-      $('chordManual').value = currentChordName;
-      $('chord-modal').classList.add('show');
-      buildChordEditor();
-      // اضافه کردن هندلر کیبورد برای دکمه ESC
-      const chordModal = $('chord-modal');
-      if (chordModal) {
-        // حذف هندلر قبلی اگر وجود دارد
-        if (chordModal._escHandlerEd) chordModal.removeEventListener('keydown', chordModal._escHandlerEd);
-        chordModal._escHandlerEd = (e) => {
-          if (e.key === 'Escape' && edChordModalMode === 'editor') {
-            e.preventDefault();
-            edCloseChordModal();
-          }
-        };
-        chordModal.addEventListener('keydown', chordModal._escHandlerEd);
-        // فوکوس روی مودال برای اینکه ESC بدون کلیک کار کند
-        chordModal.focus();
-      }
+      return edChordModalService;
     }
 
-    function edCloseChordModal() { $('chord-modal').classList.remove('show'); edPendingAnchor = null; edChordIdx = null; edChordModalMode = null; }
+    function edOpenChordModal(idx) {
+      return getEditorChordModalService()?.open?.(idx) || false;
+    }
+
+    function edCloseChordModal() {
+      return getEditorChordModalService()?.close?.() || false;
+    }
     function edConfirmChord() {
       if (!edCur || edChordModalMode !== 'editor') return;
       const commandService = getEditorChordCommandService();

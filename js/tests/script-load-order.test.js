@@ -323,6 +323,14 @@ assert.ok(
     scriptIndex('js/app/editor.js')
 );
 assert.ok(
+  scriptIndex('js/editor/EditorChordCommandService.js') <
+    scriptIndex('js/editor/EditorChordModalService.js')
+);
+assert.ok(
+  scriptIndex('js/editor/EditorChordModalService.js') <
+    scriptIndex('js/app/editor.js')
+);
+assert.ok(
   scriptIndex('js/editor/LyricPositionMapper.js') <
     scriptIndex('js/editor/EditorRawSongParserService.js')
 );
