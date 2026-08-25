@@ -183,6 +183,10 @@ assert.ok(
     scriptIndex('js/app/core.js')
 );
 assert.ok(
+  scriptIndex('js/app/CoreClipboardBridgeService.js') <
+    scriptIndex('js/app/core.js')
+);
+assert.ok(
   scriptIndex('js/app/CoreMixerBridgeService.js') <
     scriptIndex('js/app/core.js')
 );

@@ -44,6 +44,9 @@ const coreClipEditService = read('js/app/CoreClipEditService.js');
 const coreSelectionService = read('js/app/CoreSelectionService.js');
 const coreClipDragService = read('js/app/CoreClipDragService.js');
 const coreClipInteractionService = read('js/app/CoreClipInteractionService.js');
+const coreClipboardBridgeService = read(
+  'js/app/CoreClipboardBridgeService.js'
+);
 const coreMixerBridgeService = read('js/app/CoreMixerBridgeService.js');
 const editor = executableLines(read('js/app/editor.js'));
 const appCore = executableLines(read('js/app/core.js'));
@@ -175,6 +178,15 @@ assert.doesNotMatch(
 assert.doesNotMatch(
   coreClipInteractionService,
   /function updateMoveDrag\(delta, daw\)/
+);
+assert.match(
+  coreClipboardBridgeService,
+  /function getClipboardService\(\)/
+);
+assert.match(coreClipboardBridgeService, /copySelected:\s*call/);
+assert.doesNotMatch(
+  appCore,
+  /function getClipboardService\(\)/
 );
 assert.match(
   coreClipInteractionService,

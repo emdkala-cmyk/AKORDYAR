@@ -48,6 +48,7 @@ for (const activeScript of [
   'js/app/CoreSelectionService.js',
   'js/app/CoreClipDragService.js',
   'js/app/CoreClipInteractionService.js',
+  'js/app/CoreClipboardBridgeService.js',
   'js/app/CoreMixerBridgeService.js',
   'js/editor/EditorProjectFileService.js',
   'js/editor/EditorProjectExportRouteService.js',

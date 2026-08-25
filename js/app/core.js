@@ -1074,16 +1074,12 @@ function applyState(stateStr) {
      $('editor')?.blur();
 }
 
-    // --- Clipboard Service Bridge ---
-    // The service depends on editor callbacks, which are declared in the
-    // later editor chunk. Create it lazily after that chunk is evaluated.
-    let clipboardService = null;
-    function getClipboardService() {
-      if (clipboardService) return clipboardService;
-      if (typeof ClipboardService !== 'function' || typeof edSaveSong !== 'function') return null;
-      clipboardService = new ClipboardService({
+    const coreClipboardRuntime =
+      globalScope.CoreClipboardBridgeService?.create?.({
+        clipboardFactory: () => globalScope.ClipboardService,
+        getEdSaveSong: () => globalScope.edSaveSong,
         getDAW: () => getEditorDAW(),
-        selectedClips,
+        selectedClips: () => selectedClips(),
         uid,
         roundMs,
         peaksFromBuffer,
@@ -1091,24 +1087,16 @@ function applyState(stateStr) {
         ensureTimelineFits,
         saveState,
         renderAll,
-        scheduleAllFromPlayhead: (...args) => {
-          if (typeof scheduleAllFromPlayhead === 'function') scheduleAllFromPlayhead(...args);
-        },
-        stopAllVoices: (...args) => {
-          if (typeof stopAllVoices === 'function') stopAllVoices(...args);
-        },
+        scheduleAllFromPlayhead,
+        stopAllVoices,
         toast,
-        t,
-        edSaveSong
+        translate: t
       });
-      return clipboardService;
-    }
+    if (!coreClipboardRuntime) throw new Error(
+      'CoreClipboardBridgeService باید قبل از app/core.js بارگذاری شود.'
+    );
+    corePublicApi.publish(coreClipboardRuntime);
 
-    function deleteSelected() { getClipboardService()?.deleteSelected(); }
-    function copySelected() { getClipboardService()?.copySelected(); }
-    function cutSelected() { getClipboardService()?.cutSelected(); }
-    function pasteClipboard() { getClipboardService()?.pasteClipboard(); }
-    function duplicateSelected() { getClipboardService()?.duplicateSelected(); }
     const coreClipEditRuntime =
       globalScope.CoreClipEditService?.create?.({
         getDAW: () => getEditorDAW(),
