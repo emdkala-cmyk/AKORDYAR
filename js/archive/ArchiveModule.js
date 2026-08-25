@@ -19,15 +19,14 @@
     let _archSelectedIds = new Set();
     let _archCurrentTab = 'all';
     let _archViewMode = localStorage.getItem('arch_view_mode') || 'card';
-    let _archDebounceTimer = null;
     let _archEditSongId = null;
     let _archLoading = false;
-    let _archEventsBound = false;
     let _archSearchIndex = null;
     let _archProjectImportRouteService = null;
     let _archiveProjectPersistenceService = null;
     let _archiveBatchImportService = null;
     let _archiveTransferService = null;
+    let _archiveLifecycleService = null;
 
     function getArchiveRuntimeAdapter() {
       const adapter = window.ArchiveRuntimeAdapter;
@@ -353,6 +352,33 @@
       return _archiveTransferService;
     }
 
+    // --- Lifecycle bridge ---
+    function getArchiveLifecycleService() {
+      if (!_archiveLifecycleService) {
+        const create = window.ArchiveLifecycleService?.create;
+        if (typeof create !== 'function') {
+          throw new Error('ArchiveLifecycleService is not loaded. Check script order.');
+        }
+        _archiveLifecycleService = create({
+          getElement: id => $(id),
+          documentRef: window.document,
+          getViewMode: () => _archViewMode,
+          render: archRender,
+          renderArtists: archRenderArtists,
+          initArtistSection: archInitArtistSection,
+          applyFilters: archApplyFilters,
+          handleListClick: archHandleListClick,
+          handleListKeydown: archHandleListKeydown,
+          stopAutoScroll: archStopAutoScroll,
+          isFullscreen: () => _archFullscreen,
+          setFullscreen: value => {
+            _archFullscreen = value;
+          }
+        });
+      }
+      return _archiveLifecycleService;
+    }
+
     // --- Shared Load Project Data ---
     async function loadProjectData(data, options = {}) {
       return getArchiveProjectPersistenceService().load(data, options);
@@ -419,36 +445,10 @@
     // --- Open / Close ---
     function edOpenArchive() { archOpen(); }
     function archOpen() {
-      $('archiveList').classList.toggle('table-view', _archViewMode === 'table');
-      archRender();
-      archRenderArtists();
-      archInitArtistSection();
-      $('archiveModal').classList.add('show');
-      if (!_archEventsBound) {
-        _archEventsBound = true;
-        $('archiveSearch').addEventListener('input', () => {
-          clearTimeout(_archDebounceTimer);
-          _archDebounceTimer = setTimeout(archApplyFilters, 200);
-          $('archiveSearchClear').classList.toggle('show', !!$('archiveSearch').value);
-        });
-        ['filterSig','filterGenre','filterTempo','filterKey','filterSort'].forEach(id => $(id).addEventListener('change', archApplyFilters));
-        $('archiveModal').addEventListener('click', (e) => { if (!e.target.closest('.archive-ctx-menu')&&!e.target.closest('.btn-menu')) $('archiveCtxMenu').classList.remove('show'); });
-        $('archiveModal').addEventListener('keydown', (e) => { if (e.key==='Escape') archClose(); });
-        // Event delegation on archive list
-        $('archiveList').addEventListener('click', archHandleListClick);
-        $('archiveList').addEventListener('keydown', archHandleListKeydown);
-      }
+      return getArchiveLifecycleService().open();
     }
     function archClose() {
-      $('archiveModal').classList.remove('show');
-      $('archiveCtxMenu').classList.remove('show');
-      archStopAutoScroll(); // Stop auto-scroll when closing
-      // Reset fullscreen
-      if (_archFullscreen) {
-        _archFullscreen = false;
-        const dialog = document.querySelector('.archive-modal-dialog');
-        if (dialog) { dialog.style.width=''; dialog.style.height=''; dialog.style.maxWidth=''; dialog.style.maxHeight=''; dialog.style.borderRadius=''; }
-      }
+      return getArchiveLifecycleService().close();
     }
 
     // --- Event Delegation ---
