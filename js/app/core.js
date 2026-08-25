@@ -735,72 +735,37 @@ function applyState(stateStr) {
     }
 
 
-    let timelineTrackRendererService = null;
-
-    function getTimelineTrackRendererService() {
-      if (!timelineTrackRendererService && window.TimelineTrackRendererService?.create) {
-        timelineTrackRendererService = window.TimelineTrackRendererService.create({
-          documentRef: document,
-          windowRef: window,
-          getDAW: () => getEditorDAW(),
-          getSongState: () => requireEditorSongStateService(),
-          getIconSvg,
-          getIsRecordingChords: () => isRecordingChords,
-          setIsRecordingChords: value => { isRecordingChords = Boolean(value); },
-          switchChordVersion: direction => typeof switchChordVersion === 'function' && switchChordVersion(direction),
-          addChordVersion: () => typeof addChordVersion === 'function' && addChordVersion(),
-          renameChordVersion: () => typeof renameChordVersion === 'function' && renameChordVersion(),
-          saveState,
-          renderAll,
-          renderClips,
-          renderMixer: () => typeof renderMixer === 'function' && renderMixer(),
-          toast,
-          translate: t,
-          openFileForTrack: trackId => typeof openFileForTrack === 'function' && openFileForTrack(trackId),
-          openIconPicker,
-          updateTrackMix,
-          scheduleAllFromPlayhead,
-          ensureAudioCtx,
-          startPointerDrag: (...args) => startEditorPointerDrag(...args),
-          setLaneHeight: (...args) => typeof setLaneHeight === 'function' && setLaneHeight(...args),
-          clearEditorTextSelection: (...args) =>
-            typeof clearEditorTextSelection === 'function' &&
-            clearEditorTextSelection(...args),
-          clearChordSelection: () => typeof edClearChordSelection === 'function' && edClearChordSelection(),
-          clearSelection,
-          clientToTime,
-          customPrompt,
-          openChordEditor: (...args) => typeof openChordEditor === 'function' && openChordEditor(...args),
-          uid,
-          roundMs,
-          ensureTimelineFits,
-          cutAtTime,
-          seekTransport,
-          clientToInnerPoint,
-          onDocumentMouseMove: (...args) =>
-            typeof onDocMouseMove === 'function' && onDocMouseMove(...args),
-          onDocumentMouseUp: (...args) =>
-            typeof onDocMouseUp === 'function' && onDocMouseUp(...args),
-          drawLaneGrid: canvas => drawLaneGrid(canvas)
-        });
-      }
-      return timelineTrackRendererService;
+    const coreTimelineRendererRuntime =
+      globalScope.CoreTimelineRendererService?.create?.({
+        documentRef: document,
+        windowRef: window,
+        getDAW: () => getEditorDAW(),
+        getSongState: () => requireEditorSongStateService(),
+        getIsRecordingChords: () => isRecordingChords,
+        setIsRecordingChords: value => { isRecordingChords = value; },
+        getIconSvg,
+        customPrompt,
+        uid,
+        roundMs
+      });
+    if (!coreTimelineRendererRuntime) {
+      throw new Error(
+        'CoreTimelineRendererService باید قبل از app/core.js بارگذاری شود.'
+      );
     }
-
-    function updateTrackSelectionUI() {
-      const service = getTimelineTrackRendererService();
-      return service?.updateTrackSelectionUI?.();
-    }
-
-    function selectTrack(trackId) {
-      const service = getTimelineTrackRendererService();
-      return service?.selectTrack?.(trackId) || null;
-    }
-
-    function renderTracks() {
-      const service = getTimelineTrackRendererService();
-      return service?.renderTracks?.();
-    }
+    const {
+      getTimelineTrackRendererService,
+      updateTrackSelectionUI,
+      selectTrack,
+      renderTracks
+    } = coreTimelineRendererRuntime;
+    Object.assign(globalScope, {
+      getTimelineTrackRendererService,
+      updateTrackSelectionUI,
+      selectTrack,
+      renderTracks
+    });
+    corePublicApi.publish(coreTimelineRendererRuntime);
 
     let timelineSectionRendererService = null;
     function getTimelineSectionRendererService() {

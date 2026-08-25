@@ -155,6 +155,10 @@ assert.ok(
     scriptIndex('js/app/core.js')
 );
 assert.ok(
+  scriptIndex('js/app/CoreTimelineRendererService.js') <
+    scriptIndex('js/app/core.js')
+);
+assert.ok(
   scriptIndex('js/core/CountInScheduler.js') <
     scriptIndex('js/app/core.js')
 );

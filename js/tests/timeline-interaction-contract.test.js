@@ -7,6 +7,7 @@ const read = file => fs.readFileSync(path.join(root, file), 'utf8');
 
 const core = read('js/app/core.js');
 const corePanelLayout = read('js/app/CorePanelLayoutService.js');
+const coreTimelineRenderer = read('js/app/CoreTimelineRendererService.js');
 const dawState = read('js/core/DAWRuntimeState.js');
 const transportState = read('js/core/EditorTransportStateService.js');
 const editor = read('js/app/editor.js');
@@ -22,8 +23,9 @@ const layoutCss = read('styles/layout.css');
 const timelineCss = read('styles/timeline.css');
 
 assert.match(dawState, /selectedTrackId:\s*null/);
-assert.match(core, /function selectTrack\(trackId\)/);
-assert.match(core, /getTimelineTrackRendererService/);
+assert.match(coreTimelineRenderer, /function selectTrack\(trackId\)/);
+assert.match(coreTimelineRenderer, /getTimelineTrackRendererService/);
+assert.match(core, /CoreTimelineRendererService/);
 assert.match(timelineRenderer, /function selectTrack\(trackId\)/);
 assert.match(timelineRenderer, /selectTrack\(track\.id\)/);
 assert.match(html, /js\/core\/TimelineTrackRendererService\.js/);

@@ -37,6 +37,7 @@ const coreGridQuantizeService = read('js/app/CoreGridQuantizeService.js');
 const coreMetronomeService = read('js/app/CoreMetronomeService.js');
 const corePanelLayoutService = read('js/app/CorePanelLayoutService.js');
 const coreTimelineGeometryService = read('js/app/CoreTimelineGeometryService.js');
+const coreTimelineRendererService = read('js/app/CoreTimelineRendererService.js');
 const editor = executableLines(read('js/app/editor.js'));
 const appCore = executableLines(read('js/app/core.js'));
 const search = executableLines(read('js/app/search.js'));
@@ -130,6 +131,16 @@ assert.doesNotMatch(appCore, /function timeToBarBeat\(seconds\)/);
 assert.doesNotMatch(appCore, /function getProjectEnd\(\)/);
 assert.doesNotMatch(appCore, /function ensureTimelineFits\(needed\)/);
 assert.doesNotMatch(appCore, /function clientToTime\(clientX\)/);
+assert.match(
+  coreTimelineRendererService,
+  /function getTimelineTrackRendererService\(\)/
+);
+assert.match(coreTimelineRendererService, /function renderTracks\(\)/);
+assert.doesNotMatch(
+  appCore,
+  /function getTimelineTrackRendererService\(\)/
+);
+assert.doesNotMatch(appCore, /function updateTrackSelectionUI\(\)/);
 
 assert.doesNotMatch(appCore, /\bPERF\s*\./);
 assert.doesNotMatch(appCore, /\bDAW\s*\./);

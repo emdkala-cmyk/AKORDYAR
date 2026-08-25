@@ -11,6 +11,7 @@ const files = [
   'js/app/CoreMetronomeService.js',
   'js/app/CorePanelLayoutService.js',
   'js/app/CoreTimelineGeometryService.js',
+  'js/app/CoreTimelineRendererService.js',
   'js/app/core.js',
   'js/app/editor.js',
   'js/app/search.js',
