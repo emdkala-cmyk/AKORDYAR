@@ -29,6 +29,7 @@
     let _archiveArtistUiService = null;
     let _archiveArtistImageService = null;
     let _archiveRenderService = null;
+    let _archiveRenderCoordinatorService = null;
     let _archiveSearchService = null;
     let _archiveListViewService = null;
     let _archiveSongLoadService = null;
@@ -446,6 +447,36 @@
       return _archiveRenderService;
     }
 
+    function getArchiveRenderCoordinatorService() {
+      if (!_archiveRenderCoordinatorService) {
+        const create = window.ArchiveRenderCoordinatorService?.create;
+        if (typeof create !== 'function') {
+          throw new Error(
+            'ArchiveRenderCoordinatorService is not loaded. Check script order.'
+          );
+        }
+        _archiveRenderCoordinatorService = create({
+          getElement: id => $(id),
+          getAllSongs: edGetAllSongs,
+          normalizeText: archNormText,
+          extractSearchText: archExtractSearchText,
+          getCurrentTab: () => _archState.currentTab,
+          getArtistFilter: () => _archState.artistFilter,
+          matchDefaultArtist,
+          artistKey: archArtistKey,
+          getViewMode: () => _archState.viewMode,
+          getSelectMode: () => _archState.selectMode,
+          getSelectedIds: () => _archState.selectedIds,
+          getActiveSongId: () => getArchiveSongOrNull()?.id,
+          renderList: (list, songs, options) =>
+            getArchiveRenderService().render(list, songs, options),
+          renderEmpty: (list, options) =>
+            getArchiveRenderService().renderEmpty(list, options)
+        });
+      }
+      return _archiveRenderCoordinatorService;
+    }
+
     // --- List/view bridge ---
     function getArchiveListViewService() {
       if (!_archiveListViewService) {
@@ -834,59 +865,7 @@
 
     // --- Main Render ---
     function archRender() {
-      const allSongs = edGetAllSongs();
-      const q = archNormText($('archiveSearch')?.value||'');
-      const sig = $('filterSig')?.value||'';
-      const genre = $('filterGenre')?.value||'';
-      const tempoRange = $('filterTempo')?.value||'';
-      const keyFilter = $('filterKey')?.value||'';
-      const sort = $('filterSort')?.value||'newest';
-      const activeAll = allSongs.filter(s=>!s.deletedAt);
-      $('tabCountAll').textContent=activeAll.length;
-      $('tabCountFav').textContent=activeAll.filter(s=>s.favorite).length;
-      $('tabCountTrash').textContent=allSongs.filter(s=>s.deletedAt).length;
-      $('archiveTotalCount').textContent=`(${activeAll.length} ترانه)`;
-      let songs;
-      if (_archState.currentTab==='fav') songs=activeAll.filter(s=>s.favorite);
-      else if (_archState.currentTab==='trash') songs=allSongs.filter(s=>s.deletedAt);
-      else songs=activeAll;
-      songs = songs.filter(s => {
-        if (q && !archExtractSearchText(s).includes(q)) return false;
-        if (_archState.artistFilter) {
-          const rawArtist = s.artist || s.artistName || s.singer || '';
-          const matched = matchDefaultArtist(rawArtist);
-          const songKey = matched ? archArtistKey(matched.normalizedName) : archArtistKey(rawArtist);
-          if (songKey !== _archState.artistFilter) return false;
-        }
-        if (sig && s.timeSignature!==sig) return false;
-        if (genre && s.genre!==genre) return false;
-        if (keyFilter === '_maj' && s.keyMode !== 'maj') return false;
-        else if (keyFilter === '_min' && s.keyMode !== 'min') return false;
-        else if (keyFilter && keyFilter !== '_maj' && keyFilter !== '_min' && s.key !== keyFilter) return false;
-        if (tempoRange) { const bpm=s.tempo||s.bpm||120; if (tempoRange==='slow'&&bpm>80) return false; if (tempoRange==='mid'&&(bpm<=80||bpm>120)) return false; if (tempoRange==='fast'&&(bpm<=120||bpm>160)) return false; if (tempoRange==='vfast'&&bpm<=160) return false; }
-        return true;
-      });
-      songs.sort((a,b) => { switch(sort) { case 'newest':return (b.createdAt||'').localeCompare(a.createdAt||''); case 'oldest':return (a.createdAt||'').localeCompare(b.createdAt||''); case 'title':return (a.title||'').localeCompare(b.title||'','fa'); case 'artist':return (a.artist||'').localeCompare(b.artist||'','fa'); case 'lastEdit':return (b.updatedAt||'').localeCompare(a.updatedAt||''); case 'lastOpen':return (b.lastOpenedAt||'').localeCompare(a.lastOpenedAt||''); case 'key':return (a.key||'').localeCompare(b.key||''); case 'bpm':return (a.tempo||0)-(b.tempo||0); default:return 0; } });
-      $('archiveResultCount').textContent=songs.length+' نتیجه';
-      const isTrash=_archState.currentTab==='trash';
-      $('archiveStatusText').textContent=isTrash?'سطل زباله':_archState.currentTab==='fav'?'علاقه‌مندی‌ها':'همه ترانه‌ها';
-      $('archiveFilterBar').style.display=isTrash?'none':'';
-      const list = $('archiveList');
-      list.innerHTML = '';
-      if (!songs.length) {
-        getArchiveRenderService().renderEmpty(list, {
-          query: q,
-          isTrash,
-          currentTab: _archState.currentTab
-        });
-        return;
-      }
-      getArchiveRenderService().render(list, songs, {
-        viewMode: _archState.viewMode,
-        selectMode: _archState.selectMode,
-        selectedIds: _archState.selectedIds,
-        activeId: getArchiveSongOrNull()?.id
-      });
+      return getArchiveRenderCoordinatorService().render();
     }
     function escH(s) { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
 

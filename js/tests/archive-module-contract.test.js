@@ -93,6 +93,10 @@ assert.ok(
     scriptIndex('js/archive/ArchiveModule.js')
 );
 assert.ok(
+  scriptIndex('js/archive/ArchiveRenderCoordinatorService.js') <
+    scriptIndex('js/archive/ArchiveModule.js')
+);
+assert.ok(
   scriptIndex('js/archive/ArchiveSearchService.js') <
     scriptIndex('js/archive/ArchiveModule.js')
 );
