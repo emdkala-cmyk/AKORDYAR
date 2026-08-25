@@ -706,23 +706,39 @@ function applyState(stateStr) {
       return waveformBridge.refreshClipWaveImage(clip);
     }
 
-    const mixerService = globalScope.EditorMixerService.create({
-      getDAW: () => getEditorDAW(),
-      getElement: id => $(id),
-      documentRef: document,
-      windowRef: window,
-      saveState: () => saveState(),
-      renderTracks: (...args) => renderTracks(...args),
-      renderClips: (...args) => renderClips(...args),
-      scheduleAllFromPlayhead: (...args) =>
-        scheduleAllFromPlayhead(...args),
-      startPointerDrag: (...args) =>
-        startEditorPointerDrag(...args)
+    const coreMixerRuntime =
+      globalScope.CoreMixerBridgeService?.create?.({
+        mixerFactory: () => globalScope.EditorMixerService?.create,
+        getDAW: () => getEditorDAW(),
+        getElement: id => $(id),
+        documentRef: document,
+        windowRef: window,
+        saveState: (...args) => saveState(...args),
+        renderTracks: (...args) => renderTracks(...args),
+        renderClips: (...args) => renderClips(...args),
+        scheduleAllFromPlayhead: (...args) =>
+          scheduleAllFromPlayhead(...args),
+        startPointerDrag: (...args) =>
+          startEditorPointerDrag(...args)
+      });
+    if (!coreMixerRuntime) throw new Error(
+      'CoreMixerBridgeService باید قبل از app/core.js بارگذاری شود.'
+    );
+    const {
+      getEditorMixerService,
+      updateTrackMix,
+      toggleMixer,
+      renderMixer,
+      initMixerDrag
+    } = coreMixerRuntime;
+    Object.assign(globalScope, {
+      getEditorMixerService,
+      updateTrackMix,
+      toggleMixer,
+      renderMixer,
+      initMixerDrag
     });
-
-    function updateTrackMix(trackId) {
-      return mixerService.updateTrackMix(trackId);
-    }
+    corePublicApi.publish(coreMixerRuntime);
 
     function stopAllVoices() {
       for (const [id, v] of getEditorDAW().voices) { try { v.source.onended = null; v.source.stop(0); } catch (_) {} try { v.source.disconnect(); } catch (_) {} try { v.gain.disconnect(); } catch (_) {} }
@@ -1810,18 +1826,6 @@ function applyState(stateStr) {
           toast('خطا در ذخیره‌ی ضبط');
         }
       })();
-    }
-
-    function toggleMixer() {
-      return mixerService.toggle();
-    }
-
-    function renderMixer() {
-      return mixerService.render();
-    }
-
-    function initMixerDrag() {
-      return mixerService.initDrag();
     }
 
     /* ============================================================
