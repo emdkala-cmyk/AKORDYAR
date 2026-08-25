@@ -28,6 +28,7 @@
     let _archiveTransferService = null;
     let _archiveLifecycleService = null;
     let _archiveSelectionFilterService = null;
+    let _archiveMutationService = null;
 
     function getArchiveRuntimeAdapter() {
       const adapter = window.ArchiveRuntimeAdapter;
@@ -408,6 +409,43 @@
       return _archiveSelectionFilterService;
     }
 
+    // --- Mutation bridge ---
+    function getArchiveMutationService() {
+      if (!_archiveMutationService) {
+        const create = window.ArchiveMutationService?.create;
+        if (typeof create !== 'function') {
+          throw new Error('ArchiveMutationService is not loaded. Check script order.');
+        }
+        _archiveMutationService = create({
+          getAllSongs: edGetAllSongs,
+          setAllSongs: edSetAllSongs,
+          selectedIds: _archSelectedIds,
+          clearSelected: () => _archSelectedIds.clear(),
+          setSelectMode: value => {
+            _archSelectMode = value;
+          },
+          updateSelectionUi: () => {
+            $('archiveBulkBar').classList.remove('show');
+            $('archSelectBtn').classList.remove('active-blue');
+          },
+          confirm: archConfirm,
+          pushUndo: archPushUndo,
+          deleteAudioBlobsForProject,
+          generateId: archGenId,
+          render: archRender,
+          renderArtists: archRenderArtists,
+          updateActiveFilters: archUpdateActiveFilters,
+          resetSearchCache: () => {
+            _archSearchIndex = null;
+            _archArtistCache = null;
+          },
+          escapeHtml: escH,
+          toast
+        });
+      }
+      return _archiveMutationService;
+    }
+
     // --- Shared Load Project Data ---
     async function loadProjectData(data, options = {}) {
       return getArchiveProjectPersistenceService().load(data, options);
@@ -749,50 +787,27 @@
 
     // --- Bulk Actions ---
     async function archBulkTrash() {
-      if (!_archSelectedIds.size) return;
-      const ok = await archConfirm('انتقال به سطل زباله', `${_archSelectedIds.size} ترانه به سطل زباله منتقل شود؟`, 'انتقال');
-      if (!ok) return;
-      archPushUndo('انتقال گروهی');
-      const songs = edGetAllSongs(); const now = new Date().toISOString();
-      songs.forEach(s=>{if(_archSelectedIds.has(String(s.id)))s.deletedAt=now;});
-      edSetAllSongs(songs); _archSelectedIds.clear(); _archSelectMode=false;
-      $('archiveBulkBar').classList.remove('show'); $('archSelectBtn').classList.remove('active-blue');
-      archRender(); archRenderArtists(); archUpdateActiveFilters(); toast('ترانه‌ها به سطل زباله منتقل شدند');
+      return getArchiveMutationService().bulkTrash();
     }
     async function archBulkFav(add) {
-      if (!_archSelectedIds.size) return;
-      archPushUndo(add?'افزودن گروهی':'حذف گروهی علاقه‌مندی');
-      const songs=edGetAllSongs(); songs.forEach(s=>{if(_archSelectedIds.has(String(s.id)))s.favorite=add;});
-      edSetAllSongs(songs); archRender(); archRenderArtists(); archUpdateActiveFilters(); toast(add?'به علاقه‌مندی اضافه شد':'از علاقه‌مندی حذف شد');
+      return getArchiveMutationService().bulkFavorite(add);
     }
 
     // --- Delete / Trash / Restore ---
     async function archTrashSong(id) {
-      const songs=edGetAllSongs(); const s=songs.find(x=>String(x.id)===String(id)); if (!s) return;
-      const ok=await archConfirm('انتقال به سطل زباله',`ترانه «${escH(s.title||'بدون نام')}» به سطل زباله منتقل شود؟`,'انتقال');
-      if (!ok) return;
-      archPushUndo('انتقال به سطل زباله'); s.deletedAt=new Date().toISOString();
-      edSetAllSongs(songs); archRender(); archRenderArtists(); archUpdateActiveFilters(); toast('ترانه به سطل زباله منتقل شد');
+      return getArchiveMutationService().trash(id);
     }
     async function archRestoreSong(id) {
-      archPushUndo('بازیابی'); const songs=edGetAllSongs(); const s=songs.find(x=>String(x.id)===String(id));
-      if (s) { s.deletedAt=null; s.updatedAt=new Date().toISOString(); }
-      edSetAllSongs(songs); archRender(); archRenderArtists(); archUpdateActiveFilters(); toast('ترانه بازیابی شد');
+      return getArchiveMutationService().restore(id);
     }
     async function archPermanentDelete(id) {
-      const songs=edGetAllSongs(); const s=songs.find(x=>String(x.id)===String(id)); if (!s) return;
-      const ok=await archConfirm('حذف دائمی',`<strong>⚠️ این عمل غیرقابل بازگشت است!</strong><br>ترانه «${escH(s.title||'بدون نام')}» برای همیشه حذف خواهد شد.`,'حذف دائمی',true);
-      if (!ok) return;
-      archPushUndo('حذف دائمی');
-      const idx=songs.findIndex(x=>String(x.id)===String(id)); if (idx>-1) songs.splice(idx,1);
-      edSetAllSongs(songs); try{await deleteAudioBlobsForProject(id);}catch(_){} archRender(); archRenderArtists(); archUpdateActiveFilters(); toast('ترانه برای همیشه حذف شد');
+      return getArchiveMutationService().permanentDelete(id);
     }
     function edDeleteFromArchive(id) { archTrashSong(id); }
 
     // --- Favorite ---
     function archToggleFav(id) {
-      archPushUndo('تغییر علاقه‌مندی'); const songs=edGetAllSongs(); const s=songs.find(x=>String(x.id)===String(id));
-      if (s) s.favorite=!s.favorite; edSetAllSongs(songs); archRender();
+      return getArchiveMutationService().toggleFavorite(id);
     }
 
     // --- Context Menu ---
@@ -809,11 +824,7 @@
 
     // --- Duplicate ---
     async function archDuplicateSong(id) {
-      const songs=edGetAllSongs(); const s=songs.find(x=>String(x.id)===String(id)); if (!s) return;
-      const copy=JSON.parse(JSON.stringify(s)); copy.id=archGenId();
-      copy.title=(copy.title||'بدون نام')+' (کپی)';
-      copy.createdAt=new Date().toISOString(); copy.updatedAt=new Date().toISOString(); copy.lastOpenedAt=null;
-      songs.unshift(copy); edSetAllSongs(songs); _archSearchIndex=null; archRender(); archRenderArtists(); archUpdateActiveFilters(); toast('نسخه کپی ساخته شد');
+      return getArchiveMutationService().duplicate(id);
     }
 
     // --- Edit Metadata ---
