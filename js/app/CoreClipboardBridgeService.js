@@ -10,6 +10,8 @@
 
   function create({
     clipboardFactory = () => globalScope.ClipboardService,
+    deletionFactory = () =>
+      globalScope.CoreClipDeletionService?.create,
     getEdSaveSong = () => globalScope.edSaveSong,
     getDAW = () => globalScope.getEditorDAW?.() || globalScope.DAW,
     selectedClips = () => globalScope.selectedClips?.() || [],
@@ -31,6 +33,23 @@
     translate = (...args) => globalScope.t?.(...args) ?? args[0]
   } = {}) {
     let clipboardService = null;
+    let deletionService = null;
+
+    function getClipDeletionService() {
+      if (deletionService) return deletionService;
+      const createDeletionService = deletionFactory?.();
+      if (typeof createDeletionService !== 'function') return null;
+      deletionService = createDeletionService({
+        getDAW,
+        stopAllVoices,
+        saveState,
+        renderAll,
+        scheduleAllFromPlayhead,
+        toast,
+        translate
+      });
+      return deletionService;
+    }
 
     function getClipboardService() {
       if (clipboardService) return clipboardService;
@@ -45,6 +64,8 @@
 
       clipboardService = new ClipboardService({
         getDAW,
+        deleteSelected: (...args) =>
+          getClipDeletionService()?.deleteSelected?.(...args),
         selectedClips,
         uid,
         roundMs,
@@ -67,6 +88,7 @@
 
     return Object.freeze({
       getClipboardService,
+      getClipDeletionService,
       deleteSelected: call('deleteSelected'),
       copySelected: call('copySelected'),
       cutSelected: call('cutSelected'),

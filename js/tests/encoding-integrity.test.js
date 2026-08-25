@@ -18,6 +18,7 @@ const files = [
   'js/app/CoreSelectionService.js',
   'js/app/CoreClipDragService.js',
   'js/app/CoreClipInteractionService.js',
+  'js/app/CoreClipDeletionService.js',
   'js/app/CoreClipboardBridgeService.js',
   'js/app/CoreMixerBridgeService.js',
   'js/app/core.js',

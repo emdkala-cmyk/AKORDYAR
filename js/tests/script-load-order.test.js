@@ -183,6 +183,10 @@ assert.ok(
     scriptIndex('js/app/core.js')
 );
 assert.ok(
+  scriptIndex('js/app/CoreClipDeletionService.js') <
+    scriptIndex('js/app/CoreClipboardBridgeService.js')
+);
+assert.ok(
   scriptIndex('js/app/CoreClipboardBridgeService.js') <
     scriptIndex('js/app/core.js')
 );

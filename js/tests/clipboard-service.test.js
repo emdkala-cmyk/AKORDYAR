@@ -1,44 +1,17 @@
 const assert = require('node:assert/strict');
 const ClipboardService = require('../editor/ClipboardService.js');
 
-const DAW = {
-  clips: [
-    { id: 'audio-1', type: 'audio' },
-    { id: 'chord-1', type: 'chord' }
-  ],
-  sections: [{ id: 'section-1' }],
-  selectedIds: new Set(['audio-1', 'chord-1']),
-  selectedSectionIds: new Set(['section-1']),
-  isPlaying: false
-};
-
-let stopCalls = 0;
-let saveCalls = 0;
-let renderCalls = 0;
-const toasts = [];
+let deleteDelegated = 0;
 
 const service = new ClipboardService({
-  DAW,
-  stopAllVoices: () => { stopCalls++; },
-  saveState: () => { saveCalls++; },
-  renderAll: () => { renderCalls++; },
-  scheduleAllFromPlayhead: () => {
-    throw new Error('schedule should not run while stopped');
-  },
-  toast: (message) => toasts.push(message),
-  t: (key) => key
+  deleteSelected: () => {
+    deleteDelegated++;
+    return true;
+  }
 });
 
-service.deleteSelected();
-
-assert.equal(stopCalls, 1);
-assert.deepEqual(DAW.clips, []);
-assert.deepEqual(DAW.sections, []);
-assert.equal(DAW.selectedIds.size, 0);
-assert.equal(DAW.selectedSectionIds.size, 0);
-assert.equal(saveCalls, 1);
-assert.equal(renderCalls, 1);
-assert.deepEqual(toasts, ['deleted']);
+assert.equal(service.deleteSelected(), undefined);
+assert.equal(deleteDelegated, 1);
 
 const serviceWithoutStop = new ClipboardService({
   DAW: {

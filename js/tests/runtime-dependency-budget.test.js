@@ -44,6 +44,7 @@ const coreClipEditService = read('js/app/CoreClipEditService.js');
 const coreSelectionService = read('js/app/CoreSelectionService.js');
 const coreClipDragService = read('js/app/CoreClipDragService.js');
 const coreClipInteractionService = read('js/app/CoreClipInteractionService.js');
+const coreClipDeletionService = read('js/app/CoreClipDeletionService.js');
 const coreClipboardBridgeService = read(
   'js/app/CoreClipboardBridgeService.js'
 );
@@ -183,7 +184,17 @@ assert.match(
   coreClipboardBridgeService,
   /function getClipboardService\(\)/
 );
+assert.match(
+  coreClipboardBridgeService,
+  /function getClipDeletionService\(\)/
+);
 assert.match(coreClipboardBridgeService, /copySelected:\s*call/);
+assert.match(coreClipDeletionService, /function deleteSelected\(\)/);
+assert.match(coreClipDeletionService, /selectedSectionIds/);
+assert.doesNotMatch(
+  appCore,
+  /function deleteSelected\(\)/
+);
 assert.doesNotMatch(
   appCore,
   /function getClipboardService\(\)/
