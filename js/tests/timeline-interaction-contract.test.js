@@ -6,6 +6,7 @@ const root = path.resolve(__dirname, '..', '..');
 const read = file => fs.readFileSync(path.join(root, file), 'utf8');
 
 const core = read('js/app/core.js');
+const corePanelLayout = read('js/app/CorePanelLayoutService.js');
 const dawState = read('js/core/DAWRuntimeState.js');
 const transportState = read('js/core/EditorTransportStateService.js');
 const editor = read('js/app/editor.js');
@@ -60,9 +61,10 @@ assert.match(html, /id="projectPanelRestoreBtn"/);
 assert.match(html, /id="songPropertiesPanelRestoreBtn"/);
 assert.match(editor, /TimelineScrollbarsService/);
 assert.match(editor, /TimelinePanelLayoutService/);
-assert.match(core, /function initDockableSidePanels\(\)/);
-assert.match(core, /projectPanelLayout/);
-assert.match(core, /songPropertiesPanelLayout/);
+assert.match(corePanelLayout, /function initDockableSidePanels\(\)/);
+assert.match(core, /CorePanelLayoutService/);
+assert.match(corePanelLayout, /projectPanelLayout/);
+assert.match(corePanelLayout, /songPropertiesPanelLayout/);
 assert.match(editor, /function paintTimelineItemAtPoint\(clientX, clientY\)/);
 assert.match(editor, /function getTimelineItemAtPoint\(clientX, clientY\)/);
 assert.match(editor, /function beginTimelineBrushDrag\(event\)/);
@@ -87,7 +89,10 @@ assert.match(core, /function getMarqueeLaneElements\(selector\)/);
 assert.match(core, /getMarqueeLaneElements\('\.clip'\)/);
 assert.match(core, /getMarqueeLaneElements\('\.section-tag'\)/);
 assert.match(core, /function openTimelineChordEditor\(clipId\)/);
-assert.match(core, /app\.style\.gridTemplateRows = `auto minmax\(0, 1fr\) 4px/);
+assert.match(
+  corePanelLayout,
+  /app\.style\.gridTemplateRows =\s*`auto minmax\(0, 1fr\) 4px/
+);
 assert.match(timelineCss, /\.track-name\.selected-track/);
 assert.match(timelineCss, /\.track-lane\.selected-track/);
 assert.match(timelineCss, /\.timeline-bottom-scrollbar/);

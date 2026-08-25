@@ -9,6 +9,7 @@ const files = [
   'js/app/MidiMonitorService.js',
   'js/app/CoreGridQuantizeService.js',
   'js/app/CoreMetronomeService.js',
+  'js/app/CorePanelLayoutService.js',
   'js/app/core.js',
   'js/app/editor.js',
   'js/app/search.js',

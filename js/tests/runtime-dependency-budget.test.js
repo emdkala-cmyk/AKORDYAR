@@ -35,6 +35,7 @@ const editorSyncAnalysisUiService = read(
 const midiMonitorService = read('js/app/MidiMonitorService.js');
 const coreGridQuantizeService = read('js/app/CoreGridQuantizeService.js');
 const coreMetronomeService = read('js/app/CoreMetronomeService.js');
+const corePanelLayoutService = read('js/app/CorePanelLayoutService.js');
 const editor = executableLines(read('js/app/editor.js'));
 const appCore = executableLines(read('js/app/core.js'));
 const search = executableLines(read('js/app/search.js'));
@@ -112,6 +113,12 @@ assert.doesNotMatch(appCore, /function setCountInBars\(value\)/);
 assert.doesNotMatch(appCore, /function alignPlayheadToNearestMeasure\(/);
 assert.doesNotMatch(appCore, /function startMetronome\(/);
 assert.doesNotMatch(appCore, /function checkMetronomeTick\(/);
+assert.match(corePanelLayoutService, /function initDockableSidePanels\(\)/);
+assert.match(corePanelLayoutService, /function setTimelinePanelHeight\(/);
+assert.match(corePanelLayoutService, /function togglePanel\(panel\)/);
+assert.doesNotMatch(appCore, /function initDockableSidePanels\(\)/);
+assert.doesNotMatch(appCore, /function setTimelinePanelHeight\(/);
+assert.doesNotMatch(appCore, /function togglePanel\(panel\)/);
 
 assert.doesNotMatch(appCore, /\bPERF\s*\./);
 assert.doesNotMatch(appCore, /\bDAW\s*\./);
