@@ -42,6 +42,9 @@ const editorAutoImportWorkflowService = read(
 const editorArrangerSongLoadService = read(
   'js/editor/EditorArrangerSongLoadService.js'
 );
+const editorPlaylistBackupService = read(
+  'js/editor/EditorPlaylistBackupService.js'
+);
 const editorColorToolService = read(
   'js/editor/EditorColorToolService.js'
 );
@@ -237,6 +240,28 @@ assert.doesNotMatch(
 assert.match(
   editor,
   /async function loadArrSong\(idx\)\s*\{\s*return getEditorArrangerSongLoadService\(\)\?\.load\(idx\);\s*\}/
+);
+assert.match(
+  editorPlaylistBackupService,
+  /async function exportAllPlaylistsToFile\(\)/
+);
+assert.match(
+  editorPlaylistBackupService,
+  /function validateBackup\(data\)/
+);
+assert.match(
+  editorPlaylistBackupService,
+  /async function importFile\(file\)/
+);
+assert.doesNotMatch(editor, /const exportData = \{/);
+assert.doesNotMatch(editor, /const supportedVersions = \[1, '1\.0', 2, '2\.0'\]/);
+assert.match(
+  editor,
+  /function exportAllPlaylistsToFile\(\)\s*\{\s*return getEditorPlaylistBackupService\(\)\?\.exportAllPlaylistsToFile\(\);\s*\}/
+);
+assert.match(
+  editor,
+  /function importAllPlaylistsFromFile\(\)\s*\{\s*return getEditorPlaylistBackupService\(\)\?\.importAllPlaylistsFromFile\(\);\s*\}/
 );
 assert.match(editorColorToolService, /function paintContextAware\(event\)/);
 assert.match(editorColorToolService, /function applyColorToClip\(clip, color\)/);

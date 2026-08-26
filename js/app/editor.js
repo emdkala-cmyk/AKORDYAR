@@ -3327,154 +3327,41 @@ if ($('edDoBoth')) {
       console.error('Editor lifecycle initialization failed:', error);
     });
   
-    /**
-     * exportAllPlaylistsToFile — خروجی کامل همه پلی‌لیست‌ها در یک فایل JSON
-     */
-    async function exportAllPlaylistsToFile() {
-      if (!arrangers || arrangers.length === 0) {
-        toast('⚠ هیچ پلی‌لیستی برای خروجی وجود ندارد');
-        return;
-      }
-
-      const allSongs = edGetAllSongs();
-      
-      const exportData = {
-        format: 'achord-playlists-backup',
-        version: 1,
-        exportType: 'all',
-        exportedAt: new Date().toISOString(),
-        activePlaylistId: editingArr ? editingArr.id : null,
-        settings: { repeatMode: 'none' },
-        playlists: arrangers.map(arr => ({
-          id: arr.id,
-          name: arr.name || 'پلی‌لیست',
-          createdAt: arr.createdAt || new Date().toISOString(),
-          updatedAt: arr.updatedAt || new Date().toISOString(),
-          items: Array.isArray(arr.items) ? arr.items.map(it => (typeof it === 'string' ? it : it.songId)) : [],
-          crossfade: arr.crossfade || 0,
-          pauseBetween: !!arr.pauseBetween,
-          _itemSettings: arr._itemSettings || {}
-        }))
-      };
-
-      const fileName = `achord-playlists-backup-${new Date().toISOString().slice(0, 10)}.json`;
-
-      if (window.showSaveFilePicker) {
-        try {
-          const handle = await window.showSaveFilePicker({
-            suggestedName: fileName,
-            types: [{ description: 'JSON Playlists Backup', accept: { 'application/json': ['.json'] } }]
+    let editorPlaylistBackupService = null;
+    function getEditorPlaylistBackupService() {
+      if (
+        !editorPlaylistBackupService &&
+        typeof window.EditorPlaylistBackupService?.create === 'function'
+      ) {
+        editorPlaylistBackupService =
+          window.EditorPlaylistBackupService.create({
+            documentRef: document,
+            windowRef: window,
+            getArrangers: () => arrangers,
+            getEditingArr: () => editingArr,
+            getAllSongs: () => edGetAllSongs(),
+            setAllSongs: (...args) => edSetAllSongs(...args),
+            saveArrangers: (...args) => saveArrangers(...args),
+            renderArrangerManager: (...args) =>
+              renderArrangerManager(...args),
+            toast: message => toast(message),
+            logger: console,
+            now: () => Date.now(),
+            isoNow: () => new Date().toISOString(),
+            random: () => Math.random(),
+            blobRef: window.Blob,
+            urlRef: window.URL
           });
-          const writable = await handle.createWritable();
-          await writable.write(JSON.stringify(exportData, null, 2));
-          await writable.close();
-          toast(`✅ خروجی کامل گرفته شد: ${fileName}`);
-        } catch (e) {
-          if (e.name !== 'AbortError') toast('خطا در خروجی: ' + e.message);
-        }
-      } else {
-        const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url; a.download = fileName; a.click();
-        URL.revokeObjectURL(url);
-        toast(`✅ خروجی کامل گرفته شد: ${fileName}`);
       }
+      return editorPlaylistBackupService;
     }
 
-    /**
-     * importAllPlaylistsFromFile — ورود کامل همه پلی‌لیست‌ها از فایل پشتیبان
-     */
-    async function importAllPlaylistsFromFile() {
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = '.json,application/json';
-      input.onchange = async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        try {
-          const text = await file.text();
-          const data = JSON.parse(text);
+    function exportAllPlaylistsToFile() {
+      return getEditorPlaylistBackupService()?.exportAllPlaylistsToFile();
+    }
 
-          if (!data || data.format !== 'achord-playlists-backup' || !Array.isArray(data.playlists)) {
-            toast('❌ فایل معتبر نیست — فرمت پشتیبان پلی‌لیست نیست');
-            return;
-          }
-
-          const supportedVersions = [1, '1.0', 2, '2.0'];
-          if (data.version && !supportedVersions.includes(data.version)) {
-            toast(`❌ نسخه فایل (${data.version}) پشتیبانی نمی‌شود.`);
-            return;
-          }
-
-          for (let i = 0; i < data.playlists.length; i++) {
-            const pl = data.playlists[i];
-            if (!pl || !pl.name || !pl.name.trim()) {
-              toast(`❌ پلی‌لیست شماره ${i + 1} نام معتبر ندارد.`);
-              return;
-            }
-            if (!Array.isArray(pl.items)) {
-              toast(`❌ پلی‌لیست «${pl.name}» آرایه items معتبر ندارد.`);
-              return;
-            }
-          }
-
-          const normalizePlaylistName = (name) => String(name || '').trim().replace(/\s+/g, ' ').toLocaleLowerCase('fa-IR');
-          const existingNames = new Set(arrangers.map(a => normalizePlaylistName(a.name)));
-          const importedNames = new Set();
-          const duplicateNames = [];
-
-          for (const pl of data.playlists) {
-            const normalizedName = normalizePlaylistName(pl.name);
-            if (importedNames.has(normalizedName)) {
-              duplicateNames.push(pl.name);
-            } else {
-              importedNames.add(normalizedName);
-            }
-            if (existingNames.has(normalizedName) && !duplicateNames.includes(pl.name)) {
-              duplicateNames.push(pl.name);
-            }
-          }
-
-          if (duplicateNames.length > 0) {
-            toast(`ورود کامل انجام نشد. پلی‌لیست‌های زیر دارای نام تکراری هستند:\n«${duplicateNames.join('»، «')}»`);
-            return;
-          }
-
-          let importedSongsCount = 0;
-          const allSongs = edGetAllSongs();
-          if (data.songs && typeof data.songs === 'object') {
-            for (const [id, song] of Object.entries(data.songs)) {
-              if (song && song.title && !allSongs.find(s => s.id === id)) {
-                allSongs.push(song);
-                importedSongsCount++;
-              }
-            }
-            if (importedSongsCount > 0) edSetAllSongs(allSongs);
-          }
-
-          const newPlaylists = data.playlists.map(pl => ({
-            id: 'playlist_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
-            name: pl.name,
-            items: pl.items.map(it => (typeof it === 'string' ? it : it.songId)),
-            crossfade: pl.crossfade || 0,
-            pauseBetween: !!pl.pauseBetween,
-            _itemSettings: pl._itemSettings || {},
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-          }));
-
-          arrangers.unshift(...newPlaylists);
-          saveArrangers();
-          renderArrangerManager();
-
-          toast(`✅ ${newPlaylists.length} پلی‌لیست وارد شد${importedSongsCount > 0 ? `، ${importedSongsCount} آهنگ جدید` : ''}`);
-        } catch (e) {
-          console.error('[Import All] Error:', e);
-          toast('❌ خطا در بارگذاری فایل: ' + e.message);
-        }
-      };
-      input.click();
+    function importAllPlaylistsFromFile() {
+      return getEditorPlaylistBackupService()?.importAllPlaylistsFromFile();
     }
 
 /**

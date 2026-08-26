@@ -48,6 +48,7 @@ const files = [
   'js/editor/EditorAutoImportFileSaveService.js',
   'js/editor/EditorAutoImportWorkflowService.js',
   'js/editor/EditorArrangerSongLoadService.js',
+  'js/editor/EditorPlaylistBackupService.js',
   'js/editor/EditorMidiInputService.js',
   'js/editor/EditorTimelineChordEditorService.js',
   'js/app/core.js',
