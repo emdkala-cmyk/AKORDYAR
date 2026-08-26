@@ -34,6 +34,7 @@ let coreArrangerManagerRendererRuntime = null;
 let coreArrangerFileImportRuntime = null;
 let coreArrangerSetlistRendererRuntime = null;
 let coreClipRendererRuntime = null;
+let coreArrangerBackgroundPreloadRuntime = null;
 
 const corePublicApiFactory = globalScope.CorePublicApi;
 if (!corePublicApiFactory?.create) {
@@ -2631,6 +2632,29 @@ let syncTapKeyHandler = null;
     Object.assign(globalScope, corePerformanceModeRuntime);
     corePublicApi.publish(corePerformanceModeRuntime);
 
+    coreArrangerBackgroundPreloadRuntime =
+      globalScope.CoreArrangerBackgroundPreloadService?.create?.({
+        getArranger: () => arrPerformData,
+        getActive: () => _bgPreloadActive,
+        setActive: value => {
+          _bgPreloadActive = value;
+        },
+        getPreloadedIds: () => _bgPreloadedSongIds,
+        setPreloadedIds: value => {
+          _bgPreloadedSongIds = value;
+        },
+        getAllSongs: () => edGetAllSongs(),
+        getDAW: () => getEditorDAW(),
+        preloadAudioForSong: (...args) => preloadAudioForSong(...args),
+        wait: delay => new Promise(resolve => setTimeout(resolve, delay)),
+        logger: console
+      });
+    if (!coreArrangerBackgroundPreloadRuntime) {
+      throw new Error(
+        'CoreArrangerBackgroundPreloadService باید قبل از app/core.js بارگذاری شود.'
+      );
+    }
+
     corePerformanceUiRuntime =
       globalScope.CorePerformanceUiService?.create?.({
         documentRef: document,
@@ -2667,61 +2691,7 @@ let syncTapKeyHandler = null;
      * مهم: این تابع غیرمسدودکننده هست و نباید پخش فعلی رو مختل کنه.
      */
     function _startBackgroundPreload() {
-      if (_bgPreloadActive) return;
-      if (!arrPerformData || !arrPerformData.items.length) return;
-
-      _bgPreloadActive = true;
-      _bgPreloadedSongIds = new Set();
-
-      const allSongs = edGetAllSongs();
-      const songsToPreload = arrPerformData.items
-        .map(id => allSongs.find(s => s.id === id))
-        .filter(s => s); // فیلتر null ها
-
-      console.log(`[BG Preload] Starting background preload for ${songsToPreload.length} songs`);
-
-      // اجرای preload به‌صورت زنجیره‌ای (یکی‌یکی، نه موازی) برای جلوگیری از overload
-      (async () => {
-        for (let i = 0; i < songsToPreload.length; i++) {
-          if (!_bgPreloadActive) {
-            console.log('[BG Preload] Cancelled');
-            return;
-          }
-          const song = songsToPreload[i];
-          if (_bgPreloadedSongIds.has(song.id)) continue;
-
-          try {
-            // اگه آهنگ فعلی داره پخش می‌شه و نزدیک انتها هست، اولویت با prepareNextArrSong باشه
-            // اینجا فقط preload می‌کنیم اگه bufferCache نداشته باشیم
-            const hasAudioClips = song._dawClips && song._dawClips.some(c => c.type !== 'chord' && c.bufferKey);
-            if (!hasAudioClips) {
-              _bgPreloadedSongIds.add(song.id);
-              continue;
-            }
-
-            // چک کن: آیا همه بافرها از قبل لود شدن؟
-            const allLoaded = song._dawClips.every(c =>
-              c.type === 'chord' || !c.bufferKey || getEditorDAW().bufferCache.has(c.bufferKey)
-            );
-            if (allLoaded) {
-              _bgPreloadedSongIds.add(song.id);
-              continue;
-            }
-
-            console.log(`[BG Preload] (${i + 1}/${songsToPreload.length}) Preloading: "${song.title || song.id}"`);
-            await preloadAudioForSong(song);
-            _bgPreloadedSongIds.add(song.id);
-
-            // یک وقفه کوتاه بین هر آهنگ برای اجازه دادن به playback tick
-            await new Promise(r => setTimeout(r, 50));
-          } catch (e) {
-            console.warn(`[BG Preload] Error preloading "${song.title}":`, e);
-            _bgPreloadedSongIds.add(song.id); // علامت‌گذاری به‌عنوان پردازش‌شده برای جلوگیری از loop بی‌نهایت
-          }
-        }
-        console.log('[BG Preload] Complete');
-        _bgPreloadActive = false;
-      })();
+      return coreArrangerBackgroundPreloadRuntime?.start?.();
     }
 
     // Render performance mode UI
