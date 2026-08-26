@@ -156,9 +156,13 @@ assert.doesNotMatch(editorChordInteractionService, /\bDAW\b/);
 assert.doesNotMatch(editorChordInteractionService, /\bPERF\b/);
 assert.match(editorChordInteractionService, /moveChordsByDelta/);
 assert.match(editorChordImportService, /function parseChordPage\(html, url\)/);
-assert.match(editorChordImportService, /function applyImportChords\(\)/);
+assert.match(
+  editorChordImportService,
+  /function applyImportChords\(parsedOverride = null\)/
+);
 assert.doesNotMatch(editor, /function parseChordPage\(html, url\)/);
 assert.doesNotMatch(editor, /function applyImportChords\(\)/);
+assert.doesNotMatch(editor, /_importParsed/);
 assert.match(editorMidiInputService, /function handleMessage\(event\)/);
 assert.match(editorMidiInputService, /function evaluateInput\(\)/);
 assert.match(editorMidiInputService, /function highlightPianoKey\(midiNote, on\)/);
@@ -175,6 +179,7 @@ assert.match(editorAutoImportStateService, /function getFailedSongs\(\)/);
 assert.doesNotMatch(editorAutoImportStateService, /window\._ai/);
 assert.doesNotMatch(editor, /window\._ai(?:Results|ArtistMap|Stats|FailedSongs|FailedFiles)/);
 assert.doesNotMatch(editor, /window\._autoImportDirHandle/);
+assert.doesNotMatch(archive, /_importParsed/);
 assert.doesNotMatch(editorLyricsRenderer, /window\.edCur/);
 assert.doesNotMatch(editorLyricsRenderer, /\bDAW\b/);
 assert.doesNotMatch(editorLyricsRenderer, /\bPERF\b/);

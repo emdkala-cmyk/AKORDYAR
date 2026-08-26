@@ -27,7 +27,6 @@ let importedSong = { id: 'song-1' };
 let importParsedResult = null;
 let parsedSong = null;
 let currentAutoResults = [];
-let externalImportParsed = null;
 
 const service = ChordImportService.create({
   documentRef: document,
@@ -43,10 +42,6 @@ const service = ChordImportService.create({
   urlRef: dom.window.URL,
   getAutoImportResults: () => currentAutoResults,
   songUniqueId: song => `${song.artist}:${song.title}`,
-  getImportParsed: () => externalImportParsed,
-  setImportParsedExternal: value => {
-    externalImportParsed = value;
-  },
   normalizeRawText: value => String(value || '').trim(),
   hasPersian: value => /[\u0600-\u06ff]/.test(value),
   isChordOnlyLine: value => /^C(?:\\s+G)?$/.test(value),
@@ -95,7 +90,6 @@ assert.equal(getElement('importText').value, '');
 assert.equal(getElement('importUrl').value, '');
 assert.equal(getElement('importPreview').style.display, 'none');
 assert.equal(service.getImportParsed(), null);
-assert.equal(externalImportParsed, null);
 
 getElement('importText').value =
   'آهنگ: باران\nخواننده: خواننده\nC  G\nمتن ترانه';
@@ -145,14 +139,14 @@ assert.equal(getElement('importUrl').value, 'https://example.com/imported');
 assert.equal(service.getImportParsed().title, 'Imported');
 assert.match(getElement('importPreview').textContent, /Imported/);
 
-externalImportParsed = {
+const projectParsed = {
   title: 'Legacy project',
   artist: 'Artist',
   rawText: 'C',
   url: ''
 };
 getElement('importText').value = '';
-const legacyParsed = service.applyImportChords();
+const legacyParsed = service.applyImportChords(projectParsed);
 assert.equal(legacyParsed.title, 'Legacy project');
 
 const laminor = ChordImportService.create({

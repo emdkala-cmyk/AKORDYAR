@@ -17,8 +17,6 @@
       String(song?.url || `${song?.artist || ''}::${song?.title || ''}`)
         .replace(/\s+/g, '')
         .toLowerCase(),
-    getImportParsed = () => undefined,
-    setImportParsedExternal = () => {},
     normalizeRawText = value => value || '',
     hasPersian = () => false,
     isChordOnlyLine = () => false,
@@ -36,17 +34,15 @@
     toast = () => {},
     logger = console
   } = {}) {
-    let importParsed = getImportParsed();
+    let importParsed = null;
 
     function setImportParsed(value) {
       importParsed = value;
-      setImportParsedExternal(value);
       return importParsed;
     }
 
     function readImportParsed() {
-      const externalValue = getImportParsed();
-      return externalValue === undefined ? importParsed : externalValue;
+      return importParsed;
     }
 
     function openImportChordModal() {
@@ -341,17 +337,17 @@
       return preview;
     }
 
-    function applyImportChords() {
+    function applyImportChords(parsedOverride = null) {
       const textElement = getElement('importText');
       const text = (textElement?.value || '').trim();
-      const currentImportParsed = readImportParsed();
+      const currentImportParsed = parsedOverride || readImportParsed();
       if (!text && !currentImportParsed) {
         toast('متنی وارد نشده');
         return null;
       }
 
       let parsed;
-      if (currentImportParsed && text.length === 0) {
+      if (parsedOverride || (currentImportParsed && text.length === 0)) {
         parsed = currentImportParsed;
       } else {
         parsed = {

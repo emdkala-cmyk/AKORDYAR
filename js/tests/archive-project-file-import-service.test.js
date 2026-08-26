@@ -36,7 +36,6 @@ const daw = {
   masterGain: {}
 };
 let currentSong = null;
-let importedParsed = 'previous';
 const calls = [];
 const toasts = [];
 const recoveryCalls = [];
@@ -60,11 +59,8 @@ const service = ArchiveProjectFileImportService.create({
   getArrangerMarkers: () => ({ enabled: true, start: 1, end: 8 }),
   ensureAudioCtx: () => calls.push(['audio-context']),
   updateTrackMix: () => calls.push(['track-mix']),
-  setImportParsed: value => {
-    importedParsed = value;
-  },
-  applyImportChords: () => {
-    calls.push(['apply-import']);
+  applyImportChords: parsed => {
+    calls.push(['apply-import', parsed]);
     currentSong.lyrics = 'متن پردازش‌شده';
   },
   loadAudioBlobsForProject: async () => calls.push(['load-blobs']),
@@ -101,7 +97,6 @@ const service = ArchiveProjectFileImportService.create({
   assert.equal(currentSong.timeSignature, '4/4');
   assert.equal(currentSong.tempo, 120);
   assert.equal(currentSong.genre, '');
-  assert.equal(importedParsed, null);
   assert.deepEqual(daw.selectedIds, new Set());
   assert.deepEqual(daw.selectedSectionIds, new Set());
   assert.deepEqual(daw.arrangerMarkers, { enabled: true, start: 1, end: 8 });
@@ -114,7 +109,9 @@ const service = ArchiveProjectFileImportService.create({
     ['pause'],
     ['stop']
   ]);
-  assert.ok(calls.some(call => call[0] === 'apply-import'));
+  const importCall = calls.find(call => call[0] === 'apply-import');
+  assert.ok(importCall);
+  assert.equal(importCall[1].rawText, 'C  متن');
   assert.ok(calls.some(call => call[0] === 'state'));
   assert.ok(calls.some(call => call[0] === 'save-song'));
   assert.ok(calls.some(call => call[0] === 'render-all'));

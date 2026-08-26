@@ -35,7 +35,6 @@
       getArrangerMarkers = () => ({ enabled: false, start: 0, end: 0 }),
       ensureAudioCtx = () => {},
       updateTrackMix = () => {},
-      setImportParsed = () => {},
       applyImportChords = () => {},
       loadAudioBlobsForProject = async () => {},
       saveAudioBlobsForProject = async () => {},
@@ -122,11 +121,9 @@
         if (!song.genre) song.genre = '';
 
         if (song.rawText && !song.lyrics) {
-          setImportParsed(song);
           getElement('importText').value = song.rawText;
           getElement('importUrl').value = song.url || '';
-          applyImportChords();
-          setImportParsed(null);
+          applyImportChords(song);
         }
 
         if (song._dawTracks) daw.tracks = clone(song._dawTracks);

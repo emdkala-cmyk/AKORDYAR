@@ -783,8 +783,6 @@ function getMidiScoreController() {
     loadShortcuts();
 
     let _editingShortcutId = null;
-    // Compatibility bridge for ArchiveProjectFileImportService.
-    let _importParsed = null;
     // ===== AUTO IMPORT (Rewritten — multi-artist, progress, retry, accurate counts) =====
 
     const autoImportStateService =
@@ -919,10 +917,6 @@ function getMidiScoreController() {
         fetchRef: (...args) => fetch(...args),
         getAutoImportResults: () => autoImportStateService.getResults(),
         songUniqueId,
-        getImportParsed: () => _importParsed,
-        setImportParsedExternal: value => {
-          _importParsed = value;
-        },
         normalizeRawText,
         hasPersian,
         isChordOnlyLine,

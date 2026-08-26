@@ -342,7 +342,6 @@
           getArrangerMarkers: getArchiveArrangerMarkers,
           ensureAudioCtx,
           updateTrackMix,
-          setImportParsed: value => { _importParsed = value; },
           applyImportChords,
           loadAudioBlobsForProject,
           saveAudioBlobsForProject,
