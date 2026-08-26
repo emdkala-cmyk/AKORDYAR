@@ -2,7 +2,7 @@
 
 
    آکوردیار — Project Hub Overlay Logic
-   یکپارچه با توابع واقعی پروژه (app.js)
+   یکپارچه با توابع واقعی پروژه و سرویس‌های runtime
    شامل: قالب‌های واقعی، صفحه شروع، بهبود طراحی
    ============================================================ */
 
@@ -183,7 +183,7 @@
   /* ---------- Data: Arranger Playlists (ارنجر ترک‌ها از localStorage) ---------- */
   function getArrangerPlaylists() {
     try {
-      // Attempt to access the global arranger data from app.js
+      // Access the arranger data published by the active core runtime.
       if (typeof window.arrangers !== 'undefined' && Array.isArray(window.arrangers)) {
         return window.arrangers.map((arr) => ({
           id: arr.id,
@@ -627,7 +627,7 @@
 
     if (isStartup && !isElectronRuntime) {
       isStartup = false;
-      // کمی تأخیر تا app.js کاملاً لود شود
+      // کمی تأخیر تا runtime اصلی کاملاً آماده شود
       setTimeout(() => {
         openHub();
         console.log('[ProjectHub] Startup screen shown');

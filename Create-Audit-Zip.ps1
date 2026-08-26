@@ -4,8 +4,7 @@ $files = @(
     "Akordyar.html",
     "package.json",
     "preload.js",
-    "electron-main.js",
-    "js\app.js"
+    "electron-main.js"
 )
 
 $folders = @(

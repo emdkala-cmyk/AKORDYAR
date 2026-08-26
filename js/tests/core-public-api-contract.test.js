@@ -11,15 +11,13 @@ const html = fs.readFileSync(
   path.join(projectRoot, 'Akordyar.html'),
   'utf8'
 );
-const appBootstrap = require('../app.js');
-
 assert.match(core, /CorePublicApi/);
 assert.match(core, /corePublicApi\.publish\(\{/);
 assert.doesNotMatch(core, /window\.(startTransport|pauseTransport|stopTransport|seekTransport)\s*=/);
 assert.doesNotMatch(core, /window\.(loadAudioFromHardDrive|pathDirname|pathJoin)\s*=/);
 assert.ok(
-  appBootstrap.APPLICATION_CHUNKS.indexOf('core/CorePublicApi.js') <
-    appBootstrap.APPLICATION_CHUNKS.indexOf('app/core.js')
+  html.indexOf('js/core/CorePublicApi.js') <
+    html.indexOf('js/app/core.js')
 );
 assert.ok(
   html.indexOf('js/core/CorePublicApi.js') <

@@ -257,7 +257,7 @@ assert(ue.undo()===null,'Undo: past beginning');
   // =========================================================================
   section('12. syncTimes');
 
-  // Pattern from app.js ~line 4948:
+  // Pattern from the pre-modularized editor runtime:
   // syncTimes[i] = timestamp for line i (line-level sync)
   // Empty lines inherit the timestamp of the previous line
 
@@ -310,7 +310,7 @@ assert(ue.undo()===null,'Undo: past beginning');
   // =========================================================================
   section('13. seqPoints');
 
-  // Pattern from app.js ~line 5268:
+  // Pattern from the pre-modularized editor runtime:
   // seqPoints = [{anchorType, lineIndex, charIndex, name:''}]
   // anchorType: 'LineStart' | 'OnCharacter' | 'LineEnd'
 
@@ -386,7 +386,7 @@ assert(ue.undo()===null,'Undo: past beginning');
   // =========================================================================
   section('14. chordLineClips');
 
-  // Pattern from app.js ~line 3569:
+  // Pattern from the pre-modularized editor runtime:
   // chordLineClips = [{lineIndex, charIndex, name, ...}]
   // hasManualChordLineEdits flag tracks manual edits
   // sync copies lyrics chords → chordLineClips maintaining spatial order
@@ -450,7 +450,7 @@ assert(ue.undo()===null,'Undo: past beginning');
   // =========================================================================
   section('15. Archive');
 
-  // Pattern from app.js ~line 11210:
+  // Pattern from the pre-modularized editor runtime:
   // songs = edGetAllSongs(); idx = findIndex; songs[idx] = JSON.parse(JSON.stringify(edCur));
   // edSetAllSongs(songs);
 

@@ -3,7 +3,6 @@ const path = require('node:path');
 
 const projectRoot = path.resolve(__dirname, '..', '..');
 const budgets = [
-  { file: 'js/app.js', max: 200, target: 150 },
   { file: 'js/app/core.js', max: 6000, target: 5600 },
   { file: 'js/app/editor.js', max: 6500, target: 6000 }
 ];

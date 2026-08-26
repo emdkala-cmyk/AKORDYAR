@@ -4,7 +4,7 @@
  * مدل مشترک آهنگ: متن، آکوردها، گام، sync، و state پخش.
  * هیچ View‌ای نباید مستقیماً edCur را بخواند — باید از SongDocument استفاده کند.
  *
- * توابع transpose از `edTransposeChord` / `edShiftNote` موجود در app.js استفاده می‌کنند.
+ * توابع transpose از فرمان‌های عمومی runtime ادیتور استفاده می‌کنند.
  */
 
 /**

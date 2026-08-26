@@ -1,15 +1,15 @@
 /**
  * ArchiveModule — سیستم آرشیو ترانه‌ها (IndexedDB + localStorage fallback)
  *
- * برش verbatim از app.js — Commit 3 برنامهٔ کاهش حجم app.js.
+ * استخراج‌شده از runtime آرشیو — Commit 3 برنامهٔ ماژولارسازی.
  * این فایل classic script است: اعلان‌های top-level آن در global lexical scope
- * باقی می‌مانند و از app.js، projecthub.js و inline handlerهای HTML قابل دسترس‌اند.
+ * باقی می‌مانند و از projecthub.js و actionهای HTML قابل دسترس‌اند.
  * این فایل پیش از app/core و editor لود می‌شود تا APIهای آرشیو قبل از ثبت
  * actionها و routeهای بعدی در دسترس باشند؛ ارجاع‌های runtime به $، toast و
  * سرویس‌های editor فقط هنگام اجرای actionها resolve می‌شوند.
  *
- * نکته: اعلان let _audioDirHandle عمداً در app.js باقی مانده است،
- * چون ناحیهٔ Storage در app.js به آن نیاز دارد.
+ * نکته: اعلان let _audioDirHandle در runtime ادیتور نگهداری می‌شود،
+ * چون ناحیهٔ Storage به آن نیاز دارد.
  */
 
     // ===== ARCHIVE SYSTEM =====

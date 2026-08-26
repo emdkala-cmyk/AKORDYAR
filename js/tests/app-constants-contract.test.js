@@ -16,8 +16,6 @@ const htmlSource = fs.readFileSync(
   path.join(projectRoot, 'Akordyar.html'),
   'utf8'
 );
-const appBootstrap = require('../app.js');
-
 const sandbox = { window: {}, globalThis: {} };
 vm.runInNewContext(constantsSource, sandbox, { filename: 'constants.js' });
 const constants = sandbox.window.AkordyarAppConstants;
@@ -38,12 +36,9 @@ assert.doesNotMatch(coreSource, /const\s+COLORS\s*=/);
 assert.doesNotMatch(coreSource, /const\s+CHORD_TEMPLATES\s*=/);
 assert.match(coreSource, /globalScope\.AkordyarAppConstants/);
 
-assert.equal(appBootstrap.APPLICATION_CHUNKS[0], 'core/FunctionUtils.js');
-assert.equal(appBootstrap.APPLICATION_CHUNKS[1], 'core/DAWRuntimeState.js');
-assert.equal(appBootstrap.APPLICATION_CHUNKS[2], 'app/constants.js');
 assert.ok(
-  appBootstrap.APPLICATION_CHUNKS.indexOf('core/TransportSchedulingService.js') <
-    appBootstrap.APPLICATION_CHUNKS.indexOf('app/core.js')
+  htmlSource.indexOf('js/core/TransportSchedulingService.js') <
+    htmlSource.indexOf('js/app/core.js')
 );
 assert.ok(
   htmlSource.indexOf('js/app/constants.js') <

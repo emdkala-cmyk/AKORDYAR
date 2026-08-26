@@ -2,9 +2,9 @@
  * ChordLineSyncService — منطق pure همگام‌سازی Lyrics Chord → Chord Line
  *
  * Pure functions only — بدون وابستگی به DOM، edCur یا DAW.
- * استخراج‌شده از app.js در Commit 1 برنامهٔ Editor Domain Extraction.
+ * استخراج‌شده از runtime ادیتور در Commit 1 برنامهٔ Editor Domain Extraction.
  *
- * نکته: تابع stateful قدیمی syncChordLineFromLyrics() در app.js باقی می‌ماند
+ * نکته: تابع stateful syncChordLineFromLyrics() در runtime ادیتور باقی می‌ماند
  * و فقط مرتب‌سازی و اعمال نام‌ها را به این سرویس delegate می‌کند؛ وابستگی‌های
  * edCur، DAW.tracks، DAW.clips، toast و _chordLinePopup دست‌نخورده حفظ می‌شوند.
  */

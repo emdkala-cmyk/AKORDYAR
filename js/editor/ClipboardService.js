@@ -1,7 +1,7 @@
 /**
  * ClipboardService.js
  * منطق کپی، برش، چسباندن، تکثیر و حذف کلیپ‌ها و سکشن‌ها.
- * استخراج شده از app.js جهت کاهش خطوط و سازماندهی کد.
+ * استخراج شده از runtime ادیتور جهت کاهش خطوط و سازماندهی کد.
  */
 class ClipboardService {
     constructor(deps) {

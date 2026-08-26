@@ -6,7 +6,7 @@
  *
  * چون این فایل توسط Akordyar.html (مرورگر/الکترون) هم load می‌شود،
  * تمام بدنهٔ تست داخل یک گارد Node-only قرار گرفته تا هیچ
- * require/global‌ای در renderer اجرا نشود و با app.js تداخل نکند.
+ * require/global‌ای در renderer اجرا نشود و با runtime renderer تداخل نکند.
  */
 
 'use strict';

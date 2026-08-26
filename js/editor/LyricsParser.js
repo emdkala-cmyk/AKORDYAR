@@ -2,7 +2,7 @@
  * LyricsParser — تشخیص خطوط آکورد و استخراج توکن‌های آکورد از متن ترانه
  *
  * Pure functions only — بدون وابستگی به DOM، edCur یا DAW.
- * استخراج‌شده از app.js در Commit 1 برنامهٔ Editor Domain Extraction.
+ * استخراج‌شده از runtime ادیتور در Commit 1 برنامهٔ Editor Domain Extraction.
  *
  * پشتیبانی از:
  * - chordهای ساده و slash chord

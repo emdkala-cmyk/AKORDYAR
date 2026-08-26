@@ -2,7 +2,7 @@
  * LyricPositionMapper — نگاشت موقعیت کاراکتر در متن ترانه
  *
  * Pure functions only — بدون وابستگی به DOM، edCur یا DAW.
- * استخراج‌شده از app.js در Commit 1 برنامهٔ Editor Domain Extraction.
+ * استخراج‌شده از runtime ادیتور در Commit 1 برنامهٔ Editor Domain Extraction.
  *
  * مسئولیت‌ها:
  * - تبدیل (lineIndex, charIndex) ↔ offset مطلق
@@ -11,7 +11,7 @@
  * - نگاشت ستون آکوردها به ایندکس حروف متن با پشتیبانی RTL/LTR
  *
  * نکته: hasPersian و expandTabsForVisualColumns کپی خصوصی این ماژول‌اند تا
- * ماژول self-contained بماند؛ نسخهٔ app.js برای call-siteهای دیگر حفظ شده است.
+ * ماژول self-contained بماند؛ call-siteهای runtime از همین سرویس استفاده می‌کنند.
  */
 const LyricPositionMapper = (() => {
 
@@ -64,7 +64,7 @@ const LyricPositionMapper = (() => {
 
   /**
    * remap یک لنگر (آکورد یا seqPoint) از متن قدیمی به متن جدید.
-   * item به‌صورت in-place به‌روز می‌شود (همان رفتار قبلی app.js).
+   * item به‌صورت in-place به‌روز می‌شود (همان قرارداد قبلی runtime).
    *
    * @param {object} item - دارای lineIndex، charIndex و anchorType
    * @param {string} oldText

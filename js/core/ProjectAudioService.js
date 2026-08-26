@@ -9,7 +9,7 @@
  * - resolve کردن مسیر فایل صوتی برای clipهای جدید و قدیمی
  *
  * این سرویس عمداً مالک state نیست.
- * state اصلی همچنان در app.js و شیء DAW باقی می‌ماند.
+ * state اصلی از runtime فعال DAW به سرویس تزریق می‌شود.
  */
 class ProjectAudioService {
   constructor({

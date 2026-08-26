@@ -939,7 +939,7 @@ function getMidiScoreController() {
       return editorRawSongParserService.parseRawSongToEdCur(parsedSong);
     }
 
-    // Thin wrapper for backward compatibility
+    // Thin command wrapper for the editor runtime.
     function parseSongRawText(song) {
       return parseRawSongToEdCur(song);
     }
@@ -1496,7 +1496,7 @@ function edBlankSong() {
         typeof service?.initializeEditor === 'function' ||
         typeof service?.initialize === 'function'
       ) {
-        // Compatibility path for an older loaded service during hot-swap.
+        // Adapter path for a service that exposes the older initialize name.
         edSongInitializationService = service;
       }
     }
@@ -2094,8 +2094,8 @@ function edRestoreSelectionState(state) {
   applyState(stateStr);
 }
 
-    // History command wrappers are kept in the editor scope so keyboard,
-    // toolbar and legacy inline callers share the same implementation.
+    // History commands stay in the editor scope so keyboard, toolbar and
+    // document actions share one implementation.
     function undo() {
       return getHistoryService().undo();
     }

@@ -1,8 +1,8 @@
 /**
  * MetronomeEngine — pure beat-transition tracking for the transport metronome.
  *
- * Audio synthesis, transport state and DOM updates intentionally remain in
- * app.js during the safe-extraction phase.
+ * Audio synthesis, transport state and DOM updates are owned by the active
+ * transport runtime; this class only tracks beat transitions.
  */
 class MetronomeEngine {
   constructor({

@@ -10,6 +10,9 @@ const html = fs.readFileSync(
 
 const escapeRegExp = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const removedLegacyFiles = [
+  'js/app.js',
+  'js/core/MidiBridge.js',
+  'js/core/NetworkBridge.js',
   'js/core/FileSystemBridge.js',
   'js/core/AudioManager.js',
   'js/core/AudioFileLoader.js',

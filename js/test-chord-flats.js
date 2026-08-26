@@ -8,23 +8,23 @@
  */
 
 // ============================================================
-// Replicate the pure logic from app.js (no DOM dependencies)
+// Replicate the pure notation logic (no DOM dependencies)
 // ============================================================
 
-// From app.js: NOTE_SEMITONE (chord editor piano preview)
+// NOTE_SEMITONE (chord editor piano preview)
 const NOTE_SEMITONE = { 'C':0,'C#':1,'Db':1,'D':2,'D#':3,'Eb':3,'E':4,'F':5,'F#':6,'Gb':6,'G':7,'G#':8,'Ab':8,'A':9,'A#':10,'Bb':10,'B':11 };
 
-// From app.js: ED_SEMITONE (lyrics editor transpose)
+// ED_SEMITONE (lyrics editor transpose)
 const ED_SEMITONE = {'C':0,'C#':1,'Db':1,'D':2,'D#':3,'Eb':3,'E':4,'F':5,'F#':6,'Gb':6,'G':7,'G#':8,'Ab':8,'A':9,'A#':10,'Bb':10,'B':11};
 
-// From app.js: ED_FLAT_MAP (used by edShiftNote to preserve flat spelling)
+// ED_FLAT_MAP (used by edShiftNote to preserve flat spelling)
 const ED_FLAT_MAP = { 1:'Db', 3:'Eb', 6:'Gb', 8:'Ab', 10:'Bb' };
 
-// From app.js: ED_FLAT_NOTES
+// ED_FLAT_NOTES
 const ED_FLAT_NOTES = ['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'];
 const ED_NOTES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 
-// From app.js: edShiftNote — preserves flat/sharp spelling
+// edShiftNote — preserves flat/sharp spelling
 function edShiftNote(n, semi) {
   const map = ED_SEMITONE;
   if (!(n in map)) return n;
@@ -36,13 +36,13 @@ function edShiftNote(n, semi) {
   return sharp[idx];
 }
 
-// From app.js: edTransposeChord
+// edTransposeChord
 function edTransposeChord(name, semi) {
   if (!semi || !name) return name;
   return name.split('/').map(part => part.replace(/^([A-G][b#]?)/, (_,root) => edShiftNote(root,semi))).join('/');
 }
 
-// From app.js: edTransposeKeyName — preserves flat spelling for keys
+// edTransposeKeyName — preserves flat spelling for keys
 function edTransposeKeyName(key, semitones) {
   if (!key || !semitones) return key;
   const idx = ED_SEMITONE[key];
@@ -54,7 +54,7 @@ function edTransposeKeyName(key, semitones) {
   return ED_NOTES[newIdx];
 }
 
-// From app.js: chord-name parsing regex used in openChordEditor (timeline chord editor)
+// Chord-name parsing regex used in the timeline chord editor
 // and edOpenChordModal (lyrics editor chord modal). Both use the same pattern.
 const CHORD_NAME_REGEX = /^([A-G][#b]?)(maj|m(?:in)?|dim|aug|sus2|sus4)?(M7|7|9|b9|#9|11|#11|13|6)?(?:\/([A-G][#b]?))?$/;
 

@@ -14,8 +14,8 @@
  *    transitions and compute accents, so the engine stays the source of truth
  *    for beat counting.
  *
- * During safe extraction this scheduler is exposed on `window.MetronomeScheduler`
- * and consumed through an adapter in app.js.
+ * The active transport runtime consumes this scheduler through
+ * `TransportSchedulingService`.
  */
 class MetronomeScheduler {
   constructor({

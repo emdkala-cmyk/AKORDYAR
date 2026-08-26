@@ -1,5 +1,5 @@
 ﻿/* Akordyar — HistoryService
-   استخراج منطق History از app.js به سرویس مستقل
+   استخراج منطق History از runtime ادیتور به سرویس مستقل
    (serializeState, saveState, applyState, undo, redo) */
 (() => {
   'use strict';
@@ -381,7 +381,7 @@
   runtimeGlobal.HistoryService = service;
   runtimeGlobal.requireHistoryService = () => {
     if (!runtimeGlobal.HistoryService) {
-      throw new Error('HistoryService not loaded! Load js/editor/HistoryService.js before app.js');
+      throw new Error('HistoryService not loaded! Load js/editor/HistoryService.js before the editor runtime');
     }
     return runtimeGlobal.HistoryService;
   };

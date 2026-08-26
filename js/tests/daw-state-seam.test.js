@@ -11,8 +11,6 @@ const html = fs.readFileSync(
   path.join(projectRoot, 'Akordyar.html'),
   'utf8'
 );
-const bootstrap = require('../app.js');
-
 assert.match(core, /globalScope\.DAWRuntimeState\.create\(\)/);
 assert.doesNotMatch(
   core,
@@ -20,8 +18,8 @@ assert.doesNotMatch(
   'core must not keep an inline DAW state fallback'
 );
 assert.equal(
-  bootstrap.APPLICATION_CHUNKS.indexOf('core/DAWRuntimeState.js') <
-    bootstrap.APPLICATION_CHUNKS.indexOf('app/core.js'),
+  html.indexOf('js/core/DAWRuntimeState.js') <
+    html.indexOf('js/app/core.js'),
   true
 );
 assert.ok(

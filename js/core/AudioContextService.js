@@ -8,8 +8,8 @@
  *    that schedules a tick at an exact AudioContext time (used by the
  *    look-ahead scheduler).
  *
- * During safe extraction this service is exposed on `window.AudioContextService`
- * and consumed through an adapter in app.js so the legacy path stays intact.
+ * The active transport runtime consumes this service through
+ * `TransportSchedulingService`.
  */
 class AudioContextService {
   constructor({

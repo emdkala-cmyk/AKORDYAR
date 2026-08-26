@@ -7,21 +7,19 @@ const html = fs.readFileSync(
   'utf8'
 );
 
-const appBootstrap = fs.readFileSync(
-  path.resolve(__dirname, '..', 'app.js'),
-  'utf8'
-);
 const syncClientHtml = fs.readFileSync(
   path.resolve(__dirname, '..', '..', 'sync-client.html'),
   'utf8'
 );
 
-assert.match(appBootstrap, /createApplicationLoader/);
-assert.match(appBootstrap, /data-loader-mode="document-write"/);
-assert.match(appBootstrap, /loadWithDocumentWrite/);
+assert.equal(
+  fs.existsSync(path.resolve(__dirname, '..', 'app.js')),
+  false,
+  'legacy application loader must be removed'
+);
 assert.doesNotMatch(
-  appBootstrap,
-  /if\s*\(\s*document\.readyState\s*===\s*['"]loading['"]\s*\)\s*\{\s*document\.write/
+  html,
+  /<script[^>]+src=["']js\/app\.js["']/
 );
 
 function scriptIndex(sourceName) {

@@ -83,8 +83,8 @@
     <tr><td>موتور صوتی</td><td>Web Audio API</td></tr>
     <tr><td>رندر</td><td>Canvas + DOM</td></tr>
     <tr><td>ماندگاری داده</td><td>localStorage + IndexedDB + فایل (الکترون)</td></tr>
-    <tr><td>حجم کل کد</td><td>~900KB (app.js 696KB)</td></tr>
-    <tr><td>تعداد توابع app.js</td><td>531 (64 async)</td></tr>
+    <tr><td>حجم کد runtime اصلی</td><td>~546KB در js/app/ (core + editor + print + search)</td></tr>
+    <tr><td>ساختار runtime</td><td>دو هستهٔ ماژولار: js/app/core.js و js/app/editor.js</td></tr>
     <tr><td>پلتفرم هدف</td><td>Windows x64 (NSIS / Portable)</td></tr>
   </table>
 
@@ -96,7 +96,7 @@
 │  preload.js  (contextBridge امن)                      │
 │         ↓ window.electronAPI                           │
 ├─────────────────────────────────────────────────────┤
-│  js/app.js  ←─ edCur (مدل ترانه فعلی)                 │
+│  js/app/core.js + js/app/editor.js  ←─ SongDocument / runtime state │
 │    ├─ ویرایشگر متن+آکورد (contenteditable)            │
 │    ├─ DAW: tracks / clips / sections / playhead         │
 │    ├─ آرشیو (IndexedDB)                                │
@@ -118,16 +118,16 @@
   <h2 id="files">۳. ساختار فایلها</h2>
   <table>
     <tr><th>فایل</th><th>حجم</th><th>خط</th><th>نقش</th></tr>
-    <tr><td>js/app/</td><td>~696KB مجموع</td><td>12961</td><td>ماژول‌های مرتب‌شده: core، editor، print، search</td></tr>
+    <tr><td>js/app/</td><td>~546KB مجموع</td><td>14860</td><td>runtime ماژولار: core، editor، print، search</td></tr>
     <tr><td>Akordyar.html</td><td>75KB</td><td>913</td><td>کل رابط کاربری</td></tr>
     <tr><td>server.js</td><td>29KB</td><td>670</td><td>سرور Express + اسکرپر لامینور (jsdom)</td></tr>
     <tr><td>electron-main.js</td><td>18KB</td><td>570</td><td>فرآیند اصلی الکترون + منو</td></tr>
     <tr><td>preload.js</td><td>6KB</td><td>164</td><td>پل امن IPC</td></tr>
     <tr><td>js/performanceBridge.js</td><td>15KB</td><td>348</td><td>همگامساز edCur ↔ موتور اجرا</td></tr>
-    <tr><td>js/core/AudioManager.js</td><td>12KB</td><td>303</td><td>مدیریت فایلهای صوتی</td></tr>
-    <tr><td>js/core/ProjectStore.js</td><td>11KB</td><td>259</td><td>ذخیره/بارگذاری پروژه</td></tr>
-    <tr><td>js/core/AudioFileLoader.js</td><td>6KB</td><td>148</td><td>لود و دیکود صوت</td></tr>
-    <tr><td>js/core/FileSystemBridge.js</td><td>4KB</td><td>78</td><td>لایه انتزاعی فایل سیستم</td></tr>
+    <tr><td>js/core/ProjectAudioService.js</td><td>~20KB</td><td>495</td><td>لود، import و restore فایل‌های صوتی پروژه</td></tr>
+    <tr><td>js/editor/EditorAudioStorageService.js</td><td>~12KB</td><td>~300</td><td>ذخیره و بازیابی audio blob</td></tr>
+    <tr><td>js/archive/ArchiveStorageService.js</td><td>~4KB</td><td>~100</td><td>ذخیرهٔ آرشیو با IndexedDB و fallback کنترل‌شده</td></tr>
+    <tr><td>js/core/TransportSchedulingService.js</td><td>~9KB</td><td>~230</td><td>زمان‌بندی transport و مترونوم</td></tr>
     <tr><td>js/songDocumentModel.js</td><td>5KB</td><td>151</td><td>مدل سند آهنگ</td></tr>
     <tr><td>js/sharedEngine.js</td><td>8KB</td><td>214</td><td>موتور مشترک نمایش</td></tr>
     <tr><td>js/playerViewRenderer.js</td><td>9KB</td><td>208</td><td>رندر نمای پخشکننده</td></tr>
@@ -137,7 +137,7 @@
     <tr><td>parser-test.js</td><td>31KB</td><td>615</td><td>تست پارسر آکورد</td></tr>
     <tr><td>8 فایل CSS</td><td>117KB</td><td>~1200</td><td>استایلها</td></tr>
   </table>
-  <div class="warn"><b>نکته بحرانی:</b> ۸۳٪ کل منطق در یک فایل <code>app.js</code> متمرکز است → بزرگترین ریسک فنی پروژه.</div>
+  <div class="ok"><b>وضعیت معماری:</b> loader سازگاری و ماژول‌های مستقل legacy حذف شده‌اند؛ منطق فعال در core/editor و سرویس‌های دامنه نگهداری می‌شود.</div>
 
   <h2 id="datamodel">۴. مدل داده</h2>
   <h3>مدل مرکزی: edCur</h3>
@@ -316,7 +316,7 @@
 
 
   <h2 id="parser">۱۴. پارسر آکورد</h2>
-  <p>منطق parse آکورد پراکنده در app.js است و <code>parser-test.js</code> (۶۱۵ خط) آن را تست میکند.</p>
+   <p>منطق parse آکورد در <code>EditorRawSongParserService</code> و <code>LyricsParser</code> متمرکز است و <code>parser-test.js</code> (۶۱۵ خط) قرارداد آن را تست می‌کند.</p>
   <h3>ساختار آکورد</h3>
   <pre><code>chord = {
   root: 'C'|'C#'|'Db'|...|'B',     // ۱۲ نت با #/b
@@ -345,14 +345,14 @@
   </div>
   <h3>آمار</h3>
   <ul>
-    <li>۵۳۱ تابع در app.js (۶۴ async)</li>
+    <li>منطق اصلی در <code>js/app/core.js</code> (۲۵۵۶ خط) و <code>js/app/editor.js</code> (۳۱۵۶ خط) تفکیک شده است</li>
     <li>۸۳ <code>console.log</code> در پروداکشن</li>
     <li>۱۴۷ <code>onclick</code> handler در HTML</li>
     <li>۰ TODO/FIXME/HACK</li>
   </ul>
 
   <h2 id="risks">۱۶. ریسکهای فنی</h2>
-  <div class="warn"><h4>🔴 ریسک ۱: تمرکز در app.js (۶۹۶KB، ۱۳۳۲۷ خط)</h4><p>۵۳۱ تابع در یک فایل → نگهداری سخت، احتمال تداخل نام. بزرگترین ریسک پروژه.</p></div>
+  <div class="warn"><h4>🔴 ریسک ۱: سطح فرمان‌های global و adapterهای انتقالی</h4><p>بخشی از APIهای عمومی هنوز برای اتصال HTML و سرویس‌های قدیمی‌تر منتشر می‌شوند؛ حذف این facadeها و تزریق dependency مستقیم، گام بعدی مدرن‌سازی است.</p></div>
   <div class="warn"><h4>🔴 ریسک ۲: وضعیت سراسری پراکنده</h4><p>متغیرهای <code>let</code> زیاد (metroActive، returnToStartOnPause، _sizeLocked، edCur، DAW...) که توسط صدها تابع مستقیم تغییر میکنند.</p></div>
   <div class="note"><h4>🟡 ریسک ۳: استایل درون‌خطی فراوان</h4><p>HTML پر از <code>style="..."</code> → سفارشیسازی تم سخت.</p></div>
   <div class="note"><h4>🟡 ریسک ۴: ۸۳ console.log در پروداکشن</h4><p>حجم لاگ بالا، پاکسازی نشده.</p></div>
@@ -362,7 +362,7 @@
   <h2 id="recs">۱۷. توصیهها (اولویتبندی شده)</h2>
   <ol>
     <li><span class="badge r">فوری</span> commit تغییرات فعلی قبل از ادامه.</li>
-    <li><span class="badge r">مهم</span> شکستن <code>app.js</code> به ماژولهای ES (daw.js، editor.js، archive.js، transport.js، mixer.js، recorder.js).</li>
+    <li><span class="badge r">مهم</span> حذف facadeهای global و انتقال اتصال‌های باقی‌مانده به dependency injection و سرویس‌های مستقل.</li>
     <li><span class="badge r">مهم</span> متمرکزسازی state در یک <code>AppStore</code> برای کاهش باگهای پنهان.</li>
     <li><span class="badge y">متوسط</span> یکپارچهسازی تکرار ایجاد نودهای صوتی در <code>ensureTrackNodes(tr)</code>.</li>
     <li><span class="badge y">متوسط</span> انتقال استایل درون‌خطی به کلاسهای CSS.</li>

@@ -14,7 +14,7 @@ const ChordLineSyncService = require('../editor/ChordLineSyncService.js');
 
 // TransposeService فایل browser-first است (بدون module.exports) اما Node-safe؛
 // با eval غیرمستقیم در global scope لود می‌شود تا همان قراردادی تست شود که
-// edShiftNote/edTransposeChord در app.js به آن delegate می‌کنند.
+// edShiftNote/edTransposeChord در runtime ادیتور به آن delegate می‌کنند.
 (0, eval)(fs.readFileSync(path.join(__dirname, '../core/TransposeService.js'), 'utf8'));
 const TransposeService = globalThis.TransposeService;
 
@@ -197,8 +197,8 @@ test('sync: اعمال نام‌ها روی clipها با تعداد clip کمت
 });
 
 /* ─── Transpose delegation ───
-   edShiftNote/edTransposeChord در app.js به TransposeService delegate می‌کنند؛
-   fallback legacy در app.js باقی است و در characterization tests مرورگر پوشش داده می‌شود. */
+   edShiftNote/edTransposeChord در runtime ادیتور به TransposeService delegate می‌کنند؛
+   مسیر fallback در characterization tests مرورگر پوشش داده می‌شود. */
 
 test('transpose: root ساده و wraparound دوازده نیم‌پرده‌ای', () => {
   assert.strictEqual(TransposeService.transposeNote('C', 2, true), 'D');

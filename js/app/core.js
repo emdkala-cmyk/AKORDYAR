@@ -1,4 +1,4 @@
-﻿console.log("!!! APP_JS_LOADED_FROM_DISK !!!");
+﻿console.log("!!! APP_CORE_LOADED_FROM_DISK !!!");
 // ==========================================
 // PART 1: Initialization & Electron Setup
 // ==========================================
@@ -19,8 +19,7 @@ if (isElectron) {
 // PART 2: Audio Import & Hard Drive Auto-Load
 // ==========================================
 // منطق loadAudioFromHardDrive / pathDirname / pathJoin / handleAudioImport /
-// loadProject / resolveClipAudio به js/core/ProjectAudioService.js منتقل شده است.
-// wrapperهای سازگاری بلافاصله بعد از ensureAudioCtx() تعریف شده‌اند.
+// loadProject / resolveClipAudio در js/core/ProjectAudioService.js متمرکز است.
 
 // تشخیص محیط مرورگر/پنجره الکترون
 const isBrowser = typeof window !== 'undefined';
@@ -526,7 +525,7 @@ const requestRenderSyncLyrics = debounce(() => { renderSyncLyrics(); }, 120);
 
 // ==========================================
 // ProjectAudioService Bridge
-// مالکیت state و AudioContext همچنان با app.js / DAW است.
+// مالکیت state و AudioContext با runtimeهای فعال DAW است.
 // ==========================================
 const projectAudioServiceBridge =
   typeof window.ProjectAudioService === 'function'
@@ -575,7 +574,7 @@ function requireProjectAudioService() {
 
 // ==========================================
 // ProjectAudioService thin wrappers
-// برای سازگاری با call-siteهای قدیمی در app.js
+// انتشار فرمان‌های عمومی موردنیاز rendererهای فعلی.
 // ==========================================
 
 async function loadAudioFromHardDrive(filePath) {
@@ -605,7 +604,7 @@ async function resolveClipAudio(clip, projectFilePath = null) {
     .resolveClipAudio(clip, projectFilePath);
 }
 
-// حفظ APIهای global قدیمی برای بخش‌های دیگر پروژه و ابزارهای legacy.
+// انتشار فرمان‌های عمومی موردنیاز rendererهای فعلی.
 corePublicApi.publish({
   loadAudioFromHardDrive,
   pathDirname,
@@ -1729,7 +1728,7 @@ let lastSyncActiveLi = -999;
 let syncTapKeyHandler = null;
 
     /* ===== SYNC / LINE GUIDE — پل SyncModeController (Commit 2a) ===== */
-    // state همچنان متعلق به app.js است؛ کنترلر از طریق accessor می‌خواند/می‌نویسد.
+    // state متعلق به runtime ادیتور است؛ کنترلر از طریق accessor می‌خواند/می‌نویسد.
     const syncModeState = {
       get active() { return syncActive; }, set active(v) { syncActive = v; },
       get cursor() { return syncCursor; }, set cursor(v) { syncCursor = v; },
@@ -1740,7 +1739,7 @@ let syncTapKeyHandler = null;
       get lastActiveLi() { return lastSyncActiveLi; }, set lastActiveLi(v) { lastSyncActiveLi = v; }
     };
 
-    // Commit 2b — accessor روی stateهای seq/CL (تعریف letها در app.js می‌ماند؛
+    // Commit 2b — accessor روی stateهای seq/CL (تعریف state در همین runtime می‌ماند؛
     // edSeq* در ادامهٔ فایل و edCl* کمی پایین‌تر تعریف می‌شوند — closureها فقط هنگام فراخوانی مقدار می‌خوانند)
     const seqClState = {
       get seqModeActive() { return edSeqModeActive; }, set seqModeActive(v) { edSeqModeActive = v; },

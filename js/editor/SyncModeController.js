@@ -1,10 +1,10 @@
 /**
  * SyncModeController — کنترلر حالت Sync (اتصال خطوط ترانه به زمان)
  *
- * استخراج‌شده از app.js در Commit 2a برنامهٔ Editor Domain Extraction.
+ * استخراج‌شده از runtime ادیتور در Commit 2a برنامهٔ Editor Domain Extraction.
  *
  * این کنترلر مالک state نیست؛ state اصلی (syncActive، syncCursor، syncHistory و…)
- * همچنان به‌صورت let در app.js باقی است — چون خوانندگان خارجی (tick حمل‌ونقل،
+ * همچنان به‌صورت state در runtime ادیتور نگهداری می‌شود — چون خوانندگان خارجی (tick حمل‌ونقل،
  * shortcutها، key handler کلید ۰) همان متغیرها را می‌خوانند. کنترلر از طریق
  * accessor object با getter/setter closure روی همان متغیرها کار می‌کند و
  * منبع حقیقت واحد حفظ می‌شود.
@@ -77,7 +77,7 @@ class SyncModeController {
     this.getLyricOnlyPopup = typeof getLyricOnlyPopup === 'function' ? getLyricOnlyPopup : () => null;
     this.getChordLinePopup = typeof getChordLinePopup === 'function' ? getChordLinePopup : () => null;
 
-    // Commit 2b — seq/CL: accessor روی letهای app.js (edSeqModeActive، edClMarkers و…)
+    // Commit 2b — seq/CL: accessor روی stateهای seq/CL (edSeqModeActive، edClMarkers و…)
     this.seqState = seqState;
     this.edRenderChords = typeof edRenderChords === 'function' ? edRenderChords : () => {};
     this.edCommit = typeof edCommit === 'function' ? edCommit : () => {};
@@ -131,7 +131,7 @@ class SyncModeController {
 
   _requireSeqState() {
     if (!this.seqState) {
-      throw new Error('SyncModeController: seqState تزریق نشده است — bridge در app.js را بررسی کنید.');
+      throw new Error('SyncModeController: seqState تزریق نشده است — اتصال runtime ادیتور را بررسی کنید.');
     }
     return this.seqState;
   }
@@ -260,7 +260,7 @@ class SyncModeController {
     state.cursor = next;
     this.renderSyncLyrics();
     if (state.cursor >= lines.length) {
-      // اصلاح عمدی نسبت به نسخهٔ legacy: در app.js متغیر محلی `t` (عدد playhead)
+      // اصلاح عمدی نسبت به نسخهٔ قبلی: متغیر محلی `t` (عدد playhead)
       // تابع i18n را shadow می‌کرد و فراخوانی t('syncFinished') خطای
       // TypeError می‌داد؛ بنابراین مسیر پایان sync هرگز toast/save را کامل نمی‌کرد.
       // اینجا this.t (i18n واقعی) استفاده می‌شود. — ثبت در گزارش روند، Commit 2a.

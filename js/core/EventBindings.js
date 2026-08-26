@@ -1,8 +1,8 @@
 /**
  * Centralized DOM event registration for Akordyar.
  *
- * This file intentionally does not reach into app.js globals. All application
- * behavior is injected through the constructor.
+ * This file intentionally does not reach into application globals. All
+ * application behavior is injected through the constructor.
  */
 class EventBindings {
   constructor({
@@ -67,7 +67,7 @@ class EventBindings {
     if (!transportBar) return;
 
     this.listen(transportBar, 'click', (event) => {
-      // Ctrl+Shift+Alt+click is reserved for button mapping in app.js.
+      // Ctrl+Shift+Alt+click is reserved for button mapping.
       if (event.ctrlKey && event.shiftKey && event.altKey) return;
 
       const button = event.target.closest('[data-action]');
