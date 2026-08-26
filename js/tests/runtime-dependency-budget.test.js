@@ -45,6 +45,9 @@ const editorArrangerSongLoadService = read(
 const editorArrangerHotSwapService = read(
   'js/editor/EditorArrangerHotSwapService.js'
 );
+const editorProjectExportWorkflowService = read(
+  'js/editor/EditorProjectExportWorkflowService.js'
+);
 const editorPlaylistBackupService = read(
   'js/editor/EditorPlaylistBackupService.js'
 );
@@ -257,6 +260,15 @@ assert.doesNotMatch(
 assert.match(
   editor,
   /function hotSwapToNextSong\(\)\s*\{\s*return getEditorArrangerHotSwapService\(\)\?\.hotSwapToNextSong\?\.\(\);\s*\}/
+);
+assert.match(editorProjectExportWorkflowService, /async function exportProject/);
+assert.match(editorProjectExportWorkflowService, /saveNative\?\.\(/);
+assert.match(editorProjectExportWorkflowService, /saveBrowser\?\.\(/);
+assert.doesNotMatch(editor, /const blob = new Blob\(\[data\]/);
+assert.doesNotMatch(editor, /const linkedInfo = linkedCount > 0/);
+assert.match(
+  editor,
+  /async function edExportProjectFull\(options = \{\}\)\s*\{\s*return getEditorProjectExportWorkflowService\(\)\?\.exportProject\?\.\(options\);\s*\}/
 );
 assert.match(
   editorPlaylistBackupService,

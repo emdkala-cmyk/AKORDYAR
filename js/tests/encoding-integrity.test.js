@@ -51,6 +51,7 @@ const files = [
   'js/editor/EditorArrangerHotSwapService.js',
   'js/editor/EditorPlaylistBackupService.js',
   'js/editor/EditorToolbarDockService.js',
+  'js/editor/EditorProjectExportWorkflowService.js',
   'js/editor/EditorMidiInputService.js',
   'js/editor/EditorTimelineChordEditorService.js',
   'js/app/core.js',

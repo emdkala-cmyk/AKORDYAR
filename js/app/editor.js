@@ -190,6 +190,31 @@ function getEditorProjectExportRouteService() {
   return edProjectExportRouteService;
 }
 
+let edProjectExportWorkflowService = null;
+function getEditorProjectExportWorkflowService() {
+  if (
+    !edProjectExportWorkflowService &&
+    typeof window.EditorProjectExportWorkflowService?.create === 'function'
+  ) {
+    edProjectExportWorkflowService =
+      window.EditorProjectExportWorkflowService.create({
+        getSong: getCurrentEditorSong,
+        getDAW: () => getEditorDAW(),
+        buildBundle: options =>
+          getEditorProjectExportService()?.buildBundle(options),
+        saveNative: options =>
+          getEditorProjectFileService()?.saveNative(options),
+        saveBrowser: options =>
+          getEditorProjectExportRouteService()?.saveBrowser(options),
+        refreshStorageInfo: () => refreshStorageInfo(),
+        toast,
+        BlobRef: window.Blob,
+        logger: console
+      });
+  }
+  return edProjectExportWorkflowService;
+}
+
 let edSongImportService = null;
 function getEditorSongImportService() {
   if (
@@ -1568,70 +1593,8 @@ function edBlankSong() {
       return getEditorProjectFileService()?.clearPath?.() || null;
     }
 
-    async function edExportProjectFull({ targetPath = null } = {}) {
-      const song = getCurrentEditorSong();
-      const exportService = getEditorProjectExportService();
-      if (!song || !exportService) {
-        toast('ترانه‌ای باز نیست');
-        return;
-      }
-
-      try {
-        const bundle = await exportService.buildBundle({
-          song,
-          daw: getEditorDAW(),
-          onAudioProgress: ({ index, total }) => {
-            toast(`رمزگذاری صدا ${index}/${total}...`);
-          }
-        });
-        if (!bundle) {
-          toast('ترانه‌ای باز نیست');
-          return;
-        }
-
-      const { defaultName, data, audioCount, linkedCount } = bundle;
-      const blob = new Blob([data], { type: 'application/json' });
-
-      const sizeMB = (blob.size / (1024*1024)).toFixed(1);
-
-      const nativeSave = await getEditorProjectFileService()?.saveNative?.({
-        data,
-        defaultPath: defaultName,
-        targetPath
-      });
-      if (nativeSave?.handled) {
-        if (nativeSave.cancelled) {
-          toast('لغو شد');
-          return;
-        }
-        toast(`خروجی ذخیره شد (${sizeMB} MB, ${audioCount} کپی + ${linkedCount} لینک)`);
-        refreshStorageInfo();
-        return;
-      }
-
-      const linkedInfo = linkedCount > 0 ? `\nلینک‌شده: ${linkedCount} فایل (بدون صدا)` : '';
-      const browserSave = await getEditorProjectExportRouteService()?.saveBrowser?.({
-        blob,
-        defaultName,
-        pickerOptions: {
-          suggestedName: defaultName,
-          types: [{
-            description: 'فایل پروژه کامل',
-            accept: { 'application/json': ['.json'] }
-          }]
-        },
-        confirmMessage: `دانلود فایل: ${defaultName}\nحجم: ${sizeMB} MB\nصدا: ${audioCount} کپی‌شده${linkedInfo}\n\nذخیره در پوشه دانلود؟`
-      });
-      if (!browserSave?.handled) {
-        throw new Error('EditorProjectExportRouteService در دسترس نیست');
-      }
-      if (browserSave.status === 'cancelled') {
-        toast('لغو شد');
-        return;
-      }
-      toast(`خروجی ذخیره شد (${sizeMB} MB, ${audioCount} کپی + ${linkedCount} لینک)`);
-      refreshStorageInfo();
-      } catch(e) { console.error('Export error:', e); toast('خطا در خروجی: ' + e.message); }
+    async function edExportProjectFull(options = {}) {
+      return getEditorProjectExportWorkflowService()?.exportProject?.(options);
     }
 
     async function edSaveProjectFile() {

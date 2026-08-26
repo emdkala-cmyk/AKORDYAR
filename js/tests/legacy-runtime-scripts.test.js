@@ -85,6 +85,7 @@ for (const activeScript of [
   'js/editor/EditorTimelineChordEditorService.js',
   'js/editor/EditorProjectFileService.js',
   'js/editor/EditorProjectExportRouteService.js',
+  'js/editor/EditorProjectExportWorkflowService.js',
   'js/editor/EditorProjectImportRouteService.js',
   'js/editor/EditorSongPersistenceService.js'
 ]) {
