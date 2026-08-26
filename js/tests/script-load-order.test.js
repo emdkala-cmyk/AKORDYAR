@@ -223,6 +223,10 @@ assert.ok(
     scriptIndex('js/app/core.js')
 );
 assert.ok(
+  scriptIndex('js/app/CoreArrangerMarkerBridgeService.js') <
+    scriptIndex('js/app/core.js')
+);
+assert.ok(
   scriptIndex('js/app/CoreTransportService.js') <
     scriptIndex('js/app/core.js')
 );

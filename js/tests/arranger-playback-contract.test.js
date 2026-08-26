@@ -33,6 +33,15 @@ const markerController = fs.readFileSync(
   ),
   'utf8'
 );
+const markerBridge = fs.readFileSync(
+  path.join(
+    projectRoot,
+    'js',
+    'app',
+    'CoreArrangerMarkerBridgeService.js'
+  ),
+  'utf8'
+);
 const html = fs.readFileSync(
   path.join(projectRoot, 'Akordyar.html'),
   'utf8'
@@ -54,6 +63,7 @@ assert.ok(
   'arranger marker controller must load before core'
 );
 assert.match(core, /ArrangerPlaybackPolicyService/);
+assert.match(core, /CoreArrangerMarkerBridgeService\?\.create/);
 assert.match(
   transportService,
   /!arranger\.active[\s\S]*!daw\.isRecording/
@@ -87,7 +97,11 @@ assert.match(html, /data-action="setArrangerB"/);
 assert.match(html, /data-action="toggleArrangerMarkers"/);
 assert.match(html, /id="arranger-marker-controls"/);
 assert.match(html, /id="arranger-markers-overlay"/);
-assert.match(core, /EditorArrangerMarkerControllerService\.create/);
+assert.match(
+  markerBridge,
+  /EditorArrangerMarkerControllerService\?\.create/
+);
+assert.match(markerBridge, /controller\.bindDrag/);
 assert.match(markerController, /function renderArrangerMarkers/);
 assert.match(markerController, /markers\.enabled === true/);
 assert.match(editor, /toggleArrangerMarkers:\s*\(\)\s*=>\s*toggleArrangerMarkers\(\)/);

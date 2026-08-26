@@ -63,6 +63,9 @@ const coreHighlightService = read('js/app/CoreHighlightService.js');
 const coreMovableWindowBridgeService = read(
   'js/app/CoreMovableWindowBridgeService.js'
 );
+const coreArrangerMarkerBridgeService = read(
+  'js/app/CoreArrangerMarkerBridgeService.js'
+);
 const coreLoopVisualService = read('js/app/CoreLoopVisualService.js');
 const coreLoopControlService = read('js/app/CoreLoopControlService.js');
 const coreChordLineSyncService = read(
@@ -257,6 +260,8 @@ assert.match(
   coreMovableWindowBridgeService,
   /function getEditorMovableWindowService\(\)/
 );
+assert.match(coreArrangerMarkerBridgeService, /function create\(\{/);
+assert.match(coreArrangerMarkerBridgeService, /controller\.bindDrag/);
 assert.match(coreLoopVisualService, /function renderLoopRegion\(\)/);
 assert.match(coreLoopVisualService, /function bindLoopDrag\(\)/);
 assert.match(coreLoopControlService, /function toggleLoop\(\)/);
@@ -331,6 +336,10 @@ assert.doesNotMatch(appCore, /function finishRec\(blob\)/);
 assert.doesNotMatch(appCore, /function previewMetronomeSound\(/);
 assert.doesNotMatch(appCore, /function setHighlightEffect\(effect\)/);
 assert.doesNotMatch(appCore, /function getEditorMovableWindowService\(\)/);
+assert.doesNotMatch(
+  appCore,
+  /EditorArrangerMarkerControllerService\.create/
+);
 assert.doesNotMatch(appCore, /function renderLoopRegion\(\)/);
 assert.doesNotMatch(appCore, /function toggleLoop\(\)/);
 assert.doesNotMatch(appCore, /function setLoopFromSelectionAndPlay\(\)/);

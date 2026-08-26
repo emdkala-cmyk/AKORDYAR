@@ -1438,8 +1438,8 @@ function applyState(stateStr) {
     Object.assign(globalScope, coreLoopControlRuntime);
     corePublicApi.publish(coreLoopControlRuntime);
 
-    const arrangerMarkerController =
-      globalScope.EditorArrangerMarkerControllerService.create({
+    const coreArrangerMarkerRuntime =
+      globalScope.CoreArrangerMarkerBridgeService?.create?.({
         getDAW: () => getEditorDAW(),
         markerService: globalScope.ArrangerMarkerService,
         getProjectEnd: () => getProjectEnd(),
@@ -1458,36 +1458,22 @@ function applyState(stateStr) {
         toast: message => toast(message),
         formatTime: value => formatTime(value)
       });
-
-    function getArrangerMarkers() {
-      return arrangerMarkerController.getArrangerMarkers();
+    if (!coreArrangerMarkerRuntime) {
+      throw new Error(
+        'CoreArrangerMarkerBridgeService باید قبل از app/core.js بارگذاری شود.'
+      );
     }
-
-    function persistArrangerMarkers() {
-      return arrangerMarkerController.persistArrangerMarkers();
-    }
-
-    function setArrangerA() {
-      return arrangerMarkerController.setArrangerA();
-    }
-
-    function setArrangerB() {
-      return arrangerMarkerController.setArrangerB();
-    }
-
-    function clearArrangerMarkers() {
-      return arrangerMarkerController.clearArrangerMarkers();
-    }
-
-    function toggleArrangerMarkers() {
-      return arrangerMarkerController.toggleArrangerMarkers();
-    }
-
-    function renderArrangerMarkers() {
-      return arrangerMarkerController.renderArrangerMarkers();
-    }
-
-    arrangerMarkerController.bindDrag();
+    const {
+      getArrangerMarkers,
+      persistArrangerMarkers,
+      setArrangerA,
+      setArrangerB,
+      clearArrangerMarkers,
+      toggleArrangerMarkers,
+      renderArrangerMarkers
+    } = coreArrangerMarkerRuntime;
+    Object.assign(globalScope, coreArrangerMarkerRuntime);
+    corePublicApi.publish(coreArrangerMarkerRuntime);
 
     /* ===== POPUP WINDOW FULLSCREEN ===== */
     let _lyricPopup = null;
