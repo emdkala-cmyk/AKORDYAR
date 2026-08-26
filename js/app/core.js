@@ -36,6 +36,7 @@ let coreArrangerFileExportRuntime = null;
 let coreArrangerCrossfadeRuntime = null;
 let coreWavEncoderRuntime = null;
 let coreArrangerEditorRuntime = null;
+let coreArrangerSongTransferRuntime = null;
 let coreArrangerSetlistRendererRuntime = null;
 let coreClipRendererRuntime = null;
 let coreArrangerBackgroundPreloadRuntime = null;
@@ -2069,39 +2070,29 @@ let syncTapKeyHandler = null;
       );
     }
 
+    coreArrangerSongTransferRuntime =
+      globalScope.CoreArrangerSongTransferService?.create?.({
+        getCurrentSong: () => requireEditorSongStateService().currentSong(),
+        saveCurrentSong: (...args) => edSaveToArchive(...args),
+        getArrangers: () => arrangers,
+        setEditingArr: value => {
+          editingArr = value;
+        },
+        saveArrangers: (...args) => saveArrangers(...args),
+        openArrangerModal: (...args) => openArrangerModal(...args),
+        toast: message => toast(message),
+        logger: console,
+        now: () => Date.now()
+      });
+    if (!coreArrangerSongTransferRuntime) {
+      throw new Error(
+        'CoreArrangerSongTransferService باید قبل از app/core.js بارگذاری شود.'
+      );
+    }
+
     // Send current song to Arranger Track
     async function sendCurrentSongToArranger() {
-      const currentSong = requireEditorSongStateService().currentSong();
-      if (!currentSong) { toast('ترانه‌ای باز نیست'); return; }
-
-      try {
-        // Save current song to archive first so the arranger references the
-        // latest timeline and the saved A/B markers.
-        await edSaveToArchive();
-
-        // If no arrangers exist, create one
-        if (!arrangers.length) {
-          const arr = { id: Date.now(), name: 'پلی‌لیست جدید', items: [], crossfade: 0, pauseBetween: false };
-          arrangers.unshift(arr);
-          editingArr = arr;
-        } else {
-          // Use first arranger or last edited one
-          editingArr = arrangers[0];
-        }
-        if (!Array.isArray(editingArr.items)) editingArr.items = [];
-
-        // Add current song to arranger if not already there
-        if (!editingArr.items.some(item => String(item) === String(currentSong.id))) {
-          editingArr.items.push(currentSong.id);
-        }
-        saveArrangers();
-        // Open arranger editor
-        openArrangerModal();
-        toast('ترانه به پلی‌لیست اضافه شد');
-      } catch (error) {
-        console.error('[Arranger] Failed to send current song:', error);
-        toast('خطا در ارسال ترانه به ارنجر');
-      }
+      return coreArrangerSongTransferRuntime?.send?.();
     }
 
     async function createNewArranger() {
