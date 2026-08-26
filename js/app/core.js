@@ -1912,74 +1912,6 @@ let syncTapKeyHandler = null;
 
     function saveArrangers() { localStorage.setItem('arrangers_v1', JSON.stringify(arrangers)); }
 
-    function openArrangerModal() {
-      $('arrangerModal').classList.add('show');
-      renderArrangerManager();
-      // اگر ارنجری وجود داره، مستقیم ادیتور رو باز کن
-      if (arrangers.length > 0) {
-        editingArr = arrangers[0];
-        openArrEditor();
-      } else {
-        $('arrEditor').style.display = 'none';
-      }
-      // درگ پنل ارنجر
-      _setupArrangerModalDrag();
-      // اضافه کردن هندلر کیبورد برای دکمه ESC و فوکوس
-      const arrModal = $('arrangerModal');
-      if (arrModal) {
-        arrModal.focus();
-        if (!arrModal._escHandler) {
-          arrModal._escHandler = (e) => {
-            if (e.key === 'Escape') {
-              e.preventDefault();
-              closeArrangerModal();
-            }
-          };
-          arrModal.addEventListener('keydown', arrModal._escHandler);
-        }
-      }
-    }
-    function closeArrangerModal() {
-      $('arrangerModal').classList.remove('show');
-      // ریست موقعیت
-      const editor = $('arrangerModal').querySelector('.chord-editor');
-      if (editor) { editor.style.left = ''; editor.style.top = ''; }
-      editingArr = null;
-    }
-
-    // Expose for ProjectHub (Hub arranger track click).
-    corePublicApi.publish({
-      openArrangerModal,
-      closeArrangerModal
-    });
-
-    // درگ arrangerModal
-    function _setupArrangerModalDrag() {
-      const handle = $('arrModalDragHandle');
-      const modal = $('arrangerModal');
-      const editor = modal.querySelector('.chord-editor');
-      if (!handle || !editor || handle._dragSetup) return;
-      handle._dragSetup = true;
-      let dragging = false, startX, startY, origX, origY;
-      handle.addEventListener('pointerdown', (e) => {
-        if (e.button !== 0) return;
-        if (e.target.tagName === 'BUTTON' || e.target.tagName === 'H3') {
-          if (e.target.tagName === 'H3') {} else return;
-        }
-        dragging = true;
-        const rect = editor.getBoundingClientRect();
-        startX = e.clientX; startY = e.clientY;
-        origX = rect.left; origY = rect.top;
-        e.preventDefault();
-        startEditorPointerDrag(handle, e, move, () => { dragging = false; });
-      });
-      const move = (e) => {
-        if (!dragging) return;
-        editor.style.left = (origX + e.clientX - startX) + 'px';
-        editor.style.top = (origY + e.clientY - startY) + 'px';
-      };
-    }
-
     coreArrangerFileExportRuntime =
       globalScope.CoreArrangerFileExportService?.create?.({
         documentRef: document,
@@ -2334,6 +2266,33 @@ let syncTapKeyHandler = null;
         'CoreArrangerEditorService باید قبل از app/core.js بارگذاری شود.'
       );
     }
+
+    const coreArrangerModalRuntime =
+      globalScope.CoreArrangerModalService?.create?.({
+        getElement: id => $(id),
+        getArrangers: () => arrangers,
+        setEditingArr: value => {
+          editingArr = value;
+        },
+        renderArrangerManager: (...args) => renderArrangerManager(...args),
+        openArrEditor: (...args) => openArrEditor(...args),
+        startPointerDrag: (...args) => startEditorPointerDrag(...args)
+      });
+    if (!coreArrangerModalRuntime) {
+      throw new Error(
+        'CoreArrangerModalService باید قبل از app/core.js بارگذاری شود.'
+      );
+    }
+    function openArrangerModal(...args) {
+      return coreArrangerModalRuntime.open(...args);
+    }
+    function closeArrangerModal(...args) {
+      return coreArrangerModalRuntime.close(...args);
+    }
+    corePublicApi.publish({
+      openArrangerModal,
+      closeArrangerModal
+    });
 
     // ===== Performance Mode (Live Dashboard) =====
     let arrPerformIdx = -1, arrPerformActive = false, arrPerformData = null, arrPreparePending = false;
