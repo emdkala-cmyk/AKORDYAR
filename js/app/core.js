@@ -31,6 +31,7 @@ const globalScope = isBrowser ? window : global;
 let corePerformanceUiRuntime = null;
 let coreArrangerPreparationRuntime = null;
 let coreArrangerManagerRendererRuntime = null;
+let coreArrangerFileImportRuntime = null;
 
 const corePublicApiFactory = globalScope.CorePublicApi;
 if (!corePublicApiFactory?.create) {
@@ -2085,6 +2086,30 @@ let syncTapKeyHandler = null;
       return coreArrangerManagerRendererRuntime?.render?.(...args);
     }
 
+    coreArrangerFileImportRuntime =
+      globalScope.CoreArrangerFileImportService?.create?.({
+        documentRef: document,
+        getArrangers: () => arrangers,
+        setEditingArr: value => {
+          editingArr = value;
+        },
+        getAllSongs: () => edGetAllSongs(),
+        setAllSongs: (...args) => edSetAllSongs(...args),
+        playlistNameExists: (...args) => playlistNameExists(...args),
+        saveArrangers: (...args) => saveArrangers(...args),
+        renderArrangerManager: (...args) => renderArrangerManager(...args),
+        openArrEditor: (...args) => openArrEditor(...args),
+        toast: message => toast(message),
+        logger: console,
+        now: () => Date.now(),
+        isoNow: () => new Date().toISOString()
+      });
+    if (!coreArrangerFileImportRuntime) {
+      throw new Error(
+        'CoreArrangerFileImportService باید قبل از app/core.js بارگذاری شود.'
+      );
+    }
+
     // Send current song to Arranger Track
     async function sendCurrentSongToArranger() {
       const currentSong = requireEditorSongStateService().currentSong();
@@ -2344,104 +2369,8 @@ let syncTapKeyHandler = null;
      * importArrangerFromFile — بارگذاری پلی‌لیست از فایل JSON
      * اگر پلی‌لیستی با همان نام وجود داشته باشد، خطا می‌دهد.
      */
-    async function importArrangerFromFile() {
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = '.json,application/json';
-      input.onchange = async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        try {
-          const text = await file.text();
-          const data = JSON.parse(text);
-
-          // بررسی فرمت
-          if (!data || (!data.items && !data.songs)) {
-            toast('❌ فایل معتبر نیست — فرمت پلی‌لیست نیست');
-            return;
-          }
-
-          // بررسی نسخه فایل
-          const supportedVersions = [1, '1.0', 2, '2.0'];
-          if (data.version && !supportedVersions.includes(data.version)) {
-            toast(`❌ نسخه فایل (${data.version}) پشتیبانی نمی‌شود.`);
-            return;
-          }
-
-          // خواندن و اعتبارسنجی نام پلی‌لیست
-          let baseName = data.name || file.name.replace(/\.json$/i, '');
-          if (!baseName || !baseName.trim()) {
-            toast('❌ نام پلی‌لیست در فایل خالی است.');
-            return;
-          }
-          baseName = baseName.trim();
-
-          // ─── بررسی نام تکراری با مقایسه normalize شده ───
-          if (playlistNameExists(baseName)) {
-            toast(`⚠ پلی‌لیستی با نام «${baseName}» از قبل وجود دارد.\nبرای ورود این فایل، ابتدا نام پلی‌لیست را در فایل خروجی یا در پروژه‌ی مبدا تغییر دهید.`);
-            return;
-          }
-
-          // اعتبارسنجی items
-          if (!Array.isArray(data.items)) {
-            toast('❌ آرایه‌ی items در فایل معتبر نیست.');
-            return;
-          }
-
-          // بررسی songId برای هر آیتم
-          for (let i = 0; i < data.items.length; i++) {
-            const item = data.items[i];
-            // آیتم می‌تونه هم رشته/عدد (songId مستقیم) باشه هم آبجکت با خاصیت songId
-            const songId = (item && typeof item === 'object') ? item.songId : item;
-            if (!songId) {
-              toast(`❌ آیتم شماره ${i + 1} فاقد songId معتبر است.`);
-              return;
-            }
-          }
-
-          // اگر آهنگ‌ها داخل فایل هستن، اول اونا رو به آرشیو اضافه کن
-          let importedSongsCount = 0;
-          if (data.songs && typeof data.songs === 'object') {
-            const allSongs = edGetAllSongs();
-            for (const [id, song] of Object.entries(data.songs)) {
-              if (song && song.title) {
-                if (!allSongs.find(s => s.id === id)) {
-                  allSongs.push(song);
-                  importedSongsCount++;
-                }
-              }
-            }
-            if (importedSongsCount > 0) {
-              edSetAllSongs(allSongs);
-              console.log(`[Import] ${importedSongsCount} song(s) imported from playlist`);
-            }
-          }
-
-          // ساخت پلی‌لیست جدید با ساختار استاندارد
-          const newArr = {
-            id: 'playlist_' + Date.now(),
-            name: baseName,
-            items: Array.isArray(data.items) ? data.items.map(it => (it && typeof it === 'object') ? it.songId : it) : [],
-            crossfade: data.crossfade || 0,
-            pauseBetween: !!data.pauseBetween,
-            _itemSettings: data._itemSettings || {},
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-          };
-
-          arrangers.unshift(newArr);
-          saveArrangers();
-          editingArr = newArr;
-          renderArrangerManager();
-          openArrEditor();
-
-          toast(`✅ پلی‌لیست «${newArr.name}» بارگذاری شد (${newArr.items.length} آهنگ${importedSongsCount > 0 ? `، ${importedSongsCount} آهنگ جدید` : ''})`);
-        } catch (e) {
-          console.error('[Import] Error:', e);
-          toast('❌ خطا در بارگذاری فایل: ' + e.message);
-        }
-      };
-      input.click();
+    async function importArrangerFromFile(...args) {
+      return coreArrangerFileImportRuntime?.importFromFile?.(...args);
     }
 
     // Crossfade control
