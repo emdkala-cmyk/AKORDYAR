@@ -72,6 +72,7 @@ const APPLICATION_CHUNKS = Object.freeze([
   'app/CorePlayerViewPopupService.js',
   'app/CoreFocusModeService.js',
   'app/CoreSyncModeBridgeService.js',
+  'app/CoreSequentialChordRemapService.js',
   'core/AudioCompressionService.js',
   'core/TransportClockService.js',
   'core/TransportSchedulingService.js',

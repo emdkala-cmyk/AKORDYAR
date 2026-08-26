@@ -1820,24 +1820,31 @@ let syncTapKeyHandler = null;
     Object.assign(globalScope, coreSyncModeRuntime);
     corePublicApi.publish(coreSyncModeRuntime);
 
+    const coreSequentialChordRemapRuntime =
+      globalScope.CoreSequentialChordRemapService?.create?.({
+        getSongState: () => requireEditorSongStateService(),
+        getPositionMapper: () => requireLyricPositionMapper(),
+        getSeqModeActive: () => edSeqModeActive,
+        setRuntimeSeqPoints: value => {
+          edSeqPoints = value;
+        }
+      });
+    if (!coreSequentialChordRemapRuntime) {
+      throw new Error(
+        'CoreSequentialChordRemapService باید قبل از app/core.js بارگذاری شود.'
+      );
+    }
+    const { remap: edRemapSeqPoints } =
+      coreSequentialChordRemapRuntime;
+    Object.assign(globalScope, { edRemapSeqPoints });
+    corePublicApi.publish({ edRemapSeqPoints });
+
     // Chord visibility toggle (editor only, independent of popup)
     if ($('edToggleChords')) $('edToggleChords').onclick = () => {
       edChordsVisible = !edChordsVisible;
       $('edToggleChords').classList.toggle('active', edChordsVisible);
       edRenderChords();
     };
-
-    // Sequential chords (آکورد ترتیبی)
-    function edRemapSeqPoints(oldText, newText) {
-      const songState = requireEditorSongStateService();
-      const seqPoints = songState.getSeqPoints();
-      if (!seqPoints.length) return;
-      // منطق remap به js/editor/LyricPositionMapper.js منتقل شده است.
-      seqPoints.forEach(sp => requireLyricPositionMapper().remapAnchorToNewText(sp, oldText, newText));
-      const validPoints = seqPoints.filter(p => p.lineIndex >= 0);
-      songState.setSeqPoints(validPoints);
-      if (edSeqModeActive) edSeqPoints = validPoints;
-    }
 
     if ($('edSeqToggle')) $('edSeqToggle').onclick = edToggleSeqMode;
     if ($('edSeqStart')) $('edSeqStart').onclick = edStartSeqChording;

@@ -93,6 +93,9 @@ const coreFocusModeService = read('js/app/CoreFocusModeService.js');
 const coreSyncModeBridgeService = read(
   'js/app/CoreSyncModeBridgeService.js'
 );
+const coreSequentialChordRemapService = read(
+  'js/app/CoreSequentialChordRemapService.js'
+);
 const coreMixerBridgeService = read('js/app/CoreMixerBridgeService.js');
 const editor = executableLines(read('js/app/editor.js'));
 const appCore = executableLines(read('js/app/core.js'));
@@ -356,6 +359,10 @@ assert.match(
   coreSyncModeBridgeService,
   /function requireSyncModeController\(\)/
 );
+assert.match(
+  coreSequentialChordRemapService,
+  /function remap\(oldText, newText\)/
+);
 assert.doesNotMatch(
   appCore,
   /function deleteSelected\(\)/
@@ -382,6 +389,10 @@ assert.doesNotMatch(
 assert.doesNotMatch(
   appCore,
   /function requireSyncModeController\(\)/
+);
+assert.doesNotMatch(
+  appCore,
+  /function edRemapSeqPoints\(oldText, newText\)/
 );
 assert.doesNotMatch(
   appCore,
