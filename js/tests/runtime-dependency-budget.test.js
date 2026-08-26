@@ -137,6 +137,11 @@ assert.match(editorSongStateService, /setSeqPoints/);
 assert.match(editorSongStateService, /setSyncTime/);
 assert.doesNotMatch(editorSongRuntimeService, /document/);
 assert.match(editorSongRuntimeService, /assertSynchronized/);
+assert.doesNotMatch(
+  editorSongRuntimeService,
+  /EditorLegacySongBridge|getLegacySong|setLegacySong|legacyBridge/
+);
+assert.doesNotMatch(editor, /EditorLegacySongBridge/);
 assert.doesNotMatch(syncModeController, /getEdCur/);
 assert.match(syncModeController, /songState\.setSeqPoints/);
 assert.match(syncModeController, /songState\.replaceSyncTimes/);

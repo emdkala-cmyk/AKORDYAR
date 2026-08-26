@@ -26,20 +26,12 @@ load('js/core/EditorSongRuntimeService.js');
 load('js/editor/AudioRecoveryService.js');
 load('js/editor/EditorSongInitializationService.js');
 
-let legacySong = null;
-context.EditorLegacySongBridge = {
-  get: () => legacySong,
-  set: song => { legacySong = song; }
-};
 const runtimeSong = context.EditorSongRuntimeService.create({
-  getLegacySong: () => legacySong,
-  setLegacySong: song => { legacySong = song; },
   runtimeAdapter: context.EditorRuntimeAdapter
 });
 
 const firstSong = { id: 'song-1', title: 'اول' };
 assert.equal(runtimeSong.setSong(firstSong), firstSong);
-assert.equal(legacySong, firstSong);
 assert.equal(context.window.edCur, firstSong);
 assert.equal(runtimeSong.getSong(), firstSong);
 assert.equal(runtimeSong.assertSynchronized(), true);
@@ -65,7 +57,6 @@ const daw = { clips: [], bufferCache: new Map() };
 
   assert.equal(restored.id, 'song-2');
   assert.equal(restored.repaired, true);
-  assert.equal(legacySong, restored);
   assert.equal(context.window.edCur, restored);
   assert.equal(runtimeSong.getSong(), restored);
   assert.equal(runtimeSong.assertSynchronized(), true);
@@ -73,7 +64,6 @@ const daw = { clips: [], bufferCache: new Map() };
   const thirdSong = { id: 'song-3' };
   runtimeSong.setSong(thirdSong);
   assert.equal(runtimeSong.getSong(), thirdSong);
-  assert.equal(legacySong, thirdSong);
   assert.equal(context.window.edCur, thirdSong);
 
   console.log('Editor runtime seam tests passed');

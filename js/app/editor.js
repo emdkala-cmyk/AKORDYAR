@@ -2170,16 +2170,12 @@ function getMidiScoreController() {
     window.EdCurAdapter?.onChange?.((_eventName, song) => {
       edCur = song;
     });
-    window.EditorLegacySongBridge = {
-      get: () => edCur,
-      set: song => { edCur = song; }
-    };
     setEditorSong(edCur);
 
-    // سرویس‌های جدید از reference رسمی runtime می‌خوانند؛
-    // متغیر lexical فقط برای کد legacy همین فایل باقی مانده است.
+    // The editor keeps a local mutation mirror; runtime ownership stays in
+    // EditorRuntimeAdapter/EdCurAdapter.
     function getCurrentEditorSong() {
-      return window.EditorRuntimeAdapter?.getSong?.() || edCur || null;
+      return window.EditorRuntimeAdapter?.getSong?.() || null;
     }
 
     let edUndoStack = [], edRedoStack = [];

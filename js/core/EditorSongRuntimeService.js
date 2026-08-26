@@ -1,54 +1,45 @@
 /**
  * EditorSongRuntimeService — the single song ownership seam.
  *
- * The legacy editor keeps a lexical song reference for compatibility while
  * EditorRuntimeAdapter/EdCurAdapter owns the published runtime reference.
- * This service updates both through one explicit contract.
+ * This service exposes that reference through one explicit contract.
  */
 (function attachEditorSongRuntimeService(globalScope) {
   'use strict';
 
   function create({
-    getLegacySong = () => null,
-    setLegacySong = () => {},
     runtimeAdapter = globalScope.EditorRuntimeAdapter,
     logger = console
   } = {}) {
-    function legacyBridge() {
-      return globalScope.EditorLegacySongBridge || null;
-    }
-
     function getSong() {
       if (typeof runtimeAdapter?.getSong === 'function') {
         return runtimeAdapter.getSong();
       }
-      return legacyBridge()?.get?.() ?? getLegacySong();
+      return globalScope.EdCurAdapter?.getEdCur?.() || null;
     }
 
     function setSong(song) {
-      if (typeof legacyBridge()?.set === 'function') {
-        legacyBridge().set(song);
-      } else {
-        setLegacySong(song);
-      }
       if (typeof runtimeAdapter?.setSong === 'function') {
-        runtimeAdapter.setSong(song);
-      } else {
-        globalScope.EdCurAdapter?.setEdCur?.(song);
+        return runtimeAdapter.setSong(song);
       }
+      globalScope.EdCurAdapter?.setEdCur?.(song);
       return song;
     }
 
     function assertSynchronized() {
-      const legacySong = legacyBridge()?.get?.() ?? getLegacySong();
-      const runtimeSong = getSong();
-      if (legacySong && runtimeSong && legacySong !== runtimeSong) {
+      const runtimeAdapterSong = getSong();
+      const hasEdCurAdapter =
+        typeof globalScope.EdCurAdapter?.getEdCur === 'function';
+      const edCurAdapterSong = hasEdCurAdapter
+        ? globalScope.EdCurAdapter.getEdCur()
+        : runtimeAdapterSong;
+      if (runtimeAdapterSong !== edCurAdapterSong) {
         logger?.warn?.(
-          'EditorSongRuntimeService: legacy and runtime song references diverged'
+          'EditorSongRuntimeService: runtime song references diverged'
         );
         return false;
       }
-      return legacySong === runtimeSong || (!legacySong && !runtimeSong);
+      return true;
     }
 
     return Object.freeze({ getSong, setSong, assertSynchronized });

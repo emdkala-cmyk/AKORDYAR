@@ -23,8 +23,9 @@ assert.match(
 );
 assert.match(
   editorSource,
-  /return window\.EditorRuntimeAdapter\?\.getSong\?\.\(\) \|\| edCur \|\| null;/
+  /return window\.EditorRuntimeAdapter\?\.getSong\?\.\(\) \|\| null;/
 );
+assert.doesNotMatch(editorSource, /EditorLegacySongBridge/);
 assert.ok(
   htmlSource.indexOf('js/core/EdCurAdapter.js') <
     htmlSource.indexOf('js/app/editor.js')
