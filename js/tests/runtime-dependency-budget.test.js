@@ -74,6 +74,9 @@ const corePopupWindowBridgeService = read(
 const coreHistoryBridgeService = read(
   'js/app/CoreHistoryBridgeService.js'
 );
+const coreArrangerSongNoteService = read(
+  'js/app/CoreArrangerSongNoteService.js'
+);
 const coreFocusModeService = read('js/app/CoreFocusModeService.js');
 const coreSyncModeBridgeService = read(
   'js/app/CoreSyncModeBridgeService.js'
@@ -265,8 +268,23 @@ assert.match(
 assert.match(corePopupWindowBridgeService, /function isPopupOpen\(popup\)/);
 assert.match(corePopupWindowBridgeService, /function openPopupWindow\(name, features\)/);
 assert.match(coreHistoryBridgeService, /function attach\(\)/);
+assert.match(
+  coreArrangerSongNoteService,
+  /function openArrSongNote\(index\)/
+);
+assert.match(
+  coreArrangerSongNoteService,
+  /function closeArrSongNote\(\)/
+);
+assert.match(
+  coreArrangerSongNoteService,
+  /function saveArrSongNote\(\)/
+);
 assert.match(appCore, /CoreHistoryBridgeService/);
 assert.doesNotMatch(appCore, /function attachHistoryService\(\)/);
+assert.doesNotMatch(appCore, /function openArrSongNote\(idx\)/);
+assert.doesNotMatch(appCore, /function closeArrSongNote\(\)/);
+assert.doesNotMatch(appCore, /function saveArrSongNote\(\)/);
 assert.match(coreFocusModeService, /function toggleFocusMode\(\)/);
 assert.match(
   coreSyncModeBridgeService,

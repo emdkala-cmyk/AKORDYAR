@@ -2111,32 +2111,36 @@ let syncTapKeyHandler = null;
       saveArrangers(); renderArrSetlist();
     }
 
-    // Song Note Modal
-    let _arrNoteIdx = -1;
     function arrFilterSongs() {
       renderArrPool();
       renderArrSetlist();
     }
-    function openArrSongNote(idx) {
-      _arrNoteIdx = idx;
-      const allSongs = edGetAllSongs();
-      const id = editingArr.items[idx];
-      const song = allSongs.find(x => x.id === id);
-      const setting = ensureArrItem(editingArr, idx);
-      $('arrSongNoteTitle').textContent = (song ? (song.title || 'بدون نام') : '') + ' — یادداشت اجرا';
-      $('arrSongNoteText').value = setting.notes || '';
-      $('arrSongNoteOverlay').classList.add('show');
+
+    const coreArrangerSongNoteRuntime =
+      globalScope.CoreArrangerSongNoteService?.create?.({
+        getEditingArr: () => editingArr,
+        getAllSongs: () => edGetAllSongs(),
+        getElement: id => $(id),
+        ensureArrItem: (...args) => ensureArrItem(...args),
+        saveArrangers: (...args) => saveArrangers(...args),
+        renderArrSetlist: (...args) => renderArrSetlist(...args)
+      });
+    if (!coreArrangerSongNoteRuntime) {
+      throw new Error(
+        'CoreArrangerSongNoteService باید قبل از app/core.js بارگذاری شود.'
+      );
     }
-    function closeArrSongNote() {
-      $('arrSongNoteOverlay').classList.remove('show');
-      _arrNoteIdx = -1;
-    }
-    function saveArrSongNote() {
-      if (_arrNoteIdx < 0 || !editingArr) return;
-      const setting = ensureArrItem(editingArr, _arrNoteIdx);
-      setting.notes = $('arrSongNoteText').value;
-      saveArrangers(); closeArrSongNote(); renderArrSetlist();
-    }
+    const {
+      openArrSongNote,
+      closeArrSongNote,
+      saveArrSongNote
+    } = coreArrangerSongNoteRuntime;
+    Object.assign(globalScope, {
+      openArrSongNote,
+      closeArrSongNote,
+      saveArrSongNote
+    });
+    corePublicApi.publish(coreArrangerSongNoteRuntime);
 
     // ===== Arranger Setlist Management =====
     coreArrangerSetlistRendererRuntime =

@@ -36,6 +36,7 @@ for (const activeScript of [
   'js/editor/EditorSyncAnalysisUiService.js',
   'js/editor/EditorLyricsChordInteractionService.js',
   'js/app/AppI18nService.js',
+  'js/app/CoreArrangerSongNoteService.js',
   'js/app/MidiMonitorService.js',
   'js/app/CoreGridQuantizeService.js',
   'js/app/CoreMetronomeService.js',
