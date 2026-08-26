@@ -2018,37 +2018,6 @@ let syncTapKeyHandler = null;
       return coreArrangerSongTransferRuntime?.send?.();
     }
 
-    async function createNewArranger() {
-      const name = await customPrompt('نام پلی‌لیست جدید:', 'پلی‌لیست ' + (arrangers.length + 1));
-      if (name === null) return; // کاربر کنسل کرد
-      const trimmedName = name.trim() || ('پلی‌لیست ' + (arrangers.length + 1));
-
-      // ─── بررسی نام تکراری با مقایسه normalize شده ───
-      if (playlistNameExists(trimmedName)) {
-        toast(`⚠ پلی‌لیستی با نام «${trimmedName}» از قبل وجود دارد. نام دیگری انتخاب کنید.`);
-        return createNewArranger(); // دوباره بپرس
-      }
-
-      const arr = { 
-        id: 'playlist_' + Date.now(), 
-        name: trimmedName, 
-        items: [], 
-        crossfade: 0, 
-        pauseBetween: false,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-      arrangers.unshift(arr);
-      saveArrangers();
-      editingArr = arr;
-      renderArrangerManager(); // اول لیست پلی‌لیست‌ها رو refresh کن
-      openArrEditor();          // بعد ادیتور رو باز کن
-      toast(`✅ پلی‌لیست «${arr.name}» ساخته شد`);
-    }
-
-    // Expose for ProjectHub (Hub "➕ جدید" button).
-    corePublicApi.publish({ createNewArranger });
-
     function openArrEditor() {
       return coreArrangerEditorRuntime?.open?.();
     }
@@ -2293,6 +2262,32 @@ let syncTapKeyHandler = null;
       openArrangerModal,
       closeArrangerModal
     });
+
+    const coreArrangerCreationRuntime =
+      globalScope.CoreArrangerCreationService?.create?.({
+        getArrangers: () => arrangers,
+        prompt: (...args) => customPrompt(...args),
+        playlistNameExists: (...args) => playlistNameExists(...args),
+        saveArrangers: (...args) => saveArrangers(...args),
+        setEditingArr: value => {
+          editingArr = value;
+        },
+        renderArrangerManager: (...args) => renderArrangerManager(...args),
+        openArrEditor: (...args) => openArrEditor(...args),
+        toast: message => toast(message),
+        now: () => Date.now(),
+        isoNow: () => new Date().toISOString()
+      });
+    if (!coreArrangerCreationRuntime) {
+      throw new Error(
+        'CoreArrangerCreationService باید قبل از app/core.js بارگذاری شود.'
+      );
+    }
+    function createNewArranger(...args) {
+      return coreArrangerCreationRuntime.createNewArranger(...args);
+    }
+    // Expose for ProjectHub (Hub "➕ جدید" button).
+    corePublicApi.publish({ createNewArranger });
 
     // ===== Performance Mode (Live Dashboard) =====
     let arrPerformIdx = -1, arrPerformActive = false, arrPerformData = null, arrPreparePending = false;

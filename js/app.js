@@ -24,6 +24,7 @@ const APPLICATION_CHUNKS = Object.freeze([
   'app/CoreArrangerSetlistRendererService.js',
   'app/CoreArrangerEditorService.js',
   'app/CoreArrangerModalService.js',
+  'app/CoreArrangerCreationService.js',
   'app/CoreArrangerSongTransferService.js',
   'app/CoreArrangerSongsOverviewService.js',
   'app/CoreClipRendererService.js',
