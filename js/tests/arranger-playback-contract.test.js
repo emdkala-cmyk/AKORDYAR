@@ -11,6 +11,15 @@ const transportService = fs.readFileSync(
   path.join(projectRoot, 'js', 'app', 'CoreTransportService.js'),
   'utf8'
 );
+const preparationService = fs.readFileSync(
+  path.join(
+    projectRoot,
+    'js',
+    'app',
+    'CoreArrangerPreparationService.js'
+  ),
+  'utf8'
+);
 const editor = fs.readFileSync(
   path.join(projectRoot, 'js', 'app', 'editor.js'),
   'utf8'
@@ -51,9 +60,13 @@ assert.match(
 );
 assert.match(transportService, /playheadMath\?\.applyLoop/);
 assert.match(core, /arrangerPlaybackPolicy\?\.createBoundary/);
-assert.match(core, /arrangerMarkers:\s*songData\._arrangerMarkers/);
-assert.match(core, /legacyLoopState:\s*songData\._dawLoop/);
-assert.match(core, /playbackStart:\s*playbackBoundary\.start/);
+assert.match(
+  core,
+  /CoreArrangerPreparationService\?\.create/
+);
+assert.match(preparationService, /arrangerMarkers:\s*songData\._arrangerMarkers/);
+assert.match(preparationService, /legacyLoopState:\s*songData\._dawLoop/);
+assert.match(preparationService, /playbackStart:\s*playbackBoundary\.start/);
 assert.match(editor, /arrangerPlaybackPolicy\?\.applyToDAW/);
 assert.match(editor, /seekTransport\(arrPerformActive \? playbackBoundary\.start : 0, false, true\)/);
 assert.match(editor, /arrangerMarkers:\s*ns\.arrangerMarkers/);

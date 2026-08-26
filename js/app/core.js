@@ -29,6 +29,7 @@ const isBrowser = typeof window !== 'undefined';
 // placeholder قدیمی DAW حذف شده تا adapter هیچ‌وقت state ناقص را نبیند.
 const globalScope = isBrowser ? window : global;
 let corePerformanceUiRuntime = null;
+let coreArrangerPreparationRuntime = null;
 
 const corePublicApiFactory = globalScope.CorePublicApi;
 if (!corePublicApiFactory?.create) {
@@ -2691,6 +2692,38 @@ let syncTapKeyHandler = null;
     // این فلگ فعال می‌شه و یک poll مستقل از tick، منتظر اتمام prep می‌مونه
     let _arrWaitPollActive = false;
 
+    coreArrangerPreparationRuntime =
+      globalScope.CoreArrangerPreparationService?.create?.({
+        getArranger: () => arrPerformData || editingArr,
+        getCurrentIndex: () => arrPerformIdx,
+        isActive: () => arrPerformActive,
+        hasLoggedNoNextSong: () => _arrHasLoggedNoNextSong,
+        setHasLoggedNoNextSong: value => {
+          _arrHasLoggedNoNextSong = value;
+        },
+        setNextState: value => {
+          _arrNextState = value;
+        },
+        getAllSongs: () => edGetAllSongs(),
+        preloadAudioForSong: (...args) => preloadAudioForSong(...args),
+        getDAW: () => getEditorDAW(),
+        createPlaybackBoundary: config =>
+          arrangerPlaybackPolicy?.createBoundary?.(config),
+        getArrangerMarkers: song =>
+          globalScope.ArrangerMarkerService?.fromSong?.(song),
+        getItemSetting: (...args) => getArrItemSetting(...args),
+        peaksFromBuffer: (...args) => peaksFromBuffer(...args),
+        restoreAudioForProjectSilently: (...args) =>
+          restoreAudioForProjectSilently(...args),
+        wait: delay => new Promise(resolve => setTimeout(resolve, delay)),
+        logger: console
+      });
+    if (!coreArrangerPreparationRuntime) {
+      throw new Error(
+        'CoreArrangerPreparationService باید قبل از app/core.js بارگذاری شود.'
+      );
+    }
+
     const corePerformanceModeRuntime =
       globalScope.CorePerformanceModeService?.create?.({
         getElement: id => $(id),
@@ -2916,116 +2949,9 @@ let syncTapKeyHandler = null;
       return corePerformanceUiRuntime?.render?.(...args);
     }
 
-    // Pre-build the next song's full DAW state while current plays
-    // این تابع حالا با try/catch/finally کامل نوشته شده تا arrPreparePending
-    // هرگز گیر نکنه. اگه خطایی رخ بده، retry می‌کنه.
-    async function prepareNextArrSong(retryCount = 0) {
-      const arr = arrPerformData || editingArr;
-      const nextIdx = arrPerformIdx + 1;
-
-      // اگر آهنگ بعدی وجود نداره، _arrNextState رو null کن
-      if (!arr || nextIdx >= arr.items.length) {
-        _arrNextState = null;
-        // فقط یک‌بار لاگ بزن
-        if (!_arrHasLoggedNoNextSong) {
-          _arrHasLoggedNoNextSong = true;
-          console.log('[Arranger Prep] No more songs — _arrNextState cleared');
-        }
-        return;
-      }
-
-      const allSongs = edGetAllSongs();
-      const song = allSongs.find(s => s.id === arr.items[nextIdx]);
-      if (!song) {
-        _arrNextState = null;
-        console.warn(`[Arranger Prep] Song at index ${nextIdx} not found in archive (id: ${arr.items[nextIdx]})`);
-        return;
-      }
-
-      try {
-        const songData = JSON.parse(JSON.stringify(song));
-        if (!songData.styles) songData.styles = {};
-        const defaults = { tSize:23,tColor:'#0fa966',tFont:'Vazirmatn',tBold:true,align:'center',cSize:23,cColor:'#e6aa28',cFont:'JetBrains Mono' };
-        Object.keys(defaults).forEach(k => { if (songData.styles[k] === undefined) songData.styles[k] = defaults[k]; });
-
-        // ─── Pre-load کامل صدا برای آهنگ بعدی ───
-        const preloadResult = await preloadAudioForSong(songData);
-        if (preloadResult.missing > 0) {
-          console.warn(`[Arranger Prep] ${preloadResult.missing} audio clip(s) missing for "${songData.title}":`, preloadResult.missingNames);
-        } else {
-          console.log(`[Arranger Prep] ✓ Audio ready for "${songData.title}" (loaded: ${preloadResult.loaded})`);
-        }
-
-        const tracks = songData._dawTracks ? JSON.parse(JSON.stringify(songData._dawTracks)) : [];
-        let clips = songData._dawClips ? JSON.parse(JSON.stringify(songData._dawClips)) : [];
-        let sections = songData._dawSections ? JSON.parse(JSON.stringify(songData._dawSections)) : [];
-        const oldSec = clips.filter(c => c.type === 'section');
-        if (oldSec.length) { oldSec.forEach(c => { sections.push({ id: c.id, trackId: c.trackId, label: c.name, start: c.start, duration: c.duration, color: c.color }); }); clips = clips.filter(c => c.type !== 'section'); }
-
-        const playbackBoundary = arrangerPlaybackPolicy?.createBoundary?.({
-          clips,
-          sections,
-          arrangerMarkers: songData._arrangerMarkers,
-          legacyLoopState: songData._dawLoop,
-          fallbackEnd: 30
-        }) || {
-          start: 0,
-          end: 30,
-          selectionEnd: 30,
-          markers: { enabled: false, start: 0, end: 30 }
-        };
-        const savedArrangerMarkers =
-          globalScope.ArrangerMarkerService?.fromSong?.(songData) || {
-            enabled: songData._arrangerMarkers?.enabled === true,
-            start: Math.max(0, Number(songData._arrangerMarkers?.start) || 0),
-            end: Math.max(0, Number(songData._arrangerMarkers?.end) || 0)
-          };
-
-        // آپدیت sourceDuration و peaks برای کلیپ‌های که لود شدن
-        clips.forEach(c => { if (c.type !== 'chord' && c.bufferKey && getEditorDAW().bufferCache.has(c.bufferKey)) { const buffer = getEditorDAW().bufferCache.get(c.bufferKey); c.sourceDuration = buffer.duration; c._peaks = peaksFromBuffer(buffer, 2000); } });
-
-        // Apply per-song transpose to tracks
-        const nextSetting = getArrItemSetting(arr, arr.items[nextIdx]);
-        if (nextSetting.transpose) {
-          tracks.forEach(t => { if (t.type === 'audio') t.transpose = (t.transpose || 0) + nextSetting.transpose; });
-        }
-
-        _arrNextState = {
-          song: songData,
-          idx: nextIdx,
-          clips,
-          sections,
-          tracks,
-          playbackStart: playbackBoundary.start,
-          playbackEnd: playbackBoundary.end,
-          selectionEnd: playbackBoundary.selectionEnd,
-          loopState: songData._dawLoop,
-          arrangerMarkers: savedArrangerMarkers
-        };
-        console.log(`[Arranger Prep] ✓ _arrNextState ready for song ${nextIdx + 1}: "${songData.title}"`);
-        
-        // ─── تأیید نهایی: مطمئن شو همه بافرهای مورد نیاز واقعاً لود شدن ───
-        const audioClipsInNext = clips.filter(c => c.type !== 'chord' && c.bufferKey);
-        const missingBuffers = audioClipsInNext.filter(c => !getEditorDAW().bufferCache.has(c.bufferKey));
-        if (missingBuffers.length > 0) {
-          console.warn(`[Arranger Prep] ⚠ ${missingBuffers.length} buffer(s) still missing after prep:`, missingBuffers.map(c => c.fileName || c.bufferKey));
-          // تلاش مجدد برای لود بافرهای گمشده
-          await restoreAudioForProjectSilently(songData.id, true);
-          console.log(`[Arranger Prep] ✓ Retry complete - buffers rechecked`);
-        }
-      } catch (e) {
-        console.error(`[Arranger Prep] Error preparing song ${nextIdx + 1} (retry ${retryCount}):`, e);
-        _arrNextState = null;
-
-        // Retry mechanism: حداکثر ۲ بار با وقفه ۱ ثانیه
-        if (retryCount < 2 && arrPerformActive) {
-          console.log(`[Arranger Prep] Retrying in 1s... (attempt ${retryCount + 1}/2)`);
-          await new Promise(r => setTimeout(r, 1000));
-          if (arrPerformActive && arrPerformIdx === nextIdx - 1) {
-            return prepareNextArrSong(retryCount + 1);
-          }
-        }
-      }
+    // Pre-build the next song's full DAW state while current plays.
+    async function prepareNextArrSong(...args) {
+      return coreArrangerPreparationRuntime?.prepare?.(...args);
     }
 
     // Crossfade between songs — نسخه بهبودیافته با overlap واقعی
