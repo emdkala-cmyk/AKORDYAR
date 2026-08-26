@@ -877,20 +877,6 @@ function applyState(stateStr) {
       edRenderClMarkers();
     }
 
-    function handleTimingChange() {
-      const timing = requireEditorSongStateService().getTimingContext();
-      const config = getTimeSignatureGridConfig(
-        timing.timeSignature,
-        timing.tempo
-      );
-      editorTransportState.snapValue = getActiveQuantizeGridStep(config);
-      renderTracks();
-      renderRuler();
-      renderClips({ preserveWaveforms: true });
-      updatePlayheadUI();
-      if (editorTransportState.metroActive && getEditorDAW().isPlaying) startMetronome();
-    }
-
     const coreTrackSetupRuntime =
       globalScope.CoreTrackSetupService?.create?.({
         documentRef: document,
@@ -946,6 +932,43 @@ function applyState(stateStr) {
     });
     corePublicApi.publish(coreTimelineRendererRuntime);
 
+    const coreTimelineGridRuntime =
+      globalScope.CoreTimelineGridService?.create?.({
+        documentRef: document,
+        timelineGrid: globalScope.TimelineGrid,
+        getDAW: () => getEditorDAW(),
+        getTimingContext: () =>
+          requireEditorSongStateService().getTimingContext(),
+        getProjectEnd: () => getProjectEnd(),
+        timeToX: value => timeToX(value),
+        getElement: id => $(id),
+        getTimeSignatureGridConfig: (...args) =>
+          getTimeSignatureGridConfig(...args),
+        getActiveQuantizeGridStep: (...args) =>
+          getActiveQuantizeGridStep(...args),
+        getTransportState: () => editorTransportState,
+        renderTracks: () => renderTracks(),
+        renderClips: (...args) => renderClips(...args),
+        updatePlayheadUI: () => updatePlayheadUI(),
+        startMetronome: () => startMetronome()
+      });
+    if (!coreTimelineGridRuntime) {
+      throw new Error(
+        'CoreTimelineGridService باید قبل از app/core.js بارگذاری شود.'
+      );
+    }
+    const {
+      drawLaneGrid,
+      renderRuler,
+      handleTimingChange
+    } = coreTimelineGridRuntime;
+    Object.assign(globalScope, {
+      drawLaneGrid,
+      renderRuler,
+      handleTimingChange
+    });
+    corePublicApi.publish(coreTimelineGridRuntime);
+
     let timelineSectionRendererService = null;
     function getTimelineSectionRendererService() {
       if (
@@ -973,35 +996,6 @@ function applyState(stateStr) {
           });
       }
       return timelineSectionRendererService;
-    }
-
-    // ===== Cubase-style Timeline Grid =====
-    function drawLaneGrid(canvas) {
-      const timing = requireEditorSongStateService().getTimingContext();
-      TimelineGrid.drawLaneGrid(canvas, {
-        total: getProjectEnd(),
-        timeToX: timeToX,
-        tempo: timing.tempo,
-        timeSignature: timing.timeSignature,
-        pxPerSec: getEditorDAW().pxPerSecond
-      });
-    }
-
-    function renderRuler() {
-      const timing = requireEditorSongStateService().getTimingContext();
-      const total = getProjectEnd();
-      TimelineGrid.renderRuler({
-        total: total,
-        timeToX: timeToX,
-        tempo: timing.tempo,
-        timeSignature: timing.timeSignature,
-        pxPerSec: getEditorDAW().pxPerSecond,
-        rulerEl: $('timeline-ruler'),
-        labelsEl: $('ruler-labels'),
-        tlInnerEl: $('tl-inner'),
-        lanesEl: $('lanes-container'),
-        onDurationChange: function(t) { getEditorDAW().timelineDuration = t; }
-      });
     }
 
     coreClipRendererRuntime =

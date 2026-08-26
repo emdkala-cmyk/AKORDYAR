@@ -44,6 +44,7 @@ for (const activeScript of [
   'js/app/CorePanelLayoutService.js',
   'js/app/CoreTimelineGeometryService.js',
   'js/app/CoreTimelineRendererService.js',
+  'js/app/CoreTimelineGridService.js',
   'js/app/CoreTrackSetupService.js',
   'js/app/CoreClipService.js',
   'js/app/CoreAudioImportService.js',
