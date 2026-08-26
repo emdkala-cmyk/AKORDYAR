@@ -35,6 +35,7 @@ let coreArrangerFileImportRuntime = null;
 let coreArrangerFileExportRuntime = null;
 let coreArrangerCrossfadeRuntime = null;
 let coreWavEncoderRuntime = null;
+let coreArrangerEditorRuntime = null;
 let coreArrangerSetlistRendererRuntime = null;
 let coreClipRendererRuntime = null;
 let coreArrangerBackgroundPreloadRuntime = null;
@@ -2135,41 +2136,7 @@ let syncTapKeyHandler = null;
     corePublicApi.publish({ createNewArranger });
 
     function openArrEditor() {
-      if (!editingArr) return;
-      // ابتدا style های قدیمی رو پاک کن
-      const arrManager = $('arrManager');
-      arrManager.style.maxHeight = '';
-      arrManager.style.borderBottom = '';
-      arrManager.style.paddingBottom = '';
-      arrManager.style.marginBottom = '';
-
-      // ادیتور رو نمایش بده
-      const arrEditor = $('arrEditor');
-      arrEditor.style.display = 'block';
-
-      // اطمینان از اینکه پنجره ارنجر هم نمایش داده شده
-      const modal = $('arrangerModal');
-      if (modal && !modal.classList.contains('show')) {
-        modal.classList.add('show');
-      }
-
-      $('arrName').value = editingArr.name || '';
-      // Sync crossfade/pause controls
-      if (editingArr.crossfade) {
-        $('arrCrossfadeRange').value = editingArr.crossfade;
-        $('arrCrossfadeVal').textContent = editingArr.crossfade + 's';
-      } else {
-        $('arrCrossfadeRange').value = '0';
-        $('arrCrossfadeVal').textContent = '0s';
-      }
-      if (editingArr.pauseBetween) $('arrPauseBtn').classList.add('arr-stl-active');
-      else $('arrPauseBtn').classList.remove('arr-stl-active');
-      renderArrPool(); renderArrSetlist();
-      // Reset to editor tab
-      switchArrTab('editor');
-      // Highlight active arranger card
-      renderArrangerManager();
-      console.log(`[Arranger] Editor opened for: "${editingArr.name}"`);
+      return coreArrangerEditorRuntime?.open?.();
     }
 
     function switchArrTab(tab) {
@@ -2396,6 +2363,22 @@ let syncTapKeyHandler = null;
 
     function renderArrSetlist(...args) {
       return coreArrangerSetlistRendererRuntime?.render?.(...args);
+    }
+
+    coreArrangerEditorRuntime =
+      globalScope.CoreArrangerEditorService?.create?.({
+        getElement: id => $(id),
+        getEditingArr: () => editingArr,
+        renderArrPool: (...args) => renderArrPool(...args),
+        renderArrSetlist: (...args) => renderArrSetlist(...args),
+        switchArrTab: (...args) => switchArrTab(...args),
+        renderArrangerManager: (...args) => renderArrangerManager(...args),
+        logger: console
+      });
+    if (!coreArrangerEditorRuntime) {
+      throw new Error(
+        'CoreArrangerEditorService باید قبل از app/core.js بارگذاری شود.'
+      );
     }
 
     // ===== Performance Mode (Live Dashboard) =====
