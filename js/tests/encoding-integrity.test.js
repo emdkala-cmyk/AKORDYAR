@@ -44,6 +44,7 @@ const files = [
   'js/app/CoreSyncModeBridgeService.js',
   'js/app/CoreSequentialChordRemapService.js',
   'js/editor/EditorChordImportService.js',
+  'js/editor/EditorAutoImportStateService.js',
   'js/editor/EditorMidiInputService.js',
   'js/editor/EditorTimelineChordEditorService.js',
   'js/app/core.js',

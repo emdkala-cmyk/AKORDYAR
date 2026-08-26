@@ -30,6 +30,9 @@ const editorChordQuantizeService = read('js/editor/EditorChordQuantizeService.js
 const editorChordInteractionService = read('js/editor/EditorChordInteractionService.js');
 const editorChordImportService = read('js/editor/EditorChordImportService.js');
 const editorMidiInputService = read('js/editor/EditorMidiInputService.js');
+const editorAutoImportStateService = read(
+  'js/editor/EditorAutoImportStateService.js'
+);
 const editorLyricsRenderer = read('js/editor/EditorLyricsRenderer.js');
 const editorSyncAnalysisUiService = read(
   'js/editor/EditorSyncAnalysisUiService.js'
@@ -166,6 +169,12 @@ assert.doesNotMatch(editorMidiInputService, /window\.edCur/);
 assert.doesNotMatch(editor, /function handleMIDIMessage\(e\)/);
 assert.doesNotMatch(editor, /function evaluateMidiInput\(\)/);
 assert.doesNotMatch(editor, /function highlightPianoKey\(midiNote, on\)/);
+assert.match(editorAutoImportStateService, /function getResults\(\)/);
+assert.match(editorAutoImportStateService, /function getStats\(\)/);
+assert.match(editorAutoImportStateService, /function getFailedSongs\(\)/);
+assert.doesNotMatch(editorAutoImportStateService, /window\._ai/);
+assert.doesNotMatch(editor, /window\._ai(?:Results|ArtistMap|Stats|FailedSongs|FailedFiles)/);
+assert.doesNotMatch(editor, /window\._autoImportDirHandle/);
 assert.doesNotMatch(editorLyricsRenderer, /window\.edCur/);
 assert.doesNotMatch(editorLyricsRenderer, /\bDAW\b/);
 assert.doesNotMatch(editorLyricsRenderer, /\bPERF\b/);

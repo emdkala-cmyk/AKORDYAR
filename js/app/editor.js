@@ -787,11 +787,8 @@ function getMidiScoreController() {
     let _importParsed = null;
     // ===== AUTO IMPORT (Rewritten — multi-artist, progress, retry, accurate counts) =====
 
-    // ---- State ----
-    window._aiResults = [];       // flat array of all fetched songs (with status tracking)
-    window._aiArtistMap = {};     // { artistName: { expected, fetched, status, songs:[] } }
-    window._aiStats = { total: 0, fetched: 0, archived: 0, filesSaved: 0, dupes: 0, errors: 0 };
-    window._aiFailedSongs = [];   // songs that failed after all retries
+    const autoImportStateService =
+      window.EditorAutoImportStateService.create();
 
     // ---- Helpers ----
     function parseArtistNames(raw) {
@@ -920,7 +917,7 @@ function getMidiScoreController() {
         windowRef: window,
         getElement: id => $(id),
         fetchRef: (...args) => fetch(...args),
-        getAutoImportResults: () => window._aiResults,
+        getAutoImportResults: () => autoImportStateService.getResults(),
         songUniqueId,
         getImportParsed: () => _importParsed,
         setImportParsedExternal: value => {
@@ -990,7 +987,7 @@ function getMidiScoreController() {
 
     // ---- Build progress detail HTML ----
     function buildProgressDetail() {
-      const a = window._aiStats;
+      const a = autoImportStateService.getStats();
       let d = '';
       d += `<span class="apd-ok">✓ موفق: ${a.archived}</span>  `;
       d += `<span class="apd-fail">✗ ناموفق: ${a.errors}</span>  `;
@@ -1019,11 +1016,8 @@ function getMidiScoreController() {
       const source = $('autoSource').value;
       const apiUrl = source === 'akord' ? '/api/akord/auto-import' : '/api/auto-import';
 
-      // Reset state
-      window._aiResults = [];
-      window._aiArtistMap = {};
-      window._aiStats = { total: 0, fetched: 0, archived: 0, filesSaved: 0, dupes: 0, errors: 0 };
-      window._aiFailedSongs = [];
+      // Reset private request state
+      autoImportStateService.reset();
 
       try {
         // ===== PHASE 1: Detect total for each artist =====
@@ -1045,26 +1039,26 @@ function getMidiScoreController() {
             const probeData = await probeResp.json();
 
             if (probeData.error) {
-              window._aiArtistMap[artistName] = { expected: 0, fetched: 0, status: 'error', error: probeData.error, candidates: probeData.candidates, songs: [] };
+              autoImportStateService.setArtist(artistName, { expected: 0, fetched: 0, status: 'error', error: probeData.error, candidates: probeData.candidates, songs: [] });
               continue;
             }
 
             const totalSongs = probeData.totalSongs || 1;
             const countToFetch = requestedCount > 0 ? Math.min(requestedCount, totalSongs) : totalSongs;
             console.log(`[AUTO-IMPORT CLIENT] Artist: ${artistName} | totalSongs from probe: ${totalSongs} | countToFetch: ${countToFetch}`);
-            window._aiArtistMap[artistName] = { expected: countToFetch, fetched: 0, status: 'pending', songs: [] };
+            autoImportStateService.setArtist(artistName, { expected: countToFetch, fetched: 0, status: 'pending', songs: [] });
             grandExpected += countToFetch;
           } catch (e) {
-            window._aiArtistMap[artistName] = { expected: 0, fetched: 0, status: 'error', error: e.message, songs: [] };
+            autoImportStateService.setArtist(artistName, { expected: 0, fetched: 0, status: 'error', error: e.message, songs: [] });
           }
           await new Promise(r => setTimeout(r, 300));
         }
 
-        window._aiStats.total = grandExpected;
+        autoImportStateService.setStat('total', grandExpected);
 
         // Show artist summary before fetching
         let summaryLines = ['━━━ خلاصه شناسایی ━━━'];
-        for (const [name, data] of Object.entries(window._aiArtistMap)) {
+        for (const [name, data] of autoImportStateService.getArtistEntries()) {
           if (data.error) summaryLines.push(`❌ ${name}: ${data.error}`);
           else summaryLines.push(`🎵 ${name}: ${data.expected} ترانه`);
         }
@@ -1075,7 +1069,7 @@ function getMidiScoreController() {
         // ===== PHASE 2: Fetch all songs for each artist =====
         let processedCount = 0;
 
-        for (const [artistName, artistData] of Object.entries(window._aiArtistMap)) {
+        for (const [artistName, artistData] of autoImportStateService.getArtistEntries()) {
           if (artistData.error) continue;
 
           status.textContent = `🎵 در حال دریافت ${escapeHtml(artistName)} (${artistData.expected} ترانه)...`;
@@ -1092,8 +1086,10 @@ function getMidiScoreController() {
             artistData.songs = fetchResult.results || [];
             artistData.fetched = artistData.songs.length;
             processedCount += artistData.songs.length;
-            window._aiStats.fetched += artistData.songs.length;
-            window._aiStats.errors += artistData.expected - artistData.songs.length;
+            autoImportStateService.incrementStats({
+              fetched: artistData.songs.length,
+              errors: artistData.expected - artistData.songs.length
+            });
             continue;
           }
 
@@ -1110,8 +1106,8 @@ function getMidiScoreController() {
           artistData.songs = uniqueSongs;
           artistData.fetched = uniqueSongs.length;
           artistData.status = 'done';
-          window._aiResults.push(...uniqueSongs);
-          window._aiStats.fetched += uniqueSongs.length;
+          autoImportStateService.addResults(uniqueSongs);
+          autoImportStateService.incrementStats({ fetched: uniqueSongs.length });
           processedCount += uniqueSongs.length;
 
           updateAutoProgress(processedCount, grandExpected, buildProgressDetail());
@@ -1140,7 +1136,7 @@ function getMidiScoreController() {
           const existingSongs = edGetAllSongs();
           let archived = 0, dupes = 0, noText = 0, parseErr = 0;
 
-          for (const song of window._aiResults) {
+          for (const song of autoImportStateService.getResults()) {
             if (song.error) { continue; }
             if (!song.rawText || !song.rawText.trim()) {
               noText++;
@@ -1156,19 +1152,21 @@ function getMidiScoreController() {
             }
           }
 
-          console.log(`[ARCHIVE] FINAL: archived=${archived}, dupes=${dupes}, noText=${noText}, parseErr=${parseErr}, total=${window._aiResults.length}`);
-          console.log(`[ARCHIVE] Songs with rawText: ${window._aiResults.filter(s => !s.error && s.rawText && s.rawText.trim()).length}`);
+          console.log(`[ARCHIVE] FINAL: archived=${archived}, dupes=${dupes}, noText=${noText}, parseErr=${parseErr}, total=${autoImportStateService.getResults().length}`);
+          console.log(`[ARCHIVE] Songs with rawText: ${autoImportStateService.getResults().filter(s => !s.error && s.rawText && s.rawText.trim()).length}`);
           console.log(`[ARCHIVE] Songs WITHOUT rawText: ${noText}`);
           edSetAllSongs(existingSongs);
-          window._aiStats.archived = archived;
-          window._aiStats.dupes = dupes;
-          window._aiStats.errors = window._aiFailedSongs.length;
+          autoImportStateService.updateStats({
+            archived,
+            dupes,
+            errors: autoImportStateService.getFailedSongs().length
+          });
         }
 
         // ===== PHASE 4: Final Report =====
-        const s = window._aiStats;
+        const s = autoImportStateService.getStats();
         let report = '━━━ گزارش نهایی ━━━\n';
-        for (const [name, data] of Object.entries(window._aiArtistMap)) {
+        for (const [name, data] of autoImportStateService.getArtistEntries()) {
           if (data.error) report += `❌ ${name}: ${data.error}\n`;
           else report += `🎵 ${name}: ${data.fetched}/${data.expected} دریافت شد\n`;
         }
@@ -1177,9 +1175,9 @@ function getMidiScoreController() {
         report += `📊 ذخیره‌شده در آرشیو: ${s.archived}\n`;
         report += `📊 تکراری: ${s.dupes}\n`;
         report += `📊 ناموفق: ${s.errors}`;
-        if (window._aiFailedSongs.length > 0) {
+        if (autoImportStateService.getFailedSongs().length > 0) {
           report += `\n\n❌ موارد ناموفق:\n`;
-          window._aiFailedSongs.forEach(f => { report += `  • ${f.artist} — ${f.title}: ${f.error}\n`; });
+          autoImportStateService.getFailedSongs().forEach(f => { report += `  • ${f.artist} — ${f.title}: ${f.error}\n`; });
         }
 
         status.textContent = report;
@@ -1204,7 +1202,7 @@ function getMidiScoreController() {
 
     // ---- Retry failed songs only ----
     async function autoRetryFailed() {
-      const failed = window._aiFailedSongs;
+      const failed = autoImportStateService.getFailedSongs();
       if (!failed.length) { toast('مورد ناموفقی وجود ندارد'); return; }
 
       const status = $('autoImportStatus');
@@ -1219,7 +1217,7 @@ function getMidiScoreController() {
       const byArtist = {};
       failed.forEach(f => { (byArtist[f.artist] = byArtist[f.artist] || []).push(f); });
 
-      window._aiFailedSongs = [];
+      autoImportStateService.setFailedSongs([]);
       let retriedCount = 0;
 
       for (const [artistName, failedSongs] of Object.entries(byArtist)) {
@@ -1229,7 +1227,7 @@ function getMidiScoreController() {
         const fetchResult = await fetchArtistFromServer(artistName, apiUrl, failedSongs.length, (msg) => { status.textContent = msg; });
 
         if (fetchResult.error) {
-          failedSongs.forEach(f => window._aiFailedSongs.push(f));
+          autoImportStateService.addFailedSongs(failedSongs);
           retriedCount += failedSongs.length;
           continue;
         }
@@ -1240,35 +1238,38 @@ function getMidiScoreController() {
 
         for (const song of recoveredSongs) {
           if (!song.error && song.rawText) {
-            window._aiResults.push(song);
-            window._aiStats.fetched++;
+            autoImportStateService.addResults([song]);
+            autoImportStateService.incrementStats({ fetched: 1 });
             // Add to archive
             const existingSongs = edGetAllSongs();
             const result = saveSongToArchive(song, existingSongs);
-            if (result.saved) window._aiStats.archived++;
-            else if (result.duplicate) window._aiStats.dupes++;
+            if (result.saved) autoImportStateService.incrementStats({ archived: 1 });
+            else if (result.duplicate) autoImportStateService.incrementStats({ dupes: 1 });
             edSetAllSongs(existingSongs);
           }
         }
 
         // Songs still failed
         for (const f of failedSongs) {
-          if (!recoveredUrls.has(f.url)) window._aiFailedSongs.push(f);
+          if (!recoveredUrls.has(f.url)) autoImportStateService.addFailedSongs([f]);
         }
         retriedCount += failedSongs.length;
         updateAutoProgress(retriedCount, failed.length, buildProgressDetail());
       }
 
-      const stillFailed = window._aiFailedSongs.length;
+      const stillFailed = autoImportStateService.getFailedSongs().length;
       status.textContent = `🔄 تلاش مجدد تمام شد\nبازیابی شده: ${failed.length - stillFailed}\nباقی‌مانده ناموفق: ${stillFailed}`;
-      updateAutoProgress(window._aiStats.fetched, window._aiStats.total, buildProgressDetail());
+      const retryStats = autoImportStateService.getStats();
+      updateAutoProgress(retryStats.fetched, retryStats.total, buildProgressDetail());
       if (stillFailed === 0) toast('✅ همه ترانه‌ها بازیابی شد!');
       else toast(`⚠️ ${stillFailed} ترانه هنوز ناموفق است`);
     }
 
     // ---- Save to archive (manual button) ----
     function autoImportSaveArchive() {
-      const songs = window._aiResults.filter(s => !s.error && s.rawText);
+      const songs = autoImportStateService
+        .getResults()
+        .filter(s => !s.error && s.rawText);
       if (!songs.length) { toast('ترانه‌ای برای ذخیره وجود ندارد'); return;
       }
       if (!confirm(`آیا ${songs.length} ترانه در آرشیو ذخیره شود؟`)) return;
@@ -1286,16 +1287,18 @@ function getMidiScoreController() {
 
     // ---- Save files to folder ----
     function autoImportSaveConfirm() {
-      const songs = window._aiResults.filter(s => !s.error && s.rawText);
+      const songs = autoImportStateService
+        .getResults()
+        .filter(s => !s.error && s.rawText);
       if (!songs.length) { toast('فایلی برای ذخیره وجود ندارد'); return; }
       $('autoImportFolderInput').style.display = 'block';
       if (window.showDirectoryPicker) {
         window.showDirectoryPicker({ mode: 'readwrite' }).then(async dirHandle => {
-          window._autoImportDirHandle = dirHandle;
+          autoImportStateService.setDirectoryHandle(dirHandle);
           $('autoSavePathInput').value = dirHandle.name;
           $('autoSavePathInput').disabled = true;
         }).catch(() => {
-          window._autoImportDirHandle = null;
+          autoImportStateService.setDirectoryHandle(null);
           $('autoSavePathInput').disabled = false;
           $('autoSavePathInput').value = '';
         });
@@ -1306,18 +1309,17 @@ function getMidiScoreController() {
     }
 
     async function autoImportDoSave() {
-      const songs = Array.isArray(window._aiResults)
-        ? window._aiResults.filter(song => !song.error && song.rawText)
-        : [];
+      const songs = autoImportStateService
+        .getResults()
+        .filter(song => !song.error && song.rawText);
 
       if (!songs.length) {
         toast('داده‌ای برای ذخیره نیست');
         return;
       }
 
-      // اطمینان از وجود آمار
-      window._aiStats = window._aiStats || {};
-      window._aiFailedFiles = [];
+      // Reset file-save results for the current operation.
+      autoImportStateService.setFailedFiles([]);
 
       // پاک‌سازی نام پوشه و فایل برای ویندوز و File System API
       function sanitizeFilePart(value, fallback = 'Unknown') {
@@ -1425,7 +1427,8 @@ function getMidiScoreController() {
       // Method 1: Native File System API
       // ذخیره در پوشه‌های جداگانه برای هر خواننده
       // ============================================================
-      if (window._autoImportDirHandle) {
+      const directoryHandle = autoImportStateService.getDirectoryHandle();
+      if (directoryHandle) {
         const artistEntries = Object.entries(byArtist);
 
         try {
@@ -1442,7 +1445,7 @@ function getMidiScoreController() {
 
             try {
               artistDir =
-                await window._autoImportDirHandle.getDirectoryHandle(
+                await directoryHandle.getDirectoryHandle(
                   artistDirName,
                   { create: true }
                 );
@@ -1567,8 +1570,8 @@ function getMidiScoreController() {
             });
           }
 
-          window._aiStats.filesSaved = savedTotal;
-          window._aiFailedFiles = failedFiles;
+          autoImportStateService.setStat('filesSaved', savedTotal);
+          autoImportStateService.setFailedFiles(failedFiles);
 
           const report = buildSaveReport({
             perArtist: perArtistReport,
@@ -1599,8 +1602,8 @@ function getMidiScoreController() {
         } catch (error) {
           const errorMessage = error?.message || String(error);
 
-          window._aiStats.filesSaved = savedTotal;
-          window._aiFailedFiles = failedFiles;
+          autoImportStateService.setStat('filesSaved', savedTotal);
+          autoImportStateService.setFailedFiles(failedFiles);
 
           statusEl.textContent =
             `❌ عملیات ذخیره متوقف شد.\n` +
@@ -1666,10 +1669,10 @@ function getMidiScoreController() {
 
         const skippedTotal = Number(data.skipped) || 0;
 
-        window._aiStats.filesSaved = savedTotal;
-        window._aiFailedFiles = Array.isArray(data.failedFiles)
-          ? data.failedFiles
-          : [];
+        autoImportStateService.setStat('filesSaved', savedTotal);
+        autoImportStateService.setFailedFiles(
+          Array.isArray(data.failedFiles) ? data.failedFiles : []
+        );
 
         let serverPerArtist = [];
 
@@ -1702,7 +1705,7 @@ function getMidiScoreController() {
           saved: savedTotal,
           errors: errorsTotal,
           skipped: skippedTotal,
-          failed: window._aiFailedFiles
+          failed: autoImportStateService.getFailedFiles()
         });
 
         statusEl.textContent = report;
