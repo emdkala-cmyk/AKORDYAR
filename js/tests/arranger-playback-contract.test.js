@@ -33,6 +33,15 @@ const songLoadService = fs.readFileSync(
   ),
   'utf8'
 );
+const hotSwapService = fs.readFileSync(
+  path.join(
+    projectRoot,
+    'js',
+    'editor',
+    'EditorArrangerHotSwapService.js'
+  ),
+  'utf8'
+);
 const markerController = fs.readFileSync(
   path.join(
     projectRoot,
@@ -65,6 +74,11 @@ assert.ok(
   html.indexOf('js/editor/EditorArrangerSongLoadService.js') <
     html.indexOf('js/app/editor.js'),
   'arranger song load service must load before editor'
+);
+assert.ok(
+  html.indexOf('js/editor/EditorArrangerHotSwapService.js') <
+    html.indexOf('js/app/editor.js'),
+  'arranger hot swap service must load before editor'
 );
 assert.ok(
   html.indexOf('js/editor/ArrangerMarkerService.js') <
@@ -101,8 +115,8 @@ assert.match(
   /seekTransport\(\s*stateAfterLoad\.active \? playbackBoundary\.start : 0,\s*false,\s*true\s*\)/
 );
 assert.match(editor, /getPlaybackPolicy:\s*\(\) => arrangerPlaybackPolicy/);
-assert.match(editor, /arrangerMarkers:\s*ns\.arrangerMarkers/);
-assert.match(editor, /seekTransport\(arrPerformActive \? nextStart : 0, true, true\)/);
+assert.match(hotSwapService, /arrangerMarkers:\s*nextState\.arrangerMarkers/);
+assert.match(hotSwapService, /seekTransport\(active \? nextStart : 0, true, true\)/);
 assert.doesNotMatch(editor, /var _ori2 = PlayheadMath\.createOrigin/);
 
 assert.match(

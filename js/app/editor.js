@@ -259,89 +259,66 @@ function getMidiScoreController() {
     }
 
     // Instant hot-swap: apply pre-built state without any async work
+    let editorArrangerHotSwapService = null;
+    function getEditorArrangerHotSwapService() {
+      if (
+        !editorArrangerHotSwapService &&
+        typeof window.EditorArrangerHotSwapService?.create === 'function'
+      ) {
+        editorArrangerHotSwapService =
+          window.EditorArrangerHotSwapService.create({
+            getPerformanceState: () => ({
+              active: arrPerformActive,
+              pauseMode: perfPauseMode,
+              nextState: _arrNextState
+            }),
+            updatePerformanceState: patch => {
+              if ('nextState' in patch) _arrNextState = patch.nextState;
+              if ('index' in patch) arrPerformIdx = patch.index;
+              if ('hasLoggedNoNextSong' in patch) {
+                _arrHasLoggedNoNextSong = patch.hasLoggedNoNextSong;
+              }
+              if ('prepStartedForIndex' in patch) {
+                _arrPrepStartedForIndex = patch.prepStartedForIndex;
+              }
+            },
+            getArrangement: () => arrPerformData || editingArr,
+            stopAllVoices: () => stopAllVoices(),
+            applyPreparedState: payload =>
+              getEditorSongTransitionService()?.applyPreparedState(payload),
+            getDAW: () => getEditorDAW(),
+            getPlaybackPolicy: () => arrangerPlaybackPolicy,
+            setSelectionEnd: value => {
+              selectionEnd = value;
+            },
+            resetRecording: () => {
+              isRecordingChords = false;
+              currentRecordingClipId = null;
+            },
+            seekTransport: (...args) => seekTransport(...args),
+            resetHistory: () => resetHistory(),
+            syncToolbar: () => edSyncToolbar(),
+            renderEditor: (...args) => edRenderEditor(...args),
+            renderAll: () => renderAll(),
+            saveState: () => saveState(),
+            initHighlightEffect: () => initHighlightEffect(),
+            renderPerfUI: () => renderPerfUI(),
+            toast: message => toast(message),
+            translate: key => t(key),
+            pauseTransport: () => pauseTransport(),
+            getElement: id => $(id),
+            prepareNextSong: () => prepareNextArrSong(),
+            syncUIAfterSongChange: () => syncUIAfterSongChange(),
+            mirrorTimeline: () => safeMirrorTimeline(),
+            schedule: (...args) => setTimeout(...args),
+            logger: console
+          });
+      }
+      return editorArrangerHotSwapService;
+    }
+
     function hotSwapToNextSong() {
-      if (!_arrNextState) return false;
-      const ns = _arrNextState;
-      _arrNextState = null;
-      arrPerformIdx = ns.idx;
-
-      // ─── Reset prep log flags after successful swap ───
-      _arrHasLoggedNoNextSong = false;
-      _arrPrepStartedForIndex = -1;
-
-      console.log(`[Arranger] Hot-swapping to song ${ns.idx + 1}: "${ns.song?.title || 'Untitled'}"`);
-
-      stopAllVoices();
-
-      // ─── پاک‌سازی نودهای صوتی ترک‌های قدیمی ───
-      // این نودها هنوز به masterGain وصلی هستن و باید قطع بشن تا bleed صدا نداشته باشیم
-      const transition = getEditorSongTransitionService()?.applyPreparedState({
-        song: ns.song,
-        clips: ns.clips,
-        sections: ns.sections,
-        tracks: ns.tracks,
-        loopState: ns.loopState,
-        arrangerMarkers: ns.arrangerMarkers
-      });
-      if (!transition) {
-        console.error('[Arranger] Song transition service is unavailable');
-        return false;
-      }
-      const nextStart = Math.max(
-        0,
-        Number(ns.playbackStart ?? ns.arrangerMarkers?.start) || 0
-      );
-      const requestedEnd = Number(
-        ns.playbackEnd ??
-        ns.selectionEnd ??
-        ns.arrangerMarkers?.end ??
-        ns.loopState?.loopB
-      );
-      const nextEnd = Number.isFinite(requestedEnd) && requestedEnd > nextStart
-        ? requestedEnd
-        : nextStart + 10;
-      if (arrPerformActive) {
-        arrangerPlaybackPolicy?.applyToDAW?.(getEditorDAW());
-        selectionEnd = nextEnd;
-      } else {
-        selectionEnd = ns.selectionEnd;
-      }
-      isRecordingChords = false; currentRecordingClipId = null;
-
-      const audio = transition.audio;
-      console.log(`[Arranger] Audio clips: ${audio.loaded}/${audio.total} loaded` +
-        (audio.missing > 0
-          ? `, ${audio.missing} missing: ${audio.missingNames.join(', ')}`
-          : ''));
-
-      // Re-anchor both the visual and AudioContext clocks. Updating only
-      // playOriginPerf/playOriginTime leaves playOriginAudio pointing at the
-      // previous song, so the scheduler starts this song near the old B.
-      seekTransport(arrPerformActive ? nextStart : 0, true, true);
-
-      resetHistory();
-      edSyncToolbar(); edRenderEditor(true); renderAll(); saveState();
-      initHighlightEffect();
-
-      // Update perf UI
-      renderPerfUI();
-
-      toast(`${t('songN')} ${ns.idx + 1}/${(arrPerformData||editingArr).items.length}: ${ns.song.title || t('untitled')}`);
-
-      // If pause mode, stop playback and wait for manual next
-      if (perfPauseMode) {
-        pauseTransport();
-        $('perfPlayBtn').textContent = '▶';
-      }
-
-      // Check if we should auto-advance after crossfade
-      if (arrPerformActive && ns.idx + 1 < (arrPerformData||editingArr).items.length) prepareNextArrSong();
-      // Sync popup windows, SongDocument, and embedded view
-      syncUIAfterSongChange();
-      // آینه آکوردها در پاپ‌آپ
-      setTimeout(safeMirrorTimeline, 1000);
-
-      return true;
+      return getEditorArrangerHotSwapService()?.hotSwapToNextSong?.();
     }
 
     /**

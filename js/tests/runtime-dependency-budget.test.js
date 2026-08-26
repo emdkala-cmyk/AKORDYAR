@@ -42,6 +42,9 @@ const editorAutoImportWorkflowService = read(
 const editorArrangerSongLoadService = read(
   'js/editor/EditorArrangerSongLoadService.js'
 );
+const editorArrangerHotSwapService = read(
+  'js/editor/EditorArrangerHotSwapService.js'
+);
 const editorPlaylistBackupService = read(
   'js/editor/EditorPlaylistBackupService.js'
 );
@@ -243,6 +246,17 @@ assert.doesNotMatch(
 assert.match(
   editor,
   /async function loadArrSong\(idx\)\s*\{\s*return getEditorArrangerSongLoadService\(\)\?\.load\(idx\);\s*\}/
+);
+assert.match(editorArrangerHotSwapService, /function hotSwapToNextSong\(\)/);
+assert.match(editorArrangerHotSwapService, /function applyPlaybackBoundary/);
+assert.doesNotMatch(editor, /if \(!_arrNextState\) return false;/);
+assert.doesNotMatch(
+  editor,
+  /const transition = getEditorSongTransitionService\(\)\?\.applyPreparedState/
+);
+assert.match(
+  editor,
+  /function hotSwapToNextSong\(\)\s*\{\s*return getEditorArrangerHotSwapService\(\)\?\.hotSwapToNextSong\?\.\(\);\s*\}/
 );
 assert.match(
   editorPlaylistBackupService,

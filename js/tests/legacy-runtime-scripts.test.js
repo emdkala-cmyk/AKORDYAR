@@ -78,6 +78,7 @@ for (const activeScript of [
   'js/editor/EditorAutoImportFileSaveService.js',
   'js/editor/EditorAutoImportWorkflowService.js',
   'js/editor/EditorArrangerSongLoadService.js',
+  'js/editor/EditorArrangerHotSwapService.js',
   'js/editor/EditorPlaylistBackupService.js',
   'js/editor/EditorToolbarDockService.js',
   'js/editor/EditorMidiInputService.js',
