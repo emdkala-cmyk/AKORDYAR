@@ -34,6 +34,7 @@ let coreArrangerManagerRendererRuntime = null;
 let coreArrangerFileImportRuntime = null;
 let coreArrangerFileExportRuntime = null;
 let coreArrangerCrossfadeRuntime = null;
+let coreWavEncoderRuntime = null;
 let coreArrangerSetlistRendererRuntime = null;
 let coreClipRendererRuntime = null;
 let coreArrangerBackgroundPreloadRuntime = null;
@@ -46,6 +47,16 @@ const corePublicApi = corePublicApiFactory.create({
   target: globalScope,
   namespace: 'AkordyarCoreApi'
 });
+
+coreWavEncoderRuntime =
+  globalScope.CoreWavEncoderService?.create?.({
+    BlobCtor: globalScope.Blob
+  });
+if (!coreWavEncoderRuntime) {
+  throw new Error(
+    'CoreWavEncoderService باید قبل از app/core.js بارگذاری شود.'
+  );
+}
 
 let editorCustomPromptService = null;
 function getEditorCustomPromptService() {
@@ -1688,43 +1699,7 @@ function applyState(stateStr) {
  * تبدیل AudioBuffer به فرمت استاندارد WAV جهت ذخیره‌سازی
  */
 function bufferToWave(abuffer, len) {
-  let numOfChan = abuffer.numberOfChannels,
-      length = len * numOfChan * 2 + 44,
-      out = new DataView(new ArrayBuffer(length)),
-      channels = [], i, sample,
-      offset = 0, pos = 0;
-
-  function setUint16(data) { out.setUint16(pos, data, true); pos += 2; }
-  function setUint32(data) { out.setUint32(pos, data, true); pos += 4; }
-
-  setUint32(0x46464952); // "RIFF"
-  setUint32(length - 8);
-  setUint32(0x45564157); // "WAVE"
-  setUint32(0x20746d66); // "fmt "
-  setUint32(16);
-  setUint16(1);
-  setUint16(numOfChan);
-  setUint32(abuffer.sampleRate);
-  setUint32(abuffer.sampleRate * 2 * numOfChan);
-  setUint16(numOfChan * 2);
-  setUint16(16);
-  setUint32(0x61746164); // "data"
-  setUint32(length - pos - 4);
-
-  for (i = 0; i < numOfChan; i++) {
-    channels.push(abuffer.getChannelData(i));
-  }
-
-  while (offset < len) {
-    for (i = 0; i < numOfChan; i++) {
-      sample = Math.max(-1, Math.min(1, channels[i][offset]));
-      sample = (0.5 + sample < 0 ? sample * 32768 : sample * 32767) | 0;
-      out.setInt16(pos, sample, true);
-      pos += 2;
-    }
-    offset++;
-  }
-  return new Blob([out], { type: "audio/wav" });
+  return coreWavEncoderRuntime?.encode?.(abuffer, len);
 }
 
   // ==========================================
