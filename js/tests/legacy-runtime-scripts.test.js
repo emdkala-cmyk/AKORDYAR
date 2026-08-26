@@ -79,6 +79,7 @@ for (const activeScript of [
   'js/editor/EditorAutoImportWorkflowService.js',
   'js/editor/EditorArrangerSongLoadService.js',
   'js/editor/EditorPlaylistBackupService.js',
+  'js/editor/EditorToolbarDockService.js',
   'js/editor/EditorMidiInputService.js',
   'js/editor/EditorTimelineChordEditorService.js',
   'js/editor/EditorProjectFileService.js',

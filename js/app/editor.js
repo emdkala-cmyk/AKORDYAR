@@ -1298,184 +1298,29 @@ function getMidiScoreController() {
     } // End init()
 
     // ===== TOOLBAR DRAG & DOCK =====
-    (function() {
-      let toolbarDragging = false, toolbarOffX = 0, toolbarOffY = 0;
-      let toolbarPointerId = null;
-      const headerCtrl = $('headerCenterControls');
-      const dragHandle = $('toolbarDragHandle');
-      const pinBtn = $('toolbarPinBtn');
-      if (!headerCtrl || !dragHandle || !pinBtn) return;
-      dragHandle.style.touchAction = 'none';
-
-      // Right-click context menu
-      const toolbarGroups = [
-        { label: 'گام و حالت', selector: '#edKey, #edKeyMode' },
-        { label: 'تنظیمات متن', selector: '#edTextSize, #edTextFont, #edTextBold, #edAlignRight, #edAlignCenter, #edAlignLeft' },
-        { label: 'تنظیمات آکورد', selector: '#edChordSize, #edChordFont, #edToggleChords' },
-        { label: 'ترتیبی', selector: '#edSeqToggle, #edSeqStart, #edSeqPrev, #edSeqNext, #edClStart, #edClUndo, #edClClear, #edClApply, #edSeqModeSeg' },
-        { label: 'ترنسپوز', selector: '#edTransDown, #edTransVal, #edTransUp' },
-        { label: 'Undo/Redo', selector: '#edUndoBtn, #edRedoBtn' },
-        { label: 'قفل ویرایشگر', selector: '#edEditorLockBtn' },
-        { label: 'حذف ستاره', selector: '#edRemoveAsterisks' },
-        { label: 'برعکس آکورد', selector: '#edReverseChords' },
-        { label: 'حذف ستاره + برعکس', selector: '#edDoBoth' },
-      ];
-
-      function showToolbarContextMenu(e) {
-        e.preventDefault();
-        const old = document.querySelector('.toolbar-context-menu');
-        if (old) old.remove();
-
-        const menu = document.createElement('div');
-        menu.className = 'toolbar-context-menu';
-
-        // Pin/Unpin option
-        const pinItem = document.createElement('div');
-        pinItem.className = 'ctx-item';
-        const isDocked = headerCtrl.classList.contains('floating') || headerCtrl.classList.contains('dock-left') || headerCtrl.classList.contains('dock-right');
-        pinItem.innerHTML = `<span class="ctx-check">${isDocked ? '🔗' : '📌'}</span>${isDocked ? 'اتصال به صفحه' : 'جدا کردن'}`;
-        pinItem.onclick = () => { toggleToolbarDock(); };
-        menu.appendChild(pinItem);
-
-        // Separator
-        const sep = document.createElement('div');
-        sep.style.cssText = 'height:1px;background:#2d3748;margin:4px 0;';
-        menu.appendChild(sep);
-
-        // Show all
-        const showAllItem = document.createElement('div');
-        showAllItem.className = 'ctx-item';
-        showAllItem.innerHTML = `<span class="ctx-check">👁‍🗨</span>نمایش همه`;
-        showAllItem.onclick = () => {
-          headerCtrl.querySelectorAll('.ed-grp, .ed-sep, .toolbar-drag-handle, .toolbar-pin-btn').forEach(el => { el.style.display = ''; });
-          menu.remove();
-        };
-        menu.appendChild(showAllItem);
-
-        // Separator
-        const sep2 = document.createElement('div');
-        sep2.style.cssText = 'height:1px;background:#2d3748;margin:4px 0;';
-        menu.appendChild(sep2);
-
-        // Show/Hide groups
-        toolbarGroups.forEach((g, i) => {
-          const item = document.createElement('div');
-          item.className = 'ctx-item';
-          const checkSpan = document.createElement('span');
-          checkSpan.className = 'ctx-check';
-          const updateIcon = () => {
-            const els2 = headerCtrl.querySelectorAll(g.selector);
-            const vis = els2.length > 0 && els2[0].offsetParent !== null;
-            checkSpan.textContent = vis ? '👁' : '−';
-            return vis;
-          };
-          updateIcon();
-          item.appendChild(checkSpan);
-          item.appendChild(document.createTextNode(g.label));
-          item.onclick = () => {
-            const els = headerCtrl.querySelectorAll(g.selector);
-            const currentlyVisible = els.length > 0 && els[0].offsetParent !== null;
-            els.forEach(el => {
-              const grp = el.closest('.ed-grp') || el;
-              grp.style.display = currentlyVisible ? 'none' : '';
-            });
-            updateIcon();
-          };
-          menu.appendChild(item);
-        });
-
-        document.body.appendChild(menu);
-        // Position menu
-        if (document.documentElement.dir === 'rtl') {
-          menu.style.right = Math.min(window.innerWidth - e.clientX, window.innerWidth - 200) + 'px';
-          menu.style.left = 'auto';
-        } else {
-          menu.style.left = Math.min(e.clientX, window.innerWidth - 200) + 'px';
-          menu.style.right = 'auto';
-        }
-        menu.style.top = Math.min(e.clientY, window.innerHeight - 300) + 'px';
-
-        // Close on click outside
-        const closeMenu = (ev) => { if (!menu.contains(ev.target)) { menu.remove(); document.removeEventListener('click', closeMenu); } };
-        setTimeout(() => document.addEventListener('click', closeMenu), 0);
+    let editorToolbarDockService = null;
+    function getEditorToolbarDockService() {
+      if (
+        !editorToolbarDockService &&
+        typeof window.EditorToolbarDockService?.create === 'function'
+      ) {
+        editorToolbarDockService =
+          window.EditorToolbarDockService.create({
+            documentRef: document,
+            windowRef: window,
+            getElement: id => $(id),
+            schedule: (...args) => setTimeout(...args)
+          });
       }
+      return editorToolbarDockService;
+    }
 
-      dragHandle.addEventListener('contextmenu', showToolbarContextMenu);
+    function toggleToolbarDock() {
+      return getEditorToolbarDockService()?.toggleToolbarDock?.();
+    }
 
-      function toggleToolbarDock() {
-        const isFloating = headerCtrl.classList.contains('floating');
-        const isDocked = headerCtrl.classList.contains('dock-left') || headerCtrl.classList.contains('dock-right');
-        headerCtrl.classList.remove('floating', 'dock-left', 'dock-right');
-        if (isFloating || isDocked) {
-          headerCtrl.style.cssText = 'flex-wrap:wrap; gap:4px;';
-          pinBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 11l-4 4h14l-4-4"/><path d="M12 3v8"/><path d="M3 11h18"/></svg>';
-        } else {
-          headerCtrl.classList.add('floating');
-          headerCtrl.style.left = '50%'; headerCtrl.style.top = '80px';
-          headerCtrl.style.transform = 'translateX(-50%)';
-          pinBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>';
-        }
-      }
-      window.toggleToolbarDock = toggleToolbarDock;
+    getEditorToolbarDockService()?.bind?.();
 
-      dragHandle.addEventListener('pointerdown', (e) => {
-        if (e.target.closest('.toolbar-pin-btn') || e.button !== 0) return;
-        if (headerCtrl.classList.contains('dock-left') || headerCtrl.classList.contains('dock-right')) {
-          headerCtrl.classList.remove('dock-left', 'dock-right');
-          headerCtrl.classList.add('floating');
-          pinBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>';
-        }
-        if (!headerCtrl.classList.contains('floating')) {
-          headerCtrl.classList.add('floating');
-          const rect = headerCtrl.getBoundingClientRect();
-          headerCtrl.style.left = rect.left + 'px'; headerCtrl.style.top = rect.top + 'px';
-          headerCtrl.style.transform = 'none';
-          pinBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>';
-        }
-        toolbarDragging = true;
-        toolbarPointerId = e.pointerId;
-        const rect = headerCtrl.getBoundingClientRect();
-        toolbarOffX = e.clientX - rect.left;
-        toolbarOffY = e.clientY - rect.top;
-        dragHandle.setPointerCapture?.(e.pointerId);
-        e.preventDefault();
-      });
-
-      dragHandle.addEventListener('pointermove', (e) => {
-        if (!toolbarDragging || e.pointerId !== toolbarPointerId) return;
-        let x = e.clientX - toolbarOffX;
-        let y = e.clientY - toolbarOffY;
-        // Clamp to viewport
-        x = Math.max(0, Math.min(x, window.innerWidth - 60));
-        y = Math.max(0, Math.min(y, window.innerHeight - 40));
-        headerCtrl.style.left = x + 'px'; headerCtrl.style.top = y + 'px';
-        headerCtrl.style.transform = 'none';
-      });
-
-      dragHandle.addEventListener('pointerup', (e) => {
-        if (!toolbarDragging || e.pointerId !== toolbarPointerId) return;
-        dragHandle.releasePointerCapture?.(e.pointerId);
-        toolbarDragging = false;
-        toolbarPointerId = null;
-        const rect = headerCtrl.getBoundingClientRect();
-        const snapThreshold = 40;
-        if (rect.left < snapThreshold) {
-          headerCtrl.classList.remove('floating', 'dock-right');
-          headerCtrl.classList.add('dock-left');
-          headerCtrl.style.cssText = '';
-          pinBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>';
-        } else if (rect.right > window.innerWidth - snapThreshold) {
-          headerCtrl.classList.remove('floating', 'dock-left');
-          headerCtrl.classList.add('dock-right');
-          headerCtrl.style.cssText = '';
-          pinBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>';
-        }
-      });
-      dragHandle.addEventListener('pointercancel', () => {
-        toolbarDragging = false;
-        toolbarPointerId = null;
-      });
-    })(); // End toolbar IIFE
 
     // ===== Ruler & Playhead =====
     const editorTimelineInteractionService =

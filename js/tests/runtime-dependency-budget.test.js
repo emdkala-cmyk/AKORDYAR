@@ -45,6 +45,9 @@ const editorArrangerSongLoadService = read(
 const editorPlaylistBackupService = read(
   'js/editor/EditorPlaylistBackupService.js'
 );
+const editorToolbarDockService = read(
+  'js/editor/EditorToolbarDockService.js'
+);
 const editorColorToolService = read(
   'js/editor/EditorColorToolService.js'
 );
@@ -262,6 +265,15 @@ assert.match(
 assert.match(
   editor,
   /function importAllPlaylistsFromFile\(\)\s*\{\s*return getEditorPlaylistBackupService\(\)\?\.importAllPlaylistsFromFile\(\);\s*\}/
+);
+assert.match(editorToolbarDockService, /function showToolbarContextMenu/);
+assert.match(editorToolbarDockService, /function beginDrag/);
+assert.match(editorToolbarDockService, /function finishDrag/);
+assert.doesNotMatch(editor, /let toolbarDragging/);
+assert.doesNotMatch(editor, /function showToolbarContextMenu/);
+assert.match(
+  editor,
+  /function toggleToolbarDock\(\)\s*\{\s*return getEditorToolbarDockService\(\)\?\.toggleToolbarDock\?\.\(\);\s*\}/
 );
 assert.match(editorColorToolService, /function paintContextAware\(event\)/);
 assert.match(editorColorToolService, /function applyColorToClip\(clip, color\)/);
