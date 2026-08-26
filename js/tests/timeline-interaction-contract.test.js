@@ -11,6 +11,9 @@ const coreHighlight = read('js/app/CoreHighlightService.js');
 const corePanelLayout = read('js/app/CorePanelLayoutService.js');
 const coreTimelineRenderer = read('js/app/CoreTimelineRendererService.js');
 const coreTimelineGrid = read('js/app/CoreTimelineGridService.js');
+const coreTimelineSectionBridge = read(
+  'js/app/CoreTimelineSectionBridgeService.js'
+);
 const coreClipInteraction = read('js/app/CoreClipInteractionService.js');
 const dawState = read('js/core/DAWRuntimeState.js');
 const transportState = read('js/core/EditorTransportStateService.js');
@@ -30,6 +33,11 @@ assert.match(dawState, /selectedTrackId:\s*null/);
 assert.match(coreTimelineRenderer, /function selectTrack\(trackId\)/);
 assert.match(coreTimelineRenderer, /getTimelineTrackRendererService/);
 assert.match(core, /CoreTimelineRendererService/);
+assert.match(core, /CoreTimelineSectionBridgeService/);
+assert.match(
+  coreTimelineSectionBridge,
+  /function getTimelineSectionRendererService\(\)/
+);
 assert.match(timelineRenderer, /function selectTrack\(trackId\)/);
 assert.match(timelineRenderer, /selectTrack\(track\.id\)/);
 assert.match(html, /js\/core\/TimelineTrackRendererService\.js/);

@@ -43,6 +43,9 @@ const corePanelLayoutService = read('js/app/CorePanelLayoutService.js');
 const coreTimelineGeometryService = read('js/app/CoreTimelineGeometryService.js');
 const coreTimelineRendererService = read('js/app/CoreTimelineRendererService.js');
 const coreTimelineGridService = read('js/app/CoreTimelineGridService.js');
+const coreTimelineSectionBridgeService = read(
+  'js/app/CoreTimelineSectionBridgeService.js'
+);
 const coreTrackSetupService = read('js/app/CoreTrackSetupService.js');
 const coreClipService = read('js/app/CoreClipService.js');
 const coreAudioImportService = read('js/app/CoreAudioImportService.js');
@@ -177,6 +180,10 @@ assert.match(coreTimelineRendererService, /function renderTracks\(\)/);
 assert.match(coreTimelineGridService, /function drawLaneGrid\(canvas\)/);
 assert.match(coreTimelineGridService, /function renderRuler\(\)/);
 assert.match(coreTimelineGridService, /function handleTimingChange\(\)/);
+assert.match(
+  coreTimelineSectionBridgeService,
+  /function getTimelineSectionRendererService\(\)/
+);
 assert.match(coreTrackSetupService, /function getIconSvg\(icon\)/);
 assert.match(coreTrackSetupService, /function openIconPicker\(track\)/);
 assert.match(coreTrackSetupService, /function addNewTrack\(name, icon\)/);
@@ -191,6 +198,10 @@ assert.doesNotMatch(appCore, /function addNewTrack\(name, icon\)/);
 assert.doesNotMatch(appCore, /function drawLaneGrid\(canvas\)/);
 assert.doesNotMatch(appCore, /function renderRuler\(\)/);
 assert.doesNotMatch(appCore, /function handleTimingChange\(\)/);
+assert.doesNotMatch(
+  appCore,
+  /function getTimelineSectionRendererService\(\)/
+);
 assert.match(coreClipService, /function splitClipAt\(clip, atTime\)/);
 assert.match(coreClipService, /function splitSelectedAtPlayhead\(\)/);
 assert.doesNotMatch(appCore, /function splitClipAt\(clip, atTime\)/);

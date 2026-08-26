@@ -969,34 +969,34 @@ function applyState(stateStr) {
     });
     corePublicApi.publish(coreTimelineGridRuntime);
 
-    let timelineSectionRendererService = null;
-    function getTimelineSectionRendererService() {
-      if (
-        !timelineSectionRendererService &&
-        window.TimelineSectionRendererService?.create
-      ) {
-        timelineSectionRendererService =
-          window.TimelineSectionRendererService.create({
-            documentRef: document,
-            windowRef: window,
-            getDAW: () => getEditorDAW(),
-            timeToX,
-            xToTime,
-            snapTime,
-            roundMs,
-            renderClips: () => renderClips(),
-            selectedClips,
-            startPointerDrag: (...args) => startEditorPointerDrag(...args),
-            getTimelineInner: () => $('tl-inner'),
-            onDocumentMouseMove: (...args) =>
-              coreClipInteractionRuntime.onDocMouseMove(...args),
-            onDocumentMouseUp: (...args) =>
-              coreClipInteractionRuntime.onDocMouseUp(...args),
-            saveState
-          });
-      }
-      return timelineSectionRendererService;
+    const coreTimelineSectionBridgeRuntime =
+      globalScope.CoreTimelineSectionBridgeService?.create?.({
+        documentRef: document,
+        windowRef: window,
+        getDAW: () => getEditorDAW(),
+        timeToX,
+        xToTime,
+        snapTime,
+        roundMs,
+        renderClips: () => renderClips(),
+        selectedClips,
+        startPointerDrag: (...args) => startEditorPointerDrag(...args),
+        getTimelineInner: () => $('tl-inner'),
+        onDocumentMouseMove: (...args) =>
+          coreClipInteractionRuntime.onDocMouseMove(...args),
+        onDocumentMouseUp: (...args) =>
+          coreClipInteractionRuntime.onDocMouseUp(...args),
+        saveState
+      });
+    if (!coreTimelineSectionBridgeRuntime) {
+      throw new Error(
+        'CoreTimelineSectionBridgeService باید قبل از app/core.js بارگذاری شود.'
+      );
     }
+    const { getTimelineSectionRendererService } =
+      coreTimelineSectionBridgeRuntime;
+    Object.assign(globalScope, { getTimelineSectionRendererService });
+    corePublicApi.publish(coreTimelineSectionBridgeRuntime);
 
     coreClipRendererRuntime =
       globalScope.CoreClipRendererService?.create?.({
