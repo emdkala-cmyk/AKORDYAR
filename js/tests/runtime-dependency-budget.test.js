@@ -83,6 +83,9 @@ const coreArrangerSongNoteService = read(
 const coreArrangerControlsService = read(
   'js/app/CoreArrangerControlsService.js'
 );
+const coreArrangerEditorActionsService = read(
+  'js/app/CoreArrangerEditorActionsService.js'
+);
 const coreFocusModeService = read('js/app/CoreFocusModeService.js');
 const coreSyncModeBridgeService = read(
   'js/app/CoreSyncModeBridgeService.js'
@@ -308,6 +311,18 @@ assert.match(
   coreArrangerControlsService,
   /function arrFilterSongs\(\)/
 );
+assert.match(
+  coreArrangerEditorActionsService,
+  /function switchArrTab\(tab\)/
+);
+assert.match(
+  coreArrangerEditorActionsService,
+  /function closeArrEditor\(\)/
+);
+assert.match(
+  coreArrangerEditorActionsService,
+  /function exportCurrentArranger\(\)/
+);
 assert.match(appCore, /CoreHistoryBridgeService/);
 assert.doesNotMatch(appCore, /function attachHistoryService\(\)/);
 assert.doesNotMatch(appCore, /function openArrSongNote\(idx\)/);
@@ -318,6 +333,9 @@ assert.doesNotMatch(appCore, /function arrTogglePauseBetween\(\)/);
 assert.doesNotMatch(appCore, /function arrAutoTranspose\(\)/);
 assert.doesNotMatch(appCore, /function arrClearNotes\(\)/);
 assert.doesNotMatch(appCore, /function arrFilterSongs\(\)/);
+assert.doesNotMatch(appCore, /function switchArrTab\(tab\)/);
+assert.doesNotMatch(appCore, /function closeArrEditor\(\)/);
+assert.doesNotMatch(appCore, /function exportCurrentArranger\(\)/);
 assert.match(coreFocusModeService, /function toggleFocusMode\(\)/);
 assert.match(
   coreSyncModeBridgeService,

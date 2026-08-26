@@ -2008,38 +2008,37 @@ let syncTapKeyHandler = null;
       return coreArrangerSongTransferRuntime?.send?.();
     }
 
+    const coreArrangerEditorActionsRuntime =
+      globalScope.CoreArrangerEditorActionsService?.create?.({
+        documentRef: document,
+        getElement: id => $(id),
+        getEditingArr: () => editingArr,
+        setEditingArr: value => {
+          editingArr = value;
+        },
+        saveArrangers: (...args) => saveArrangers(...args),
+        renderArrangerManager: (...args) => renderArrangerManager(...args),
+        renderArrSongsList: (...args) =>
+          coreArrangerSongsOverviewRuntime?.render?.(...args),
+        saveCurrentArranger: (...args) => saveCurrentArranger(...args),
+        exportArranger: (...args) => exportArranger(...args),
+        toast: message => toast(message)
+      });
+    if (!coreArrangerEditorActionsRuntime) {
+      throw new Error(
+        'CoreArrangerEditorActionsService باید قبل از app/core.js بارگذاری شود.'
+      );
+    }
+    const {
+      switchArrTab,
+      closeArrEditor,
+      exportCurrentArranger
+    } = coreArrangerEditorActionsRuntime;
+    Object.assign(globalScope, coreArrangerEditorActionsRuntime);
+    corePublicApi.publish(coreArrangerEditorActionsRuntime);
+
     function openArrEditor() {
       return coreArrangerEditorRuntime?.open?.();
-    }
-
-    function switchArrTab(tab) {
-      document.querySelectorAll('.arr-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
-      $('arrTabEditor').style.display = tab === 'editor' ? '' : 'none';
-      $('arrTabSongs').style.display = tab === 'songs' ? '' : 'none';
-      if (tab === 'songs') renderArrSongsList();
-    }
-
-    function renderArrSongsList() {
-      return coreArrangerSongsOverviewRuntime?.render?.();
-    }
-    function closeArrEditor() {
-      saveArrangers();
-      $('arrEditor').style.display = 'none';
-      editingArr = null;
-      renderArrangerManager();
-    }
-
-    /**
-     * exportCurrentArranger — اکسپورت پلی‌لیست فعلی به فایل JSON
-     */
-    function exportCurrentArranger() {
-      if (!editingArr) {
-        toast('⚠ هیچ پلی‌لیستی در حال ویرایش نیست');
-        return;
-      }
-      // اول پلی‌لیست رو ذخیره کن
-      saveCurrentArranger();
-      exportArranger(editingArr);
     }
 
     /**

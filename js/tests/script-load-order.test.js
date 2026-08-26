@@ -263,6 +263,10 @@ assert.ok(
     scriptIndex('js/app/core.js')
 );
 assert.ok(
+  scriptIndex('js/app/CoreArrangerEditorActionsService.js') <
+    scriptIndex('js/app/core.js')
+);
+assert.ok(
   scriptIndex('js/app/CoreFocusModeService.js') <
     scriptIndex('js/app/core.js')
 );
