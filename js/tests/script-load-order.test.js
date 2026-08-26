@@ -407,6 +407,10 @@ assert.ok(
     scriptIndex('js/app/core.js')
 );
 assert.ok(
+  scriptIndex('js/editor/EditorChordImportService.js') <
+    scriptIndex('js/app/editor.js')
+);
+assert.ok(
   scriptIndex('js/editor/MidiScoreImportService.js') <
     scriptIndex('js/app/core.js')
 );

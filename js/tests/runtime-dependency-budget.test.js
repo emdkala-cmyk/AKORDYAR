@@ -28,6 +28,7 @@ const syncModeController = executableLines(read('js/editor/SyncModeController.js
 const editorMutationService = read('js/editor/EditorMutationService.js');
 const editorChordQuantizeService = read('js/editor/EditorChordQuantizeService.js');
 const editorChordInteractionService = read('js/editor/EditorChordInteractionService.js');
+const editorChordImportService = read('js/editor/EditorChordImportService.js');
 const editorLyricsRenderer = read('js/editor/EditorLyricsRenderer.js');
 const editorSyncAnalysisUiService = read(
   'js/editor/EditorSyncAnalysisUiService.js'
@@ -150,6 +151,10 @@ assert.doesNotMatch(editorChordInteractionService, /window\.edCur/);
 assert.doesNotMatch(editorChordInteractionService, /\bDAW\b/);
 assert.doesNotMatch(editorChordInteractionService, /\bPERF\b/);
 assert.match(editorChordInteractionService, /moveChordsByDelta/);
+assert.match(editorChordImportService, /function parseChordPage\(html, url\)/);
+assert.match(editorChordImportService, /function applyImportChords\(\)/);
+assert.doesNotMatch(editor, /function parseChordPage\(html, url\)/);
+assert.doesNotMatch(editor, /function applyImportChords\(\)/);
 assert.doesNotMatch(editorLyricsRenderer, /window\.edCur/);
 assert.doesNotMatch(editorLyricsRenderer, /\bDAW\b/);
 assert.doesNotMatch(editorLyricsRenderer, /\bPERF\b/);

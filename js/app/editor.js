@@ -854,11 +854,8 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
     loadShortcuts();
 
     let _editingShortcutId = null;
-    // ===== IMPORT FROM URL/TEXT =====
+    // Compatibility bridge for ArchiveProjectFileImportService.
     let _importParsed = null;
-    function openImportChordModal() { $('importChordModal').classList.add('show'); $('importText').value = ''; $('importUrl').value = ''; $('importPreview').style.display = 'none'; _importParsed = null; }
-    function closeImportChordModal() { $('importChordModal').classList.remove('show'); _importParsed = null; }
-
     // ===== AUTO IMPORT (Rewritten — multi-artist, progress, retry, accurate counts) =====
 
     // ---- State ----
@@ -987,6 +984,46 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
     function parseSongRawText(song) {
       return parseRawSongToEdCur(song);
     }
+
+    const editorChordImportRuntime =
+      window.EditorChordImportService?.create?.({
+        documentRef: document,
+        windowRef: window,
+        getElement: id => $(id),
+        fetchRef: (...args) => fetch(...args),
+        getAutoImportResults: () => window._aiResults,
+        songUniqueId,
+        getImportParsed: () => _importParsed,
+        setImportParsedExternal: value => {
+          _importParsed = value;
+        },
+        normalizeRawText,
+        hasPersian,
+        isChordOnlyLine,
+        parseRawSongToEdCur,
+        parseChordLyricText: rawText =>
+          requireLyricsParser().parseChordLyricText(rawText),
+        getEditorSongImportService,
+        getDAW: () => getEditorDAW(),
+        syncToolbar: (...args) => edSyncToolbar(...args),
+        renderEditor: (...args) => edRenderEditor(...args),
+        saveSong: (...args) => edSaveSong(...args),
+        renderAll: (...args) => renderAll(...args),
+        toast,
+        logger: console
+      });
+    if (!editorChordImportRuntime) {
+      throw new Error(
+        'EditorChordImportService باید قبل از editor.js بارگذاری شود.'
+      );
+    }
+    const {
+      openImportChordModal,
+      closeImportChordModal,
+      loadAutoImportSong,
+      fetchFromUrl,
+      applyImportChords
+    } = editorChordImportRuntime;
 
     // ---- Save a song to archive (with proper dedup: URL + artist+title) ----
     function saveSongToArchive(song, existingSongs) {
@@ -1772,244 +1809,6 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
           'مطمئن شوید سرور اجرا شده و مسیر ذخیره معتبر است'
         );
       }
-    }
-
-    // ---- Load a song from results into editor ----
-    function loadAutoImportSong(key) {
-      const song = window._aiResults.find(s => songUniqueId(s) === key);
-      if (!song || song.error) return;
-      if ($('autoFixChords') && $('autoFixChords').checked) {
-        if ($('importAutoFix')) $('importAutoFix').checked = true;
-      }
-      const parsed = { title: song.title, artist: song.artist, key: song.key, rhythm: song.rhythm, rawText: song.rawText, url: song.url };
-      _importParsed = parsed;
-      $('importText').value = song.rawText;
-      $('importUrl').value = song.url;
-      openImportChordModal();
-      showImportPreview(parsed);
-    }
-
-    async function fetchFromUrl() {
-      const url = $('importUrl').value.trim();
-      if (!url) { toast('لینک را وارد کنید'); return; }
-      // Validate URL format
-      let parsedUrl;
-      try { parsedUrl = new URL(url); } catch(e) { toast('لینک نامعتبر است'); return; }
-      const hostname = parsedUrl.hostname;
-      if (!['http:', 'https:'].includes(parsedUrl.protocol)) { toast('پروتکل نامعتبر'); return; }
-      toast('در حال دریافت...');
-      try {
-        let html;
-        const isLaminor = hostname === 'laminor.org' || hostname === 'www.laminor.org';
-        const isAkord = hostname === 'akord.ir' || hostname === 'www.akord.ir';
-        if (isAkord) {
-          const proxyResp = await fetch('/api/akord/fetch?url=' + encodeURIComponent(url));
-          const proxyData = await proxyResp.json();
-          if (proxyData.error) throw new Error(proxyData.error);
-          html = proxyData.html;
-        } else if (isLaminor) {
-          const proxyResp = await fetch('/api/fetch?url=' + encodeURIComponent(url));
-          const proxyData = await proxyResp.json();
-          if (proxyData.error) throw new Error(proxyData.error);
-          html = proxyData.html;
-        } else {
-          const resp = await fetch(url);
-          if (!resp.ok) throw new Error('HTTP ' + resp.status);
-          html = await resp.text();
-        }
-        // برای لامینور از استخراج‌کننده دقیق (پیکسلی) استفاده کن
-        if (isLaminor) {
-          try {
-            const extraction = await window.extractLaminorFromHtml(html);
-            if (extraction && extraction.lines && extraction.lines.length > 0) {
-              const converted = window.convertExtractedLinesToEdCur(extraction.lines);
-              // گام اصلی (original key) و ریتم/امضای زمان از صفحهٔ لامینور استخراج می‌شود
-              const extractedKey = extraction.key ? String(extraction.key).trim() : '';
-              const extractedRhythm = extraction.rhythm ? String(extraction.rhythm).trim() : '';
-              const parsed = {
-                title: '',
-                artist: '',
-                key: extractedKey,
-                rhythm: extractedRhythm,
-                rawText: converted.lyrics,
-                url,
-                _extractedChords: converted.chords,
-                _extractionWarnings: converted.warnings,
-                _extractionValidation: extraction.validation
-              };
-              _importParsed = parsed;
-              showImportPreview(parsed);
-              toast('متن و آکوردها با دقت پیکسلی استخراج شد!');
-            } else {
-              // Fallback به روش متنی
-              const parsed = parseChordPage(html, url);
-              if (parsed) {
-                _importParsed = parsed;
-                showImportPreview(parsed);
-                toast('متن استخراج شد (روش متنی)');
-              } else { toast('نتوانستم متن را استخراج کنم'); }
-            }
-          } catch (extractErr) {
-            console.warn('[Laminor Extractor] Pixel extraction failed, falling back to text:', extractErr);
-            const parsed = parseChordPage(html, url);
-            if (parsed) {
-              _importParsed = parsed;
-              showImportPreview(parsed);
-              toast('متن استخراج شد (روش متنی)');
-            } else { toast('نتوانستم متن را استخراج کنم'); }
-          }
-        } else {
-          const parsed = parseChordPage(html, url);
-          if (parsed) {
-            _importParsed = parsed;
-            showImportPreview(parsed);
-            toast('متن استخراج شد!');
-          } else { toast('نتوانستم متن را استخراج کنم'); }
-        }
-      } catch(e) { console.error(e); toast('خطا در دریافت: ' + e.message); }
-    }
-
-    function parseChordPage(html, url) {
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(html, 'text/html');
-      let title = '', artist = '', key = '', rhythm = '', lyrics = '';
-
-      // Safe hostname check using URL API
-      function isLaminorUrl(u) {
-        try { var h = new URL(u).hostname; return h === 'laminor.org' || h === 'www.laminor.org'; } catch(e) { return false; }
-      }
-      function isAkordUrl(u) {
-        try { var h = new URL(u).hostname; return h === 'akord.ir' || h === 'www.akord.ir'; } catch(e) { return false; }
-      }
-
-      // Laminor specific parsing
-      if (url && isLaminorUrl(url)) {
-        const titleEl = doc.querySelector('h1');
-        title = titleEl ? titleEl.textContent.replace(/آکورد\s+آهنگ\s*/, '').replace(/\s*-\s*لامینور.*$/, '').trim() : '';
-        const artistEl = doc.querySelector('h6 a.color-light-blue, .smh-header-right-section a.color-light-blue');
-        artist = artistEl ? artistEl.textContent.trim() : '';
-        const keyMatch = html.match(/گام اصلی:\s*([A-G][#b]?m?)/);
-        key = keyMatch ? keyMatch[1] : '';
-        const rhythmEl = doc.querySelector('a[href*="rhythms/"]');
-        rhythm = rhythmEl ? rhythmEl.textContent.trim() : '';
-        if (!rhythm) {
-          const rhythmMatch = html.match(/ریتم\s+پیشنهادی[\s\S]*?(\d+\/\d+)/);
-          rhythm = rhythmMatch ? rhythmMatch[1] : '';
-        }
-        const preEl = doc.querySelector('pre#main-chord, pre.chord');
-        if (preEl) {
-          lyrics = preEl.textContent;
-        } else {
-          // Explicit fallback: try any <pre> only if it looks like chord content
-          const allPres = doc.querySelectorAll('pre');
-          for (const p of allPres) {
-            const t = p.textContent || '';
-            if (t.length > 20 && (isChordOnlyLine(t.split('\n')[0].replace(/\s{2,}/g,' ').trim()) || hasPersian(t))) {
-              lyrics = t;
-              break;
-            }
-          }
-        }
-      }
-
-      // Akord.ir specific parsing
-      if (url && isAkordUrl(url)) {
-        const titleEl = doc.querySelector('.section-title h4');
-        title = titleEl ? titleEl.textContent.replace(/^آکورد\s*/, '').trim() : '';
-        const breadcrumbLinks = doc.querySelectorAll('.breadcrumbs a');
-        breadcrumbLinks.forEach(a => {
-          const href = a.getAttribute('href');
-          if (href && href.startsWith('/artists/') && href.split('/').filter(Boolean).length === 1) {
-            artist = a.textContent.trim();
-          }
-        });
-        const tags = doc.querySelectorAll('.tags');
-        tags.forEach(t => {
-          const text = t.textContent.trim();
-          if (text.includes('گام:')) key = text.replace('گام:', '').trim();
-          if (text.includes('ریتم:')) rhythm = text.replace('ریتم:', '').trim();
-          if (text.includes('میزان:')) timeSignature = text.replace('میزان:', '').trim();
-        });
-        const preEl = doc.querySelector('pre#pre, pre');
-        if (preEl) lyrics = preEl.textContent;
-      }
-
-      // Generic fallback - only if no lyrics found yet
-      if (!lyrics) {
-        const allPres = doc.querySelectorAll('pre');
-        for (const p of allPres) {
-          const t = p.textContent || '';
-          if (t.length > 20) { lyrics = t; break; }
-        }
-      }
-
-      if (!title) {
-        const h1 = doc.querySelector('h1');
-        title = h1 ? h1.textContent.trim() : '';
-      }
-
-      return { title, artist, key, rhythm, rawText: normalizeRawText(lyrics), url };
-    }
-
-    function parseChordLyricText(rawText) {
-      // منطق به js/editor/LyricsParser.js منتقل شده است.
-      return requireLyricsParser().parseChordLyricText(rawText);
-    }
-
-    function showImportPreview(parsed) {
-      const parsed2 = parseChordLyricText(parsed.rawText);
-      let preview = `عنوان: ${parsed.title || 'نامشخص'}\n`;
-      preview += `خواننده: ${parsed.artist || 'نامشخص'}\n`;
-      preview += `گام: ${parsed.key || 'نامشخص'}\n`;
-      preview += `ریتم: ${parsed.rhythm || 'نامشخص'}\n`;
-      preview += `آکوردها: ${[...parsed2.allChords].join(', ')}\n`;
-      preview += `تعداد خطوط: ${parsed2.sections.length} (${parsed2.sections.filter(s=>s.type==='chord').length} خط آکورد + ${parsed2.sections.filter(s=>s.type==='lyric').length} خط شعر)`;
-      $('importPreview').textContent = preview;
-      $('importPreview').style.display = 'block';
-    }
-
-    function applyImportChords() {
-      const text = $('importText').value.trim();
-      if (!text && !_importParsed) { toast('متنی وارد نشده'); return; }
-
-      let parsed;
-      if (_importParsed && text.length === 0) {
-        parsed = _importParsed;
-      } else {
-        parsed = { title: '', artist: '', key: '', rhythm: '', rawText: text, url: '' };
-        const firstLines = text.split('\n').slice(0, 5);
-        for (const l of firstLines) {
-          if (!parsed.title && l.match(/آهنگ|ترانه|song/i)) { parsed.title = l.replace(/.*[:：]\s*/, '').trim(); }
-          if (!parsed.artist && l.match(/خواننده|artist|از\s/i)) { parsed.artist = l.replace(/.*[:：]\s*/, '').replace(/از\s+/, '').trim(); }
-        }
-      }
-
-      // --- Use canonical parser (only authority for positions) ---
-      let parsedResult = parseRawSongToEdCur(parsed);
-
-      // --- اگر استخراج پیکسلی انجام شده، آکوردهای دقیق را جایگزین کن ---
-      if (parsed._extractedChords && parsed._extractedChords.length > 0) {
-        parsedResult.chords = parsed._extractedChords;
-        if (parsed._extractionWarnings) {
-          parsedResult.warnings = parsedResult.warnings.concat(parsed._extractionWarnings);
-        }
-      }
-
-      const imported = getEditorSongImportService()?.applyParsedResult(parsedResult);
-      if (!imported) {
-        toast('ترانه‌ای باز نیست');
-        return;
-      }
-
-      getEditorDAW().clips = getEditorDAW().clips.filter(c => c.type !== 'chord');
-
-      // --- Update UI ---
-      edSyncToolbar();
-      edRenderEditor(true);
-      edSaveSong();
-      renderAll();
-      closeImportChordModal();
-      toast('ترانه با ' + imported.chordCount + ' آکورد وارد شد: ' + (imported.title || 'بدون نام'));
     }
 
     function openShortcutModal() {

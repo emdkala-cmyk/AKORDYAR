@@ -73,6 +73,7 @@ for (const activeScript of [
   'js/app/CoreFocusModeService.js',
   'js/app/CoreSyncModeBridgeService.js',
   'js/app/CoreSequentialChordRemapService.js',
+  'js/editor/EditorChordImportService.js',
   'js/editor/EditorTimelineChordEditorService.js',
   'js/editor/EditorProjectFileService.js',
   'js/editor/EditorProjectExportRouteService.js',
