@@ -77,6 +77,9 @@ const coreHistoryBridgeService = read(
 const coreArrangerSongNoteService = read(
   'js/app/CoreArrangerSongNoteService.js'
 );
+const coreArrangerControlsService = read(
+  'js/app/CoreArrangerControlsService.js'
+);
 const coreFocusModeService = read('js/app/CoreFocusModeService.js');
 const coreSyncModeBridgeService = read(
   'js/app/CoreSyncModeBridgeService.js'
@@ -280,11 +283,36 @@ assert.match(
   coreArrangerSongNoteService,
   /function saveArrSongNote\(\)/
 );
+assert.match(
+  coreArrangerControlsService,
+  /function arrSetCrossfade\(value\)/
+);
+assert.match(
+  coreArrangerControlsService,
+  /function arrTogglePauseBetween\(\)/
+);
+assert.match(
+  coreArrangerControlsService,
+  /function arrAutoTranspose\(\)/
+);
+assert.match(
+  coreArrangerControlsService,
+  /function arrClearNotes\(\)/
+);
+assert.match(
+  coreArrangerControlsService,
+  /function arrFilterSongs\(\)/
+);
 assert.match(appCore, /CoreHistoryBridgeService/);
 assert.doesNotMatch(appCore, /function attachHistoryService\(\)/);
 assert.doesNotMatch(appCore, /function openArrSongNote\(idx\)/);
 assert.doesNotMatch(appCore, /function closeArrSongNote\(\)/);
 assert.doesNotMatch(appCore, /function saveArrSongNote\(\)/);
+assert.doesNotMatch(appCore, /function arrSetCrossfade\(val\)/);
+assert.doesNotMatch(appCore, /function arrTogglePauseBetween\(\)/);
+assert.doesNotMatch(appCore, /function arrAutoTranspose\(\)/);
+assert.doesNotMatch(appCore, /function arrClearNotes\(\)/);
+assert.doesNotMatch(appCore, /function arrFilterSongs\(\)/);
 assert.match(coreFocusModeService, /function toggleFocusMode\(\)/);
 assert.match(
   coreSyncModeBridgeService,

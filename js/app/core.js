@@ -2072,49 +2072,37 @@ let syncTapKeyHandler = null;
       return coreArrangerFileImportRuntime?.importFromFile?.(...args);
     }
 
-    // Crossfade control
-    function arrSetCrossfade(val) {
-      if (editingArr) { editingArr.crossfade = val; saveArrangers(); }
-      $('arrCrossfadeVal').textContent = val + 's';
-    }
-
-    // Pause between songs toggle
-    function arrTogglePauseBetween() {
-      if (!editingArr) return;
-      editingArr.pauseBetween = !editingArr.pauseBetween;
-      $('arrPauseBtn').classList.toggle('arr-stl-active', editingArr.pauseBetween);
-      saveArrangers();
-    }
-
-    // Auto transpose all songs
-    async function arrAutoTranspose() {
-      if (!editingArr) return;
-      const val = await customPrompt('تغییر گام برای همه آهنگ‌ها (مثلاً 2 یا -3):', '0');
-      if (val === null) return;
-      const semi = parseInt(val);
-      if (isNaN(semi)) return;
-      const allSongs = edGetAllSongs();
-      editingArr.items.forEach(id => {
-        const setting = ensureArrItem(editingArr, editingArr.items.indexOf(id));
-        setting.transpose = (setting.transpose || 0) + semi;
+    const coreArrangerControlsRuntime =
+      globalScope.CoreArrangerControlsService?.create?.({
+        getEditingArr: () => editingArr,
+        getElement: id => $(id),
+        ensureArrItem: (...args) => ensureArrItem(...args),
+        customPrompt: (...args) => customPrompt(...args),
+        confirm: message => window.confirm(message),
+        saveArrangers: (...args) => saveArrangers(...args),
+        renderArrPool: (...args) => renderArrPool(...args),
+        renderArrSetlist: (...args) => renderArrSetlist(...args)
       });
-      saveArrangers(); renderArrSetlist();
+    if (!coreArrangerControlsRuntime) {
+      throw new Error(
+        'CoreArrangerControlsService باید قبل از app/core.js بارگذاری شود.'
+      );
     }
-
-    // Clear all notes
-    function arrClearNotes() {
-      if (!editingArr || !confirm('یادداشت‌های همه آهنگ‌ها پاک شود؟')) return;
-      editingArr.items.forEach(id => {
-        const setting = ensureArrItem(editingArr, editingArr.items.indexOf(id));
-        setting.notes = '';
-      });
-      saveArrangers(); renderArrSetlist();
-    }
-
-    function arrFilterSongs() {
-      renderArrPool();
-      renderArrSetlist();
-    }
+    const {
+      arrSetCrossfade,
+      arrTogglePauseBetween,
+      arrAutoTranspose,
+      arrClearNotes,
+      arrFilterSongs
+    } = coreArrangerControlsRuntime;
+    Object.assign(globalScope, {
+      arrSetCrossfade,
+      arrTogglePauseBetween,
+      arrAutoTranspose,
+      arrClearNotes,
+      arrFilterSongs
+    });
+    corePublicApi.publish(coreArrangerControlsRuntime);
 
     const coreArrangerSongNoteRuntime =
       globalScope.CoreArrangerSongNoteService?.create?.({

@@ -7,6 +7,7 @@ const files = [
   'Akordyar.html',
   'js/app/AppI18nService.js',
   'js/app/CoreArrangerSongNoteService.js',
+  'js/app/CoreArrangerControlsService.js',
   'js/app/MidiMonitorService.js',
   'js/app/CoreGridQuantizeService.js',
   'js/app/CoreMetronomeService.js',
