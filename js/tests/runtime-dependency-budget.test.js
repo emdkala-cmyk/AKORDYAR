@@ -33,6 +33,9 @@ const editorMidiInputService = read('js/editor/EditorMidiInputService.js');
 const editorAutoImportStateService = read(
   'js/editor/EditorAutoImportStateService.js'
 );
+const editorAutoImportFileSaveService = read(
+  'js/editor/EditorAutoImportFileSaveService.js'
+);
 const editorColorToolService = read(
   'js/editor/EditorColorToolService.js'
 );
@@ -188,6 +191,15 @@ assert.doesNotMatch(editorAutoImportStateService, /window\._ai/);
 assert.doesNotMatch(editor, /window\._ai(?:Results|ArtistMap|Stats|FailedSongs|FailedFiles)/);
 assert.doesNotMatch(editor, /window\._autoImportDirHandle/);
 assert.doesNotMatch(editor, /window\.(?:timelineScrollbars|timelinePanelLayout)/);
+assert.match(editorAutoImportFileSaveService, /async function saveFiles\(\)/);
+assert.match(
+  editorAutoImportFileSaveService,
+  /function sanitizeFilePart\(value, fallback = 'Unknown'\)/
+);
+assert.doesNotMatch(editor, /async function autoImportDoSave\(\)/);
+assert.doesNotMatch(editor, /function sanitizeFilePart\(/);
+assert.doesNotMatch(editor, /function buildSaveReport\(/);
+assert.doesNotMatch(editor, /\/api\/save-to-folder/);
 assert.match(editorColorToolService, /function paintContextAware\(event\)/);
 assert.match(editorColorToolService, /function applyColorToClip\(clip, color\)/);
 assert.match(

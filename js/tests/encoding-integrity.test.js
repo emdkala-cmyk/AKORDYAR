@@ -45,6 +45,7 @@ const files = [
   'js/app/CoreSequentialChordRemapService.js',
   'js/editor/EditorChordImportService.js',
   'js/editor/EditorAutoImportStateService.js',
+  'js/editor/EditorAutoImportFileSaveService.js',
   'js/editor/EditorMidiInputService.js',
   'js/editor/EditorTimelineChordEditorService.js',
   'js/app/core.js',
