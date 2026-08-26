@@ -67,6 +67,9 @@ const coreChordLineSyncService = read(
 const corePopupWindowBridgeService = read(
   'js/app/CorePopupWindowBridgeService.js'
 );
+const coreHistoryBridgeService = read(
+  'js/app/CoreHistoryBridgeService.js'
+);
 const coreFocusModeService = read('js/app/CoreFocusModeService.js');
 const coreSyncModeBridgeService = read(
   'js/app/CoreSyncModeBridgeService.js'
@@ -243,6 +246,9 @@ assert.match(
 );
 assert.match(corePopupWindowBridgeService, /function isPopupOpen\(popup\)/);
 assert.match(corePopupWindowBridgeService, /function openPopupWindow\(name, features\)/);
+assert.match(coreHistoryBridgeService, /function attach\(\)/);
+assert.match(appCore, /CoreHistoryBridgeService/);
+assert.doesNotMatch(appCore, /function attachHistoryService\(\)/);
 assert.match(coreFocusModeService, /function toggleFocusMode\(\)/);
 assert.match(
   coreSyncModeBridgeService,

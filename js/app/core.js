@@ -667,42 +667,52 @@ function requireEditorSongRuntimeService() {
   return window.__editorSongRuntimeServiceBridge;
 }
 
-function attachHistoryService() {
-  if (window.__historyAttached) return;
-  const historyService = requireHistoryService();
-  historyService.init({
+const coreHistoryBridgeRuntime =
+  globalScope.CoreHistoryBridgeService?.create?.({
+    isAttached: () => Boolean(window.__historyAttached),
+    setAttached: value => {
+      window.__historyAttached = value;
+    },
+    getHistoryService: () => requireHistoryService(),
     getDAW: () => getEditorDAW(),
     getPERF: () => getEditorPERF(),
-    getEdCur: () => requireEditorSongStateService().currentSong(),
-    getSong: () => requireEditorSongStateService().currentSong(),
-    setEdCur: (v) => setEditorSong(v),
-    setSong: (v) => setEditorSong(v),
-    repairSong: (song) => window.TextEncodingService?.repairSong?.(song) || song,
-    getEdSeqPoints: () => edSeqPoints,
-    setEdSeqPoints: (v) => { edSeqPoints = v; },
-    clearEdTimers: () => {
+    getSongState: () => requireEditorSongStateService(),
+    setSong: (...args) => setEditorSong(...args),
+    repairSong: song => window.TextEncodingService?.repairSong?.(song) || song,
+    getSeqPoints: () => edSeqPoints,
+    setSeqPoints: value => {
+      edSeqPoints = value;
+    },
+    clearEditorTimers: () => {
       clearTimeout(edCommitTimer);
       clearTimeout(edInputRenderTimer);
       clearTimeout(edSaveTimer);
     },
-    edSaveSong,
-    edSyncToolbar,
-    edRenderEditor,
-    updateNextIdFromClips,
-    ensureAudioCtx,
-    updateTrackMix,
-    peaksFromBuffer,
-    refreshClipWaveImage,
-    renderAll,
-    scheduleAllFromPlayhead,
-    edFlushPendingCommit,
-    edCommitTimerRef: () => edCommitTimer,
-    toast,
-    t,
+    saveSong: (...args) => edSaveSong(...args),
+    syncToolbar: (...args) => edSyncToolbar(...args),
+    renderEditor: (...args) => edRenderEditor(...args),
+    updateNextIdFromClips: (...args) => updateNextIdFromClips(...args),
+    ensureAudioCtx: (...args) => ensureAudioCtx(...args),
+    updateTrackMix: (...args) => updateTrackMix(...args),
+    peaksFromBuffer: (...args) => peaksFromBuffer(...args),
+    refreshClipWaveImage: (...args) => refreshClipWaveImage(...args),
+    renderAll: (...args) => renderAll(...args),
+    scheduleAllFromPlayhead: (...args) =>
+      scheduleAllFromPlayhead(...args),
+    flushPendingCommit: (...args) => edFlushPendingCommit(...args),
+    getCommitTimer: () => edCommitTimer,
+    toast: (...args) => toast(...args),
+    translate: (...args) => t(...args),
     logger: console
   });
-  window.__historyAttached = true;
-  return historyService;
+if (!coreHistoryBridgeRuntime) {
+  throw new Error(
+    'CoreHistoryBridgeService باید قبل از app/core.js بارگذاری شود.'
+  );
+}
+
+function attachHistoryService(...args) {
+  return coreHistoryBridgeRuntime.attach(...args);
 }
 
 function getHistoryService() {

@@ -62,6 +62,7 @@ for (const activeScript of [
   'js/app/CoreLoopControlService.js',
   'js/app/CoreChordLineSyncService.js',
   'js/app/CorePopupWindowBridgeService.js',
+  'js/app/CoreHistoryBridgeService.js',
   'js/app/CoreFocusModeService.js',
   'js/app/CoreSyncModeBridgeService.js',
   'js/editor/EditorProjectFileService.js',
