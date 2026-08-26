@@ -495,6 +495,10 @@ assert.ok(
     scriptIndex('js/app/editor.js')
 );
 assert.ok(
+  scriptIndex('js/editor/EditorMidiInputService.js') <
+    scriptIndex('js/app/editor.js')
+);
+assert.ok(
   scriptIndex('js/editor/EditorMidiConnectionService.js') <
     scriptIndex('js/app/editor.js')
 );

@@ -78,6 +78,7 @@ const APPLICATION_CHUNKS = Object.freeze([
   'core/TransportSchedulingService.js',
   'app/core.js',
   'editor/EditorChordImportService.js',
+  'editor/EditorMidiInputService.js',
   'editor/EditorTimelineChordEditorService.js',
   'app/editor.js',
   'app/print.js',

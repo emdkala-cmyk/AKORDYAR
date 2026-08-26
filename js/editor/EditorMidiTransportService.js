@@ -2,7 +2,7 @@
  * EditorMidiTransportService
  *
  * Handles MIDI system messages that control transport, MIDI Clock and MTC.
- * Note messages remain in editor.js for MIDI Learn and chord recording.
+ * EditorMidiInputService owns note messages, MIDI Learn and chord recording.
  */
 (function attachEditorMidiTransportService(globalScope) {
   function create({

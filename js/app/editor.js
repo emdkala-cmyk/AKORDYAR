@@ -636,26 +636,6 @@ function getMidiScoreController() {
     } = editorTimelineChordEditorRuntime;
     Object.assign(window, editorTimelineChordEditorRuntime);
 
-    const editorMidiConnectionService = window.EditorMidiConnectionService.create({
-      navigatorRef: window.navigator,
-      getMidiAccess: () => midiAccess,
-      setMidiAccess: value => { midiAccess = value; },
-      getSyncActive: () => midiSyncActive,
-      setSyncActive: value => { midiSyncActive = Boolean(value); },
-      onMessage: handleMIDIMessage,
-      toast,
-      logger: console
-    });
-
-    function toggleMIDITab() {
-      toggleTab('tab-midi');
-      const tab = $('tab-midi');
-      if (tab.classList.contains('active-pink')) {
-        return editorMidiConnectionService.connect();
-      }
-      return editorMidiConnectionService.disconnect();
-    }
-
     let editorMidiChordService = null;
     function getEditorMidiChordService() {
       if (
@@ -669,10 +649,6 @@ function getMidiScoreController() {
         });
       }
       return editorMidiChordService;
-    }
-
-    function identifyChord(midiNotes) {
-      return getEditorMidiChordService()?.identifyChord?.(midiNotes) || null;
     }
 
     // ===== MIDI TRANSPORT SYNC =====
@@ -696,141 +672,94 @@ function getMidiScoreController() {
       cancel: timer => clearTimeout(timer)
     });
 
-    function handleMIDIMessage(e) {
-      const [status] = e.data;
-
-      // Log ALL messages to monitor first
-      updateMidiMonitor(e.data);
-      updateMidiStatusDot();
-
-      if (editorMidiTransportService.handleMessage(e.data)) return;
-
-      // Regular MIDI Note messages
-      const note = e.data[1];
-      const velocity = e.data[2];
-      if (status === 144 && velocity > 0) {
-        // MIDI Learn mode: capture this note for mapping
-        if (midiLearnActive) { handleMidiLearnInput(note); return; }
-        // MIDI Map: execute mapped function
-        const mappedFunc = getMidiMap(note);
-        if (mappedFunc) { executeMidiMappedFunction(mappedFunc); return; }
-        activeMidiNotes.add(note); highlightPianoKey(note, true);
+    const editorMidiInputService = window.EditorMidiInputService.create({
+      documentRef: document,
+      getElement: id => $(id),
+      notes: NOTES,
+      noteNames: NOTES,
+      getMidiTransportService: () => editorMidiTransportService,
+      getMidiChordService: () => getEditorMidiChordService(),
+      updateMidiMonitor,
+      updateMidiStatusDot,
+      updateMidiChordDisplay,
+      logMidiMsg,
+      getActiveMidiNotes: () => activeMidiNotes,
+      getMidiTimeout: () => midiTimeout,
+      setMidiTimeout: value => { midiTimeout = value; },
+      schedule: (callback, delay) => setTimeout(callback, delay),
+      cancel: timer => clearTimeout(timer),
+      getMidiLearnActive: () => midiLearnActive,
+      handleMidiLearnInput,
+      getMidiMap,
+      executeMidiMappedFunction,
+      getRecordingState: () => ({
+        active: isRecordingChords,
+        clipId: currentRecordingClipId
+      }),
+      setRecordingClipId: value => { currentRecordingClipId = value; },
+      getClip: clipId => getClip(clipId),
+      getTimelineState: () => getEditorDAW(),
+      saveState: () => saveState(),
+      renderAll: () => renderAll(),
+      renderClips: () => renderClips(),
+      ensureTimelineFits: value => ensureTimelineFits(value),
+      uid: prefix => uid(prefix),
+      roundMs: value => roundMs(value),
+      setCurrentChord: value => { currentChord = value; },
+      updateChordPreview: () => updateChordPreview(),
+      getModalMode: () => edChordModalMode,
+      getCurrentEditorSong: () => getCurrentEditorSong(),
+      getSelectedChords: () => edSelectedChords,
+      syncBaseChordName: index => edSyncBaseChordName(index),
+      renderEditorChords: () => edRenderChords(),
+      commitEditor: () => edCommit(),
+      getEditorSongStateService: () => getEditorSongStateService(),
+      getSequentialChordingActive: () => edSeqChordingActive,
+      setSequentialChordingActive: value => { edSeqChordingActive = value; },
+      getSequentialPoints: () => edSeqPoints,
+      setSequentialPoints: value => { edSeqPoints = value; },
+      getSequentialCursor: () => edSeqCursor,
+      setSequentialCursor: value => { edSeqCursor = value; },
+      filterChordsWithBase: predicate => edFilterChordsWithBase(predicate),
+      getSyncActive: () => midiSyncActive,
+      setSyncActive: value => { midiSyncActive = Boolean(value); },
+      translate: key => t(key),
+      toast,
+      constants: {
+        ROOT_NOTES,
+        CHORD_TYPES,
+        TENSIONS,
+        BASS_NOTES
       }
-      else if (status === 128 || (status === 144 && velocity === 0)) { activeMidiNotes.delete(note); highlightPianoKey(note, false); }
-
-      clearTimeout(midiTimeout); midiTimeout = setTimeout(evaluateMidiInput, 50);
+    });
+    if (!editorMidiInputService) {
+      throw new Error(
+        'EditorMidiInputService باید قبل از editor.js بارگذاری شود.'
+      );
     }
 
-    function evaluateMidiInput() {
-      const isEditorOpen = $('chord-modal').classList.contains('show');
-      const isEdChordModalOpen = edChordModalMode === 'editor' && $('chord-modal')?.classList.contains('show');
+    const editorMidiConnectionService = window.EditorMidiConnectionService.create({
+      navigatorRef: window.navigator,
+      getMidiAccess: () => midiAccess,
+      setMidiAccess: value => { midiAccess = value; },
+      getSyncActive: () => midiSyncActive,
+      setSyncActive: value => { midiSyncActive = Boolean(value); },
+      onMessage: event => editorMidiInputService.handleMessage(event),
+      toast,
+      logger: console
+    });
 
-      if (activeMidiNotes.size === 0) {
-        if (isRecordingChords && currentRecordingClipId) {
-          const c = getClip(currentRecordingClipId); if (c) c.duration = roundMs(Math.max(0.5, getEditorDAW().playhead - c.start));
-          currentRecordingClipId = null; saveState(); renderAll();
-        }
-        return;
+    function toggleMIDITab() {
+      toggleTab('tab-midi');
+      const tab = $('tab-midi');
+      if (tab.classList.contains('active-pink')) {
+        return editorMidiConnectionService.connect();
       }
-
-      const chord = identifyChord([...activeMidiNotes]);
-      if (!chord) return;
-
-      const name = getEditorMidiChordService()?.formatChordName?.(chord) || 'None';
-
-      // Show in MIDI monitor
-      updateMidiChordDisplay(name, [...activeMidiNotes].map(n => noteNames[n % 12] + (Math.floor(n / 12) - 1)).join(', '));
-      logMidiMsg('SYS', [0, 0, 0]); // chord identified marker
-
-      // Update DAW Editor Live if open
-      if (isEditorOpen) {
-        currentChord = chord;
-        updateChordPreview();
-        document.querySelectorAll('.chord-item').forEach(el => el.classList.remove('active'));
-        const rIdx = ROOT_NOTES.indexOf(chord.root);
-        const tIdx = CHORD_TYPES.indexOf(chord.type);
-        const teIdx = TENSIONS.indexOf(chord.tension);
-        const bIdx = BASS_NOTES.indexOf(chord.bass);
-        if(rIdx > -1) document.querySelector(`#col-root .chord-item:nth-child(${rIdx + 1})`)?.classList.add('active');
-        if(tIdx > -1) document.querySelector(`#col-type .chord-item:nth-child(${tIdx + 1})`)?.classList.add('active');
-        if(teIdx > -1) document.querySelector(`#col-tension .chord-item:nth-child(${teIdx + 1})`)?.classList.add('active');
-        if(bIdx > -1) document.querySelector(`#col-bass .chord-item:nth-child(${bIdx + 1})`)?.classList.add('active');
-      }
-
-      // Update Lyrics Editor chord modal if open
-      if (isEdChordModalOpen) {
-        if ($('chordManual')) $('chordManual').value = name;
-        if ($('chord-preview')) $('chord-preview').textContent = name;
-      }
-
-      // Update selected lyrics editor chord
-if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
-  edSelectedChords.forEach(i => {
-    if (edCur.chords[i]) {
-      edCur.chords[i].name = name;
-      edSyncBaseChordName(i);
-    }
-  });
-  edRenderChords();
-  edCommit();
-}
-
-
-
-      // Sequential chording via MIDI
-      if (edSeqChordingActive && edCur && !isEdChordModalOpen) {
-        const songState = getEditorSongStateService();
-        const song = songState?.currentSong?.();
-        const chords = songState?.getChords?.() || [];
-        const seqIdx = chords.length - edSeqPoints.length + edSeqCursor;
-        if (song && chords[seqIdx]) {
-          songState.setChordName(seqIdx, name);
-          edSyncBaseChordName(seqIdx);
-          edCommit(); edRenderChords();
-          if (edSeqCursor < edSeqPoints.length - 1) {
-            edSeqCursor++;
-          } else {
-            const seqStart = chords.length - edSeqPoints.length;
-            edFilterChordsWithBase((c, i) => i < seqStart || c.name);
-            edSeqChordingActive = false;
-            edSeqPoints = [];
-            songState.setSeqPoints([]);
-            edCommit(); edRenderChords();
-            toast(t('chordDone'));
-          }
-        }
-        return;
-      }
-
-      // Update DAW timeline recording
-      if (isRecordingChords) {
-        if (!currentRecordingClipId || getClip(currentRecordingClipId)?.name !== name) {
-          if (currentRecordingClipId) { const oldC = getClip(currentRecordingClipId); if (oldC) oldC.duration = roundMs(Math.max(0.5, getEditorDAW().playhead - oldC.start)); }
-          const chordTrack = getEditorDAW().tracks.find(t => t.type === 'chord');
-          if (chordTrack) {
-            const newClip = { id: uid('c'), type: 'chord', trackId: chordTrack.id, name, start: roundMs(getEditorDAW().playhead), duration: 2, color: '#9F7AEA' };
-            getEditorDAW().clips.push(newClip); currentRecordingClipId = newClip.id; ensureTimelineFits(newClip.start + newClip.duration + 5); renderAll();
-          }
-        } else {
-          const clip = getClip(currentRecordingClipId); if (clip) { clip.duration = roundMs(Math.max(0.5, getEditorDAW().playhead - clip.start)); renderClips(); }
-        }
-      } else if (getEditorDAW().selectedIds.size === 1) {
-        const selId = [...getEditorDAW().selectedIds][0]; const clip = getClip(selId);
-        if (clip && clip.type === 'chord' && clip.name !== name) { clip.name = name; renderClips(); }
-      }
-    }
-
-    function highlightPianoKey(midiNote, on) {
-      const noteName = NOTES[midiNote % 12] + (Math.floor(midiNote / 12) - 1);
-      const keyEl = document.querySelector(`.piano-keyboard [data-note="${noteName}"]`);
-      if (keyEl) { if (on) keyEl.classList.add('active'); else keyEl.classList.remove('active'); }
+      return editorMidiConnectionService.disconnect();
     }
 
     function toggleMIDISync() {
-      midiSyncActive = !midiSyncActive;
-      $('tab-midi-sync').classList.toggle('active-pink', midiSyncActive);
-      $('midiSyncLabel').textContent = midiSyncActive ? 'ON' : 'OFF';
-      toast(midiSyncActive ? 'همگام‌سازی فعال شد' : 'همگام‌سازی غیرفعال شد');
+      return editorMidiInputService.toggleSync();
     }
 
     function toggleTab(id) { const tab = $(id); if (id === 'tab-sync') tab.classList.toggle('active-teal'); else if (id === 'tab-midi') tab.classList.toggle('active-pink'); }
