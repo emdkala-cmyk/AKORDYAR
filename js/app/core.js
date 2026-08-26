@@ -1756,6 +1756,21 @@ function applyState(stateStr) {
     }
     corePublicApi.publish(corePlayerViewPopupSyncRuntime);
 
+    const corePlayerViewPopupBuilderRuntime =
+      globalScope.CorePlayerViewPopupBuilderService?.create?.({
+        popup: _lyricPopup,
+        popupWindowBridge,
+        chordRenderer: globalScope.CorePlayerViewChordRendererService,
+        settingsRuntime: corePlayerViewSettingsRuntime,
+        applyHighlightClassToPopup
+      });
+    if (!corePlayerViewPopupBuilderRuntime) {
+      throw new Error(
+        'CorePlayerViewPopupBuilderService باید قبل از app/core.js بارگذاری شود.'
+      );
+    }
+    corePublicApi.publish(corePlayerViewPopupBuilderRuntime);
+
     function syncLyricPopup() {
       if (!isPopupOpen(_lyricPopup)) return;
       const popupDoc = popupDocument(_lyricPopup);
@@ -1870,59 +1885,27 @@ body.hl-pulse .popup-sync-line.active::before { content: ''; position: absolute;
           ::-webkit-scrollbar-thumb { background: #4A5568; border-radius: 4px; }
           ::-webkit-scrollbar-thumb:hover { background: #718096; }
         </style>`;
-      let html = `<div class="popup-header"><div class="title">${title}</div><div class="sub">${sub}</div>
-        <div id="pv-settings-toggle" style="cursor:pointer;font-size:11px;color:#718096;margin-top:4px;user-select:none;transition:color 0.2s;">⚙ تنظیمات نمایش</div>
-        <div id="pv-settings" style="display:none;text-align:right;padding:12px 14px;font-size:12px;margin-top:8px;background:linear-gradient(135deg,#1A202C,#161B26);border:1px solid #2D3748;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.4);">
-          <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;align-items:center;">
-            <label style="color:#A0AEC0;display:flex;align-items:center;gap:5px;">فونت:
-              <select id="pv-font" style="background:#0D1117;color:#E2E8F0;border:1px solid #30363D;border-radius:8px;padding:4px 10px;font-size:11px;cursor:pointer;transition:border-color 0.2s;">
-                <option value="Vazirmatn">Vazirmatn</option><option value="Vazirmatn Thin">Vazirmatn Thin</option><option value="Vazirmatn Bold">Vazirmatn Bold</option><option value="Vazirmatn Black">Vazirmatn Black</option><option value="BArshia">BArshia</option><option value="BFarnaz">BFarnaz</option><option value="BJadid">BJadid</option><option value="BZar">BZar</option><option value="BZar Bold">BZar Bold</option><option value="Lalezar">Lalezar</option>
-              </select>
-            </label>
-            <label style="color:#A0AEC0;display:flex;align-items:center;gap:5px;cursor:pointer;"><input type="color" id="pv-tColor" value="${tColor}" style="width:24px;height:24px;border:2px solid #30363D;border-radius:6px;cursor:pointer;background:none;padding:0;"> متن</label>
-            <label style="color:#A0AEC0;display:flex;align-items:center;gap:5px;cursor:pointer;"><input type="color" id="pv-cColor" value="${cColor}" style="width:24px;height:24px;border:2px solid #30363D;border-radius:6px;cursor:pointer;background:none;padding:0;"> آکورد</label>
-            <label style="color:#A0AEC0;display:flex;align-items:center;gap:5px;cursor:pointer;"><input type="color" id="pv-bgColor" value="#0F131E" style="width:24px;height:24px;border:2px solid #30363D;border-radius:6px;cursor:pointer;background:none;padding:0;"> پس‌زمینه</label>
-            <div style="display:flex;align-items:center;gap:5px;color:#A0AEC0;">متن: <input type="range" id="pv-tSize" min="12" max="55" value="${tSize}" style="width:70px;accent-color:#00F2FE;height:4px;"> <span id="pv-tSizeVal" style="min-width:22px;text-align:center;font-family:monospace;color:#00F2FE;font-weight:bold;">${tSize}</span></div>
-            <div style="display:flex;align-items:center;gap:5px;color:#A0AEC0;">آکورد: <input type="range" id="pv-cSize" min="8" max="40" value="${cSize}" style="width:70px;accent-color:#00F2FE;height:4px;"> <span id="pv-cSizeVal" style="min-width:22px;text-align:center;font-family:monospace;color:#00F2FE;font-weight:bold;">${cSize}</span></div>
-            <label style="color:#A0AEC0;display:flex;align-items:center;gap:5px;cursor:pointer;padding:4px 8px;border-radius:6px;transition:background 0.2s;" title="قفل نسبت اندازه متن و آکورد"><input type="checkbox" id="pv-scaleLock" checked style="accent-color:#00F2FE;"> 🔗 قفل</label>
-            <label style="color:#A0AEC0;display:flex;align-items:center;gap:5px;cursor:pointer;padding:4px 8px;border-radius:6px;transition:background 0.2s;"><input type="checkbox" id="pv-bold" style="accent-color:#00F2FE;"> <b>B</b> ضخیم</label>
-          </div>
-          <div class="pv-hint">Ctrl+Wheel: تغییر اندازه متن | Wheel روی آکورد: تغییر اندازه آکورد | Wheel روی فونت: پیمایش فونت‌ها</div>
-        </div>
-      </div><div class="popup-body" id="popupBody">`;
-      lines.forEach((line, i) => {
-        html += `<div class="eline popup-sync-line" data-li="${i}" style="font-size:${tSize}px;color:${tColor};font-family:'${tFont}';font-weight:${tBold};text-align:${align};">${line || '\u200B'}</div>`;
+      const builderTitle = snapshot.title || t('untitled');
+      const builderArtist = snapshot.artist || '';
+      const builderKeyStr = (snapshot.key || 'C') + (snapshot.keyMode === 'min' ? 'm' : '');
+      const builderSub = [builderArtist, builderKeyStr ? (currentLang === 'fa' ? 'گام: ' : 'Key: ') + builderKeyStr : null]
+        .filter(Boolean)
+        .join('  ·  ');
+      const builderLines = snapshot.lyrics.split('\n');
+      const builderChords = snapshot.chords.map(ch => ({
+        lineIndex: ch.lineIndex,
+        charIndex: ch.charIndex,
+        anchorType: ch.anchorType,
+        _name: edTransposeChord(ch.name, snapshot.transpose)
+      }));
+      corePlayerViewPopupBuilderRuntime.render({
+        documentRef: popupDoc,
+        title: builderTitle,
+        sub: builderSub,
+        lines: builderLines,
+        styles: snapshot.styles,
+        chords: builderChords
       });
-      html += '</div>';
-      // ظرف خالی برای نوار آکورد آینه‌ای + دستگیره ریسایز
-      html += '<div id="chordMirrorResize" style="position:fixed;bottom:0;left:0;width:100%;height:94px;z-index:9999;">' +
-        '<div id="chordMirrorHandle" style="width:100%;height:4px;background:linear-gradient(90deg,#4A5568,#9F7AEA,#4A5568);cursor:ns-resize;border-radius:2px 2px 0 0;opacity:0.5;transition:opacity 0.2s;" onmouseover="this.style.opacity=\'1\'" onmouseout="this.style.opacity=\'0.5\'"></div>' +
-        '<div id="playerChordMirror" style="width:100%;height:90px;background:#111;overflow:hidden;border-top:1px solid #333;"></div>' +
-        '</div>';
-      popupDoc.body.innerHTML = html;
-      popupDoc.body.setAttribute('data-popup-role', 'player');
-      // Apply highlight effect class to popup body
-      applyHighlightClassToPopup();
-      // Inject chord positioning script via the isolated renderer service.
-      const sc = globalScope.CorePlayerViewChordRendererService?.createScript?.(
-        popupDoc,
-        chords,
-        { cSize, cColor, cFont }
-      );
-      if (!sc) {
-        throw new Error(
-          'CorePlayerViewChordRendererService باید قبل از app/core.js بارگذاری شود.'
-        );
-      }
-      popupDoc.body.appendChild(sc);
-      // Override _pCfg with saved Player View settings (not editor defaults)
-      const playerViewSettings = corePlayerViewSettingsRuntime.getSettings();
-      popupWindowBridge?.set?.(_lyricPopup, '_pCfg', {
-        cSize: playerViewSettings.cSize,
-        cColor: playerViewSettings.cColor,
-        cFont: 'JetBrains Mono'
-      });
-      corePlayerViewSettingsRuntime.initialize();
       }
 
 // ==========================================
