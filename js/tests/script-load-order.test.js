@@ -543,6 +543,10 @@ assert.ok(
     scriptIndex('js/editor/EditorKeyboardService.js')
 );
 assert.ok(
+  scriptIndex('js/editor/EditorColorToolService.js') <
+    scriptIndex('js/app/editor.js')
+);
+assert.ok(
   scriptIndex('js/editor/EditorKeyCommandService.js') <
     scriptIndex('js/app/core.js')
 );

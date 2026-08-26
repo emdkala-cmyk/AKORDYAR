@@ -33,6 +33,9 @@ const editorMidiInputService = read('js/editor/EditorMidiInputService.js');
 const editorAutoImportStateService = read(
   'js/editor/EditorAutoImportStateService.js'
 );
+const editorColorToolService = read(
+  'js/editor/EditorColorToolService.js'
+);
 const editorLyricsRenderer = read('js/editor/EditorLyricsRenderer.js');
 const editorSyncAnalysisUiService = read(
   'js/editor/EditorSyncAnalysisUiService.js'
@@ -185,6 +188,21 @@ assert.doesNotMatch(editorAutoImportStateService, /window\._ai/);
 assert.doesNotMatch(editor, /window\._ai(?:Results|ArtistMap|Stats|FailedSongs|FailedFiles)/);
 assert.doesNotMatch(editor, /window\._autoImportDirHandle/);
 assert.doesNotMatch(editor, /window\.(?:timelineScrollbars|timelinePanelLayout)/);
+assert.match(editorColorToolService, /function paintContextAware\(event\)/);
+assert.match(editorColorToolService, /function applyColorToClip\(clip, color\)/);
+assert.match(
+  editorColorToolService,
+  /function applyColorToSection\(section, color\)/
+);
+assert.doesNotMatch(editor, /function paintContextAware\(event\)/);
+assert.doesNotMatch(editor, /function applyColorToClip\(clip, color\)/);
+assert.doesNotMatch(
+  editor,
+  /function applyColorToSection\(section, color\)/
+);
+assert.doesNotMatch(editor, /let colorToolMode/);
+assert.doesNotMatch(editor, /const COLOR_PALETTE/);
+assert.match(editor, /getEditorColorToolService\(\)\?\.init\?\.\(\)/);
 assert.doesNotMatch(archive, /_importParsed/);
 assert.doesNotMatch(editorLyricsRenderer, /window\.edCur/);
 assert.doesNotMatch(editorLyricsRenderer, /\bDAW\b/);

@@ -22,6 +22,7 @@ const dawState = read('js/core/DAWRuntimeState.js');
 const transportState = read('js/core/EditorTransportStateService.js');
 const editor = read('js/app/editor.js');
 const keyboardService = read('js/editor/EditorKeyboardService.js');
+const colorToolService = read('js/editor/EditorColorToolService.js');
 const timelineRenderer = read('js/core/TimelineTrackRendererService.js');
 const sectionRenderer = read('js/core/TimelineSectionRendererService.js');
 const playbackTimelineController = read('js/core/PlaybackTimelineController.js');
@@ -90,12 +91,34 @@ assert.match(corePanelLayout, /function initDockableSidePanels\(\)/);
 assert.match(core, /CorePanelLayoutService/);
 assert.match(corePanelLayout, /projectPanelLayout/);
 assert.match(corePanelLayout, /songPropertiesPanelLayout/);
-assert.match(editor, /function paintTimelineItemAtPoint\(clientX, clientY\)/);
-assert.match(editor, /function getTimelineItemAtPoint\(clientX, clientY\)/);
-assert.match(editor, /function beginTimelineBrushDrag\(event\)/);
-assert.match(editor, /elementFromPoint\?\.\(clientX, clientY\)/);
-assert.match(editor, /getBoundingClientRect\(\)/);
-assert.match(editor, /timeline-color-dragging/);
+assert.match(editor, /getEditorColorToolService/);
+assert.doesNotMatch(
+  editor,
+  /function paintTimelineItemAtPoint\(clientX, clientY\)/
+);
+assert.doesNotMatch(
+  editor,
+  /function getTimelineItemAtPoint\(clientX, clientY\)/
+);
+assert.doesNotMatch(
+  editor,
+  /function beginTimelineBrushDrag\(event\)/
+);
+assert.match(
+  colorToolService,
+  /function paintTimelineItemAtPoint\(clientX, clientY\)/
+);
+assert.match(
+  colorToolService,
+  /function getTimelineItemAtPoint\(clientX, clientY\)/
+);
+assert.match(
+  colorToolService,
+  /function beginTimelineBrushDrag\(event\)/
+);
+assert.match(colorToolService, /elementFromPoint\?\.\(clientX, clientY\)/);
+assert.match(colorToolService, /getBoundingClientRect\?\.\(\)/);
+assert.match(colorToolService, /timeline-color-dragging/);
 assert.match(timelineScrollbars, /function calculateProxyExtent/);
 assert.match(timelinePanelLayout, /function handleSeparatorDragStart/);
 assert.match(timelinePanelLayout, /appBottom - moveEvent\.clientY/);

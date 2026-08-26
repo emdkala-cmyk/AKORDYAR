@@ -4,8 +4,53 @@
 
 // Keep selection state initialized before DOM setup can register handlers.
 let edSelectedChords = [];
-let colorToolMode = null;
-let currentColor = '#3FB8AF';
+let editorColorToolService = null;
+
+function getEditorColorToolService() {
+  if (
+    !editorColorToolService &&
+    typeof window.EditorColorToolService?.create === 'function'
+  ) {
+    editorColorToolService = window.EditorColorToolService.create({
+      documentRef: document,
+      getElement: id => $(id),
+      getDAW: () => getEditorDAW(),
+      getSongState: () => getEditorSongStateService(),
+      getSelectedChords: () => edSelectedChords,
+      getClip: id => getClip(id),
+      getBaseClipMouseDown: () => onClipMouseDown,
+      setClipMouseDown: handler => {
+        onClipMouseDown = handler;
+      },
+      saveState: (...args) => saveState(...args),
+      renderChords: (...args) => edRenderChords(...args),
+      renderClips: (...args) => renderClips(...args),
+      saveSong: (...args) => edSaveSong(...args),
+      toast: (...args) => toast(...args)
+    });
+  }
+  return editorColorToolService;
+}
+
+function isColorToolActive() {
+  return getEditorColorToolService()?.isColorToolActive?.() || false;
+}
+
+function toggleColorTool(mode) {
+  return getEditorColorToolService()?.toggleColorTool?.(mode);
+}
+
+function deactivateColorTool() {
+  return getEditorColorToolService()?.deactivateColorTool?.();
+}
+
+function selectColor(color) {
+  return getEditorColorToolService()?.selectColor?.(color);
+}
+
+function paintLyricChord(index, event = {}) {
+  return getEditorColorToolService()?.paintLyricChord?.(index, event);
+}
 
 const editorPopupWindowService = window.PopupWindowService?.create?.({
   windowRef: window,
@@ -3622,485 +3667,7 @@ if ($('edDoBoth')) {
       }
     }
 
-    // ===== COLOR TOOL (Context-Aware Paint Brush) =====
-    const COLOR_PALETTE = [
-      '#FF2E93','#FF6B6B','#FFA726','#FFD54F','#AED581','#4DB6AC','#4FC3F7','#7986CB',
-      '#BA68C8','#F06292','#E57373','#FF8A65','#FFB74D','#FFF176','#81C784','#4DD0E1',
-      '#64B5F6','#9575CD','#E91E63','#F44336','#FF9800','#FFEB3B','#8BC34A','#009688',
-      '#2196F3','#3F51B5','#9C27B0','#795548','#607D8B','#000000','#424242','#757575',
-      '#9E9E9E','#BDBDBD','#E0E0E0','#FFFFFF','#3FB8AF','#3182CE','#D69E2E','#9F7AEA',
-      '#ED64A6','#48BB78','#ED8936','#00B5D8','#E53E3E','#38A169','#FF69B4','#805AD5',
-    ];
-    const QUICK_COLORS = ['#FF2E93','#FF6B6B','#FFA726','#FFD54F','#4DB6AC','#4FC3F7','#7986CB','#9F7AEA'];
-
-    function isColorToolActive() { return colorToolMode === 'brush' || colorToolMode === 'eyedropper'; }
-
-    function initQuickBar() {
-      const bar = $('colorQuickBar');
-      if (!bar) return;
-      bar.innerHTML = '';
-      QUICK_COLORS.forEach(c => {
-        const sw = document.createElement('div');
-        sw.className = 'color-quick-swatch' + (c === currentColor ? ' active' : '');
-        sw.style.background = c;
-        sw.title = c;
-        sw.onclick = (e) => { e.stopPropagation(); selectColor(c); };
-        bar.appendChild(sw);
-      });
-    }
-
-    function selectColor(color) {
-      currentColor = color;
-      const picker = $('colorPickerInput');
-      if (picker) picker.value = color;
-      document.querySelectorAll('.color-quick-swatch').forEach(el => {
-        el.classList.toggle('active', el.style.background === color || rgbToHex(el.style.background) === color);
-      });
-    }
-
-    function rgbToHex(rgb) {
-      if (!rgb || rgb.startsWith('#')) return rgb;
-      const m = rgb.match(/(\d+)/g);
-      if (!m || m.length < 3) return rgb;
-      return '#' + m.slice(0,3).map(x => (+x).toString(16).padStart(2,'0')).join('');
-    }
-
-    function toggleColorTool(mode) {
-      if (colorToolMode === mode) { deactivateColorTool(); return; }
-      colorToolMode = mode;
-      const bar = $('colorQuickBar');
-      if (mode === 'brush') {
-        $('colorBrushBtn').classList.add('active');
-        $('colorBrushBtn').classList.remove('active-eyedropper');
-        $('colorEyedropperBtn').classList.remove('active', 'active-eyedropper');
-        document.body.classList.add('color-tool-brush');
-        document.body.classList.remove('color-tool-eyedropper');
-      } else {
-        $('colorEyedropperBtn').classList.add('active-eyedropper');
-        $('colorEyedropperBtn').classList.remove('active');
-        $('colorBrushBtn').classList.remove('active', 'active-eyedropper');
-        document.body.classList.add('color-tool-eyedropper');
-        document.body.classList.remove('color-tool-brush');
-      }
-      if (bar) { bar.classList.add('show'); initQuickBar(); }
-    }
-
-    function deactivateColorTool() {
-      colorToolMode = null;
-      $('colorBrushBtn')?.classList.remove('active', 'active-eyedropper');
-      $('colorEyedropperBtn')?.classList.remove('active', 'active-eyedropper');
-      document.body.classList.remove('color-tool-brush', 'color-tool-eyedropper');
-      const bar = $('colorQuickBar');
-      if (bar) bar.classList.remove('show');
-    }
-
-    function applyColorToClip(clip, color) {
-      clip.color = color;
-      const el = document.querySelector(`.clip[data-clip-id="${clip.id}"]`);
-      if (el) {
-        if (clip.type === 'chord') {
-          el.style.background = `linear-gradient(180deg, ${color}cc, ${color}77)`;
-          el.style.borderColor = color;
-        } else {
-          el.style.background = `linear-gradient(180deg, ${color}bb, ${color}88)`;
-        }
-      }
-    }
-
-    function applyColorToSection(sec, color) {
-      sec.color = color;
-      const el = document.querySelector(`.section-tag[data-section-id="${sec.id}"]`);
-      if (el) {
-        el.style.background = `rgba(${parseInt(color.slice(1,3),16)},${parseInt(color.slice(3,5),16)},${parseInt(color.slice(5,7),16)},0.35)`;
-        el.style.borderColor = color;
-      }
-    }
-
-    function paintLyricChord(index, event = {}) {
-      const songState = getEditorSongStateService();
-      const song = songState?.currentSong?.();
-      const chord = songState?.getChords?.()[index];
-      if (!song || !chord || song.editorLocked) return false;
-
-      if (colorToolMode === 'brush') {
-        if (event.shiftKey) {
-          songState.setChordColorStyle(currentColor);
-          songState.clearChordColors();
-          saveState();
-          edRenderChords();
-          edSaveSong();
-          toast('رنگ همه آکوردها: ' + currentColor);
-          return true;
-        }
-
-        const selectedIndices = edSelectedChords.includes(index) && edSelectedChords.length > 1
-          ? [...edSelectedChords]
-          : [index];
-        selectedIndices.forEach(selectedIndex => {
-          if (songState.getChords()[selectedIndex]) {
-            songState.setChordColor(selectedIndex, currentColor);
-          }
-        });
-        saveState();
-        edRenderChords();
-        edSaveSong();
-        toast(selectedIndices.length > 1
-          ? `رنگ ${selectedIndices.length} آکورد اعمال شد`
-          : 'رنگ آکورد: ' + currentColor);
-        return true;
-      }
-
-      if (colorToolMode === 'eyedropper') {
-        selectColor(songState.getChordColor(index, '#e6aa28'));
-        toast('رنگ نمونه: ' + currentColor);
-        deactivateColorTool();
-        return true;
-      }
-
-      return false;
-    }
-
-    // Context-Aware: detect what was clicked and paint/pick it
-    // Shift+click = paint ALL items of same type (global)
-    // Regular click = paint ONLY this item (per-item)
-    function paintContextAware(e) {
-      const isGlobal = e.shiftKey;
-      const songState = getEditorSongStateService();
-      const song = songState?.currentSong?.();
-
-      if (colorToolMode === 'brush') {
-        // 0. Section tag (decoupled from clips)
-        const secTagEl = e.target.closest('.section-tag');
-        if (secTagEl) {
-          const sec = (getEditorDAW().sections || []).find(s => s.id === secTagEl.dataset.sectionId);
-          if (!sec) return false;
-          if (isGlobal) {
-            (getEditorDAW().sections || []).forEach(s => applyColorToSection(s, currentColor));
-            saveState(); renderClips();
-            toast('همه بخش‌ها رنگ شد');
-          } else {
-            applyColorToSection(sec, currentColor); saveState();
-            toast('رنگ بخش: ' + currentColor);
-          }
-          return true;
-        }
-        // 1. Timeline chord clip
-        const clipEl = e.target.closest('.clip');
-        if (clipEl) {
-          const clip = getClip(clipEl.dataset.clipId);
-          if (!clip) return false;
-          if (isGlobal) {
-            getEditorDAW().clips.forEach(c => { if (c.type === clip.type) applyColorToClip(c, currentColor); });
-            saveState(); renderClips();
-            toast('همه ' + (clip.type === 'chord' ? 'آکوردهای تایم‌لاین' : 'کلیپ‌ها') + ' رنگ شد');
-          } else {
-            applyColorToClip(clip, currentColor); saveState();
-            toast('رنگ کلیپ: ' + currentColor);
-          }
-          return true;
-        }
-        // 2. Editor text line (check BEFORE chord — chords overlay text via z-index)
-        const eline = e.target.closest('.eline');
-        if (eline && song) {
-          const li = parseInt(eline.dataset.lineIndex);
-          if (isGlobal) {
-            songState.setTextColor(currentColor);
-            songState.clearLineColors();
-            // Apply to ALL eline elements directly
-            document.querySelectorAll('#editor .eline').forEach(el => { el.style.color = currentColor; });
-            saveState(); edSaveSong();
-            toast('رنگ همه متن: ' + currentColor);
-          } else if (li >= 0) {
-            songState.setLineColor(li, currentColor);
-            // Apply color directly — do NOT call edRenderEditor which may interfere
-            eline.style.color = currentColor;
-            saveState(); edSaveSong();
-            toast('رنگ خط ' + (li + 1) + ': ' + currentColor);
-          }
-          return true;
-        }
-        // 3. Editor chord (after text line — so text always gets colored)
-        const chordEl = e.target.closest('.chord');
-        if (chordEl && song) {
-          const ci = parseInt(chordEl.dataset.idx);
-          return paintLyricChord(ci, { ...e, shiftKey: isGlobal });
-        }
-        // 4. Editor general area (not on specific element)
-        if (e.target.closest('#editor') && song) {
-          if (isGlobal) {
-            songState.setTextColor(currentColor);
-            songState.clearLineColors();
-            document.querySelectorAll('#editor .eline').forEach(el => { el.style.color = currentColor; });
-            saveState(); edSaveSong();
-            toast('رنگ همه متن: ' + currentColor);
-          }
-          return true;
-        }
-        // 5. Track lane empty area → color all clips on track
-        const lane = e.target.closest('.track-lane');
-        if (lane) {
-          const trackClips = getEditorDAW().clips.filter(c => c.trackId === lane.dataset.trackId);
-          trackClips.forEach(c => applyColorToClip(c, currentColor));
-          saveState(); renderClips();
-          toast(trackClips.length + ' کلیپ رنگ شد'); return true;
-        }
-        return false;
-      } else if (colorToolMode === 'eyedropper') {
-        // 0. Section tag → sample color (decoupled)
-        const secTagEl = e.target.closest('.section-tag');
-        if (secTagEl) {
-          const sec = (getEditorDAW().sections || []).find(s => s.id === secTagEl.dataset.sectionId);
-          if (sec) { selectColor(sec.color || '#3FB8AF'); toast('رنگ نمونه بخش: ' + currentColor); deactivateColorTool(); return true; }
-        }
-        // 1. Timeline clip → sample
-        const clipEl = e.target.closest('.clip');
-        if (clipEl) {
-          const clip = getClip(clipEl.dataset.clipId);
-          if (clip) { selectColor(clip.color); toast('رنگ نمونه: ' + currentColor); deactivateColorTool(); return true; }
-        }
-        // 2. Editor text line → sample per-line or global (check before chord)
-        const eline = e.target.closest('.eline');
-        if (eline && song) {
-          const li = parseInt(eline.dataset.lineIndex);
-          selectColor(songState.getLineColor(li, '#0fa966'));
-          toast('رنگ نمونه: ' + currentColor); deactivateColorTool(); return true;
-        }
-        // 3. Editor chord → sample per-chord or global
-        const chordEl = e.target.closest('.chord');
-        if (chordEl && song) {
-          const ci = parseInt(chordEl.dataset.idx);
-          selectColor(songState.getChordColor(ci, '#e6aa28'));
-          toast('رنگ نمونه: ' + currentColor); deactivateColorTool(); return true;
-        }
-        if (e.target.closest('#editor') && song) {
-          selectColor(songState.getStyles().tColor || '#0fa966');
-          toast('رنگ نمونه: ' + currentColor); deactivateColorTool(); return true;
-        }
-        // 4. Track lane → sample first clip color
-        const lane = e.target.closest('.track-lane');
-        if (lane) {
-          const first = getEditorDAW().clips.find(c => c.trackId === lane.dataset.trackId && c.color);
-          if (first) { selectColor(first.color); toast('رنگ نمونه: ' + currentColor); deactivateColorTool(); return true; }
-        }
-        return false;
-      }
-    }
-
-    let timelineBrushDrag = null;
-
-    function getTimelineItemAtPoint(clientX, clientY) {
-      const lanes = document.getElementById('lanes-container');
-      if (!lanes) return null;
-
-      const directTarget = document.elementFromPoint?.(clientX, clientY);
-      const directItem = directTarget?.closest?.('.clip, .section-tag');
-      if (directItem && lanes.contains(directItem)) return directItem;
-
-      // Some audio clips contain transparent/empty waveform regions where
-      // elementFromPoint() returns no element. Use the rendered item bounds
-      // as a fallback so brush painting works consistently on every track.
-      const items = lanes.querySelectorAll('.clip, .section-tag');
-      for (let index = items.length - 1; index >= 0; index -= 1) {
-        const rect = items[index].getBoundingClientRect();
-        if (
-          clientX >= rect.left &&
-          clientX <= rect.right &&
-          clientY >= rect.top &&
-          clientY <= rect.bottom
-        ) {
-          return items[index];
-        }
-      }
-      return null;
-    }
-
-    function paintTimelineItemAtPoint(clientX, clientY) {
-      if (!timelineBrushDrag || colorToolMode !== 'brush') return false;
-      const item = getTimelineItemAtPoint(clientX, clientY);
-      if (!item) {
-        timelineBrushDrag.lastKey = null;
-        return false;
-      }
-
-      const key = item.classList.contains('section-tag')
-        ? `section:${item.dataset.sectionId}`
-        : `clip:${item.dataset.clipId}`;
-      if (timelineBrushDrag.lastKey === key) return false;
-      timelineBrushDrag.lastKey = key;
-
-      if (item.classList.contains('section-tag')) {
-        const section = (getEditorDAW().sections || [])
-          .find(candidate => candidate.id === item.dataset.sectionId);
-        if (!section) return false;
-        applyColorToSection(section, currentColor);
-      } else {
-        const clip = getClip(item.dataset.clipId);
-        if (!clip) return false;
-        applyColorToClip(clip, currentColor);
-      }
-
-      timelineBrushDrag.changed = true;
-      timelineBrushDrag.paintedKeys.add(key);
-      return true;
-    }
-
-    function finishTimelineBrushDrag(event) {
-      if (!timelineBrushDrag) return;
-      if (
-        event?.pointerId != null &&
-        timelineBrushDrag.pointerId != null &&
-        event.pointerId !== timelineBrushDrag.pointerId
-      ) return;
-
-      const drag = timelineBrushDrag;
-      timelineBrushDrag = null;
-      document.removeEventListener('pointermove', drag.move, true);
-      document.removeEventListener('pointerup', drag.end, true);
-      document.removeEventListener('pointercancel', drag.end, true);
-      document.body.classList.remove('timeline-color-dragging');
-
-      if (drag.changed) {
-        saveState();
-        renderClips();
-        toast(`رنگ ${drag.paintedKeys.size} آیتم اعمال شد`);
-      }
-    }
-
-    function beginTimelineBrushDrag(event) {
-      if (colorToolMode !== 'brush' || event.button !== 0) return false;
-      finishTimelineBrushDrag();
-
-      const pointerId = event.pointerId;
-      const move = moveEvent => {
-        if (moveEvent.pointerId !== pointerId) return;
-        paintTimelineItemAtPoint(moveEvent.clientX, moveEvent.clientY);
-        moveEvent.preventDefault();
-        moveEvent.stopPropagation();
-      };
-      const end = endEvent => finishTimelineBrushDrag(endEvent);
-
-      timelineBrushDrag = {
-        pointerId,
-        lastKey: null,
-        changed: false,
-        paintedKeys: new Set(),
-        move,
-        end
-      };
-      document.body.classList.add('timeline-color-dragging');
-      document.addEventListener('pointermove', move, true);
-      document.addEventListener('pointerup', end, true);
-      document.addEventListener('pointercancel', end, true);
-      paintTimelineItemAtPoint(event.clientX, event.clientY);
-      event.preventDefault();
-      event.stopPropagation();
-      return true;
-    }
-
-    // Paint only the item under the pointer, including clips and sections on
-    // every track. Starting on empty space lets the brush cross multiple lanes.
-    (function bindTimelineBrushDrag() {
-      const lanes = document.getElementById('lanes-container');
-      if (!lanes) return;
-      lanes.addEventListener('pointerdown', event => {
-        if (colorToolMode !== 'brush' || event.button !== 0) return;
-        beginTimelineBrushDrag(event);
-      }, true);
-    })();
-
-    // Patch onClipMouseDown for timeline clips
-    (function patchClipMouse() {
-      const origHandler = onClipMouseDown;
-      onClipMouseDown = function(e) {
-        if (isColorToolActive() && e.button === 0) {
-          const clipId = e.currentTarget?.dataset?.clipId;
-          if (clipId) {
-            const clip = getClip(clipId);
-            if (clip && colorToolMode === 'brush') {
-              // Paint the clicked timeline item only. Re-render immediately
-              // so the persisted clip color is also the rendered color after
-              // the next interaction/repaint.
-              applyColorToClip(clip, currentColor);
-              saveState();
-              renderClips();
-              e.stopPropagation(); e.preventDefault();
-              toast('رنگ کلیپ: ' + currentColor); return;
-            } else if (clip && colorToolMode === 'eyedropper') {
-              selectColor(clip.color);
-              toast('رنگ نمونه: ' + currentColor); deactivateColorTool();
-              e.stopPropagation(); e.preventDefault(); return;
-            }
-          }
-        }
-        origHandler.call(this, e);
-      };
-    })();
-
-    // Patch section tag mousedown for color tool
-    (function patchSectionTagMouse() {
-      const lanes = document.getElementById('lanes-container');
-      if (!lanes) return;
-      lanes.addEventListener('mousedown', (e) => {
-        if (!isColorToolActive() || e.button !== 0) return;
-        if (colorToolMode === 'brush') return;
-        const secTagEl = e.target.closest('.section-tag');
-        if (!secTagEl) return;
-        const sec = (getEditorDAW().sections || []).find(s => s.id === secTagEl.dataset.sectionId);
-        if (!sec) return;
-        if (colorToolMode === 'brush') {
-          if (e.shiftKey) {
-            (getEditorDAW().sections || []).forEach(s => applyColorToSection(s, currentColor));
-            toast('همه بخش‌ها رنگ شد');
-          } else {
-            applyColorToSection(sec, currentColor);
-            toast('رنگ بخش: ' + currentColor);
-          }
-          saveState(); e.preventDefault(); e.stopPropagation();
-        } else if (colorToolMode === 'eyedropper') {
-          selectColor(sec.color || '#3FB8AF');
-          toast('رنگ نمونه: ' + currentColor); deactivateColorTool();
-          e.preventDefault(); e.stopPropagation();
-        }
-      }, true);
-    })();
-
-    // Patch editorWrap for text/chord coloring
-    (function patchEditorWrap() {
-      const ew = $('editorWrap');
-      if (!ew) return;
-      ew.addEventListener('mousedown', (e) => {
-        if (!isColorToolActive() || e.button !== 0) return;
-        if (paintContextAware(e)) {
-          e.preventDefault();
-          e.stopPropagation();
-        } else if (!e.target.closest('#colorQuickBar, #colorPickerInput')) {
-          deactivateColorTool();
-        }
-      }, true);
-    })();
-
-    // Leaving the paintable surfaces exits the tool. This prevents the brush
-    // from remaining armed while navigating unrelated editor controls.
-    document.addEventListener('mousedown', e => {
-      if (!isColorToolActive()) return;
-      if (e.target.closest(
-        '#colorBrushBtn, #colorEyedropperBtn, #colorPickerInput, #colorQuickBar, ' +
-        '.chord, .eline, .clip, .section-tag, .track-lane'
-      )) return;
-      deactivateColorTool();
-    }, true);
-
-    // Patch track lane mousedown for empty-area coloring
-    (function patchLaneMouse() {
-      const lanes = document.getElementById('lanes-container');
-      if (!lanes) return;
-      lanes.addEventListener('mousedown', (e) => {
-        if (!isColorToolActive() || e.button !== 0) return;
-        if (colorToolMode === 'brush') return;
-        if (e.target.closest('.clip') || e.target.closest('.section-tag')) return;
-        if (paintContextAware(e)) { e.preventDefault(); e.stopPropagation(); }
-      }, true);
-    })();
+    getEditorColorToolService()?.init?.();
 
     // Action -> function mapping
     const ACTION_FUNCTIONS = {
