@@ -17,9 +17,14 @@
     windowRef = globalScope,
     getElement = id => documentRef?.getElementById?.(id),
     getFocusMode = () => false,
-    getPanelLayout = name => globalScope[name],
-    panelLayoutService = globalScope.DockablePanelLayoutService
+    panelLayoutService = globalScope.DockablePanelLayoutService,
+    timelineScrollbarsService = globalScope.TimelineScrollbarsService,
+    timelinePanelLayoutService = globalScope.TimelinePanelLayoutService
   } = {}) {
+    const panelLayouts = new Map();
+    let timelineScrollbars = null;
+    let timelinePanelLayout = null;
+
     function getStorage() {
       try {
         return windowRef?.localStorage || null;
@@ -109,65 +114,85 @@
       ].join(' ');
     }
 
-    function initDockableSidePanels() {
-      if (!panelLayoutService?.create) return;
-      if (
-        getPanelLayout('projectPanelLayout') ||
-        getPanelLayout('songPropertiesPanelLayout')
-      ) {
-        syncDockableSidePanelGrid();
-        return;
+    function initTimelinePanelLayout() {
+      if (!timelineScrollbars && timelineScrollbarsService?.create) {
+        timelineScrollbars = timelineScrollbarsService.create({
+          documentRef,
+          windowRef
+        });
       }
+      timelineScrollbars?.init?.();
+
+      if (!timelinePanelLayout && timelinePanelLayoutService?.create) {
+        timelinePanelLayout = timelinePanelLayoutService.create({
+          documentRef,
+          windowRef,
+          getDockHeight: getTimelinePanelHeight,
+          setDockHeight: setTimelinePanelHeight,
+          onViewportChange: () => timelineScrollbars?.syncGeometry?.()
+        });
+      }
+      timelinePanelLayout?.init?.();
+      panelLayouts.set('timeline', timelinePanelLayout);
+    }
+
+    function initDockableSidePanels() {
+      initTimelinePanelLayout();
+      if (!panelLayoutService?.create) return;
 
       const onStateChange = () => syncDockableSidePanelGrid();
-      globalScope.projectPanelLayout = panelLayoutService.create({
-        documentRef,
-        windowRef,
-        storageKey: 'akordyar.projectPanelLayout.v1',
-        panelId: 'projectPanel',
-        controlsId: 'projectPanelLayoutControls',
-        dragHandleId: 'projectPanelDragHandle',
-        floatButtonId: 'projectPanelFloatBtn',
-        maximizeButtonId: 'projectPanelMaximizeBtn',
-        resetButtonId: 'projectPanelResetBtn',
-        closeButtonId: 'projectPanelCloseBtn',
-        restoreButtonId: 'projectPanelRestoreBtn',
-        side: 'left',
-        minWidth: 280,
-        minHeight: 300,
-        defaultFloating: { left: 24, top: 80, width: 380, height: 620 },
-        onStateChange
-      });
-      globalScope.songPropertiesPanelLayout = panelLayoutService.create({
-        documentRef,
-        windowRef,
-        storageKey: 'akordyar.songPropertiesPanelLayout.v1',
-        panelId: 'songPropertiesPanel',
-        controlsId: 'songPropertiesPanelLayoutControls',
-        dragHandleId: 'songPropertiesPanelDragHandle',
-        floatButtonId: 'songPropertiesPanelFloatBtn',
-        maximizeButtonId: 'songPropertiesPanelMaximizeBtn',
-        resetButtonId: 'songPropertiesPanelResetBtn',
-        closeButtonId: 'songPropertiesPanelCloseBtn',
-        restoreButtonId: 'songPropertiesPanelRestoreBtn',
-        side: 'right',
-        minWidth: 280,
-        minHeight: 300,
-        defaultFloating: { left: 0, top: 80, width: 380, height: 620 },
-        onStateChange
-      });
-      globalScope.projectPanelLayout?.init?.();
-      globalScope.songPropertiesPanelLayout?.init?.();
+      if (!panelLayouts.has('projectPanel')) {
+        panelLayouts.set('projectPanel', panelLayoutService.create({
+          documentRef,
+          windowRef,
+          storageKey: 'akordyar.projectPanelLayout.v1',
+          panelId: 'projectPanel',
+          controlsId: 'projectPanelLayoutControls',
+          dragHandleId: 'projectPanelDragHandle',
+          floatButtonId: 'projectPanelFloatBtn',
+          maximizeButtonId: 'projectPanelMaximizeBtn',
+          resetButtonId: 'projectPanelResetBtn',
+          closeButtonId: 'projectPanelCloseBtn',
+          restoreButtonId: 'projectPanelRestoreBtn',
+          side: 'left',
+          minWidth: 280,
+          minHeight: 300,
+          defaultFloating: { left: 24, top: 80, width: 380, height: 620 },
+          onStateChange
+        }));
+      }
+      if (!panelLayouts.has('songPropertiesPanel')) {
+        panelLayouts.set('songPropertiesPanel', panelLayoutService.create({
+          documentRef,
+          windowRef,
+          storageKey: 'akordyar.songPropertiesPanelLayout.v1',
+          panelId: 'songPropertiesPanel',
+          controlsId: 'songPropertiesPanelLayoutControls',
+          dragHandleId: 'songPropertiesPanelDragHandle',
+          floatButtonId: 'songPropertiesPanelFloatBtn',
+          maximizeButtonId: 'songPropertiesPanelMaximizeBtn',
+          resetButtonId: 'songPropertiesPanelResetBtn',
+          closeButtonId: 'songPropertiesPanelCloseBtn',
+          restoreButtonId: 'songPropertiesPanelRestoreBtn',
+          side: 'right',
+          minWidth: 280,
+          minHeight: 300,
+          defaultFloating: { left: 0, top: 80, width: 380, height: 620 },
+          onStateChange
+        }));
+      }
+      panelLayouts.get('projectPanel')?.init?.();
+      panelLayouts.get('songPropertiesPanel')?.init?.();
       syncDockableSidePanelGrid();
     }
 
     function togglePanel(panel) {
       const layoutNames = {
-        timeline: 'timelinePanelLayout',
-        sidebar: 'projectPanelLayout',
-        inspector: 'songPropertiesPanelLayout'
+        timeline: 'timeline',
+        sidebar: 'projectPanel',
+        inspector: 'songPropertiesPanel'
       };
-      const layout = getPanelLayout(layoutNames[panel]);
+      const layout = panelLayouts.get(layoutNames[panel]);
       if (layout?.toggleClosed) {
         layout.toggleClosed();
         return;

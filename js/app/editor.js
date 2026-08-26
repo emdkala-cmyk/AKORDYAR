@@ -2094,25 +2094,6 @@ function getMidiScoreController() {
 
       // ===== DRAG & DROP audio files onto timeline =====
       const tlScroll = $('tl-scroll');
-      const timelineScrollbars = window.TimelineScrollbarsService?.create?.({
-        documentRef: document,
-        windowRef: window
-      });
-      timelineScrollbars?.init?.();
-
-      const timelinePanelLayout = window.TimelinePanelLayoutService?.create?.({
-        documentRef: document,
-        windowRef: window,
-        getDockHeight: () => window.getTimelinePanelHeight?.() || 320,
-        setDockHeight: height => window.setTimelinePanelHeight?.(height) || height,
-        onViewportChange: () => timelineScrollbars?.syncGeometry?.()
-      });
-      timelinePanelLayout?.init?.();
-
-      // Public handles are intentionally service-shaped, so popup/runtime code
-      // can request a geometry refresh without reaching into editor internals.
-      window.timelineScrollbars = timelineScrollbars;
-      window.timelinePanelLayout = timelinePanelLayout;
 
       const audioDropService = window.AudioDropImportService?.create?.({
         getDAW: () => getEditorDAW(),

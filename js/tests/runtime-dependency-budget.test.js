@@ -184,6 +184,7 @@ assert.match(editorAutoImportStateService, /function getFailedSongs\(\)/);
 assert.doesNotMatch(editorAutoImportStateService, /window\._ai/);
 assert.doesNotMatch(editor, /window\._ai(?:Results|ArtistMap|Stats|FailedSongs|FailedFiles)/);
 assert.doesNotMatch(editor, /window\._autoImportDirHandle/);
+assert.doesNotMatch(editor, /window\.(?:timelineScrollbars|timelinePanelLayout)/);
 assert.doesNotMatch(archive, /_importParsed/);
 assert.doesNotMatch(editorLyricsRenderer, /window\.edCur/);
 assert.doesNotMatch(editorLyricsRenderer, /\bDAW\b/);
@@ -212,6 +213,11 @@ assert.doesNotMatch(appCore, /function checkMetronomeTick\(/);
 assert.match(corePanelLayoutService, /function initDockableSidePanels\(\)/);
 assert.match(corePanelLayoutService, /function setTimelinePanelHeight\(/);
 assert.match(corePanelLayoutService, /function togglePanel\(panel\)/);
+assert.match(corePanelLayoutService, /function initTimelinePanelLayout\(\)/);
+assert.doesNotMatch(
+  corePanelLayoutService,
+  /globalScope\.(?:projectPanelLayout|songPropertiesPanelLayout)/
+);
 assert.doesNotMatch(appCore, /function initDockableSidePanels\(\)/);
 assert.doesNotMatch(appCore, /function setTimelinePanelHeight\(/);
 assert.doesNotMatch(appCore, /function togglePanel\(panel\)/);

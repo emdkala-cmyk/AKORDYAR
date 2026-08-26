@@ -305,8 +305,9 @@ if (typeof window !== 'undefined') window.customPrompt = customPrompt;
         windowRef: window,
         getElement: id => document.getElementById(id),
         getFocusMode: () => _focusMode,
-        getPanelLayout: name => globalScope[name],
-        panelLayoutService: globalScope.DockablePanelLayoutService
+        panelLayoutService: globalScope.DockablePanelLayoutService,
+        timelineScrollbarsService: globalScope.TimelineScrollbarsService,
+        timelinePanelLayoutService: globalScope.TimelinePanelLayoutService
       });
     if (!corePanelLayoutRuntime) {
       throw new Error(

@@ -708,11 +708,11 @@ assert.ok(
 );
 assert.ok(
   scriptIndex('js/core/TimelineScrollbarsService.js') <
-    scriptIndex('js/app/editor.js')
+    scriptIndex('js/app/core.js')
 );
 assert.ok(
   scriptIndex('js/core/TimelinePanelLayoutService.js') <
-    scriptIndex('js/app/editor.js')
+    scriptIndex('js/app/core.js')
 );
 assert.ok(
   scriptIndex('js/core/TimelineTrackRendererService.js') <

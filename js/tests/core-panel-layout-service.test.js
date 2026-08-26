@@ -42,7 +42,6 @@ const documentRef = {
   },
   getElementById: id => elements[id] || null
 };
-const layouts = {};
 const created = [];
 const panelFactory = {
   create: options => {
@@ -51,18 +50,27 @@ const panelFactory = {
       init: () => created.push(options.panelId),
       toggleClosed: () => created.push(`toggle:${options.panelId}`)
     };
-    layouts[options.panelId] = layout;
     return layout;
   }
+};
+const timelineScrollbarsService = {
+  create: () => ({
+    init: () => created.push('timeline-scrollbars'),
+    syncGeometry: () => {}
+  })
+};
+const timelinePanelLayoutService = {
+  create: () => ({
+    init: () => created.push('timeline-panel'),
+    toggleClosed: () => created.push('toggle:timeline')
+  })
 };
 const service = PanelLayoutService.create({
   documentRef,
   windowRef: { innerHeight: 900, localStorage: storage },
-  getPanelLayout: name => ({
-    projectPanelLayout: layouts.projectPanel,
-    songPropertiesPanelLayout: layouts.songPropertiesPanel
-  }[name]),
-  panelLayoutService: panelFactory
+  panelLayoutService: panelFactory,
+  timelineScrollbarsService,
+  timelinePanelLayoutService
 });
 
 assert.equal(service.setTimelinePanelHeight(500), 500);
@@ -80,7 +88,12 @@ assert.equal(timeline.style.display, '');
 assert.equal(separator.style.display, '');
 
 service.initDockableSidePanels();
-assert.deepEqual(created, ['projectPanel', 'songPropertiesPanel']);
+assert.deepEqual(created, [
+  'timeline-scrollbars',
+  'timeline-panel',
+  'projectPanel',
+  'songPropertiesPanel'
+]);
 assert.equal(service.syncDockableSidePanelGrid(), undefined);
 assert.equal(
   app.style.gridTemplateColumns,
@@ -89,5 +102,7 @@ assert.equal(
 
 service.togglePanel('sidebar');
 assert.deepEqual(created.at(-1), 'toggle:projectPanel');
+service.togglePanel('timeline');
+assert.deepEqual(created.at(-1), 'toggle:timeline');
 
 console.log('CorePanelLayoutService tests passed');
