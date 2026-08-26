@@ -28,6 +28,7 @@ const isBrowser = typeof window !== 'undefined';
 // globalScope فقط برای انتشار runtime state نهایی استفاده می‌شود.
 // placeholder قدیمی DAW حذف شده تا adapter هیچ‌وقت state ناقص را نبیند.
 const globalScope = isBrowser ? window : global;
+let corePerformanceUiRuntime = null;
 
 const corePublicApiFactory = globalScope.CorePublicApi;
 if (!corePublicApiFactory?.create) {
@@ -3018,6 +3019,32 @@ let syncTapKeyHandler = null;
     Object.assign(globalScope, corePerformanceModeRuntime);
     corePublicApi.publish(corePerformanceModeRuntime);
 
+    corePerformanceUiRuntime =
+      globalScope.CorePerformanceUiService?.create?.({
+        documentRef: document,
+        getElement: id => $(id),
+        getPerformanceState: () => ({
+          perfModeActive,
+          arrPerformData,
+          arrPerformIdx
+        }),
+        getAllSongs: () => edGetAllSongs(),
+        getItemSetting: (...args) => getArrItemSetting(...args),
+        getCurrentSong: () => requireEditorSongStateService().currentSong(),
+        getDAW: () => getEditorDAW(),
+        getArrangerEnd: () => getArrangerEnd(),
+        jumpToSong: index => perfJumpToSong(index),
+        saveArrangers: (...args) => saveArrangers(...args),
+        seekTransport: (...args) => seekTransport(...args),
+        ensureAudioCtx: (...args) => ensureAudioCtx(...args),
+        startTransport: (...args) => startTransport(...args)
+      });
+    if (!corePerformanceUiRuntime) {
+      throw new Error(
+        'CorePerformanceUiService باید قبل از app/core.js بارگذاری شود.'
+      );
+    }
+
     /**
      * _startBackgroundPreload — preload تمام آهنگ‌های ارنجر در پس‌زمینه
      *
@@ -3086,172 +3113,8 @@ let syncTapKeyHandler = null;
     }
 
     // Render performance mode UI
-    function renderPerfUI() {
-      if (!perfModeActive || !arrPerformData) return;
-      const arr = arrPerformData;
-      const allSongs = edGetAllSongs();
-
-      // Current song info
-      const songId = arr.items[arrPerformIdx];
-      const song = allSongs.find(s => s.id === songId);
-      const setting = getArrItemSetting(arr, songId);
-      const currentSong = requireEditorSongStateService().currentSong();
-
-      $('perfSongNum').textContent = `${arrPerformIdx + 1} / ${arr.items.length}`;
-      $('perfSongTitle').textContent = song ? (song.title || 'بدون نام') : '—';
-      $('perfSongArtist').textContent = song ? (song.artist || '') : '';
-      const keyName = song?.key || currentSong?.key || 'C';
-      const keyMode = song?.keyMode || currentSong?.keyMode || 'maj';
-      const transVal = setting.transpose || 0;
-      $('perfSongKey').innerHTML = `${keyName} ${keyMode === 'maj' ? 'ماژور' : 'مینور'} ${transVal ? `<span class="perf-trans">(${transVal > 0 ? '+' : ''}${transVal})</span>` : ''}`;
-      $('perfTransVal').textContent = transVal > 0 ? '+' + transVal : String(transVal);
-      if ($('perfTempoVal')) $('perfTempoVal').textContent =
-        song?.tempo || currentSong?.tempo || 120;
-
-      // Render setlist
-      const setlistEl = $('perfSetlist');
-      if (!setlistEl) return;
-      setlistEl.innerHTML = '';
-      
-      let draggedIndex = -1;
-      
-      arr.items.forEach((id, i) => {
-        const s = allSongs.find(x => x.id === id);
-        const st = getArrItemSetting(arr, id);
-        const div = document.createElement('div');
-        div.className = 'arr-perf-setlist-item' + (i === arrPerformIdx ? ' pf-current' : '') + (i === arrPerformIdx + 1 ? ' pf-next' : '') + (i < arrPerformIdx ? ' pf-done' : '');
-        div.draggable = true;
-        div.innerHTML = `<span class="pf-num">${i + 1}</span><span class="pf-name">${s ? (s.title || 'بدون نام') : '—'}</span><span class="pf-key">${s?.key || '—'}${st.transpose ? (st.transpose > 0 ? '+' : '') + st.transpose : ''}</span>`;
-        
-        // Click to jump
-        div.onclick = () => perfJumpToSong(i);
-        
-        // Drag events
-        div.addEventListener('dragstart', (e) => {
-          draggedIndex = i;
-          div.classList.add('dragging');
-          e.dataTransfer.effectAllowed = 'move';
-          e.dataTransfer.setData('text/plain', String(i));
-        });
-        
-        div.addEventListener('dragend', () => {
-          draggedIndex = -1;
-          div.classList.remove('dragging');
-          // Remove all drag-over styles
-          Array.from(setlistEl.children).forEach(child => {
-            child.classList.remove('drag-over-top', 'drag-over-bottom');
-            child.style.borderTop = '';
-            child.style.borderBottom = '';
-          });
-        });
-        
-        div.addEventListener('dragover', (e) => {
-          e.preventDefault();
-          if (draggedIndex === -1 || draggedIndex === i) return;
-          
-          const rect = div.getBoundingClientRect();
-          const midpoint = rect.top + rect.height / 2;
-          
-          // Remove old classes
-          Array.from(setlistEl.children).forEach(child => {
-            child.classList.remove('drag-over-top', 'drag-over-bottom');
-            child.style.borderTop = '';
-            child.style.borderBottom = '';
-          });
-          
-          if (e.clientY < midpoint) {
-            div.classList.add('drag-over-top');
-            div.style.borderTop = '2px solid var(--accent-teal)';
-          } else {
-            div.classList.add('drag-over-bottom');
-            div.style.borderBottom = '2px solid var(--accent-teal)';
-          }
-        });
-        
-        div.addEventListener('dragleave', () => {
-          div.classList.remove('drag-over-top', 'drag-over-bottom');
-          div.style.borderTop = '';
-          div.style.borderBottom = '';
-        });
-        
-        div.addEventListener('drop', (e) => {
-          e.preventDefault();
-          if (draggedIndex === -1 || draggedIndex === i) return;
-          
-          const rect = div.getBoundingClientRect();
-          const midpoint = rect.top + rect.height / 2;
-          let dropIndex = i;
-          
-          // Determine insert position
-          if (e.clientY < midpoint) {
-            dropIndex = i;
-          } else {
-            dropIndex = i + 1;
-          }
-          
-          // Adjust if dragging from before the drop position
-          if (draggedIndex < dropIndex) {
-            dropIndex--;
-          }
-          
-          // Reorder the array
-          if (draggedIndex !== dropIndex) {
-            const movedItem = arr.items.splice(draggedIndex, 1)[0];
-            arr.items.splice(dropIndex, 0, movedItem);
-            
-            // Save updated playlist
-            saveArrangers();
-            
-            // Re-render to reflect changes
-            renderPerfPanel();
-          }
-          
-          // Cleanup
-          draggedIndex = -1;
-          div.classList.remove('drag-over-top', 'drag-over-bottom');
-          div.style.borderTop = '';
-          div.style.borderBottom = '';
-        });
-        
-        setlistEl.appendChild(div);
-      });
-
-      // Render section navigation buttons
-      const secNav = $('perfSectionNav');
-      secNav.innerHTML = '';
-      const sections = ['مقدمه', 'ورس', 'کورس', 'بریج', 'آوترو'];
-      const sectionTimes = [0]; // at least start
-      if (getEditorDAW().sections && getEditorDAW().sections.length) {
-        getEditorDAW().sections.forEach(s => sectionTimes.push(s.start));
-      }
-      // Add end
-      sectionTimes.push(getArrangerEnd());
-      sections.forEach((name, i) => {
-        if (i < sectionTimes.length - 1 || i === 0) {
-          const btn = document.createElement('button');
-          btn.textContent = name;
-          btn.onclick = () => {
-            if (i < sectionTimes.length) {
-              seekTransport(sectionTimes[i], false);
-              if (!getEditorDAW().isPlaying) { ensureAudioCtx(); startTransport(); $('perfPlayBtn').textContent = '⏸'; }
-            }
-          };
-          secNav.appendChild(btn);
-        }
-      });
-
-      // Show notes if any
-      const noteBadge = $('perfNoteBadge');
-      if (setting.notes && setting.notes.trim()) {
-        $('perfNoteText').textContent = setting.notes;
-        noteBadge.classList.add('show');
-      } else {
-        noteBadge.classList.remove('show');
-      }
-
-      // Scroll to current in sidebar
-      const currentItem = setlistEl.querySelector('.pf-current');
-      if (currentItem) currentItem.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    function renderPerfUI(...args) {
+      return corePerformanceUiRuntime?.render?.(...args);
     }
 
     // Pre-build the next song's full DAW state while current plays
