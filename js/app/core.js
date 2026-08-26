@@ -32,6 +32,7 @@ let corePerformanceUiRuntime = null;
 let coreArrangerPreparationRuntime = null;
 let coreArrangerManagerRendererRuntime = null;
 let coreArrangerFileImportRuntime = null;
+let coreArrangerFileExportRuntime = null;
 let coreArrangerSetlistRendererRuntime = null;
 let coreClipRendererRuntime = null;
 let coreArrangerBackgroundPreloadRuntime = null;
@@ -2023,6 +2024,21 @@ let syncTapKeyHandler = null;
       };
     }
 
+    coreArrangerFileExportRuntime =
+      globalScope.CoreArrangerFileExportService?.create?.({
+        documentRef: document,
+        windowRef: window,
+        getAllSongs: () => edGetAllSongs(),
+        toast: message => toast(message),
+        blobRef: globalScope.Blob,
+        urlRef: globalScope.URL
+      });
+    if (!coreArrangerFileExportRuntime) {
+      throw new Error(
+        'CoreArrangerFileExportService باید قبل از app/core.js بارگذاری شود.'
+      );
+    }
+
     coreArrangerManagerRendererRuntime =
       globalScope.CoreArrangerManagerRendererService?.create?.({
         documentRef: document,
@@ -2285,50 +2301,7 @@ let syncTapKeyHandler = null;
      * @param {Object} arr - پلی‌لیست برای اکسپورت
      */
     async function exportArranger(arr) {
-      if (!arr) { toast('⚠ پلی‌لیست نامعتبر'); return; }
-
-      const allSongs = edGetAllSongs();
-      const songData = {};
-      arr.items.forEach(id => {
-        const song = allSongs.find(s => s.id === id);
-        if (song) songData[id] = song;
-      });
-
-      const exportData = {
-        type: 'akordyar-playlist',
-        version: '1.0',
-        name: arr.name || 'پلی‌لیست',
-        items: arr.items,
-        crossfade: arr.crossfade || 0,
-        pauseBetween: !!arr.pauseBetween,
-        _itemSettings: arr._itemSettings || {},
-        songs: songData,
-        exportDate: new Date().toISOString()
-      };
-
-      const fileName = (arr.name || 'playlist').replace(/[\/\\:*?"<>|]/g, '_') + '.json';
-
-      if (window.showSaveFilePicker) {
-        try {
-          const handle = await window.showSaveFilePicker({
-            suggestedName: fileName,
-            types: [{ description: 'JSON Playlist', accept: { 'application/json': ['.json'] } }]
-          });
-          const writable = await handle.createWritable();
-          await writable.write(JSON.stringify(exportData, null, 2));
-          await writable.close();
-          toast(`✅ اکسپورت شد: ${fileName}`);
-        } catch (e) {
-          if (e.name !== 'AbortError') toast('خطا در اکسپورت: ' + e.message);
-        }
-      } else {
-        const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url; a.download = fileName; a.click();
-        URL.revokeObjectURL(url);
-        toast(`✅ اکسپورت شد: ${fileName}`);
-      }
+      return coreArrangerFileExportRuntime?.exportArranger?.(arr);
     }
 
     /**
