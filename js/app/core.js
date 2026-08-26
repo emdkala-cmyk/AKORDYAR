@@ -2040,48 +2040,6 @@ let syncTapKeyHandler = null;
     }
 
     /**
-     * saveCurrentArranger — ذخیره پلی‌لیست فعلی
-     * نام پلی‌لیست رو از input می‌خونه، در localStorage ذخیره می‌کنه،
-     * و لیست پلی‌لیست‌ها رو refresh می‌کنه.
-     * اگر نام تکراری باشه، خطا میده.
-     */
-    function saveCurrentArranger() {
-      if (!editingArr) {
-        toast('⚠ هیچ پلی‌لیستی در حال ویرایش نیست');
-        return;
-      }
-      const nameInput = $('arrName');
-      let newName = nameInput ? nameInput.value.trim() : '';
-      if (!newName) newName = 'پلی‌لیست بدون نام';
-
-      // ─── بررسی نام تکراری با مقایسه normalize شده (به‌جز خود پلی‌لیست فعلی) ───
-      if (playlistNameExists(newName, editingArr.id)) {
-        toast(`⚠ پلی‌لیستی با نام «${newName}» از قبل وجود دارد.`);
-        return;
-      }
-
-      editingArr.name = newName;
-      editingArr.updatedAt = new Date().toISOString();
-
-      // ذخیره crossfade فعلی
-      const cfRange = $('arrCrossfadeRange');
-      if (cfRange) editingArr.crossfade = parseFloat(cfRange.value) || 0;
-
-      saveArrangers();
-      renderArrangerManager();
-      toast(`✅ پلی‌لیست «${editingArr.name}» ذخیره شد (${editingArr.items.length} آهنگ)`);
-    }
-
-    // Debounced save for playlist name input
-    let _saveNameDebounceTimer = null;
-    function saveCurrentArrangerDebounced() {
-      if (_saveNameDebounceTimer) clearTimeout(_saveNameDebounceTimer);
-      _saveNameDebounceTimer = setTimeout(() => {
-        saveCurrentArranger();
-      }, 500);
-    }
-
-    /**
      * exportCurrentArranger — اکسپورت پلی‌لیست فعلی به فایل JSON
      */
     function exportCurrentArranger() {
@@ -2288,6 +2246,30 @@ let syncTapKeyHandler = null;
     }
     // Expose for ProjectHub (Hub "➕ جدید" button).
     corePublicApi.publish({ createNewArranger });
+
+    const coreArrangerSaveRuntime =
+      globalScope.CoreArrangerSaveService?.create?.({
+        getElement: id => $(id),
+        getEditingArr: () => editingArr,
+        playlistNameExists: (...args) => playlistNameExists(...args),
+        saveArrangers: (...args) => saveArrangers(...args),
+        renderArrangerManager: (...args) => renderArrangerManager(...args),
+        toast: message => toast(message),
+        isoNow: () => new Date().toISOString(),
+        schedule: (...args) => setTimeout(...args),
+        cancel: timer => clearTimeout(timer)
+      });
+    if (!coreArrangerSaveRuntime) {
+      throw new Error(
+        'CoreArrangerSaveService باید قبل از app/core.js بارگذاری شود.'
+      );
+    }
+    function saveCurrentArranger(...args) {
+      return coreArrangerSaveRuntime.saveCurrentArranger(...args);
+    }
+    function saveCurrentArrangerDebounced(...args) {
+      return coreArrangerSaveRuntime.saveCurrentArrangerDebounced(...args);
+    }
 
     // ===== Performance Mode (Live Dashboard) =====
     let arrPerformIdx = -1, arrPerformActive = false, arrPerformData = null, arrPreparePending = false;
