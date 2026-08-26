@@ -30,6 +30,7 @@ const isBrowser = typeof window !== 'undefined';
 const globalScope = isBrowser ? window : global;
 let corePerformanceUiRuntime = null;
 let coreArrangerPreparationRuntime = null;
+let coreArrangerManagerRendererRuntime = null;
 
 const corePublicApiFactory = globalScope.CorePublicApi;
 if (!corePublicApiFactory?.create) {
@@ -2055,105 +2056,33 @@ let syncTapKeyHandler = null;
       };
     }
 
-    function renderArrangerManager() {
-      const box = $('arrManager'); box.innerHTML = '';
-
-      // ─── هدر بخش پلی‌لیست‌ها ───
-      const header = document.createElement('div');
-      header.className = 'arr-manager-header';
-      header.innerHTML = `
-        <div style="display:flex;align-items:center;">
-          <h4>📋 پلی‌لیست‌های ذخیره‌شده</h4>
-          <span class="arr-count-badge">${arrangers.length}</span>
-        </div>
-      `;
-      box.appendChild(header);
-
-      // ─── نوار ابزار: پلی‌لیست جدید + ایمپورت/اکسپورت ───
-      const toolbar = document.createElement('div');
-      toolbar.className = 'arr-manager-toolbar';
-      toolbar.innerHTML = `
-        <button class="arr-btn-new" data-action="createNewArranger" title="ساخت پلی‌لیست جدید">
-          ＋ پلی‌لیست جدید
-        </button>
-        <div style="display:flex;gap:6px;">
-          <button class="arr-btn-import" data-action="importArrangerFromFile" title="بارگذاری یک پلی‌لیست از فایل JSON">
-            📥 ورود یک پلی‌لیست
-          </button>
-          <button class="arr-btn-import" data-action="importAllPlaylistsFromFile" title="بارگذاری کامل همه پلی‌لیست‌ها از فایل پشتیبان">
-            📥 ورود کامل پلی‌لیست‌ها
-          </button>
-          <button class="arr-btn-import" data-action="exportAllPlaylistsToFile" title="خروجی کامل همه پلی‌لیست‌ها در یک فایل" ${arrangers.length === 0 ? 'disabled' : ''}>
-            📤 خروجی کامل پلی‌لیست‌ها
-          </button>
-        </div>
-      `;
-      box.appendChild(toolbar);
-
-      // ─── حالت خالی ───
-      if (!arrangers.length) {
-        const empty = document.createElement('div');
-        empty.className = 'arr-empty-state';
-        empty.innerHTML = `
-          <div class="arr-empty-icon">🎼</div>
-          <div class="arr-empty-text">هنوز پلی‌لیستی نساخته‌اید.<br>روی «پلی‌لیست جدید» بزنید تا اولین پلی‌لیست رو بسازید.</div>
-        `;
-        box.appendChild(empty);
-        return;
-      }
-
-      // ─── لیست کارت‌های پلی‌لیست ───
-      arrangers.forEach(arr => {
-        const isActive = editingArr && editingArr.id === arr.id;
-        const card = document.createElement('div');
-        card.className = 'arr-card' + (isActive ? ' arr-card-active' : '');
-
-        // ساخت badge ها برای کراس‌فید و توقف
-        const badges = [];
-        if (arr.crossfade) badges.push(`<span class="arr-badge badge-crossfade">🔄 کراس‌فید: ${arr.crossfade}s</span>`);
-        if (arr.pauseBetween) badges.push(`<span class="arr-badge badge-pause">⏸ توقف بین آهنگ‌ها</span>`);
-
-        card.innerHTML = `
-          <div class="meta">
-            <b>${arr.name || t('untitled')}</b>
-            <span>${arr.items.length} ${t('songN')}</span>
-            ${badges.length ? `<div class="arr-card-badges">${badges.join('')}</div>` : ''}
-          </div>
-          <div class="acts">
-            <button data-a="edit" title="ویرایش">✏️ ویرایش</button>
-            <button data-a="export" class="act-export" title="خروجی به فایل">📤</button>
-            <button data-a="del" class="act-del" title="حذف">🗑</button>
-          </div>
-        `;
-
-        card.onclick = (e) => {
-          const a = e.target.dataset.a;
-          if (!a) {
-            // کلیک روی کارت = ویرایش
-            editingArr = arr;
-            openArrEditor();
-            return;
-          }
-          if (a === 'del') {
-            if (confirm(`حذف پلی‌لیست «${arr.name || t('untitled')}»؟`)) {
-              arrangers = arrangers.filter(x => x.id !== arr.id);
-              saveArrangers();
-              if (editingArr && editingArr.id === arr.id) {
-                editingArr = null;
-                $('arrEditor').style.display = 'none';
-              }
-              renderArrangerManager();
-              toast('🗑 پلی‌لیست حذف شد');
-            }
-          } else if (a === 'edit') {
-            editingArr = arr;
-            openArrEditor();
-          } else if (a === 'export') {
-            exportArranger(arr);
-          }
-        };
-        box.appendChild(card);
+    coreArrangerManagerRendererRuntime =
+      globalScope.CoreArrangerManagerRendererService?.create?.({
+        documentRef: document,
+        getElement: id => $(id),
+        getArrangers: () => arrangers,
+        getEditingArr: () => editingArr,
+        setArrangers: value => {
+          arrangers = value;
+        },
+        setEditingArr: value => {
+          editingArr = value;
+        },
+        openArrEditor: (...args) => openArrEditor(...args),
+        saveArrangers: (...args) => saveArrangers(...args),
+        exportArranger: (...args) => exportArranger(...args),
+        confirmRef: message => confirm(message),
+        translate: key => t(key),
+        toast: message => toast(message)
       });
+    if (!coreArrangerManagerRendererRuntime) {
+      throw new Error(
+        'CoreArrangerManagerRendererService باید قبل از app/core.js بارگذاری شود.'
+      );
+    }
+
+    function renderArrangerManager(...args) {
+      return coreArrangerManagerRendererRuntime?.render?.(...args);
     }
 
     // Send current song to Arranger Track
