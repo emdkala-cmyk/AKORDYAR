@@ -33,6 +33,7 @@ let coreArrangerPreparationRuntime = null;
 let coreArrangerManagerRendererRuntime = null;
 let coreArrangerFileImportRuntime = null;
 let coreArrangerSetlistRendererRuntime = null;
+let coreClipRendererRuntime = null;
 
 const corePublicApiFactory = globalScope.CorePublicApi;
 if (!corePublicApiFactory?.create) {
@@ -976,64 +977,27 @@ function applyState(stateStr) {
       });
     }
 
-    function renderClips(options = {}) {
-      const preserveWaveforms = options.preserveWaveforms === true;
-      document.querySelectorAll('.clip').forEach(el => el.remove());
-      // Render audio & chord clips
-      getEditorDAW().clips.forEach(clip => {
-        const lane = document.querySelector(`.track-lane[data-track-id="${clip.trackId}"]`); if (!lane) return;
-        const hint = lane.querySelector('.empty-lane-hint'); if (hint) hint.remove();
-        if (clip.type !== 'chord' && (!preserveWaveforms || !clip.waveUrl)) {
-          refreshClipWaveImage(clip);
-        }
-        const el = document.createElement('div');
-        el.className = 'clip' + (clip.type === 'chord' ? ' chord-clip' : '') + (getEditorDAW().selectedIds.has(clip.id) ? ' selected' : '');
-        el.dataset.clipId = clip.id; el.style.left = timeToX(clip.start) + 'px'; el.style.width = Math.max(30, timeToX(clip.duration)) + 'px';
-        if (clip.type !== 'chord') {
-          el.style.background = `linear-gradient(180deg, ${clip.color}bb, ${clip.color}88)`;
-          el.innerHTML = `<img class="clip-wave" alt="" draggable="false" ${clip.waveUrl ? `src="${clip.waveUrl}"` : ''}><div class="clip-title">${clip.name}</div><div class="resize-handle left" data-edge="left"></div><div class="resize-handle right" data-edge="right"></div>`;
-          // Mouseover event to show file path in storageInfoBar
-          el.addEventListener('mouseenter', (e) => {
-            const filePath = getClipFilePath(clip);
-            if (filePath) {
-              const storageBar = document.getElementById('storageInfoBar');
-              const storageText = document.getElementById('storageText');
-              if (storageBar && storageText) {
-                storageBar.style.display = 'block';
-                storageText.textContent = filePath;
-                storageText.title = filePath;
-              }
-            }
-          });
-          el.addEventListener('mouseleave', () => {
-            const storageBar = document.getElementById('storageInfoBar');
-            const storageText = document.getElementById('storageText');
-            if (storageBar && storageText) {
-              storageBar.style.display = 'none';
-              storageText.textContent = '';
-            }
-          });
-        } else {
-          const chordColor = clip.color || '#9F7AEA';
-          el.style.background = `linear-gradient(180deg, ${chordColor}cc, ${chordColor}77)`;
-          el.style.borderColor = chordColor;
-          el.innerHTML = `<span>${clip.name}</span><div class="resize-handle left" data-edge="left"></div><div class="resize-handle right" data-edge="right"></div>`;
-          // Keep chord editing reliable even when the first click causes a
-          // clip re-render. The delegated/native double-click path complements
-          // the pointer timing fallback in onClipMouseDown.
-          el.addEventListener('dblclick', event => {
-            event.preventDefault();
-            event.stopPropagation();
-            openTimelineChordEditor(clip.id);
-          });
-        }
-        el.addEventListener(
-          'pointerdown',
-          event => onClipMouseDown(event)
-        );
-        lane.appendChild(el);
+    coreClipRendererRuntime =
+      globalScope.CoreClipRendererService?.create?.({
+        documentRef: document,
+        getDAW: () => getEditorDAW(),
+        timeToX: value => timeToX(value),
+        refreshClipWaveImage: (...args) => refreshClipWaveImage(...args),
+        getClipFilePath: (...args) => getClipFilePath(...args),
+        onClipMouseDown: (...args) => onClipMouseDown(...args),
+        openTimelineChordEditor: (...args) =>
+          openTimelineChordEditor(...args),
+        renderSections: () =>
+          getTimelineSectionRendererService()?.renderSections?.()
       });
-      getTimelineSectionRendererService()?.renderSections?.();
+    if (!coreClipRendererRuntime) {
+      throw new Error(
+        'CoreClipRendererService باید قبل از app/core.js بارگذاری شود.'
+      );
+    }
+
+    function renderClips(options = {}) {
+      return coreClipRendererRuntime?.render?.(options);
     }
 
     function updateHud() { $('clip-count').textContent = String(getEditorDAW().clips.length + (getEditorDAW().sections || []).length); }

@@ -1,0 +1,99 @@
+/*
+ * CoreClipRendererService
+ *
+ * Renders audio and chord clips without owning DAW state.
+ */
+(function attachCoreClipRendererService(globalScope) {
+  'use strict';
+
+  function create({
+    documentRef = globalScope.document,
+    getDAW = () => globalScope.getEditorDAW?.() || globalScope.DAW || {},
+    timeToX = value => value,
+    refreshClipWaveImage = () => {},
+    getClipFilePath = () => '',
+    onClipMouseDown = () => {},
+    openTimelineChordEditor = () => {},
+    renderSections = () => {}
+  } = {}) {
+    function render(options = {}) {
+      const preserveWaveforms = options.preserveWaveforms === true;
+      documentRef.querySelectorAll('.clip').forEach(element => element.remove());
+      const daw = getDAW() || {};
+      (daw.clips || []).forEach(clip => {
+        const lane = documentRef.querySelector(
+          `.track-lane[data-track-id="${clip.trackId}"]`
+        );
+        if (!lane) return;
+        lane.querySelector?.('.empty-lane-hint')?.remove?.();
+
+        if (
+          clip.type !== 'chord' &&
+          (!preserveWaveforms || !clip.waveUrl)
+        ) {
+          refreshClipWaveImage(clip);
+        }
+
+        const element = documentRef.createElement('div');
+        element.className =
+          'clip' +
+          (clip.type === 'chord' ? ' chord-clip' : '') +
+          (daw.selectedIds?.has?.(clip.id) ? ' selected' : '');
+        element.dataset.clipId = clip.id;
+        element.style.left = timeToX(clip.start) + 'px';
+        element.style.width = Math.max(30, timeToX(clip.duration)) + 'px';
+
+        if (clip.type !== 'chord') {
+          element.style.background =
+            `linear-gradient(180deg, ${clip.color}bb, ${clip.color}88)`;
+          element.innerHTML =
+            `<img class="clip-wave" alt="" draggable="false" ${clip.waveUrl ? `src="${clip.waveUrl}"` : ''}><div class="clip-title">${clip.name}</div><div class="resize-handle left" data-edge="left"></div><div class="resize-handle right" data-edge="right"></div>`;
+          element.addEventListener('mouseenter', () => {
+            const filePath = getClipFilePath(clip);
+            if (!filePath) return;
+            const storageBar = documentRef.getElementById('storageInfoBar');
+            const storageText = documentRef.getElementById('storageText');
+            if (storageBar && storageText) {
+              storageBar.style.display = 'block';
+              storageText.textContent = filePath;
+              storageText.title = filePath;
+            }
+          });
+          element.addEventListener('mouseleave', () => {
+            const storageBar = documentRef.getElementById('storageInfoBar');
+            const storageText = documentRef.getElementById('storageText');
+            if (storageBar && storageText) {
+              storageBar.style.display = 'none';
+              storageText.textContent = '';
+            }
+          });
+        } else {
+          const chordColor = clip.color || '#9F7AEA';
+          element.style.background =
+            `linear-gradient(180deg, ${chordColor}cc, ${chordColor}77)`;
+          element.style.borderColor = chordColor;
+          element.innerHTML =
+            `<span>${clip.name}</span><div class="resize-handle left" data-edge="left"></div><div class="resize-handle right" data-edge="right"></div>`;
+          element.addEventListener('dblclick', event => {
+            event.preventDefault();
+            event.stopPropagation();
+            openTimelineChordEditor(clip.id);
+          });
+        }
+
+        element.addEventListener('pointerdown', event => onClipMouseDown(event));
+        lane.appendChild(element);
+      });
+      renderSections?.();
+    }
+
+    return Object.freeze({ render });
+  }
+
+  const service = Object.freeze({ create });
+  globalScope.CoreClipRendererService = service;
+
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = service;
+  }
+})(typeof window !== 'undefined' ? window : globalThis);
