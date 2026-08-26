@@ -1019,38 +1019,22 @@ function applyState(stateStr) {
 
     function updateHud() { $('clip-count').textContent = String(getEditorDAW().clips.length + (getEditorDAW().sections || []).length); }
 
-     let _audioSaveTimer = null;
-     let _audioSaveRunning = false;
-     let _audioSaveQueued = false;
-
-     function scheduleAudioBlobSave() {
-     const songId = requireEditorSongStateService().currentSong()?.id;
-     if (!songId) return;
-
-     clearTimeout(_audioSaveTimer);
-
-    _audioSaveTimer = setTimeout(async () => {
-    if (_audioSaveRunning) {
-      _audioSaveQueued = true;
-      return;
+    const coreAudioBlobSaveSchedulerRuntime =
+      globalScope.CoreAudioBlobSaveSchedulerService?.create?.({
+        getSongId: () => requireEditorSongStateService().currentSong()?.id,
+        saveAudioBlobsForProject: (...args) =>
+          saveAudioBlobsForProject(...args),
+        schedule: (...args) => setTimeout(...args),
+        cancel: timer => clearTimeout(timer),
+        logger: console
+      });
+    if (!coreAudioBlobSaveSchedulerRuntime) {
+      throw new Error(
+        'CoreAudioBlobSaveSchedulerService باید قبل از app/core.js بارگذاری شود.'
+      );
     }
-
-    _audioSaveRunning = true;
-
-    try {
-      await saveAudioBlobsForProject(songId);
-    } catch (e) {
-      console.warn('Audio save error:', e);
-    } finally {
-      _audioSaveRunning = false;
-
-      if (_audioSaveQueued) {
-        _audioSaveQueued = false;
-        scheduleAudioBlobSave();
-      }
-    }
-  }, 1200);
-}
+    const { scheduleAudioBlobSave } = coreAudioBlobSaveSchedulerRuntime;
+    corePublicApi.publish({ scheduleAudioBlobSave });
 
     const coreSelectionRuntime =
       globalScope.CoreSelectionService?.create?.({
