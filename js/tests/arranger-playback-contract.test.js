@@ -24,6 +24,15 @@ const editor = fs.readFileSync(
   path.join(projectRoot, 'js', 'app', 'editor.js'),
   'utf8'
 );
+const songLoadService = fs.readFileSync(
+  path.join(
+    projectRoot,
+    'js',
+    'editor',
+    'EditorArrangerSongLoadService.js'
+  ),
+  'utf8'
+);
 const markerController = fs.readFileSync(
   path.join(
     projectRoot,
@@ -53,6 +62,11 @@ assert.ok(
   'arranger playback policy must load before core'
 );
 assert.ok(
+  html.indexOf('js/editor/EditorArrangerSongLoadService.js') <
+    html.indexOf('js/app/editor.js'),
+  'arranger song load service must load before editor'
+);
+assert.ok(
   html.indexOf('js/editor/ArrangerMarkerService.js') <
     html.indexOf('js/editor/EditorHydrationService.js'),
   'arranger marker service must load before hydration'
@@ -77,8 +91,16 @@ assert.match(
 assert.match(preparationService, /arrangerMarkers:\s*songData\._arrangerMarkers/);
 assert.match(preparationService, /legacyLoopState:\s*songData\._dawLoop/);
 assert.match(preparationService, /playbackStart:\s*playbackBoundary\.start/);
-assert.match(editor, /arrangerPlaybackPolicy\?\.applyToDAW/);
-assert.match(editor, /seekTransport\(arrPerformActive \? playbackBoundary\.start : 0, false, true\)/);
+assert.match(songLoadService, /playbackPolicy\?\.applyToDAW/);
+assert.match(
+  songLoadService,
+  /arrangerMarkers:\s*song\._arrangerMarkers/
+);
+assert.match(
+  songLoadService,
+  /seekTransport\(\s*stateAfterLoad\.active \? playbackBoundary\.start : 0,\s*false,\s*true\s*\)/
+);
+assert.match(editor, /getPlaybackPolicy:\s*\(\) => arrangerPlaybackPolicy/);
 assert.match(editor, /arrangerMarkers:\s*ns\.arrangerMarkers/);
 assert.match(editor, /seekTransport\(arrPerformActive \? nextStart : 0, true, true\)/);
 assert.doesNotMatch(editor, /var _ori2 = PlayheadMath\.createOrigin/);

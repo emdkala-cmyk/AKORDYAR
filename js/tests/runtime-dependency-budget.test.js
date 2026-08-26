@@ -39,6 +39,9 @@ const editorAutoImportFileSaveService = read(
 const editorAutoImportWorkflowService = read(
   'js/editor/EditorAutoImportWorkflowService.js'
 );
+const editorArrangerSongLoadService = read(
+  'js/editor/EditorArrangerSongLoadService.js'
+);
 const editorColorToolService = read(
   'js/editor/EditorColorToolService.js'
 );
@@ -218,6 +221,23 @@ assert.match(
   /function startAutoImport\(\)\s*\{\s*return editorAutoImportWorkflowService\.start\(\);\s*\}/
 );
 assert.doesNotMatch(editor, /━━━ خلاصه شناسایی ━━━/);
+assert.match(editorArrangerSongLoadService, /async function load\(index\)/);
+assert.match(
+  editorArrangerSongLoadService,
+  /function resetPreparationState\(\)/
+);
+assert.match(
+  editorArrangerSongLoadService,
+  /function fallbackPlaybackBoundary\(\)/
+);
+assert.doesNotMatch(
+  editor,
+  /const arr = arrPerformData \|\| editingArr;/
+);
+assert.match(
+  editor,
+  /async function loadArrSong\(idx\)\s*\{\s*return getEditorArrangerSongLoadService\(\)\?\.load\(idx\);\s*\}/
+);
 assert.match(editorColorToolService, /function paintContextAware\(event\)/);
 assert.match(editorColorToolService, /function applyColorToClip\(clip, color\)/);
 assert.match(

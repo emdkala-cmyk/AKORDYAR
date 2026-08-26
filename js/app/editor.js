@@ -358,109 +358,83 @@ function getMidiScoreController() {
       });
     }
 
+    let editorArrangerSongLoadService = null;
+    function getEditorArrangerSongLoadService() {
+      if (
+        !editorArrangerSongLoadService &&
+        typeof window.EditorArrangerSongLoadService?.create === 'function'
+      ) {
+        editorArrangerSongLoadService =
+          window.EditorArrangerSongLoadService.create({
+            getArrangement: () => arrPerformData || editingArr,
+            getPerformanceState: () => ({
+              active: arrPerformActive,
+              index: arrPerformIdx,
+              pauseMode: perfPauseMode,
+              perfModeActive,
+              nextState: _arrNextState,
+              preparePending: arrPreparePending,
+              waitPollActive: _arrWaitPollActive,
+              hasLoggedNoNextSong: _arrHasLoggedNoNextSong,
+              prepStartedForIndex: _arrPrepStartedForIndex
+            }),
+            updatePerformanceState: patch => {
+              if ('active' in patch) arrPerformActive = patch.active;
+              if ('index' in patch) arrPerformIdx = patch.index;
+              if ('nextState' in patch) _arrNextState = patch.nextState;
+              if ('preparePending' in patch) {
+                arrPreparePending = patch.preparePending;
+              }
+              if ('waitPollActive' in patch) {
+                _arrWaitPollActive = patch.waitPollActive;
+              }
+              if ('hasLoggedNoNextSong' in patch) {
+                _arrHasLoggedNoNextSong = patch.hasLoggedNoNextSong;
+              }
+              if ('prepStartedForIndex' in patch) {
+                _arrPrepStartedForIndex = patch.prepStartedForIndex;
+              }
+            },
+            getAllSongs: () => edGetAllSongs(),
+            getItemSetting: (...args) => getArrItemSetting(...args),
+            getDAW: () => getEditorDAW(),
+            loadSong: (...args) =>
+              getEditorSongTransitionService()?.loadSong(...args),
+            getPlaybackPolicy: () => arrangerPlaybackPolicy,
+            getProjectEnd: () => getProjectEnd(),
+            pauseTransport: () => pauseTransport(),
+            stopAllVoices: () => stopAllVoices(),
+            setSelectionEnd: value => {
+              selectionEnd = value;
+            },
+            resetRecording: () => {
+              isRecordingChords = false;
+              currentRecordingClipId = null;
+            },
+            resetHistory: () => resetHistory(),
+            syncToolbar: () => edSyncToolbar(),
+            renderEditor: (...args) => edRenderEditor(...args),
+            renderAll: (...args) => renderAll(...args),
+            saveState: () => saveState(),
+            initHighlightEffect: () => initHighlightEffect(),
+            syncUIAfterSongChange: () => syncUIAfterSongChange(),
+            toast: message => toast(message),
+            translate: key => t(key),
+            seekTransport: (...args) => seekTransport(...args),
+            ensureAudioCtx: () => ensureAudioCtx(),
+            startTransport: () => startTransport(),
+            prepareNextSong: (...args) => prepareNextArrSong(...args),
+            renderPerfUI: () => renderPerfUI(),
+            mirrorTimeline: () => safeMirrorTimeline(),
+            schedule: (...args) => setTimeout(...args),
+            logger: console
+          });
+      }
+      return editorArrangerSongLoadService;
+    }
+
     async function loadArrSong(idx) {
-      const arr = arrPerformData || editingArr;
-      if (!arr || idx >= arr.items.length) { arrPerformActive = false; _arrNextState = null; toast(t('arrangerFinished')); return; }
-      arrPerformIdx = idx;
-
-      // ─── Reset prep state ───
-      // وقتی کاربر دستی آهنگی رو انتخاب می‌کنه، state های prep قبلی رو پاک کن
-      _arrNextState = null;
-      arrPreparePending = false;
-      _arrWaitPollActive = false;
-      _arrHasLoggedNoNextSong = false; // reset no-next-song log flag
-      _arrPrepStartedForIndex = -1;    // reset prep log flag
-
-      const allSongs = edGetAllSongs();
-      const song = allSongs.find(s => s.id === arr.items[idx]);
-      if (!song) { await loadArrSong(idx + 1); return; }
-
-      console.log(`[Arranger] loadArrSong(${idx}): "${song.title}"`);
-
-      pauseTransport(); stopAllVoices();
-      // ─── مهم: bufferCache رو پاک نکن! ───
-      // قبلاً اینجا getEditorDAW().bufferCache.clear() بود که همه بافرهای preload شده رو پاک می‌کرد.
-      // این باعث می‌شد هر بار که آهنگ لود می‌شه، همه فایل‌ها دوباره از اول لود بشن.
-      // به‌جاش، فقط waveCache (تصاویر waveform) رو پاک می‌کنیم که اون هم بعداً rebuild می‌شه.
-      selectionEnd = 0;
-      isRecordingChords = false; currentRecordingClipId = null;
-
-      const setting = getArrItemSetting(arr, song.id);
-      const transition = await getEditorSongTransitionService()?.loadSong(song, {
-        transpose: setting.transpose || 0,
-        styleDefaults: {
-          tSize: 23, tColor: '#0fa966', tFont: 'Vazirmatn', tBold: true,
-          align: 'center', cSize: 23, cColor: '#e6aa28',
-          cFont: 'JetBrains Mono'
-        }
-      });
-      if (!transition) {
-        console.error('[Arranger] Song transition service is unavailable');
-        return;
-      }
-
-      const playbackBoundary = arrangerPlaybackPolicy?.createBoundary?.({
-        clips: getEditorDAW().clips,
-        sections: getEditorDAW().sections,
-        arrangerMarkers: song._arrangerMarkers,
-        legacyLoopState: song._dawLoop,
-        fallbackEnd: 30
-      }) || {
-        start: 0,
-        end: getProjectEnd(),
-        selectionEnd: getProjectEnd(),
-        markers: { enabled: false, start: 0, end: getProjectEnd() }
-      };
-
-      if (arrPerformActive) {
-        arrangerPlaybackPolicy?.applyToDAW?.(getEditorDAW());
-        selectionEnd = playbackBoundary.end;
-      } else {
-        selectionEnd = (getEditorDAW().loopA < getEditorDAW().loopB)
-          ? getEditorDAW().loopB
-          : 0;
-      }
-
-      const restoreResult = transition.restoreResult;
-      if (transition.restoreError) {
-        console.warn('Audio load error:', transition.restoreError);
-        toast('⚠ خطا در لود فایل صوتی');
-      } else if (restoreResult) {
-        if (restoreResult.missing > 0) {
-          console.warn(`[Arranger] ${restoreResult.missing} audio clip(s) could not be loaded:`, restoreResult.missingNames);
-          toast(`⚠ ${restoreResult.missing} فایل صوتی پیدا نشد — ${restoreResult.missingNames.slice(0, 2).join(', ')}${restoreResult.missingNames.length > 2 ? '...' : ''}`);
-        } else {
-          console.log(`[Arranger] ✓ Audio loaded for "${song.title}" (${restoreResult.loaded} clips)`);
-        }
-      }
-
-      resetHistory();
-      edSyncToolbar(); edRenderEditor(true); renderAll(); saveState();
-      initHighlightEffect();
-      // Sync popup windows, SongDocument, and embedded view
-      syncUIAfterSongChange();
-
-      toast(`${t('songN')} ${idx + 1}/${arr.items.length}: ${song.title || t('untitled')}`);
-      seekTransport(arrPerformActive ? playbackBoundary.start : 0, false, true);
-      ensureAudioCtx();
-      if (arrPerformActive && !getEditorDAW().isPlaying && !perfPauseMode) startTransport();
-      if (arrPerformActive && idx + 1 < arr.items.length) {
-        // ─── شروع prep آهنگ بعدی با delay کوتاه ───
-        // تا playback فعلی شروع بشه و بعد prep شروع شه
-        setTimeout(() => {
-          if (arrPerformActive && arrPerformIdx === idx && !_arrNextState && !arrPreparePending) {
-            arrPreparePending = true;
-            prepareNextArrSong()
-              .then(() => { arrPreparePending = false; })
-              .catch((e) => { console.error('[Arranger] Prep after loadArrSong failed:', e); arrPreparePending = false; });
-          }
-        }, 500);
-      }
-
-      // Update perf UI
-      if (perfModeActive) renderPerfUI();
-      // آینه آکوردها در پاپ‌آپ
-      setTimeout(safeMirrorTimeline, 1000);
+      return getEditorArrangerSongLoadService()?.load(idx);
     }
 
     function setZoom(pps, anchorClientX) {
