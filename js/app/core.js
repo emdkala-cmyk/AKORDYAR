@@ -2134,27 +2134,6 @@ let syncTapKeyHandler = null;
       saveArrangers(); closeArrSongNote(); renderArrSetlist();
     }
 
-    function renderArrPool() {
-      const box = $('arrPool'); box.innerHTML = '';
-      const allSongs = edGetAllSongs();
-      const inList = new Set(editingArr.items);
-      let avail = allSongs.filter(s => !inList.has(s.id));
-      const query = ($('arrSearchInput')?.value || '').trim().toLowerCase();
-      if (query) {
-        avail = avail.filter(s => {
-          const matchText = ((s.title || '') + ' ' + (s.artist || '') + ' ' + (s.key || '') + ' ' + (s.genre || '')).toLowerCase();
-          return matchText.includes(query);
-        });
-      }
-      if (!avail.length) { box.innerHTML = `<div style="padding:14px;color:var(--text-secondary);font-size:13px;">${query ? 'نتیجه‌ای یافت نشد' : t('allInSetlist')}</div>`; return; }
-      avail.forEach(s => {
-        const it = document.createElement('div'); it.className = 'arr-item';
-        it.innerHTML = `<span class="ai-title">${s.title || t('untitled')}<small>${s.artist || '—'}</small></span><button>＋</button>`;
-        it.onclick = () => { editingArr.items.push(s.id); saveArrangers(); renderArrPool(); renderArrSetlist(); };
-        box.appendChild(it);
-      });
-    }
-
     // ===== Arranger Setlist Management =====
     coreArrangerSetlistRendererRuntime =
       globalScope.CoreArrangerSetlistRendererService?.create?.({
@@ -2176,6 +2155,26 @@ let syncTapKeyHandler = null;
 
     function renderArrSetlist(...args) {
       return coreArrangerSetlistRendererRuntime?.render?.(...args);
+    }
+
+    const coreArrangerPoolRendererRuntime =
+      globalScope.CoreArrangerPoolRendererService?.create?.({
+        documentRef: document,
+        getElement: id => $(id),
+        getEditingArr: () => editingArr,
+        getAllSongs: () => edGetAllSongs(),
+        getSearchQuery: () => $('arrSearchInput')?.value || '',
+        saveArrangers: (...args) => saveArrangers(...args),
+        renderArrSetlist: (...args) => renderArrSetlist(...args),
+        translate: key => t(key)
+      });
+    if (!coreArrangerPoolRendererRuntime) {
+      throw new Error(
+        'CoreArrangerPoolRendererService باید قبل از app/core.js بارگذاری شود.'
+      );
+    }
+    function renderArrPool(...args) {
+      return coreArrangerPoolRendererRuntime.render(...args);
     }
 
     coreArrangerEditorRuntime =
