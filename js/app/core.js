@@ -1518,7 +1518,6 @@ function applyState(stateStr) {
 
     /* ===== POPUP WINDOW FULLSCREEN ===== */
     let _lyricPopup = null;
-    let _lyricOnlyMessageCleanup = null;
     let _focusMode = false;
     const coreFocusModeRuntime =
       globalScope.CoreFocusModeService?.create?.({
@@ -1567,121 +1566,27 @@ function applyState(stateStr) {
       popupWindowBridge?.set?.(_lyricOnlyPopup, '__popupRole', 'singer');
       syncLyricOnlyPopup();
     }
-    function syncLyricOnlyPopup() {
-      if (!isPopupOpen(_lyricOnlyPopup)) return;
-      const snapshot = requireEditorSongStateService().getPresentationSnapshot();
-      if (!snapshot) return;
-      const doc = popupDocument(_lyricOnlyPopup);
-      if (!doc) return;
-      const { title, artist, lyrics, styles } = snapshot;
-      const { tSize, tColor, tFont, tBold, align } = styles;
-      const lines = lyrics.split('\n');
-
-      doc.title = title + ' — ' + artist + ' | خواننده';
-      doc.documentElement.dir = 'rtl';
-      doc.documentElement.lang = 'fa';
-      doc.head.innerHTML = `
-        <style>
-          @font-face { font-family: 'Vazirmatn'; src: url('../fonts/Vazirmatn-Regular.woff2') format('woff2'); font-weight: normal; }
-          @font-face { font-family: 'Vazirmatn Bold'; src: url('../fonts/Vazirmatn-Bold.woff2') format('woff2'); }
-          @font-face { font-family: 'Vazirmatn Thin'; src: url('../fonts/Vazirmatn-Thin.woff2') format('woff2'); }
-          @font-face { font-family: 'Vazirmatn Black'; src: url('../fonts/Vazirmatn-Black.woff2') format('woff2'); }
-          @font-face { font-family: 'BArshia'; src: url('../fonts/BArshia.woff2') format('woff2'); }
-          @font-face { font-family: 'BFarnaz'; src: url('../fonts/BFarnaz.woff2') format('woff2'); }
-          @font-face { font-family: 'BJadid'; src: url('../fonts/BJadidBd.woff2') format('woff2'); }
-          @font-face { font-family: 'BZar'; src: url('../fonts/BZar.woff2') format('woff2'); font-weight: normal; }
-          @font-face { font-family: 'BZar Bold'; src: url('../fonts/BZarBd.woff2') format('woff2'); }
-          @font-face { font-family: 'Lalezar'; src: url('../fonts/Lalezar-Regular.woff2') format('woff2'); }
-          @font-face { font-family: 'Mada'; src: url('../fonts/Mada-Bold.woff2') format('woff2'); }
-          @font-face { font-family: 'Rubik'; src: url('../fonts/Rubik-Bold.woff2') format('woff2'); }
-          @font-face { font-family: 'JetBrains Mono'; src: url('../fonts/JetBrainsMono-Regular.woff2') format('woff2'); font-weight: normal; }
-          @font-face { font-family: 'JetBrains Mono Bold'; src: url('../fonts/JetBrainsMono-Bold.woff2') format('woff2'); }
-          * { box-sizing: border-box; margin: 0; padding: 0; }
-          body { background: #0F131E; color: #E2E8F0; font-family: 'Vazirmatn', sans-serif; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
-          .lop-header { text-align: center; padding: 8px 12px 4px; background: linear-gradient(180deg, #1C2333, #161B26); border-bottom: 1px solid #232B3E; }
-          .lop-header .title { font-size: 15px; font-weight: 900; color: #00F2FE; }
-          .lop-header .sub { font-size: 10px; color: #718096; }
-          .lop-body { flex: 1; overflow: auto; padding: 16px 20px; position: relative; line-height: 2.4; }
-          .lop-body { flex: 1; overflow-y: auto; padding: 16px; }
-          .eline { min-height: 1.2em; white-space: pre-wrap; }
-          .lop-active { color: #FF2E93 !important; text-shadow: 0 0 8px rgba(255,46,147,0.5); }
-          .lop-active-bg { background: rgba(255,46,147,0.08); border-radius: 6px; }
-          ::-webkit-scrollbar { width: 8px; height: 8px; }
-          ::-webkit-scrollbar-track { background: #1A202C; }
-          ::-webkit-scrollbar-thumb { background: #4A5568; border-radius: 4px; }
-          ::-webkit-scrollbar-thumb:hover { background: #718096; }
-        </style>`;
-      let html = `<div class="lop-header"><div class="title">${title}</div><div class="sub">${artist}</div></div><div class="lop-body" id="lopBody">`;
-      lines.forEach((line, i) => {
-        html += `<div class="eline" data-li="${i}" style="font-size:${tSize}px;color:${tColor};font-family:'${tFont}';font-weight:${tBold};text-align:${align};">${line || '\u200B'}</div>`;
-      });
-      html += '</div>';
-      doc.body.innerHTML = html;
-      doc.body.setAttribute('data-popup-role', 'singer');
-
-      // Sync playhead highlight
-      _lyricOnlyMessageCleanup?.();
-      _lyricOnlyMessageCleanup = popupWindowBridge?.onMessage?.({
+    const coreLyricOnlyPopupRuntime =
+      globalScope.CoreLyricOnlyPopupService?.create?.({
+        getPopup: () => _lyricOnlyPopup,
+        isPopupOpen: popup => isPopupOpen(popup),
+        popupDocument: popup => popupDocument(popup),
+        getSnapshot: () =>
+          requireEditorSongStateService().getPresentationSnapshot(),
+        popupWindowBridge,
         windowRef: window,
-        getSource: () => _lyricOnlyPopup,
-        type: 'syncUpdate',
-        handler: ev => {
-          if (!isPopupOpen(_lyricOnlyPopup)) {
-            _lyricOnlyMessageCleanup?.();
-            _lyricOnlyMessageCleanup = null;
-            return;
-          }
-          const body = popupDocument(_lyricOnlyPopup)?.getElementById('lopBody');
-          if (!body) return;
-          const activeIdx = ev.data.activeIdx;
-          [...body.children].forEach(el => {
-            if (!el.dataset.li) return;
-            const li = +el.dataset.li;
-            el.classList.toggle('lop-active', li === activeIdx);
-            el.classList.toggle('lop-active-bg', li === activeIdx);
-          });
-          if (activeIdx >= 0) {
-            const activeEl = body.querySelector('[data-li="' + activeIdx + '"]');
-            if (activeEl) {
-              const bodyH = body.clientHeight;
-              const elTop = activeEl.offsetTop;
-              const elH = activeEl.offsetHeight;
-              body.scrollTo({ top: elTop - bodyH / 2 + elH / 2, behavior: 'smooth' });
-            }
-          }
-        }
-      }) || null;
-      // Direct highlight sync (same pattern as lyricPopup)
-      function _syncSingerHighlight() {
-        if (!isPopupOpen(_lyricOnlyPopup)) return;
-        const body = popupDocument(_lyricOnlyPopup)?.getElementById('lopBody');
-        if (!body) return;
-        const times = requireEditorSongStateService().getSyncTimes();
-        const daw = getEditorDAW();
-        const t = daw?.isPlaying
-          ? getTransportPlayhead()
-          : (Number.isFinite(daw?.playhead) ? daw.playhead : 0);
-        let activeIdx = -1;
-        for (let i = 0; i < times.length; i++) {
-          if (Number.isFinite(times[i]) && times[i] <= t) activeIdx = i;
-          else if (Number.isFinite(times[i]) && times[i] > t) break;
-        }
-        [...body.children].forEach(el => {
-          if (!el.dataset.li) return;
-          const li = +el.dataset.li;
-          el.classList.toggle('lop-active', li === activeIdx);
-          el.classList.toggle('lop-active-bg', li === activeIdx);
-        });
-        if (activeIdx >= 0) {
-          const activeEl = body.querySelector('[data-li="' + activeIdx + '"]');
-          if (activeEl) {
-            const bodyH = body.clientHeight;
-            body.scrollTo({ top: activeEl.offsetTop - bodyH / 2 + activeEl.offsetHeight / 2, behavior: 'smooth' });
-          }
-        }
-      }
-      popupWindowBridge?.set?.(_lyricOnlyPopup, '_syncHighlight', _syncSingerHighlight);
-      installPopupHighlightLoop(_lyricOnlyPopup, doc);
+        getDAW: () => getEditorDAW(),
+        getTransportPlayhead: () => getTransportPlayhead(),
+        getSyncTimes: () => requireEditorSongStateService().getSyncTimes(),
+        installPopupHighlightLoop
+      });
+    if (!coreLyricOnlyPopupRuntime) {
+      throw new Error(
+        'CoreLyricOnlyPopupService باید قبل از app/core.js بارگذاری شود.'
+      );
+    }
+    function syncLyricOnlyPopup(...args) {
+      return coreLyricOnlyPopupRuntime.sync(...args);
     }
 
     // ===== CHORD LINE POPUP (detachable, small) =====

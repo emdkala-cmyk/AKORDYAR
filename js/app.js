@@ -17,6 +17,7 @@ const APPLICATION_CHUNKS = Object.freeze([
   'app/CoreTransportService.js',
   'app/CorePerformanceModeService.js',
   'app/CorePerformanceUiService.js',
+  'app/CoreLyricOnlyPopupService.js',
   'app/CorePanelLayoutService.js',
   'app/CoreTimelineGeometryService.js',
   'app/CoreTimelineRendererService.js',
