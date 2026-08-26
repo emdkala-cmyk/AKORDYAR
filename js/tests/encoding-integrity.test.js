@@ -43,6 +43,7 @@ const files = [
   'js/app/CoreFocusModeService.js',
   'js/app/CoreSyncModeBridgeService.js',
   'js/app/CoreSequentialChordRemapService.js',
+  'js/editor/EditorTimelineChordEditorService.js',
   'js/app/core.js',
   'js/app/editor.js',
   'js/app/search.js',

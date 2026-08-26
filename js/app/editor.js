@@ -574,151 +574,67 @@ function getMidiScoreController() {
     }
 
     /* ===== CHORD EDITOR & MIDI ===== */
-    function buildChordEditor() {
-      const fillCol = (colId, arr, key) => {
-        const col = $(colId); col.innerHTML = '';
-        arr.forEach(val => {
-          const div = document.createElement('div');
-          div.className = 'chord-item' + (currentChord[key] === val ? ' active' : '');
-          div.textContent = val === '' || val === 'None' ? 'None' : val;
-          div.onclick = () => { currentChord[key] = val; col.querySelectorAll('.chord-item').forEach(d => d.classList.remove('active')); div.classList.add('active'); updateChordPreview(); };
-          col.appendChild(div);
-        });
-      };
-      fillCol('col-root', ROOT_NOTES, 'root'); fillCol('col-type', CHORD_TYPES, 'type');
-      fillCol('col-tension', TENSIONS, 'tension'); fillCol('col-bass', BASS_NOTES, 'bass');
-      buildPiano(); updateChordPreview();
-    }
-
-    function buildPiano() {
-      const piano = $('piano-keys'); piano.innerHTML = '';
-      const whiteNotes = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
-      const blackNotes = { 'C#': 0, 'D#': 1, 'F#': 3, 'G#': 4, 'A#': 5 };
-      for (let oct = 4; oct <= 5; oct++) {
-        whiteNotes.forEach(n => { const key = document.createElement('div'); key.className = 'white-key'; key.dataset.note = n + oct; key.textContent = n + oct; piano.appendChild(key); });
-      }
-      const whiteWidth = 100 / 14;
-      for (let oct = 4; oct <= 5; oct++) {
-        let pos = (oct - 4) * 7;
-        for (const [n, idx] of Object.entries(blackNotes)) {
-          const key = document.createElement('div'); key.className = 'black-key'; key.dataset.note = n + oct; key.textContent = n + oct;
-          key.style.left = `calc(${(pos + idx + 1) * whiteWidth}% - 12px)`; piano.appendChild(key);
+    const editorTimelineChordEditorRuntime =
+      window.EditorTimelineChordEditorService?.create?.({
+        documentRef: document,
+        windowRef: window,
+        getElement: id => $(id),
+        getDAW: () => getEditorDAW(),
+        getClip: clipId => getClip(clipId),
+        getMidiChordService: () => getEditorMidiChordService(),
+        getCurrentChord: () => currentChord,
+        setCurrentChord: value => {
+          currentChord = value;
+        },
+        getModalMode: () => edChordModalMode,
+        setModalMode: value => {
+          edChordModalMode = value;
+        },
+        setChordIndex: value => {
+          edChordIdx = value;
+        },
+        setPendingAnchor: value => {
+          edPendingAnchor = value;
+        },
+        confirmEditorChord: (...args) => edConfirmChord(...args),
+        deleteEditorChord: (...args) => edDeleteChord(...args),
+        saveState: (...args) => saveState(...args),
+        renderClips: (...args) => renderClips(...args),
+        renderAll: (...args) => renderAll(...args),
+        ensureTimelineFits: (...args) => ensureTimelineFits(...args),
+        saveSong: (...args) => edSaveSong(...args),
+        uid: prefix => uid(prefix),
+        roundMs: value => roundMs(value),
+        translate: key => t(key),
+        toast: message => toast(message),
+        constants: {
+          ROOT_NOTES,
+          BASS_NOTES,
+          NOTE_TO_SHARP,
+          NOTE_SEMITONE,
+          NOTES,
+          CHORD_TYPES,
+          TENSIONS,
+          CHORD_INTERVALS,
+          TENSION_INTERVALS
         }
-      }
-    }
-
-    function updateChordPreview() {
-      const name = getEditorMidiChordService()?.formatChordName?.(currentChord) || 'None';
-      const { root, type, tension, bass } = currentChord;
-      $('chord-preview').textContent = name;
-      if ($('chordManual')) $('chordManual').value = name === 'None' ? '' : name;
-
-      document.querySelectorAll('.piano-keyboard .white-key, .piano-keyboard .black-key').forEach(k => k.classList.remove('active'));
-      if (name === '') return;
-
-      const rootIdx = NOTE_SEMITONE[root] != null ? NOTE_SEMITONE[root] : NOTES.indexOf(root);
-      const intervals = [...(CHORD_INTERVALS[type] || []), ...(TENSION_INTERVALS[tension] || [])];
-      intervals.forEach(i => {
-        const noteIdx = (rootIdx + i) % 12; const noteName = NOTES[noteIdx];
-        const keyEl4 = document.querySelector(`.piano-keyboard [data-note="${noteName}4"]`);
-        const keyEl5 = document.querySelector(`.piano-keyboard [data-note="${noteName}5"]`);
-        if (keyEl4) keyEl4.classList.add('active');
-        if (keyEl5) keyEl5.classList.add('active');
       });
-      if (bass !== 'None' && bass !== root) {
-        const bassSharp = NOTE_TO_SHARP[bass] || bass;
-        const bassEl4 = document.querySelector(`.piano-keyboard [data-note="${bassSharp}4"]`);
-        const bassEl5 = document.querySelector(`.piano-keyboard [data-note="${bassSharp}5"]`);
-        if (bassEl4) bassEl4.classList.add('active');
-        if (bassEl5) bassEl5.classList.add('active');
-      }
+    if (!editorTimelineChordEditorRuntime) {
+      throw new Error(
+        'EditorTimelineChordEditorService باید قبل از editor.js بارگذاری شود.'
+      );
     }
-
-    function openChordEditor(clipId = null) {
-      getEditorDAW().editingChordClipId = clipId;
-      edChordModalMode = null;
-      if (clipId) {
-        const clip = getClip(clipId);
-        const m = clip.name.match(/^([A-G][#b]?)(maj|m(?:in)?|dim|aug|sus2|sus4)?(M7|7|9|b9|#9|11|#11|13|6)?(?:\/([A-G][#b]?))?$/);
-        if (m) { let tp = m[2] || 'None'; if (tp === 'm') tp = 'min'; currentChord = { root: m[1] || 'None', type: tp, tension: m[3] || '', bass: m[4] || 'None' }; }
-        else currentChord = { root: 'None', type: 'None', tension: '', bass: 'None' };
-      } else {
-        currentChord = { root: 'None', type: 'None', tension: '', bass: 'None' };
-      }
-      $('chordModalTitle').textContent = t('chordEditor');
-      $('chordModalConfirmBtn').textContent = t('placeOnTimeline');
-      $('chord-modal').classList.add('show'); buildChordEditor();
-      // اضافه کردن هندلر کیبورد برای دکمه ESC
-      const chordModal = $('chord-modal');
-      if (chordModal) {
-        // حذف هندلر قبلی اگر وجود دارد
-        if (chordModal._escHandler) chordModal.removeEventListener('keydown', chordModal._escHandler);
-        chordModal._escHandler = (e) => {
-          if (e.key === 'Escape') {
-            e.preventDefault();
-            closeChordEditor();
-          }
-        };
-        chordModal.addEventListener('keydown', chordModal._escHandler);
-        // فوکوس روی مودال برای اینکه ESC بدون کلیک کار کند
-        chordModal.focus();
-      }
-    }
-
-    function closeChordEditor() {
-      $('chord-modal').classList.remove('show');
-      getEditorDAW().editingChordClipId = null;
-      if (edChordModalMode === 'editor') { edChordModalMode = null; edChordIdx = null; edPendingAnchor = null; }
-    }
-
-    // Unified chord modal confirm/delete — dispatches based on mode
-    function chordModalConfirm() {
-      if (edChordModalMode === 'editor') { edConfirmChord(); }
-      else { placeChordOnTimeline(); }
-    }
-    function chordModalDelete() {
-      if (edChordModalMode === 'editor') { edDeleteChord(); }
-      else {
-        if (getEditorDAW().editingChordClipId) {
-          const c = getClip(getEditorDAW().editingChordClipId);
-          if (c) { c.name = ''; renderClips(); saveState(); }
-        }
-        closeChordEditor();
-      }
-    }
-
-    function placeChordOnTimeline() {
-      // اگر کاربر نامی دستی تایپ کرده، از آن استفاده کن (هماهنگ با ویرایشگر آکورد)
-      let name = ($('chordManual')?.value || '').trim();
-      if (name) {
-        name = name.replace(/^([A-G][#b]?)maj$/, '$1');
-        name = name.replace(/^([A-G][#b]?)min/i, '$1m');
-      } else {
-        const { root, type, tension, bass } = currentChord;
-        if (root === 'None' || type === 'None') {
-            toast(t('selectCompleteChord'));
-            return;
-        }
-        name = getEditorMidiChordService()?.formatChordName?.(currentChord) || 'None';
-      }
-      if (getEditorDAW().editingChordClipId) {
-        const clip = getClip(getEditorDAW().editingChordClipId);
-        if (clip) { clip.name = name; getEditorDAW().editingChordClipId = null; saveState(); renderAll(); closeChordEditor(); toast(`${t('chordEditedTo')} ${name}`); return; }
-      }
-      // Check if we're placing from Alt+Click on chord track (use mouse position)
-      let targetTime = getEditorDAW().playhead;
-      if (window._tempChordTrackAnchor && window._tempChordTrack) {
-        targetTime = window._tempChordTrackAnchor.time;
-        // Clean up temp variables to prevent interference with future clicks
-        delete window._tempChordTrackAnchor;
-        delete window._tempChordTrack;
-      }
-      const chordTrack = getEditorDAW().tracks.find(t => t.type === 'chord'); if (!chordTrack) return;
-      const clip = { id: uid('c'), type: 'chord', trackId: chordTrack.id, name, start: roundMs(targetTime), duration: 4, color: '#9F7AEA' };
-      getEditorDAW().clips.push(clip); getEditorDAW().selectedIds = new Set([clip.id]); saveState(); ensureTimelineFits(clip.start + clip.duration + 5);
-      renderAll(); closeChordEditor(); toast(`${t('chordPlaced')} ${name}`);
-      edSaveSong();
-    }
+    const {
+      buildChordEditor,
+      buildPiano,
+      updateChordPreview,
+      openChordEditor,
+      closeChordEditor,
+      chordModalConfirm,
+      chordModalDelete,
+      placeChordOnTimeline
+    } = editorTimelineChordEditorRuntime;
+    Object.assign(window, editorTimelineChordEditorRuntime);
 
     const editorMidiConnectionService = window.EditorMidiConnectionService.create({
       navigatorRef: window.navigator,
