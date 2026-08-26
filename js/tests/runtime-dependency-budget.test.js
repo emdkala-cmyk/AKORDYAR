@@ -39,6 +39,9 @@ const editorAutoImportFileSaveService = read(
 const editorAutoImportWorkflowService = read(
   'js/editor/EditorAutoImportWorkflowService.js'
 );
+const editorAutoImportRetryService = read(
+  'js/editor/EditorAutoImportRetryService.js'
+);
 const editorArrangerSongLoadService = read(
   'js/editor/EditorArrangerSongLoadService.js'
 );
@@ -231,6 +234,14 @@ assert.doesNotMatch(editor, /async function startAutoImport\(\)/);
 assert.match(
   editor,
   /function startAutoImport\(\)\s*\{\s*return editorAutoImportWorkflowService\.start\(\);\s*\}/
+);
+assert.match(editorAutoImportRetryService, /async function retryFailed\(\)/);
+assert.match(editorAutoImportRetryService, /function groupByArtist/);
+assert.match(editorAutoImportRetryService, /song => !song\.error && song\.rawText/);
+assert.doesNotMatch(editor, /async function autoRetryFailed\(\)[\s\S]*groupByArtist/);
+assert.match(
+  editor,
+  /async function autoRetryFailed\(\)\s*\{\s*return getEditorAutoImportRetryService\(\)\?\.retryFailed\?\.\(\);\s*\}/
 );
 assert.doesNotMatch(editor, /━━━ خلاصه شناسایی ━━━/);
 assert.match(editorArrangerSongLoadService, /async function load\(index\)/);

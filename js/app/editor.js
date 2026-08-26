@@ -1048,6 +1048,33 @@ function getMidiScoreController() {
         logger: console
       });
 
+    let editorAutoImportRetryService = null;
+    function getEditorAutoImportRetryService() {
+      if (
+        !editorAutoImportRetryService &&
+        typeof window.EditorAutoImportRetryService?.create === 'function'
+      ) {
+        editorAutoImportRetryService =
+          window.EditorAutoImportRetryService.create({
+            getState: () => autoImportStateService,
+            getElement: id => $(id),
+            getSource: () => $('autoSource')?.value,
+            showProgress: () => showProgressBar(),
+            updateProgress: (...args) => updateAutoProgress(...args),
+            fetchArtistFromServer: (...args) =>
+              fetchArtistFromServer(...args),
+            escapeHtml,
+            buildProgressDetail: () => buildProgressDetail(),
+            saveSongToArchive: (...args) => saveSongToArchive(...args),
+            getAllSongs: (...args) => edGetAllSongs(...args),
+            setAllSongs: (...args) => edSetAllSongs(...args),
+            toast,
+            logger: console
+          });
+      }
+      return editorAutoImportRetryService;
+    }
+
     // ---- MAIN: Start Auto Import ----
     function startAutoImport() {
       return editorAutoImportWorkflowService.start();
@@ -1055,67 +1082,7 @@ function getMidiScoreController() {
 
     // ---- Retry failed songs only ----
     async function autoRetryFailed() {
-      const failed = autoImportStateService.getFailedSongs();
-      if (!failed.length) { toast('مورد ناموفقی وجود ندارد'); return; }
-
-      const status = $('autoImportStatus');
-      const results = $('autoImportResults');
-      const source = $('autoSource').value;
-      const apiUrl = source === 'akord' ? '/api/akord/auto-import' : '/api/auto-import';
-      showProgressBar();
-
-      status.textContent = `🔄 تلاش مجدد برای ${failed.length} ترانه ناموفق...`;
-
-      // Group failed by artist
-      const byArtist = {};
-      failed.forEach(f => { (byArtist[f.artist] = byArtist[f.artist] || []).push(f); });
-
-      autoImportStateService.setFailedSongs([]);
-      let retriedCount = 0;
-
-      for (const [artistName, failedSongs] of Object.entries(byArtist)) {
-        status.textContent = `🔄 تلاش مجدد ${escapeHtml(artistName)} (${failedSongs.length} ترانه)...`;
-        updateAutoProgress(retriedCount, failed.length, `<span class="auto-progress-retry">تلاش مجدد ${escapeHtml(artistName)}...</span>`);
-
-        const fetchResult = await fetchArtistFromServer(artistName, apiUrl, failedSongs.length, (msg) => { status.textContent = msg; });
-
-        if (fetchResult.error) {
-          autoImportStateService.addFailedSongs(failedSongs);
-          retriedCount += failedSongs.length;
-          continue;
-        }
-
-        // Check which failed songs are now recovered
-        const recoveredUrls = new Set(fetchResult.results.filter(r => !r.error).map(r => r.url));
-        const recoveredSongs = fetchResult.results.filter(r => !r.error && !r.rawText?.includes(''));
-
-        for (const song of recoveredSongs) {
-          if (!song.error && song.rawText) {
-            autoImportStateService.addResults([song]);
-            autoImportStateService.incrementStats({ fetched: 1 });
-            // Add to archive
-            const existingSongs = edGetAllSongs();
-            const result = saveSongToArchive(song, existingSongs);
-            if (result.saved) autoImportStateService.incrementStats({ archived: 1 });
-            else if (result.duplicate) autoImportStateService.incrementStats({ dupes: 1 });
-            edSetAllSongs(existingSongs);
-          }
-        }
-
-        // Songs still failed
-        for (const f of failedSongs) {
-          if (!recoveredUrls.has(f.url)) autoImportStateService.addFailedSongs([f]);
-        }
-        retriedCount += failedSongs.length;
-        updateAutoProgress(retriedCount, failed.length, buildProgressDetail());
-      }
-
-      const stillFailed = autoImportStateService.getFailedSongs().length;
-      status.textContent = `🔄 تلاش مجدد تمام شد\nبازیابی شده: ${failed.length - stillFailed}\nباقی‌مانده ناموفق: ${stillFailed}`;
-      const retryStats = autoImportStateService.getStats();
-      updateAutoProgress(retryStats.fetched, retryStats.total, buildProgressDetail());
-      if (stillFailed === 0) toast('✅ همه ترانه‌ها بازیابی شد!');
-      else toast(`⚠️ ${stillFailed} ترانه هنوز ناموفق است`);
+      return getEditorAutoImportRetryService()?.retryFailed?.();
     }
 
     // ---- Save to archive (manual button) ----

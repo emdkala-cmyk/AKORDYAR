@@ -6,10 +6,19 @@ const source = fs.readFileSync(
   path.resolve(__dirname, '..', 'app', 'editor.js'),
   'utf8'
 );
+const retrySource = fs.readFileSync(
+  path.resolve(
+    __dirname,
+    '..',
+    'editor',
+    'EditorAutoImportRetryService.js'
+  ),
+  'utf8'
+);
 
 assert.match(source, /function escapeHtml\(value\)/);
 assert.match(source, /escapeHtml\(n\)/);
-assert.match(source, /escapeHtml\(artistName\)/);
+assert.match(retrySource, /escapeHtml\(artistName\)/);
 assert.doesNotMatch(source, /🎵 \$\{n\}/);
 assert.doesNotMatch(source, /شناسایی \$\{artistName\}/);
 assert.doesNotMatch(source, /دریافت \$\{artistName\}/);

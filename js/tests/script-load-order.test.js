@@ -499,6 +499,10 @@ assert.ok(
     scriptIndex('js/app/editor.js')
 );
 assert.ok(
+  scriptIndex('js/editor/EditorAutoImportRetryService.js') <
+    scriptIndex('js/app/editor.js')
+);
+assert.ok(
   scriptIndex('js/editor/EditorArrangerSongLoadService.js') <
     scriptIndex('js/app/editor.js')
 );
