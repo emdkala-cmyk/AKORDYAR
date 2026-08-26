@@ -1662,35 +1662,28 @@ function applyState(stateStr) {
     }
     corePublicApi.publish(corePlayerViewPopupBuilderRuntime);
 
-    function syncLyricPopup() {
-      if (!isPopupOpen(_lyricPopup)) return;
-      const popupDoc = popupDocument(_lyricPopup);
-      if (!popupDoc) return;
-      // If popup already has chord script, update in-place (no full rebuild)
-      if (corePlayerViewPopupSyncRuntime.syncExistingPopup()) return;
-      const snapshot = requireEditorSongStateService().getPresentationSnapshot();
-      if (!snapshot) return;
-      const builderTitle = snapshot.title || t('untitled');
-      const builderArtist = snapshot.artist || '';
-      const builderKeyStr = (snapshot.key || 'C') + (snapshot.keyMode === 'min' ? 'm' : '');
-      const builderSub = [builderArtist, builderKeyStr ? (currentLang === 'fa' ? 'گام: ' : 'Key: ') + builderKeyStr : null]
-        .filter(Boolean)
-        .join('  ·  ');
-      const builderLines = snapshot.lyrics.split('\n');
-      const builderChords = snapshot.chords.map(ch => ({
-        lineIndex: ch.lineIndex,
-        charIndex: ch.charIndex,
-        anchorType: ch.anchorType,
-        _name: edTransposeChord(ch.name, snapshot.transpose)
-      }));
-      corePlayerViewPopupBuilderRuntime.render({
-        documentRef: popupDoc,
-        title: builderTitle,
-        sub: builderSub,
-        lines: builderLines,
-        styles: snapshot.styles,
-        chords: builderChords
+    const corePlayerViewPopupRuntime =
+      globalScope.CorePlayerViewPopupService?.create?.({
+        getPopup: () => _lyricPopup,
+        isPopupOpen: popup => isPopupOpen(popup),
+        popupDocument: popup => popupDocument(popup),
+        getSnapshot: () =>
+          requireEditorSongStateService().getPresentationSnapshot(),
+        translate: key => t(key),
+        getCurrentLang: () => currentLang,
+        transposeChord: (...args) => edTransposeChord(...args),
+        popupSyncRuntime: corePlayerViewPopupSyncRuntime,
+        popupBuilderRuntime: corePlayerViewPopupBuilderRuntime
       });
+    if (!corePlayerViewPopupRuntime) {
+      throw new Error(
+        'CorePlayerViewPopupService باید قبل از app/core.js بارگذاری شود.'
+      );
+    }
+    corePublicApi.publish(corePlayerViewPopupRuntime);
+
+    function syncLyricPopup(...args) {
+      return corePlayerViewPopupRuntime.sync(...args);
     }
 
 // ==========================================
