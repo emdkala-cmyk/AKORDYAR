@@ -1779,7 +1779,7 @@ function applyState(stateStr) {
       if (corePlayerViewPopupSyncRuntime.syncExistingPopup()) return;
       const snapshot = requireEditorSongStateService().getPresentationSnapshot();
       if (!snapshot) return;
-      const title = snapshot.title || t('untitled');
+      const popupTitle = snapshot.title || t('untitled');
       const artist = snapshot.artist || '';
       const keyStr = (snapshot.key || 'C') + (snapshot.keyMode === 'min' ? 'm' : '');
       const sub = [artist, keyStr ? (currentLang==='fa'?'گام: ':'Key: ') + keyStr : null].filter(Boolean).join('  ·  ');
@@ -1787,7 +1787,7 @@ function applyState(stateStr) {
       const transpose = snapshot.transpose;
       const lines = snapshot.lyrics.split('\n');
       const chords = snapshot.chords.map(ch => ({ lineIndex: ch.lineIndex, charIndex: ch.charIndex, anchorType: ch.anchorType, _name: edTransposeChord(ch.name, transpose) }));
-      popupDoc.title = title + ' — ' + artist + ' | نوازنده';
+      popupDoc.title = popupTitle + ' — ' + artist + ' | نوازنده';
       popupDoc.documentElement.dir = 'rtl';
       popupDoc.documentElement.lang = 'fa';
       popupDoc.head.innerHTML = `
