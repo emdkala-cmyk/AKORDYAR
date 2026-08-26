@@ -37,6 +37,7 @@ let coreArrangerCrossfadeRuntime = null;
 let coreWavEncoderRuntime = null;
 let coreArrangerEditorRuntime = null;
 let coreArrangerSongTransferRuntime = null;
+let coreArrangerSongsOverviewRuntime = null;
 let coreArrangerSetlistRendererRuntime = null;
 let coreClipRendererRuntime = null;
 let coreArrangerBackgroundPreloadRuntime = null;
@@ -2046,6 +2047,19 @@ let syncTapKeyHandler = null;
       return coreArrangerManagerRendererRuntime?.render?.(...args);
     }
 
+    coreArrangerSongsOverviewRuntime =
+      globalScope.CoreArrangerSongsOverviewService?.create?.({
+        getElement: id => $(id),
+        getEditingArr: () => editingArr,
+        getAllSongs: () => edGetAllSongs(),
+        getItemSetting: (...args) => getArrItemSetting(...args)
+      });
+    if (!coreArrangerSongsOverviewRuntime) {
+      throw new Error(
+        'CoreArrangerSongsOverviewService باید قبل از app/core.js بارگذاری شود.'
+      );
+    }
+
     coreArrangerFileImportRuntime =
       globalScope.CoreArrangerFileImportService?.create?.({
         documentRef: document,
@@ -2138,35 +2152,7 @@ let syncTapKeyHandler = null;
     }
 
     function renderArrSongsList() {
-      const box = $('arrSongsList');
-      if (!editingArr || !editingArr.items.length) {
-        box.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text-secondary);">ترانه‌ای در این ارنجر وجود ندارد</div>';
-        return;
-      }
-      const allSongs = edGetAllSongs();
-      let html = '';
-      editingArr.items.forEach((songId, idx) => {
-        const song = allSongs.find(s => s.id === songId);
-        if (!song) return;
-        const setting = getArrItemSetting(editingArr, songId);
-        const key = song.key || '';
-        const rhythm = song.rhythm || '';
-        const transpose = setting.transpose ? (setting.transpose > 0 ? '+' + setting.transpose : setting.transpose) : '0';
-        html += `<div class="arr-song-card">
-          <div class="song-header">
-            <div class="song-num">${idx + 1}</div>
-            <div class="song-title">${song.title || 'بدون عنوان'}</div>
-          </div>
-          <div class="song-meta">
-            ${song.artist ? '<span>🎤 ' + song.artist + '</span>' : ''}
-            ${key ? '<span>🎵 گام: ' + key + '</span>' : ''}
-            ${rhythm ? '<span>🥁 ریتم: ' + rhythm + '</span>' : ''}
-            <span>♯ تغییر گام: ${transpose}</span>
-          </div>
-          ${setting.notes ? '<div style="margin-top:6px;font-size:0.8rem;color:var(--accent-cyan-glow);">📝 ' + setting.notes + '</div>' : ''}
-        </div>`;
-      });
-      box.innerHTML = html;
+      return coreArrangerSongsOverviewRuntime?.render?.();
     }
     function closeArrEditor() {
       saveArrangers();
