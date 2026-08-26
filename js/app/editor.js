@@ -4,6 +4,8 @@
 
 // Keep selection state initialized before DOM setup can register handlers.
 let edSelectedChords = [];
+let colorToolMode = null;
+let currentColor = '#3FB8AF';
 
 const editorPopupWindowService = window.PopupWindowService?.create?.({
   windowRef: window,
@@ -2497,7 +2499,7 @@ if (edCur && edSelectedChords.length > 0 && !isEdChordModalOpen) {
       });
       audioDropService?.bind?.(tlScroll);
       // Init sync UI
-      initSyncUI();
+      window.initSyncUI?.();
 
     /* ===================================================================
        LYRIC & CHORD EDITOR (integrated into workspace)
@@ -4012,9 +4014,6 @@ if ($('edDoBoth')) {
       '#ED64A6','#48BB78','#ED8936','#00B5D8','#E53E3E','#38A169','#FF69B4','#805AD5',
     ];
     const QUICK_COLORS = ['#FF2E93','#FF6B6B','#FFA726','#FFD54F','#4DB6AC','#4FC3F7','#7986CB','#9F7AEA'];
-
-    let colorToolMode = null;
-    let currentColor = '#3FB8AF';
 
     function isColorToolActive() { return colorToolMode === 'brush' || colorToolMode === 'eyedropper'; }
 
