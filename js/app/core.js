@@ -798,6 +798,21 @@ function isHistoryApplying() {
     Object.assign(globalScope, coreClipRuntime);
     corePublicApi.publish(coreClipRuntime);
 
+    const coreTimelineChordEditorRuntime =
+      globalScope.CoreTimelineChordEditorBridgeService?.create?.({
+        getClip: clipId => getClip(clipId),
+        openChordEditor: (...args) => openChordEditor(...args),
+        now: () => Date.now()
+      });
+    if (!coreTimelineChordEditorRuntime) {
+      throw new Error(
+        'CoreTimelineChordEditorBridgeService باید قبل از app/core.js بارگذاری شود.'
+      );
+    }
+    const { openTimelineChordEditor } = coreTimelineChordEditorRuntime;
+    Object.assign(globalScope, { openTimelineChordEditor });
+    corePublicApi.publish(coreTimelineChordEditorRuntime);
+
 function setEditorSong(song) {
   return requireEditorSongRuntimeService().setSong(song);
 }
@@ -1195,15 +1210,6 @@ function applyState(stateStr) {
       onDocMouseUp
     });
     corePublicApi.publish(coreClipInteractionRuntime);
-
-    function openTimelineChordEditor(clipId) {
-      const clip = getClip(clipId);
-      if (!clip || clip.type !== 'chord' || typeof openChordEditor !== 'function') return;
-      const now = Date.now();
-      if (clip._lastModalOpenAt && now - clip._lastModalOpenAt < 120) return;
-      clip._lastModalOpenAt = now;
-      openChordEditor(clipId);
-    }
 
     let recordingRuntime = null;
 

@@ -46,6 +46,9 @@ const coreTimelineGridService = read('js/app/CoreTimelineGridService.js');
 const coreTimelineSectionBridgeService = read(
   'js/app/CoreTimelineSectionBridgeService.js'
 );
+const coreTimelineChordEditorBridgeService = read(
+  'js/app/CoreTimelineChordEditorBridgeService.js'
+);
 const coreTrackSetupService = read('js/app/CoreTrackSetupService.js');
 const coreClipService = read('js/app/CoreClipService.js');
 const coreAudioImportService = read('js/app/CoreAudioImportService.js');
@@ -196,6 +199,10 @@ assert.match(
   coreTimelineSectionBridgeService,
   /function getTimelineSectionRendererService\(\)/
 );
+assert.match(
+  coreTimelineChordEditorBridgeService,
+  /function openTimelineChordEditor\(clipId\)/
+);
 assert.match(coreTrackSetupService, /function getIconSvg\(icon\)/);
 assert.match(coreTrackSetupService, /function openIconPicker\(track\)/);
 assert.match(coreTrackSetupService, /function addNewTrack\(name, icon\)/);
@@ -213,6 +220,10 @@ assert.doesNotMatch(appCore, /function handleTimingChange\(\)/);
 assert.doesNotMatch(
   appCore,
   /function getTimelineSectionRendererService\(\)/
+);
+assert.doesNotMatch(
+  appCore,
+  /function openTimelineChordEditor\(clipId\)/
 );
 assert.match(coreClipService, /function splitClipAt\(clip, atTime\)/);
 assert.match(coreClipService, /function splitSelectedAtPlayhead\(\)/);

@@ -14,6 +14,9 @@ const coreTimelineGrid = read('js/app/CoreTimelineGridService.js');
 const coreTimelineSectionBridge = read(
   'js/app/CoreTimelineSectionBridgeService.js'
 );
+const coreTimelineChordEditorBridge = read(
+  'js/app/CoreTimelineChordEditorBridgeService.js'
+);
 const coreClipInteraction = read('js/app/CoreClipInteractionService.js');
 const dawState = read('js/core/DAWRuntimeState.js');
 const transportState = read('js/core/EditorTransportStateService.js');
@@ -34,9 +37,14 @@ assert.match(coreTimelineRenderer, /function selectTrack\(trackId\)/);
 assert.match(coreTimelineRenderer, /getTimelineTrackRendererService/);
 assert.match(core, /CoreTimelineRendererService/);
 assert.match(core, /CoreTimelineSectionBridgeService/);
+assert.match(core, /CoreTimelineChordEditorBridgeService/);
 assert.match(
   coreTimelineSectionBridge,
   /function getTimelineSectionRendererService\(\)/
+);
+assert.match(
+  coreTimelineChordEditorBridge,
+  /function openTimelineChordEditor\(clipId\)/
 );
 assert.match(timelineRenderer, /function selectTrack\(trackId\)/);
 assert.match(timelineRenderer, /selectTrack\(track\.id\)/);
@@ -111,7 +119,6 @@ assert.match(
   /getMarqueeLaneElements\('\.section-tag'\)/
 );
 assert.doesNotMatch(core, /function getMarqueeLaneElements\(selector\)/);
-assert.match(core, /function openTimelineChordEditor\(clipId\)/);
 assert.match(
   corePanelLayout,
   /app\.style\.gridTemplateRows =\s*`auto minmax\(0, 1fr\) 4px/

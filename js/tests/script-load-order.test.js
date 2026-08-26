@@ -167,6 +167,10 @@ assert.ok(
     scriptIndex('js/app/core.js')
 );
 assert.ok(
+  scriptIndex('js/app/CoreTimelineChordEditorBridgeService.js') <
+    scriptIndex('js/app/core.js')
+);
+assert.ok(
   scriptIndex('js/app/CoreTrackSetupService.js') <
     scriptIndex('js/app/core.js')
 );

@@ -44,6 +44,7 @@ const APPLICATION_CHUNKS = Object.freeze([
   'app/CoreTimelineRendererService.js',
   'app/CoreTimelineGridService.js',
   'app/CoreTimelineSectionBridgeService.js',
+  'app/CoreTimelineChordEditorBridgeService.js',
   'app/CoreTrackSetupService.js',
   'app/CoreClipService.js',
   'app/CoreAudioImportService.js',
