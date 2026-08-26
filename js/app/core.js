@@ -32,6 +32,7 @@ let corePerformanceUiRuntime = null;
 let coreArrangerPreparationRuntime = null;
 let coreArrangerManagerRendererRuntime = null;
 let coreArrangerFileImportRuntime = null;
+let coreArrangerSetlistRendererRuntime = null;
 
 const corePublicApiFactory = globalScope.CorePublicApi;
 if (!corePublicApiFactory?.create) {
@@ -2461,69 +2462,26 @@ let syncTapKeyHandler = null;
     }
 
     // ===== Arranger Setlist Management =====
-    let _arrDragIndex = null; // Persist drag index across render calls
-
-    function renderArrSetlist() {
-      const box = $('arrSetlist'); box.innerHTML = '';
-      if (!editingArr.items.length) { box.innerHTML = `<div style="padding:14px;color:var(--text-secondary);font-size:13px;">${t('addFromLeft')}</div>`; return; }
-      const allSongs = edGetAllSongs();
-      const query = ($('arrSearchInput')?.value || '').trim().toLowerCase();
-      
-      editingArr.items.forEach((id, i) => {
-        const s = allSongs.find(x => x.id === id); if (!s) return;
-        // Live filtering
-        if (query) {
-          const matchText = ((s.title || '') + ' ' + (s.artist || '') + ' ' + (s.key || '') + ' ' + (s.genre || '')).toLowerCase();
-          if (!matchText.includes(query)) return;
-        }
-        const setting = ensureArrItem(editingArr, i);
-        const transVal = setting.transpose || 0;
-        const transSign = transVal > 0 ? '+' + transVal : String(transVal);
-        const hasNotes = !!(setting.notes && setting.notes.trim());
-        const it = document.createElement('div'); it.className = 'arr-item'; it.draggable = true; it.dataset.i = i;
-        it.innerHTML = `
-          <div class="arr-item-controls">
-            <button data-a="up" title="بالا">↑</button>
-            <button data-a="down" title="پایین">↓</button>
-            <span class="arr-item-number">${i + 1}</span>
-          </div>
-          <div class="arr-item-info" draggable="true">
-            <span class="ai-title">${s.title || t('untitled')}</span>
-            <small>${s.artist || '—'}</small>
-          </div>
-          <div class="ai-ctrls">
-            <button class="ai-trans-btn" data-a="trans-down" title="بمل">♭</button>
-            <span class="ai-trans-val">${transSign}</span>
-            <button class="ai-trans-btn" data-a="trans-up" title="دیز">♯</button>
-            <button class="ai-notes-btn ${hasNotes ? 'has-notes' : ''}" data-a="notes" title="یادداشت اجرا">📝</button>
-            <button data-a="del" title="حذف">✕</button>
-          </div>`;
-        it.onclick = (e) => {
-          const btn = e.target.closest('[data-a]');
-          if (!btn) return;
-          const a = btn.dataset.a;
-          if (a === 'up' && i > 0) { [editingArr.items[i - 1], editingArr.items[i]] = [editingArr.items[i], editingArr.items[i - 1]]; }
-          else if (a === 'down' && i < editingArr.items.length - 1) { [editingArr.items[i + 1], editingArr.items[i]] = [editingArr.items[i], editingArr.items[i + 1]]; }
-          else if (a === 'del') { editingArr.items.splice(i, 1); }
-          else if (a === 'trans-up') { setting.transpose = (setting.transpose || 0) + 1; }
-          else if (a === 'trans-down') { setting.transpose = (setting.transpose || 0) - 1; }
-          else if (a === 'notes') { openArrSongNote(i); return; }
-          else return;
-          saveArrangers(); renderArrSetlist();
-        };
-        it.addEventListener('dragstart', () => { _arrDragIndex = i; it.style.opacity = '.4'; });
-        it.addEventListener('dragover', e => { e.preventDefault(); it.classList.add('dragover'); });
-        it.addEventListener('dragleave', () => it.classList.remove('dragover'));
-        it.addEventListener('drop', e => {
-          e.preventDefault(); it.classList.remove('dragover');
-          if (_arrDragIndex === null || _arrDragIndex === i) return;
-          const moved = editingArr.items.splice(_arrDragIndex, 1)[0];
-          editingArr.items.splice(i, 0, moved);
-          saveArrangers(); renderArrSetlist(); _arrDragIndex = null;
-        });
-        it.addEventListener('dragend', () => { it.style.opacity = ''; });
-        box.appendChild(it);
+    coreArrangerSetlistRendererRuntime =
+      globalScope.CoreArrangerSetlistRendererService?.create?.({
+        documentRef: document,
+        getElement: id => $(id),
+        getEditingArr: () => editingArr,
+        getAllSongs: () => edGetAllSongs(),
+        getSearchQuery: () => $('arrSearchInput')?.value || '',
+        ensureArrItem: (...args) => ensureArrItem(...args),
+        saveArrangers: (...args) => saveArrangers(...args),
+        openArrSongNote: (...args) => openArrSongNote(...args),
+        translate: key => t(key)
       });
+    if (!coreArrangerSetlistRendererRuntime) {
+      throw new Error(
+        'CoreArrangerSetlistRendererService باید قبل از app/core.js بارگذاری شود.'
+      );
+    }
+
+    function renderArrSetlist(...args) {
+      return coreArrangerSetlistRendererRuntime?.render?.(...args);
     }
 
     // ===== Performance Mode (Live Dashboard) =====
