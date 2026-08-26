@@ -1743,7 +1743,7 @@ function applyState(stateStr) {
         popupWindowBridge,
         getSnapshot: () =>
           requireEditorSongStateService().getPresentationSnapshot(),
-        transposeChord: edTransposeChord,
+        transposeChord: (...args) => edTransposeChord(...args),
         getSettings: () => corePlayerViewSettingsRuntime.getSettings(),
         isPopupOpen: popup => isPopupOpen(popup),
         schedule: (...args) => setTimeout(...args),
