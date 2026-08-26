@@ -9,14 +9,19 @@ const html = fs.readFileSync(
 );
 
 const escapeRegExp = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-const legacyScripts = [
+const removedLegacyFiles = [
   'js/core/FileSystemBridge.js',
   'js/core/AudioManager.js',
   'js/core/AudioFileLoader.js',
   'js/core/ProjectStore.js'
 ];
 
-for (const script of legacyScripts) {
+for (const script of removedLegacyFiles) {
+  assert.equal(
+    fs.existsSync(path.join(projectRoot, script)),
+    false,
+    `${script} must be removed from the repository`
+  );
   assert.doesNotMatch(
     html,
     new RegExp(`<script[^>]+src=["']${escapeRegExp(script)}["']`)

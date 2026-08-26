@@ -1,5 +1,5 @@
 ﻿/* Akordyar — HistoryService
-   استخراج خوشه‌ی History/ProjectStore از app.js به سرویس مستقل
+   استخراج منطق History از app.js به سرویس مستقل
    (serializeState, saveState, applyState, undo, redo) */
 (() => {
   'use strict';

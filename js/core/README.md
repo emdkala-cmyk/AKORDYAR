@@ -1,198 +1,43 @@
-# سیستم مدیریت فایل صوتی DAW - راهنمای استفاده
+# معماری صوت و پروژه در آکوردیار
 
-## معرفی
-این سیستم برای مدیریت فایل‌های صوتی در پروژه DAW طراحی شده و از دو حالت **وب** و **الکترون (دسکتاپ)** پشتیبانی می‌کند.
+مسیر صوت و پروژهٔ فعال برنامه دیگر بر پایهٔ singletonهای قدیمی نیست. صفحهٔ
+اصلی سرویس‌های مدرن را با ترتیب صریح بارگذاری می‌کند و `core.js` فقط
+هماهنگی runtime را انجام می‌دهد.
 
-> توجه: فایل‌های `FileSystemBridge.js`، `AudioManager.js`،
-> `AudioFileLoader.js` و `ProjectStore.js` مسیر قدیمی و مستقل هستند و در
-> `Akordyar.html` بارگذاری نمی‌شوند. مسیر فعال برنامه از
-> `ProjectAudioService`، `AudioRecoveryService` و سرویس‌های ذخیرهٔ editor
-> استفاده می‌کند.
+## سرویس‌های فعال
 
-## ساختار فایل‌ها
+| مسئولیت | سرویس |
+| --- | --- |
+| ذخیره و بازیابی فایل صوتی | `js/core/ProjectAudioService.js` |
+| نگهداری و بازیابی صدای پروژه | `js/editor/EditorAudioStorageService.js` |
+| facade سازگار برای مسیرهای editor | `js/editor/EditorAudioStorageFacadeService.js` |
+| بازیابی صدای پروژه | `js/editor/AudioRecoveryService.js` |
+| ورود فایل صوتی و ساخت waveform | `js/app/CoreAudioImportService.js` |
+| ذخیرهٔ پروژهٔ editor | `js/editor/EditorSongPersistenceService.js` |
+| export/import پروژه | `js/editor/EditorProjectExportWorkflowService.js` |
 
-```
-/workspace/js/core/
-├── FileSystemBridge.js    # لایه انتزاعی دسترسی به فایل سیستم
-├── AudioManager.js        # مدیریت فایل‌های صوتی
-├── AudioFileLoader.js     # لود و دیکود فایل‌های صوتی
-└── ProjectStore.js        # ذخیره و بارگذاری پروژه‌ها
-```
+## مسیر افزودن فایل صوتی
 
-## ویژگی‌های اصلی
+ورود فایل از انتخاب فایل یا drag & drop به `CoreAudioImportService` می‌رسد.
+این سرویس از facadeهای صوتی فعال برای ذخیره، decode، ساخت waveform، ثبت
+کلیپ و refresh تایم‌لاین استفاده می‌کند. در Electron دسترسی فایل فقط از
+`window.electronAPI` و در وب از storage سرویس‌های جدید انجام می‌شود.
 
-### ۱. پرسش کپی یا لینک کردن فایل
-هنگام افزودن فایل صوتی، کاربر می‌تواند انتخاب کند:
-- **کپی در پروژه**: فایل به پوشه `Audio` پروژه کپی می‌شود (پایدارتر)
-- **لینک به فایل اصلی**: فقط مسیر فایل ذخیره می‌شود (حجم کمتر)
+## مسیر ذخیره و بارگذاری پروژه
 
-### ۲. حفظ فرمت اصلی فایل
-فایل‌ها دقیقاً با همان فرمت اصلی (MP3, WAV, etc.) ذخیره می‌شوند و به هیچ وجه به base64 یا فرمت‌های حجیم تبدیل نمی‌شوند.
+ذخیرهٔ پروژه از `EditorSongPersistenceService` و workflow خروجی پروژه انجام
+می‌شود. بارگذاری نیز از مسیر `EditorSongInitializationService` و
+`EditorProjectFileService` عبور می‌کند و بازیابی فایل‌های صوتی را
+`AudioRecoveryService` انجام می‌دهد.
 
-### ۳. بازسازی Waveform
-پس از بارگذاری مجدد پروژه، waveform فایل‌های صوتی به طور کامل بازسازی می‌شود.
+## وضعیت legacy
 
-## نحوه استفاده
+ماژول‌های مستقل قدیمی صوت و پروژه از این repository حذف شده‌اند و دیگر API
+عمومی مانند `window.FileSystemBridge`، `window.AudioManager`,
+`window.AudioFileLoader` یا `window.ProjectStore` تولید نمی‌شود. این نام‌ها
+نباید در کد جدید استفاده شوند؛ برای مسیرهای موجود باید سرویس تخصصی مربوط به
+جدول بالا تزریق شود.
 
-### راه‌اندازی اولیه
-
-```javascript
-// در شروع برنامه
-await window.FileSystemBridge.init();
-await window.AudioManager.init();
-```
-
-### افزودن فایل صوتی
-
-```javascript
-// هنگام Drag & Drop یا انتخاب فایل
-async function handleFileDrop(file, originalPath = null) {
-    try {
-        const result = await window.AudioFileLoader.loadFromFile(file, originalPath);
-        
-        // result شامل:
-        // - audioData: اطلاعات فایل
-        // - audioBuffer: بافر صوتی دیکود شده
-        // - waveform: داده‌های waveform
-        // - url: URL موقت برای پخش
-        
-        console.log('File loaded:', result.audioData.name);
-        console.log('Duration:', result.audioData.duration);
-        console.log('Waveform data points:', result.waveform.data.length);
-        
-        return result;
-    } catch (error) {
-        console.error('Error loading file:', error);
-    }
-}
-```
-
-### ذخیره پروژه
-
-```javascript
-// ذخیره پروژه
-async function saveProject() {
-    const projectData = window.ProjectStore.exportProjectData();
-    const savedPath = await window.ProjectStore.saveProject(projectData);
-    console.log('Project saved to:', savedPath);
-}
-```
-
-### بارگذاری پروژه
-
-```javascript
-// بارگذاری پروژه
-async function loadProject(filePath) {
-    const projectData = await window.ProjectStore.loadProject(filePath);
-    console.log('Project loaded:', projectData.name);
-    
-    // کلیپ‌های صوتی به طور خودکار بازسازی می‌شوند
-    // waveform‌ها دوباره ساخته می‌شوند
-}
-```
-
-### رندر Waveform روی Canvas
-
-```javascript
-// رندر waveform
-const canvas = document.getElementById('waveformCanvas');
-const waveformData = result.waveform.data;
-
-window.AudioFileLoader.renderWaveform(canvas, waveformData, {
-    barWidth: 2,
-    gap: 1,
-    color: '#4CAF50',
-    mirror: true // نمایش متقارن
-});
-```
-
-## تفاوت‌های محیط وب و الکترون
-
-### محیط وب (مرورگر)
-- فایل‌ها در **IndexedDB** ذخیره می‌شوند
-- محدودیت حجم ذخیره‌سازی وجود دارد
-- بدون دسترسی مستقیم به فایل سیستم
-
-### محیط الکترون (دسکتاپ)
-- فایل‌ها در **پوشه پروژه/Audio** ذخیره می‌شوند
-- دسترسی کامل به فایل سیستم
-- امکان لینک کردن فایل‌های خارجی بدون کپی
-- دیالوگ‌های نیتیو برای پرسش کپی/لینک
-
-## IPC Handlers در Electron
-
-```javascript
-// خواندن فایل صوتی
-ipcRenderer.invoke('audio:read-file', filePath)
-
-// کپی فایل به پروژه
-ipcRenderer.invoke('audio:copy-to-project', sourcePath, audioDir)
-
-// حذف فایل
-ipcRenderer.invoke('audio:delete-file', filePath)
-
-// نمایش پیام باکس
-ipcRenderer.invoke('dialog:show-message-box', options)
-
-// ذخیره پروژه
-ipcRenderer.invoke('project:save-with-audio', projectData, filePath)
-
-// بارگذاری پروژه
-ipcRenderer.invoke('project:load-file', filePath)
-
-// بررسی وجود فایل
-ipcRenderer.invoke('fs:check-exists', filePath)
-```
-
-## ساختار داده‌های پروژه
-
-```json
-{
-  "id": "proj_1234567890_abc",
-  "name": "My Project",
-  "createdAt": "2024-01-01T00:00:00.000Z",
-  "modifiedAt": "2024-01-01T00:00:00.000Z",
-  "tracks": [],
-  "clips": [
-    {
-      "id": "clip_1234567890_xyz",
-      "trackId": "track_1",
-      "audioFileId": "audio_1234567890_def",
-      "fileName": "song.mp3",
-      "startPosition": 0,
-      "duration": 180.5,
-      "volume": 1.0,
-      "pan": 0.0
-    }
-  ],
-  "audioFiles": {
-    "audio_1234567890_def": {
-      "id": "audio_1234567890_def",
-      "name": "song.mp3",
-      "format": "mp3",
-      "size": 5242880,
-      "path": "./Audio/song.mp3",
-      "type": "copied",
-      "isEmbedded": false,
-      "duration": 180.5,
-      "waveform": {
-        "data": [...],
-        "duration": 180.5,
-        "sampleRate": 44100
-      }
-    }
-  },
-  "settings": {
-    "sampleRate": 44100,
-    "bitDepth": 16,
-    "tempo": 120
-  }
-}
-```
-
-## نکات مهم
-
-1. **همیشه قبل از استفاده از FileManager، متد init را صدا بزنید**
-2. **در محیط الکترون، preload.js باید لود شود**
-3. **URL های ایجاد شده با createObjectURL را پس از اتمام کار آزاد کنید**
-4. **برای پروژه‌های بزرگ، حالت لینک کردن توصیه می‌شود**
+برای دسترسی Electron، preload همچنان باید قبل از runtime اصلی بارگذاری شود.
+URLهای ساخته‌شده با `URL.createObjectURL` نیز باید توسط مالک lifecycle آن‌ها
+آزاد شوند.
