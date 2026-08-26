@@ -36,6 +36,9 @@ const editorAutoImportStateService = read(
 const editorAutoImportFileSaveService = read(
   'js/editor/EditorAutoImportFileSaveService.js'
 );
+const editorAutoImportWorkflowService = read(
+  'js/editor/EditorAutoImportWorkflowService.js'
+);
 const editorColorToolService = read(
   'js/editor/EditorColorToolService.js'
 );
@@ -200,6 +203,21 @@ assert.doesNotMatch(editor, /async function autoImportDoSave\(\)/);
 assert.doesNotMatch(editor, /function sanitizeFilePart\(/);
 assert.doesNotMatch(editor, /function buildSaveReport\(/);
 assert.doesNotMatch(editor, /\/api\/save-to-folder/);
+assert.match(editorAutoImportWorkflowService, /async function start\(\)/);
+assert.match(
+  editorAutoImportWorkflowService,
+  /function appendArtistResults/
+);
+assert.match(
+  editorAutoImportWorkflowService,
+  /function buildFinalReport/
+);
+assert.doesNotMatch(editor, /async function startAutoImport\(\)/);
+assert.match(
+  editor,
+  /function startAutoImport\(\)\s*\{\s*return editorAutoImportWorkflowService\.start\(\);\s*\}/
+);
+assert.doesNotMatch(editor, /━━━ خلاصه شناسایی ━━━/);
 assert.match(editorColorToolService, /function paintContextAware\(event\)/);
 assert.match(editorColorToolService, /function applyColorToClip\(clip, color\)/);
 assert.match(

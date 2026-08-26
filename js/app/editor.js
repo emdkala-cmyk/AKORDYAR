@@ -1049,208 +1049,32 @@ function getMidiScoreController() {
       return d;
     }
 
+    const editorAutoImportWorkflowService =
+      window.EditorAutoImportWorkflowService.create({
+        documentRef: document,
+        getElement: id => $(id),
+        fetchRef: (...args) => fetch(...args),
+        getState: () => autoImportStateService,
+        parseArtistNames,
+        escapeHtml,
+        updateProgress: (...args) => updateAutoProgress(...args),
+        showProgress: () => showProgressBar(),
+        fetchArtistFromServer: (...args) =>
+          fetchArtistFromServer(...args),
+        buildProgressDetail: () => buildProgressDetail(),
+        saveSongToArchive: (...args) => saveSongToArchive(...args),
+        getAllSongs: (...args) => edGetAllSongs(...args),
+        setAllSongs: (...args) => edSetAllSongs(...args),
+        toast,
+        wait: milliseconds => new Promise(resolve => {
+          setTimeout(resolve, milliseconds);
+        }),
+        logger: console
+      });
+
     // ---- MAIN: Start Auto Import ----
-    async function startAutoImport() {
-      const rawInput = $('autoArtistName').value.trim();
-      const requestedCount = parseInt($('autoSongCount').value) || 0;
-      const saveToArchive = $('autoSaveArchive').checked;
-
-      const artistNames = parseArtistNames(rawInput);
-      if (!artistNames.length) { toast('نام خواننده را وارد کنید'); return; }
-
-      const status = $('autoImportStatus');
-      const results = $('autoImportResults');
-      const btn = $('autoImportBtn');
-      status.style.display = 'block';
-      results.innerHTML = '';
-      btn.disabled = true;
-      showProgressBar();
-
-      const source = $('autoSource').value;
-      const apiUrl = source === 'akord' ? '/api/akord/auto-import' : '/api/auto-import';
-
-      // Reset private request state
-      autoImportStateService.reset();
-
-      try {
-        // ===== PHASE 1: Detect total for each artist =====
-        status.textContent = '🔍 در حال شناسایی تعداد ترانه‌ها...';
-        let grandExpected = 0;
-
-        for (let ai = 0; ai < artistNames.length; ai++) {
-          const artistName = artistNames[ai];
-          status.textContent = `🔍 [${ai + 1}/${artistNames.length}] شناسایی ${escapeHtml(artistName)}...`;
-          updateAutoProgress(grandExpected, grandExpected + 1, `<span class="auto-progress-teal">شناسایی ${escapeHtml(artistName)}...</span>`);
-
-          // Probe: fetch count=1 to get totalSongs
-          try {
-            const probeResp = await fetch(apiUrl, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ artistName, count: 1, start: 1 })
-            });
-            const probeData = await probeResp.json();
-
-            if (probeData.error) {
-              autoImportStateService.setArtist(artistName, { expected: 0, fetched: 0, status: 'error', error: probeData.error, candidates: probeData.candidates, songs: [] });
-              continue;
-            }
-
-            const totalSongs = probeData.totalSongs || 1;
-            const countToFetch = requestedCount > 0 ? Math.min(requestedCount, totalSongs) : totalSongs;
-            console.log(`[AUTO-IMPORT CLIENT] Artist: ${artistName} | totalSongs from probe: ${totalSongs} | countToFetch: ${countToFetch}`);
-            autoImportStateService.setArtist(artistName, { expected: countToFetch, fetched: 0, status: 'pending', songs: [] });
-            grandExpected += countToFetch;
-          } catch (e) {
-            autoImportStateService.setArtist(artistName, { expected: 0, fetched: 0, status: 'error', error: e.message, songs: [] });
-          }
-          await new Promise(r => setTimeout(r, 300));
-        }
-
-        autoImportStateService.setStat('total', grandExpected);
-
-        // Show artist summary before fetching
-        let summaryLines = ['━━━ خلاصه شناسایی ━━━'];
-        for (const [name, data] of autoImportStateService.getArtistEntries()) {
-          if (data.error) summaryLines.push(`❌ ${name}: ${data.error}`);
-          else summaryLines.push(`🎵 ${name}: ${data.expected} ترانه`);
-        }
-        summaryLines.push(`📊 جمع کل: ${grandExpected} ترانه`);
-        status.textContent = summaryLines.join('\n');
-        updateAutoProgress(0, grandExpected, buildProgressDetail());
-
-        // ===== PHASE 2: Fetch all songs for each artist =====
-        let processedCount = 0;
-
-        for (const [artistName, artistData] of autoImportStateService.getArtistEntries()) {
-          if (artistData.error) continue;
-
-          status.textContent = `🎵 در حال دریافت ${escapeHtml(artistName)} (${artistData.expected} ترانه)...`;
-          updateAutoProgress(processedCount, grandExpected, `<span class="auto-progress-teal">دریافت ${escapeHtml(artistName)}...</span><br>${buildProgressDetail()}`);
-
-          const fetchResult = await fetchArtistFromServer(artistName, apiUrl, artistData.expected, (msg) => {
-            status.textContent = msg;
-          });
-
-          if (fetchResult.error) {
-            artistData.status = 'error';
-            artistData.error = fetchResult.error;
-            artistData.candidates = fetchResult.candidates;
-            artistData.songs = fetchResult.results || [];
-            artistData.fetched = artistData.songs.length;
-            processedCount += artistData.songs.length;
-            autoImportStateService.incrementStats({
-              fetched: artistData.songs.length,
-              errors: artistData.expected - artistData.songs.length
-            });
-            continue;
-          }
-
-          // Deduplicate within this artist's results by URL
-          const seenUrls = new Set();
-          const uniqueSongs = [];
-          for (const song of fetchResult.results) {
-            if (!seenUrls.has(song.url)) {
-              seenUrls.add(song.url);
-              uniqueSongs.push(song);
-            }
-          }
-
-          artistData.songs = uniqueSongs;
-          artistData.fetched = uniqueSongs.length;
-          artistData.status = 'done';
-          autoImportStateService.addResults(uniqueSongs);
-          autoImportStateService.incrementStats({ fetched: uniqueSongs.length });
-          processedCount += uniqueSongs.length;
-
-          updateAutoProgress(processedCount, grandExpected, buildProgressDetail());
-
-          // Show per-artist results
-          const okCount = uniqueSongs.filter(s => !s.error).length;
-          const errCount = uniqueSongs.filter(s => s.error).length;
-          const hColor = errCount > 0 ? '#e24f5b' : 'var(--accent-teal)';
-          results.innerHTML += `<div style="padding:8px 10px;margin:8px 0 4px;border-radius:6px;background:rgba(255,255,255,0.04);border-left:3px solid ${hColor};font-weight:700;color:var(--text-primary);font-size:0.9rem;">🎵 ${artistName} <span style="color:var(--text-secondary);font-weight:400;font-size:0.8rem;">(${okCount}/${artistData.expected} موفق${errCount ? ', ' + errCount + ' ناموفق' : ''})</span></div>`;
-
-          uniqueSongs.forEach((song, i) => {
-            const key = songUniqueId(song);
-            if (song.error) {
-              results.innerHTML += `<div style="padding:6px 10px;margin:2px 0 2px 16px;border-radius:6px;background:rgba(255,0,0,0.1);border:1px solid #e24f5b;font-size:0.8rem;">❌ ${song.title}: ${song.error}</div>`;
-            } else {
-        results.innerHTML += `<div data-action="loadAutoImportSong" data-value="${escapeHtml(String(key))}" style="padding:6px 10px;margin:2px 0 2px 16px;border-radius:6px;background:rgba(63,184,175,0.1);border:1px solid var(--accent-teal);cursor:pointer;font-size:0.8rem;">🎵 ${escapeHtml(song.title)} <span style="color:var(--text-secondary);font-size:0.75rem;">(${escapeHtml(song.key || '-')})</span></div>`;
-            }
-          });
-
-          await new Promise(r => setTimeout(r, 300));
-        }
-
-        // ===== PHASE 3: Save to archive =====
-        if (saveToArchive) {
-          status.textContent = '📁 در حال ذخیره در آرشیو...';
-          const existingSongs = edGetAllSongs();
-          let archived = 0, dupes = 0, noText = 0, parseErr = 0;
-
-          for (const song of autoImportStateService.getResults()) {
-            if (song.error) { continue; }
-            if (!song.rawText || !song.rawText.trim()) {
-              noText++;
-              continue;
-            }
-            try {
-              const result = saveSongToArchive(song, existingSongs);
-              if (result.duplicate) { dupes++; }
-              else if (result.saved) { archived++; }
-            } catch (e) {
-              parseErr++;
-              console.log(`[ARCHIVE] PARSE ERROR: ${song.title} — ${e.message}`);
-            }
-          }
-
-          console.log(`[ARCHIVE] FINAL: archived=${archived}, dupes=${dupes}, noText=${noText}, parseErr=${parseErr}, total=${autoImportStateService.getResults().length}`);
-          console.log(`[ARCHIVE] Songs with rawText: ${autoImportStateService.getResults().filter(s => !s.error && s.rawText && s.rawText.trim()).length}`);
-          console.log(`[ARCHIVE] Songs WITHOUT rawText: ${noText}`);
-          edSetAllSongs(existingSongs);
-          autoImportStateService.updateStats({
-            archived,
-            dupes,
-            errors: autoImportStateService.getFailedSongs().length
-          });
-        }
-
-        // ===== PHASE 4: Final Report =====
-        const s = autoImportStateService.getStats();
-        let report = '━━━ گزارش نهایی ━━━\n';
-        for (const [name, data] of autoImportStateService.getArtistEntries()) {
-          if (data.error) report += `❌ ${name}: ${data.error}\n`;
-          else report += `🎵 ${name}: ${data.fetched}/${data.expected} دریافت شد\n`;
-        }
-        report += `\n📊 مجموع تعداد مورد انتظار: ${s.total}\n`;
-        report += `📊 تعداد دریافت‌شده: ${s.fetched}\n`;
-        report += `📊 ذخیره‌شده در آرشیو: ${s.archived}\n`;
-        report += `📊 تکراری: ${s.dupes}\n`;
-        report += `📊 ناموفق: ${s.errors}`;
-        if (autoImportStateService.getFailedSongs().length > 0) {
-          report += `\n\n❌ موارد ناموفق:\n`;
-          autoImportStateService.getFailedSongs().forEach(f => { report += `  • ${f.artist} — ${f.title}: ${f.error}\n`; });
-        }
-
-        status.textContent = report;
-        $('autoImportSummary').textContent = report;
-        updateAutoProgress(s.fetched, s.total, buildProgressDetail());
-
-        // Show completion UI
-        $('autoImportForm').style.display = 'none';
-        $('autoImportFooter').style.display = 'none';
-        $('autoImportDone').style.display = 'block';
-
-      } catch (e) {
-        const isNetworkErr = e.message.includes('Failed to fetch') || e.message.includes('NetworkError') || e.message.includes('ERR_CONNECTION');
-        status.textContent = isNetworkErr
-          ? '❌ سرور پیدا نشد!\n\nلطفاً سرور را اجرا کنید:\n1. ترمینال باز کنید\n2. بروید به پوشه پروژه\n3. بزنید: npm start\n4. بعد دوباره تلاش کنید'
-          : '❌ خطا: ' + e.message;
-        btn.disabled = false;
-        btn.textContent = '🔄 تلاش مجدد';
-        $('autoImportDone').style.display = 'block';
-      }
+    function startAutoImport() {
+      return editorAutoImportWorkflowService.start();
     }
 
     // ---- Retry failed songs only ----
