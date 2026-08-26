@@ -33,6 +33,7 @@ let coreArrangerPreparationRuntime = null;
 let coreArrangerManagerRendererRuntime = null;
 let coreArrangerFileImportRuntime = null;
 let coreArrangerFileExportRuntime = null;
+let coreArrangerCrossfadeRuntime = null;
 let coreArrangerSetlistRendererRuntime = null;
 let coreClipRendererRuntime = null;
 let coreArrangerBackgroundPreloadRuntime = null;
@@ -2628,6 +2629,26 @@ let syncTapKeyHandler = null;
       );
     }
 
+    coreArrangerCrossfadeRuntime =
+      globalScope.CoreArrangerCrossfadeService?.create?.({
+        getCrossfadeDuration: () => arrPerformData?.crossfade || 0,
+        hasNextState: () => Boolean(_arrNextState),
+        setIsCrossfading: value => {
+          _arrIsCrossfading = value;
+        },
+        ensureAudioCtx: (...args) => ensureAudioCtx(...args),
+        getDAW: () => getEditorDAW(),
+        stopAllVoices: (...args) => stopAllVoices(...args),
+        hotSwapToNextSong: (...args) => hotSwapToNextSong(...args),
+        schedule: (...args) => setTimeout(...args),
+        logger: console
+      });
+    if (!coreArrangerCrossfadeRuntime) {
+      throw new Error(
+        'CoreArrangerCrossfadeService باید قبل از app/core.js بارگذاری شود.'
+      );
+    }
+
     corePerformanceUiRuntime =
       globalScope.CorePerformanceUiService?.create?.({
         documentRef: document,
@@ -2688,45 +2709,5 @@ let syncTapKeyHandler = null;
     // صدای قدیمی fade-out و صدای جدید fade-in می‌شه. در نقطه میانی،
     // هر دو آهنگ در حال پخش هستن (overlap).
     function arrCrossfadeSwap() {
-      const crossfadeDur = arrPerformData?.crossfade || 0;
-      if (crossfadeDur <= 0 || !_arrNextState) { hotSwapToNextSong(); return; }
-
-      _arrIsCrossfading = true;
-      ensureAudioCtx();
-      const ctx = getEditorDAW().audioCtx;
-      const curGain = getEditorDAW().masterGain;
-      const now = ctx.currentTime;
-      const fadeTime = Math.min(Math.max(crossfadeDur, 0.5), 5); // بین 0.5 تا 5 ثانیه
-
-      console.log(`[Arranger Crossfade] Starting ${fadeTime}s crossfade`);
-
-      // ─── مرحله 1: fade-out صدای فعلی ───
-      const currentVolume = curGain.gain.value;
-      curGain.gain.cancelScheduledValues(now);
-      curGain.gain.setValueAtTime(currentVolume, now);
-      curGain.gain.linearRampToValueAtTime(0, now + fadeTime * 0.5);
-
-      // ─── مرحله 2: در نیمه راه، hot-swap کن ───
-      // در این نقطه، masterGain صفر هست، پس swap بی‌صدا انجام می‌شه
-      setTimeout(() => {
-        try {
-          // قبل از swap، صدای فعلی رو کامل قطع کن
-          stopAllVoices();
-
-          // hot-swap به آهنگ جدید
-          hotSwapToNextSong();
-
-          // حالا masterGain رو از 0 به 1 fade-in کن
-          const fadeInNow = ctx.currentTime;
-          curGain.gain.cancelScheduledValues(fadeInNow);
-          curGain.gain.setValueAtTime(0, fadeInNow);
-          curGain.gain.linearRampToValueAtTime(currentVolume, fadeInNow + fadeTime * 0.5);
-
-          console.log('[Arranger Crossfade] Fade-in started');
-        } catch(e) {
-          console.error('[Arranger Crossfade] Error during swap:', e);
-        } finally {
-          _arrIsCrossfading = false;
-        }
-      }, fadeTime * 500); // نصف fadeTime به میلی‌ثانیه
+      return coreArrangerCrossfadeRuntime?.swap?.();
     }
