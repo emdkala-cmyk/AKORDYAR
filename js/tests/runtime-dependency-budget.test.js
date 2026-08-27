@@ -368,13 +368,10 @@ assert.doesNotMatch(
   editor,
   /const ED_(?:NOTES|FLAT_NOTES|ALL_NOTE_NAMES|SEMITONE|FLAT_MAP)/
 );
-assert.match(
+assert.match(editor, /edRemapSeqPoints\(oldText, newText\)/);
+assert.doesNotMatch(
   editor,
   /edRemapSeqPoints:\s*editorRemapSeqPoints/
-);
-assert.match(
-  editor,
-  /editorRemapSeqPoints\(oldText, newText\)/
 );
 assert.doesNotMatch(
   editor,

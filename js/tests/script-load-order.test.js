@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const vm = require('node:vm');
 
 const html = fs.readFileSync(
   path.resolve(__dirname, '..', '..', 'Akordyar.html'),
@@ -12,6 +13,16 @@ const syncClientHtml = fs.readFileSync(
   'utf8'
 );
 
+const coreSource = fs.readFileSync(
+  path.resolve(__dirname, '..', 'app', 'core.js'),
+  'utf8'
+);
+
+const editorSource = fs.readFileSync(
+  path.resolve(__dirname, '..', 'app', 'editor.js'),
+  'utf8'
+);
+
 assert.equal(
   fs.existsSync(path.resolve(__dirname, '..', 'app.js')),
   false,
@@ -20,6 +31,10 @@ assert.equal(
 assert.doesNotMatch(
   html,
   /<script[^>]+src=["']js\/app\.js["']/
+);
+assert.doesNotThrow(
+  () => new vm.Script(`${coreSource}\n${editorSource}`),
+  'core.js and editor.js must not redeclare classic-script lexical bindings'
 );
 
 function scriptIndex(sourceName) {
