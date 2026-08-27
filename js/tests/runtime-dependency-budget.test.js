@@ -84,6 +84,9 @@ const corePerformanceModeService = read(
 const corePerformanceRuntimeService = read(
   'js/app/CorePerformanceRuntimeService.js'
 );
+const corePerformanceControllerService = read(
+  'js/app/CorePerformanceControllerService.js'
+);
 const corePanelLayoutService = read('js/app/CorePanelLayoutService.js');
 const coreTimelineGeometryService = read('js/app/CoreTimelineGeometryService.js');
 const coreTimelineRendererService = read('js/app/CoreTimelineRendererService.js');
@@ -763,7 +766,9 @@ assert.match(corePerformanceRuntimeService, /function requireService/);
 assert.match(corePerformanceRuntimeService, /performanceModeService/);
 assert.match(corePerformanceRuntimeService, /backgroundPreloadService/);
 assert.match(corePerformanceRuntimeService, /performanceUiService/);
-assert.match(appCore, /CorePerformanceRuntimeService/);
+assert.match(corePerformanceControllerService, /runtimeService/);
+assert.match(appCore, /CorePerformanceControllerService/);
+assert.doesNotMatch(appCore, /CorePerformanceRuntimeService\?\.create/);
 assert.doesNotMatch(appCore, /async function openPerfMode\(\)/);
 assert.doesNotMatch(appCore, /function perfTogglePlay\(\)/);
 assert.doesNotMatch(appCore, /function perfTranspose\(/);

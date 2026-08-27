@@ -54,6 +54,7 @@ for (const activeScript of [
   'js/app/CoreTransportService.js',
   'js/app/CorePerformanceModeService.js',
   'js/app/CorePerformanceRuntimeService.js',
+  'js/app/CorePerformanceControllerService.js',
   'js/app/CorePanelLayoutService.js',
   'js/app/CoreTimelineGeometryService.js',
   'js/app/CoreTimelineRendererService.js',

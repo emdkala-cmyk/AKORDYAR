@@ -107,7 +107,8 @@ assert.match(
 );
 assert.match(transportService, /playheadMath\?\.applyLoop/);
 assert.match(core, /arrangerPlaybackPolicy\?\.createBoundary/);
-assert.match(core, /CorePerformanceRuntimeService\?\.create/);
+assert.match(core, /CorePerformanceControllerService\?\.create/);
+assert.doesNotMatch(core, /CorePerformanceRuntimeService\?\.create/);
 assert.doesNotMatch(core, /CoreArrangerPreparationService\?\.create/);
 assert.match(preparationService, /arrangerMarkers:\s*songData\._arrangerMarkers/);
 assert.doesNotMatch(preparationService, /legacyLoopState/);

@@ -52,6 +52,7 @@ const coreSaveAudioBlobToDB = (...args) =>
 const coreSaveAudioBlobsForProject = (...args) =>
   coreAudioStorageRuntime.saveAudioBlobsForProject?.(...args);
 let corePerformanceRuntime = null;
+let corePerformanceController = null;
 let coreArrangerRuntime = null;
 let coreWavEncoderRuntime = null;
 let coreTimelineRuntime = null;
@@ -77,6 +78,22 @@ const coreSetArchiveSongs = (...args) =>
   coreArchiveCall('setAllSongs', ...args);
 const coreSaveArchiveSong = (...args) =>
   coreArchiveCall('saveToArchive', ...args);
+const coreGetPerformanceState = () => corePerformanceController?.state;
+const coreGetArrangerState = () => {
+  const state = coreGetPerformanceState();
+  return {
+    active: state?.active || false,
+    data: state?.data || null,
+    index: state?.index ?? -1,
+    nextState: state?.nextState || null,
+    preparePending: state?.preparePending || false,
+    prepStartedForIndex: state?.prepStartedForIndex ?? -1,
+    waitPollActive: state?.waitPollActive || false,
+    isCrossfading: state?.crossfading || false,
+    perfModeActive: state?.modeActive || false,
+    perfPauseMode: state?.pauseMode || false
+  };
+};
 
 coreWavEncoderRuntime =
   globalScope.CoreWavEncoderService?.create?.({
@@ -198,30 +215,27 @@ function customPrompt(message, defaultValue = '') {
         getRecordingRuntime: () => recordingRuntime,
         getAudioContextService: () => audioContextServiceBridge,
         getArrangerState: () => ({
-          active: arrPerformActive,
-          data: arrPerformData,
-          index: arrPerformIdx,
+          ...coreGetArrangerState(),
           selectionEnd,
-          nextState: _arrNextState,
-          preparePending: arrPreparePending,
-          prepStartedForIndex: _arrPrepStartedForIndex,
-          waitPollActive: _arrWaitPollActive,
-          isCrossfading: _arrIsCrossfading,
-          perfModeActive,
-          perfPauseMode,
           playbackPolicy: arrangerPlaybackPolicy
         }),
         setArrangerPreparePending: value => {
-          arrPreparePending = value;
+          corePerformanceController?.updateState({
+            preparePending: value
+          });
         },
         setArrangerPrepStartedForIndex: value => {
-          _arrPrepStartedForIndex = value;
+          corePerformanceController?.updateState({
+            prepStartedForIndex: value
+          });
         },
         setArrangerWaitPollActive: value => {
-          _arrWaitPollActive = value;
+          corePerformanceController?.updateState({
+            waitPollActive: value
+          });
         },
         clearArrangerNextState: () => {
-          _arrNextState = null;
+          corePerformanceController?.updateState({ nextState: null });
         },
         prepareNextArrSong: (...args) => prepareNextArrSong(...args),
         loadArrSong: (...args) => loadArrSong(...args),
@@ -1303,7 +1317,7 @@ function applyState(stateStr) {
       globalScope.CoreLoopControlService?.create?.({
         getDAW: () => coreGetRuntimeDAW(),
         getElement: id => $(id),
-        isPerforming: () => arrPerformActive,
+        isPerforming: () => coreGetPerformanceState()?.active || false,
         getSelectedClips: () => selectedClips(),
         setSelectionEnd: value => {
           selectionEnd = value;
@@ -1341,7 +1355,7 @@ function applyState(stateStr) {
         clamp: (value, min, max) => clamp(value, min, max),
         getElement: id => $(id),
         documentRef: document,
-        isPerforming: () => arrPerformActive,
+        isPerforming: () => coreGetPerformanceState()?.active || false,
         startPointerDrag: (...args) =>
           coreStartPointerDrag(...args),
         saveState: () => saveState(),
@@ -1744,113 +1758,8 @@ let syncTapKeyHandler = null;
     corePublicApi.publish(coreArrangerRuntime.publicApi);
 
     // ===== Performance Mode (Live Dashboard) =====
-    let arrPerformIdx = -1;
-    let arrPerformActive = false;
-    let arrPerformData = null;
-    let arrPreparePending = false;
-    let _arrNextState = null;
-    let _arrHasLoggedNoNextSong = false;
-    let _arrPrepStartedForIndex = -1;
-    let perfModeActive = false;
-    let perfStageMode = false;
-    let perfPauseMode = false;
-    let perfLiveTranspose = 0;
-    let _arrIsCrossfading = false;
-    let _bgPreloadActive = false;
-    let _bgPreloadedSongIds = new Set();
-    let _arrWaitPollActive = false;
-
-    const performanceState = {
-      get arrPerformIdx() { return arrPerformIdx; },
-      set arrPerformIdx(value) { arrPerformIdx = value; },
-      get arrPerformActive() { return arrPerformActive; },
-      set arrPerformActive(value) { arrPerformActive = value; },
-      get arrPerformData() { return arrPerformData; },
-      set arrPerformData(value) { arrPerformData = value; },
-      get arrPreparePending() { return arrPreparePending; },
-      set arrPreparePending(value) { arrPreparePending = value; },
-      get nextState() { return _arrNextState; },
-      set nextState(value) { _arrNextState = value; },
-      get hasLoggedNoNextSong() { return _arrHasLoggedNoNextSong; },
-      set hasLoggedNoNextSong(value) { _arrHasLoggedNoNextSong = value; },
-      get prepStartedForIndex() { return _arrPrepStartedForIndex; },
-      set prepStartedForIndex(value) { _arrPrepStartedForIndex = value; },
-      get perfModeActive() { return perfModeActive; },
-      set perfModeActive(value) { perfModeActive = value; },
-      get perfStageMode() { return perfStageMode; },
-      set perfStageMode(value) { perfStageMode = value; },
-      get perfPauseMode() { return perfPauseMode; },
-      set perfPauseMode(value) { perfPauseMode = value; },
-      get perfLiveTranspose() { return perfLiveTranspose; },
-      set perfLiveTranspose(value) { perfLiveTranspose = value; },
-      get backgroundPreloadActive() { return _bgPreloadActive; },
-      set backgroundPreloadActive(value) { _bgPreloadActive = value; },
-      get preloadedSongIds() { return _bgPreloadedSongIds; },
-      set preloadedSongIds(value) { _bgPreloadedSongIds = value; },
-      get waitPollActive() { return _arrWaitPollActive; },
-      set waitPollActive(value) { _arrWaitPollActive = value; },
-      get isCrossfading() { return _arrIsCrossfading; },
-      set isCrossfading(value) { _arrIsCrossfading = value; }
-    };
-
-    corePerformanceRuntime =
-      globalScope.CorePerformanceRuntimeService?.create?.({
-        state: {
-          getPerformanceState: () => ({
-            arrPerformData: performanceState.arrPerformData,
-            arrPerformIdx: performanceState.arrPerformIdx,
-            arrPerformActive: performanceState.arrPerformActive,
-            perfModeActive: performanceState.perfModeActive,
-            perfStageMode: performanceState.perfStageMode,
-            perfPauseMode: performanceState.perfPauseMode,
-            perfLiveTranspose: performanceState.perfLiveTranspose,
-            arrNextState: performanceState.nextState,
-            bgPreloadActive: performanceState.backgroundPreloadActive,
-            arrWaitPollActive: performanceState.waitPollActive,
-            arrPreparePending: performanceState.arrPreparePending,
-            arrHasLoggedNoNextSong: performanceState.hasLoggedNoNextSong,
-            arrPrepStartedForIndex: performanceState.prepStartedForIndex
-          }),
-          updatePerformanceState: patch => {
-            if ('arrPerformData' in patch) performanceState.arrPerformData = patch.arrPerformData;
-            if ('arrPerformIdx' in patch) performanceState.arrPerformIdx = patch.arrPerformIdx;
-            if ('arrPerformActive' in patch) performanceState.arrPerformActive = patch.arrPerformActive;
-            if ('perfModeActive' in patch) performanceState.perfModeActive = patch.perfModeActive;
-            if ('perfStageMode' in patch) performanceState.perfStageMode = patch.perfStageMode;
-            if ('perfPauseMode' in patch) performanceState.perfPauseMode = patch.perfPauseMode;
-            if ('perfLiveTranspose' in patch) performanceState.perfLiveTranspose = patch.perfLiveTranspose;
-            if ('arrNextState' in patch) performanceState.nextState = patch.arrNextState;
-            if ('bgPreloadActive' in patch) performanceState.backgroundPreloadActive = patch.bgPreloadActive;
-            if ('arrWaitPollActive' in patch) performanceState.waitPollActive = patch.arrWaitPollActive;
-            if ('arrPreparePending' in patch) performanceState.arrPreparePending = patch.arrPreparePending;
-            if ('arrHasLoggedNoNextSong' in patch) performanceState.hasLoggedNoNextSong = patch.arrHasLoggedNoNextSong;
-            if ('arrPrepStartedForIndex' in patch) performanceState.prepStartedForIndex = patch.arrPrepStartedForIndex;
-          },
-          getArranger: () => arrPerformData || getEditingArr(),
-          getPreparationArranger: () => arrPerformData || getEditingArr(),
-          getPreloadArranger: () => arrPerformData,
-          getCurrentIndex: () => arrPerformIdx,
-          isActive: () => arrPerformActive,
-          hasLoggedNoNextSong: () => _arrHasLoggedNoNextSong,
-          setHasLoggedNoNextSong: value => {
-            _arrHasLoggedNoNextSong = value;
-          },
-          setNextState: value => {
-            _arrNextState = value;
-          },
-          getBackgroundActive: () => _bgPreloadActive,
-          setBackgroundActive: value => {
-            _bgPreloadActive = value;
-          },
-          getPreloadedIds: () => _bgPreloadedSongIds,
-          setPreloadedIds: value => {
-            _bgPreloadedSongIds = value;
-          },
-          getCrossfadeDuration: () => arrPerformData?.crossfade || 0,
-          setIsCrossfading: value => {
-            _arrIsCrossfading = value;
-          }
-        },
+    corePerformanceController =
+      globalScope.CorePerformanceControllerService?.create?.({
         actions: {
           getDAW: () => coreGetRuntimeDAW(),
           getEditingArr: () => getEditingArr(),
@@ -1904,6 +1813,12 @@ let syncTapKeyHandler = null;
         },
         logger: console
       });
+    if (!corePerformanceController) {
+      throw new Error(
+        'CorePerformanceControllerService must be loaded before app/core.js.'
+      );
+    }
+    corePerformanceRuntime = corePerformanceController.runtime;
     if (!corePerformanceRuntime) {
       throw new Error(
         'CorePerformanceRuntimeService باید قبل از app/core.js بارگذاری شود.'
