@@ -128,6 +128,8 @@ const {
   perfPrevSong,
   perfNextSong,
   perfTranspose,
+  getPerformanceState,
+  updatePerformanceState,
   customPrompt,
   formatTime,
   toast,
@@ -467,50 +469,32 @@ function getMidiScoreController() {
           window.EditorArrangerRuntimeService.create({
             state: {
               getHotSwapPerformanceState: () => ({
-                active: arrPerformActive,
-                pauseMode: perfPauseMode,
-                nextState: _arrNextState
+                active: getPerformanceState?.()?.active || false,
+                pauseMode: getPerformanceState?.()?.pauseMode || false,
+                nextState: getPerformanceState?.()?.nextState || null
               }),
-              updateHotSwapPerformanceState: patch => {
-                if ('nextState' in patch) _arrNextState = patch.nextState;
-                if ('index' in patch) arrPerformIdx = patch.index;
-                if ('hasLoggedNoNextSong' in patch) {
-                  _arrHasLoggedNoNextSong = patch.hasLoggedNoNextSong;
-                }
-                if ('prepStartedForIndex' in patch) {
-                  _arrPrepStartedForIndex = patch.prepStartedForIndex;
-                }
+              updateHotSwapPerformanceState: patch =>
+                updatePerformanceState?.(patch),
+              getSongLoadPerformanceState: () => {
+                const state = getPerformanceState?.() || {};
+                return {
+                  active: state.active || false,
+                  index: state.index ?? -1,
+                  pauseMode: state.pauseMode || false,
+                  perfModeActive: state.modeActive || false,
+                  nextState: state.nextState || null,
+                  preparePending: state.preparePending || false,
+                  waitPollActive: state.waitPollActive || false,
+                  hasLoggedNoNextSong:
+                    state.hasLoggedNoNextSong || false,
+                  prepStartedForIndex:
+                    state.prepStartedForIndex ?? -1
+                };
               },
-              getSongLoadPerformanceState: () => ({
-                active: arrPerformActive,
-                index: arrPerformIdx,
-                pauseMode: perfPauseMode,
-                perfModeActive,
-                nextState: _arrNextState,
-                preparePending: arrPreparePending,
-                waitPollActive: _arrWaitPollActive,
-                hasLoggedNoNextSong: _arrHasLoggedNoNextSong,
-                prepStartedForIndex: _arrPrepStartedForIndex
-              }),
-              updateSongLoadPerformanceState: patch => {
-                if ('active' in patch) arrPerformActive = patch.active;
-                if ('index' in patch) arrPerformIdx = patch.index;
-                if ('nextState' in patch) _arrNextState = patch.nextState;
-                if ('preparePending' in patch) {
-                  arrPreparePending = patch.preparePending;
-                }
-                if ('waitPollActive' in patch) {
-                  _arrWaitPollActive = patch.waitPollActive;
-                }
-                if ('hasLoggedNoNextSong' in patch) {
-                  _arrHasLoggedNoNextSong = patch.hasLoggedNoNextSong;
-                }
-                if ('prepStartedForIndex' in patch) {
-                  _arrPrepStartedForIndex = patch.prepStartedForIndex;
-                }
-              },
+              updateSongLoadPerformanceState: patch =>
+                updatePerformanceState?.(patch),
               getArrangement: () =>
-                arrPerformData ||
+                getPerformanceState?.()?.data ||
                 window.AkordyarCoreApi?.getEditingArr?.() ||
                 null,
               getAllSongs: () => editorGetArchiveSongs(),
@@ -2564,7 +2548,8 @@ if ($('edDoBoth')) {
           isFocusMode: () =>
             editorCoreApi.getFocusMode?.() || false,
           isSyncActive: () => syncActive,
-          isPerfModeActive: () => perfModeActive,
+          isPerfModeActive: () =>
+            getPerformanceState?.()?.modeActive || false,
           isColorToolActive: () => isColorToolActive(),
           getMappingTarget: () =>
             getKeyboardMappingService()?.getTarget?.(),

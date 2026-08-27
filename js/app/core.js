@@ -79,6 +79,10 @@ const coreSetArchiveSongs = (...args) =>
 const coreSaveArchiveSong = (...args) =>
   coreArchiveCall('saveToArchive', ...args);
 const coreGetPerformanceState = () => corePerformanceController?.state;
+const coreReadPerformanceState = () =>
+  corePerformanceController?.getState?.() || null;
+const coreUpdatePerformanceState = patch =>
+  corePerformanceController?.updateState?.(patch);
 const coreGetArrangerState = () => {
   const state = coreGetPerformanceState();
   return {
@@ -1856,7 +1860,9 @@ let syncTapKeyHandler = null;
       perfJumpToSong,
       startPerfTimer,
       stopPerfTimer,
-      startArrangerPerform
+      startArrangerPerform,
+      getPerformanceState: coreReadPerformanceState,
+      updatePerformanceState: coreUpdatePerformanceState
     });
 
     corePublicApi.publish({
