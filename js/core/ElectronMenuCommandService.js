@@ -22,48 +22,59 @@
     settings: 'مدیریت تنظیمات بارگذاری نشده است'
   });
 
-  function requireFunction(name, errorMessage) {
-    const fn = globalScope[name];
+  function requireApiFunction(apiName, name, errorMessage) {
+    const fn = globalScope[apiName]?.[name];
     if (typeof fn !== 'function') throw new Error(errorMessage);
     return fn;
   }
 
   function requireCoreFunction(name, errorMessage) {
-    const fn = globalScope.AkordyarCoreApi?.[name];
-    if (typeof fn !== 'function') throw new Error(errorMessage);
-    return fn;
+    return requireApiFunction('AkordyarCoreApi', name, errorMessage);
+  }
+
+  function requireEditorFunction(name, errorMessage) {
+    return requireApiFunction('AkordyarEditorApi', name, errorMessage);
+  }
+
+  function requireArchiveFunction(name, errorMessage) {
+    return requireApiFunction('AkordyarArchiveApi', name, errorMessage);
   }
 
   function actionMap() {
     return {
       'menu-new-song': {
         label: 'ایجاد پروژه جدید',
-        run: () => requireFunction('edNewSong', FUNCTION_NOT_FOUND.newSong)()
+        run: () =>
+          requireArchiveFunction('newSong', FUNCTION_NOT_FOUND.newSong)()
       },
       'menu-open-project': {
         label: 'باز کردن پروژه',
-        run: () => requireFunction('edImportProject', FUNCTION_NOT_FOUND.openProject)()
+        run: () =>
+          requireArchiveFunction('importProject', FUNCTION_NOT_FOUND.openProject)()
       },
       'menu-save': {
         label: 'ذخیره پروژه',
         run: () => {
-          if (typeof globalScope.edSaveProjectFile === 'function') {
-            return globalScope.edSaveProjectFile();
+          if (typeof globalScope.AkordyarEditorApi?.saveProjectFile === 'function') {
+            return globalScope.AkordyarEditorApi.saveProjectFile();
           }
-          return requireFunction('edSaveSong', FUNCTION_NOT_FOUND.save)();
+          return requireEditorFunction('saveSong', FUNCTION_NOT_FOUND.save)();
         }
       },
       'menu-save-as': {
         label: 'ذخیرهٔ پروژه با نام جدید',
-        run: () => requireFunction('edExportProjectFull', FUNCTION_NOT_FOUND.export)()
+        run: () =>
+          requireEditorFunction('exportProjectFull', FUNCTION_NOT_FOUND.export)()
       },
       'menu-export': {
         label: 'خروجی پروژه',
-        run: () => requireFunction('edExportProjectFull', FUNCTION_NOT_FOUND.export)()
+        run: () =>
+          requireEditorFunction('exportProjectFull', FUNCTION_NOT_FOUND.export)()
       },
       'menu-import': {
         label: 'ورود پروژه',
-        run: () => requireFunction('edImportProject', FUNCTION_NOT_FOUND.openProject)()
+        run: () =>
+          requireArchiveFunction('importProject', FUNCTION_NOT_FOUND.openProject)()
       },
       'menu-play-pause': {
         label: 'پخش/توقف',
@@ -92,11 +103,13 @@
       },
       'menu-archive': {
         label: 'آرشیو آهنگ‌ها',
-        run: () => requireFunction('edOpenArchive', FUNCTION_NOT_FOUND.archive)()
+        run: () =>
+          requireArchiveFunction('open', FUNCTION_NOT_FOUND.archive)()
       },
       'menu-midi-settings': {
         label: 'نمایش نت MIDI/MusicXML',
-        run: () => requireFunction('getMidiScoreController', FUNCTION_NOT_FOUND.score)()?.open?.()
+        run: () =>
+          requireEditorFunction('getMidiScoreController', FUNCTION_NOT_FOUND.score)()?.open?.()
       },
       'menu-preferences': {
         label: 'تنظیمات برنامه',

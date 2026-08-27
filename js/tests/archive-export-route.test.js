@@ -10,8 +10,9 @@ const archive = fs.readFileSync(
 
 assert.match(
   archive,
-  /async function edExportProject\(\)\s*\{\s*if \(typeof edExportProjectFull === 'function'\)/
+  /async function edExportProject\(\)\s*\{\s*if \(getArchiveEditorApi\(\)\.exportProjectFull\)/
 );
+assert.doesNotMatch(archive, /typeof edExportProjectFull/);
 assert.doesNotMatch(archive, /encodeAudioToWebM\(buffer, 128000\)/);
 assert.doesNotMatch(archive, /uint8ToBase64\(encoded\)/);
 

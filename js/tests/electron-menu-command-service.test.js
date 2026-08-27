@@ -3,32 +3,26 @@ const menuModule = require('../core/ElectronMenuCommandService.js');
 
 const original = {};
 [
-  'edNewSong',
-  'edImportProject',
-  'edSaveSong',
-  'edSaveProjectFile',
-  'edExportProjectFull',
+  'AkordyarArchiveApi',
+  'AkordyarEditorApi',
   'EditorRuntimeAdapter',
   'AkordyarCoreApi',
-  'startTransport',
-  'pauseTransport',
-  'stopTransport',
-  'transportToStart',
-  'transportToEnd',
-  'openArrangerModal',
-  'edOpenArchive',
-  'getMidiScoreController',
-  'openSettings'
 ].forEach(name => {
   original[name] = globalThis[name];
 });
 
 const calls = [];
-globalThis.edNewSong = () => calls.push('new');
-globalThis.edImportProject = () => calls.push('open');
-globalThis.edSaveSong = () => calls.push('save');
-globalThis.edSaveProjectFile = () => calls.push('save-file');
-globalThis.edExportProjectFull = () => calls.push('export');
+globalThis.AkordyarArchiveApi = {
+  newSong: () => calls.push('new'),
+  importProject: () => calls.push('open'),
+  open: () => calls.push('archive')
+};
+globalThis.AkordyarEditorApi = {
+  saveSong: () => calls.push('save'),
+  saveProjectFile: () => calls.push('save-file'),
+  exportProjectFull: () => calls.push('export'),
+  getMidiScoreController: () => ({ open: () => calls.push('score') })
+};
 globalThis.EditorRuntimeAdapter = {
   getDAW: () => ({ isPlaying: false })
 };
@@ -41,8 +35,6 @@ globalThis.AkordyarCoreApi = {
   openArrangerModal: () => calls.push('arranger'),
   openSettings: () => calls.push('settings')
 };
-globalThis.edOpenArchive = () => calls.push('archive');
-globalThis.getMidiScoreController = () => ({ open: () => calls.push('score') });
 
 const handlers = new Map();
 const service = menuModule.create({

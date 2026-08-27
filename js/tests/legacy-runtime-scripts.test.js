@@ -100,6 +100,7 @@ for (const activeScript of [
   'js/editor/EditorMidiInputService.js',
   'js/editor/EditorTimelineChordEditorService.js',
   'js/editor/EditorPublicApi.js',
+  'js/archive/ArchivePublicApi.js',
   'js/editor/EditorProjectFileService.js',
   'js/editor/EditorProjectExportRouteService.js',
   'js/editor/EditorProjectExportWorkflowService.js',

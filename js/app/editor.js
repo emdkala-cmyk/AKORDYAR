@@ -26,6 +26,28 @@ if (!editorCoreApi) {
     'AkordyarCoreApi باید قبل از app/editor.js بارگذاری شود.'
   );
 }
+const editorArchiveApi = window.AkordyarArchiveApi;
+if (!editorArchiveApi) {
+  throw new Error(
+    'AkordyarArchiveApi باید قبل از app/editor.js بارگذاری شود.'
+  );
+}
+const editorArchiveCall = (name, ...args) => {
+  const fn = editorArchiveApi[name];
+  return typeof fn === 'function' ? fn(...args) : undefined;
+};
+const editorGetArchiveSongs = (...args) =>
+  editorArchiveCall('getAllSongs', ...args) || [];
+const editorSetArchiveSongs = (...args) =>
+  editorArchiveCall('setAllSongs', ...args);
+const editorArchiveArtistKey = (...args) =>
+  editorArchiveCall('artistKey', ...args) || '';
+const editorArchiveAudioDirHandle = (...args) =>
+  editorArchiveCall('getAudioDirHandle', ...args) || null;
+const editorLoadArchiveDirHandle = (...args) =>
+  editorArchiveCall('loadDirHandle', ...args);
+const editorSaveArchiveDirHandle = (...args) =>
+  editorArchiveCall('saveDirHandle', ...args);
 const editorGetLyricPopup = (...args) =>
   editorCoreApi.getLyricPopup?.(...args) || null;
 const editorGetLyricOnlyPopup = (...args) =>
@@ -276,11 +298,11 @@ function getEditorAudioRecoveryService() {
       loadAudioFromHardDrive,
       getFileHandle,
       getDirHandle: options => {
-        if (options?.load) return loadDirHandle();
-        return _audioDirHandle;
+        if (options?.load) return editorLoadArchiveDirHandle();
+        return editorArchiveAudioDirHandle();
       },
-      setDirHandle: handle => saveDirHandle(handle),
-      saveDirHandle: handle => saveDirHandle(handle),
+      setDirHandle: handle => editorSaveArchiveDirHandle(handle),
+      saveDirHandle: handle => editorSaveArchiveDirHandle(handle),
       showDirectoryPicker: window.showDirectoryPicker,
       isElectron,
       electronAvailable: Boolean(window.electronAPI),
@@ -491,7 +513,7 @@ function getMidiScoreController() {
                 arrPerformData ||
                 window.AkordyarCoreApi?.getEditingArr?.() ||
                 null,
-              getAllSongs: () => edGetAllSongs(),
+              getAllSongs: () => editorGetArchiveSongs(),
               getItemSetting: (...args) =>
                 window.AkordyarCoreApi?.getArrItemSetting?.(...args) || {},
               getDAW: () => editorGetRuntimeDAW(),
@@ -934,9 +956,9 @@ function getMidiScoreController() {
         getElement: id => $(id),
         fetchRef: (...args) => fetch(...args),
         positionMapper: requireLyricPositionMapper(),
-        getAllSongs: (...args) => edGetAllSongs(...args),
-        setAllSongs: (...args) => edSetAllSongs(...args),
-        artistKey: value => archArtistKey(value),
+        getAllSongs: (...args) => editorGetArchiveSongs(...args),
+        setAllSongs: (...args) => editorSetArchiveSongs(...args),
+        artistKey: value => editorArchiveArtistKey(value),
         isValidNote: value =>
           typeof etIsValidNote !== 'function' || etIsValidNote(value),
         confirmRef: (...args) => window.confirm(...args),
@@ -1323,10 +1345,10 @@ function edBlankSong() {
         loadAudioFromHardDrive,
         getFileHandle,
         getDirHandle: options => {
-          if (options?.load) return loadDirHandle();
-          return _audioDirHandle;
+          if (options?.load) return editorLoadArchiveDirHandle();
+          return editorArchiveAudioDirHandle();
         },
-        setDirHandle: handle => saveDirHandle(handle),
+        setDirHandle: handle => editorSaveArchiveDirHandle(handle),
         showDirectoryPicker: window.showDirectoryPicker,
         isElectron,
         electronAvailable: Boolean(window.electronAPI),
@@ -1441,7 +1463,7 @@ function edBlankSong() {
           getSong: getCurrentEditorSong,
           getDAW: () => editorGetRuntimeDAW(),
           syncMetadata: song => SongMetadata.syncFromDom(song),
-          artistKey: artist => archArtistKey(artist),
+          artistKey: artist => editorArchiveArtistKey(artist),
           storage: localStorage,
           scheduleAudioBlobSave: () => scheduleAudioBlobSave(),
           rebuildSongDocument: () => {
@@ -1462,13 +1484,6 @@ function edBlankSong() {
     function edSaveSong() {
       return getEditorSongPersistenceService()?.save?.() || false;
     }
-
-
-
-    // ===== ARCHIVE SYSTEM — منتقل‌شده به js/archive/ArchiveModule.js (Commit 3) =====
-    // اعلان _audioDirHandle عمداً اینجا می‌ماند چون ناحیهٔ Storage (بالای فایل) به آن نیاز دارد:
-    let _audioDirHandle = null;
-
 
     function edSyncToolbar() {
       getEditorToolbarService()?.syncToolbar?.();
@@ -2414,7 +2429,7 @@ if ($('edDoBoth')) {
           getSong: getCurrentEditorSong,
           getElement: id => $(id),
           isKeySyncing: () => _edSyncingKey,
-          archArtistKey,
+          artistKey: editorArchiveArtistKey,
           render: rebuild => edRenderEditor(rebuild),
           renderChords: immediate => edRenderChords(immediate),
           save: () => edSaveSong(),
@@ -2726,14 +2741,17 @@ if ($('edDoBoth')) {
       'playerView': (typeof openPlayerView === 'function') ? openPlayerView : editorOpenLyricPopup,
       'split': splitSelectedAtPlayhead, 'copy': copySelected, 'cut': cutSelected, 'paste': pasteClipboard,
       'projectHubOpen': () => window.ProjectHub?.open(),
-      'archiveOpen': edOpenArchive,
+      'archiveOpen': () => editorArchiveCall('open'),
       'quickSearchOpen': () => window.openQuickSearchPanel(),
-      'archiveSave': () => edSaveToArchive().then(() => toast('ذخیره شد')),
-      'songNew': edNewSong,
-      'projectExport': edExportProject,
+      'archiveSave': () =>
+        Promise.resolve(editorArchiveCall('saveToArchive')).then(() =>
+          toast('ذخیره شد')
+        ),
+      'songNew': () => editorArchiveCall('newSong'),
+      'projectExport': () => editorArchiveCall('exportProject'),
       'autoImportOpen': openAutoImportModal,
       'chordImportOpen': openImportChordModal,
-      'projectImport': edImportProject,
+      'projectImport': () => editorArchiveCall('importProject'),
       'midiScoreOpen': () => getMidiScoreController()?.open?.(),
       'midiScoreImport': () => getMidiScoreController()?.openImporter?.(),
       'musicXmlScoreOpen': () => getMidiScoreController()?.open?.(),
@@ -2821,37 +2839,48 @@ if ($('edDoBoth')) {
       closeAutoImportModal: () => closeAutoImportModal(),
       autoImportDoSave: () => autoImportDoSave(),
       startAutoImport: () => startAutoImport(),
-      archToggleFullscreen: () => archToggleFullscreen(),
-      archClose: () => archClose(),
-      archToggleArtistSection: () => archToggleArtistSection(),
+      archToggleFullscreen: () => editorArchiveCall('toggleFullscreen'),
+      archClose: () => editorArchiveCall('close'),
+      archToggleArtistSection: () => editorArchiveCall('toggleArtistSection'),
       archClearArtistSearch: () => {
         const input = document.getElementById('artistSearchInput');
         if (input) input.value = '';
-        archFilterArtists();
+        editorArchiveCall('filterArtists');
       },
-      archArtistSlide: (_, element) => archArtistSlide(Number(element.dataset.value)),
-      archSetTab: (_, element) => archSetTab(element.dataset.tab),
+      archArtistSlide: (_, element) =>
+        editorArchiveCall('artistSlide', Number(element.dataset.value)),
+      archSetTab: (_, element) =>
+        editorArchiveCall('setTab', element.dataset.tab),
       archClearSearch: () => {
         const input = document.getElementById('archiveSearch');
         if (input) input.value = '';
-        archApplyFilters();
+        editorArchiveCall('applyFilters');
       },
-      archSetView: (_, element) => archSetView(element.dataset.value),
-      archToggleSelectMode: () => archToggleSelectMode(),
-      archImportFiles: () => archImportFiles(),
-      archImportFolder: () => archImportFolder(),
-      archImportFullArchive: () => archImportFullArchive(),
-      archExportAll: () => archExportAll(),
-      archRefresh: () => archRefresh(),
-      archClearFilters: () => archClearFilters(),
-      archBulkFav: (_, element) => archBulkFav(element.dataset.value === 'true'),
-      archBulkExport: () => archBulkExport(),
-      archBulkTrash: () => archBulkTrash(),
-      archArtistCtx: (_, element) => archArtistCtx(element.dataset.value),
-      archConfirmResolve: (_, element) => archConfirmResolve(element.dataset.value === 'true'),
-      archEditClose: () => archEditClose(),
-      archEditSave: () => archEditSave(),
-      archCtxAction: (_, element) => archCtxAction(element.dataset.value),
+      archSetView: (_, element) =>
+        editorArchiveCall('setView', element.dataset.value),
+      archToggleSelectMode: () => editorArchiveCall('toggleSelectMode'),
+      archImportFiles: () => editorArchiveCall('importFiles'),
+      archImportFolder: () => editorArchiveCall('importFolder'),
+      archImportFullArchive: () =>
+        editorArchiveCall('importFullArchive'),
+      archExportAll: () => editorArchiveCall('exportAll'),
+      archRefresh: () => editorArchiveCall('refresh'),
+      archClearFilters: () => editorArchiveCall('clearFilters'),
+      archBulkFav: (_, element) =>
+        editorArchiveCall('bulkFavorite', element.dataset.value === 'true'),
+      archBulkExport: () => editorArchiveCall('bulkExport'),
+      archBulkTrash: () => editorArchiveCall('bulkTrash'),
+      archArtistCtx: (_, element) =>
+        editorArchiveCall('artistContextAction', element.dataset.value),
+      archConfirmResolve: (_, element) =>
+        editorArchiveCall(
+          'resolveConfirm',
+          element.dataset.value === 'true'
+        ),
+      archEditClose: () => editorArchiveCall('editClose'),
+      archEditSave: () => editorArchiveCall('editSave'),
+      archCtxAction: (_, element) =>
+        editorArchiveCall('contextAction', element.dataset.value),
       closeShortcutModal: () => closeShortcutModal(),
       resetShortcuts: () => resetShortcuts(),
       clearMidiMaps: () => {
@@ -2878,16 +2907,15 @@ if ($('edDoBoth')) {
       importArrangerFromFile: () => importArrangerFromFile(),
       importAllPlaylistsFromFile: () => importAllPlaylistsFromFile(),
       exportAllPlaylistsToFile: () => exportAllPlaylistsToFile(),
-      archSelectAll: (_, element) => archSelectAll(!!element.checked),
-      archToggleSelect: (_, element) => archToggleSelect(element.dataset.songId),
-      archExitReadOnly: () => archExitReadOnly(),
-      archCreateEditableCopy: () => archCreateEditableCopy(),
-      archClearArtistFilter: () => {
-        _archArtistFilter = null;
-        archRenderArtists();
-        archRender();
-        archUpdateActiveFilters();
-      },
+      archSelectAll: (_, element) =>
+        editorArchiveCall('selectAll', !!element.checked),
+      archToggleSelect: (_, element) =>
+        editorArchiveCall('toggleSelect', element.dataset.songId),
+      archExitReadOnly: () => editorArchiveCall('exitReadOnly'),
+      archCreateEditableCopy: () =>
+        editorArchiveCall('createEditableCopy'),
+      archClearArtistFilter: () =>
+        editorArchiveCall('clearArtistFilter'),
       removeMidiMap: (_, element) => {
         removeMidiMap(Number(element.dataset.value));
         openShortcutModal();
@@ -2999,8 +3027,8 @@ if ($('edDoBoth')) {
               window.AkordyarCoreApi?.getArrangers?.() || [],
             getEditingArr: () =>
               window.AkordyarCoreApi?.getEditingArr?.() || null,
-            getAllSongs: () => edGetAllSongs(),
-            setAllSongs: (...args) => edSetAllSongs(...args),
+            getAllSongs: () => editorGetArchiveSongs(),
+            setAllSongs: (...args) => editorSetArchiveSongs(...args),
             saveArrangers: (...args) =>
               window.AkordyarCoreApi?.saveArrangers?.(...args),
             renderArrangerManager: (...args) =>
@@ -3077,6 +3105,17 @@ editorPublicApi.publish({
   chordModalDelete,
   placeChordOnTimeline,
   getClipFilePath,
+  createBlankSong: edBlankSong,
+  parseRawSong,
+  isValidNote: etIsValidNote,
+  decodeFileToBuffer,
+  peaksFromBuffer,
+  refreshClipWaveImage,
+  setProjectFilePath: setEditorProjectFilePath,
+  clearProjectFilePath: clearEditorProjectFilePath,
+  saveCurrentVersion,
+  applyImportChords,
+  getMidiScoreController,
   saveProjectFile: edSaveProjectFile,
   exportProjectFull: edExportProjectFull
 });

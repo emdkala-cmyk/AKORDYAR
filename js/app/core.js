@@ -67,6 +67,16 @@ const corePublicApi = corePublicApiFactory.create({
   namespace: 'AkordyarCoreApi',
   exposeGlobals: false
 });
+const coreArchiveCall = (name, ...args) => {
+  const fn = globalScope.AkordyarArchiveApi?.[name];
+  return typeof fn === 'function' ? fn(...args) : undefined;
+};
+const coreGetArchiveSongs = (...args) =>
+  coreArchiveCall('getAllSongs', ...args) || [];
+const coreSetArchiveSongs = (...args) =>
+  coreArchiveCall('setAllSongs', ...args);
+const coreSaveArchiveSong = (...args) =>
+  coreArchiveCall('saveToArchive', ...args);
 
 coreWavEncoderRuntime =
   globalScope.CoreWavEncoderService?.create?.({
@@ -420,6 +430,10 @@ const requestRenderSyncLyrics = debounce(() => { renderSyncLyrics(); }, 120);
 
     let activeMidiNotes = new Set(), midiTimeout = null, isRecordingChords = false, currentRecordingClipId = null;
     let currentChord = { root: 'None', type: 'None', tension: '', bass: 'None' };
+    function resetRecordingState() {
+      isRecordingChords = false;
+      currentRecordingClipId = null;
+    }
     // Playhead scroll mode: 'page' (scrolls page by page) or 'center' (stationary center)
     coreGetRuntimeDAW().playheadMode = 'page';
     // Arranger transition boundary (B). Looping itself stays disabled.
@@ -1664,10 +1678,10 @@ let syncTapKeyHandler = null;
           storage: localStorage
         },
         actions: {
-          getAllSongs: () => edGetAllSongs(),
-          setAllSongs: (...args) => edSetAllSongs(...args),
+          getAllSongs: () => coreGetArchiveSongs(),
+          setAllSongs: (...args) => coreSetArchiveSongs(...args),
           getCurrentSong: () => requireEditorSongStateService().currentSong(),
-          saveCurrentSong: (...args) => edSaveToArchive(...args),
+          saveCurrentSong: (...args) => coreSaveArchiveSong(...args),
           customPrompt: (...args) => customPrompt(...args),
           confirm: message => window.confirm(message),
           translate: key => t(key),
@@ -1840,7 +1854,7 @@ let syncTapKeyHandler = null;
         actions: {
           getDAW: () => coreGetRuntimeDAW(),
           getEditingArr: () => getEditingArr(),
-          getAllSongs: () => edGetAllSongs(),
+          getAllSongs: () => coreGetArchiveSongs(),
           getItemSetting: (...args) => getArrItemSetting(...args),
           getPerformanceMarkers: () => getArrangerMarkers(),
           getSongMarkers: song =>
@@ -1942,6 +1956,7 @@ let syncTapKeyHandler = null;
       applyState,
       stopAllVoices,
       renderAll,
+      resetRecordingState,
       resetHistory,
       isHistoryApplying,
       attachHistoryService

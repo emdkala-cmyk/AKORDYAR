@@ -65,6 +65,7 @@ const files = [
   'js/app/core.js',
   'js/app/editor.js',
   'js/app/search.js',
+  'js/archive/ArchivePublicApi.js',
   'js/archive/ArchiveModule.js',
   'js/projecthub.js',
   'گزارش-کامل-روند-ویرایش-و-ساماندهی-پروژه.md'

@@ -2,17 +2,55 @@
  * ArchiveModule — سیستم آرشیو ترانه‌ها (IndexedDB + localStorage fallback)
  *
  * استخراج‌شده از runtime آرشیو — Commit 3 برنامهٔ ماژولارسازی.
- * این فایل classic script است: اعلان‌های top-level آن در global lexical scope
- * باقی می‌مانند و از projecthub.js و actionهای HTML قابل دسترس‌اند.
- * این فایل پیش از app/core و editor لود می‌شود تا APIهای آرشیو قبل از ثبت
- * actionها و routeهای بعدی در دسترس باشند؛ ارجاع‌های runtime به $، toast و
- * سرویس‌های editor فقط هنگام اجرای actionها resolve می‌شوند.
- *
- * نکته: اعلان let _audioDirHandle در runtime ادیتور نگهداری می‌شود،
- * چون ناحیهٔ Storage به آن نیاز دارد.
+ * پیاده‌سازی در یک closure خصوصی نگهداری می‌شود و فقط namespace منجمد
+ * AkordyarArchiveApi برای مصرف‌کننده‌های برنامه منتشر می‌شود.
+ * این فایل پیش از app/core و editor لود می‌شود تا API آرشیو قبل از ثبت
+ * actionها و routeهای بعدی آماده باشد؛ ارجاع‌های runtime به core و editor
+ * فقط هنگام اجرای actionها resolve می‌شوند.
  */
 
+    (function attachArchiveModule(globalScope) {
+      'use strict';
+
+      const window = globalScope;
+      const $ = id => window.document?.getElementById(id);
+
     // ===== ARCHIVE SYSTEM =====
+    const archivePublicApiFactory = window.ArchivePublicApi;
+    if (!archivePublicApiFactory?.create) {
+      throw new Error(
+        'ArchivePublicApi باید قبل از ArchiveModule بارگذاری شود.'
+      );
+    }
+    const archivePublicApi = archivePublicApiFactory.create({
+      target: window,
+      namespace: 'AkordyarArchiveApi'
+    });
+
+    const getArchiveEditorApi = () => window.AkordyarEditorApi || {};
+    const archiveEditorCall = (name, ...args) => {
+      const fn = getArchiveEditorApi()[name];
+      return typeof fn === 'function' ? fn(...args) : undefined;
+    };
+    const archiveEditorSaveSong = (...args) =>
+      archiveEditorCall('saveSong', ...args);
+    const archiveEditorSyncToolbar = (...args) =>
+      archiveEditorCall('syncToolbar', ...args);
+    const archiveEditorRenderEditor = (...args) =>
+      archiveEditorCall('renderEditor', ...args);
+    const archiveEditorCreateBlankSong = (...args) =>
+      archiveEditorCall('createBlankSong', ...args);
+    const archiveEditorSetProjectFilePath = (...args) =>
+      archiveEditorCall('setProjectFilePath', ...args);
+    const archiveEditorClearProjectFilePath = (...args) =>
+      archiveEditorCall('clearProjectFilePath', ...args);
+    const archiveEditorApplyImportChords = (...args) =>
+      archiveEditorCall('applyImportChords', ...args);
+    const archiveEditorSaveCurrentVersion = (...args) =>
+      archiveEditorCall('saveCurrentVersion', ...args);
+    const archiveEditorExportProjectFull = (...args) =>
+      archiveEditorCall('exportProjectFull', ...args);
+
     const ARCH_SCHEMA_VERSION = 1;
     const _archiveStateController = window.ArchiveStateService.create({
       storage: window.localStorage
@@ -37,10 +75,28 @@
     let _archiveSongLoadService = null;
     let _archiveReadOnlyService = null;
     let _archiveArtistCatalogService = null;
+    let _audioDirHandle = null;
 
     function getArchiveCoreApi() {
       return window.AkordyarCoreApi || {};
     }
+
+    const toast = (...args) => getArchiveCoreApi().toast?.(...args);
+    const t = key => window.t?.(key) ?? key;
+    const decodeFileToBuffer = (...args) =>
+      archiveEditorCall('decodeFileToBuffer', ...args);
+    const peaksFromBuffer = (...args) =>
+      archiveEditorCall('peaksFromBuffer', ...args);
+    const refreshClipWaveImage = (...args) =>
+      archiveEditorCall('refreshClipWaveImage', ...args);
+    const parseRawSong = (...args) =>
+      archiveEditorCall('parseRawSong', ...args);
+    const etIsValidNote = value =>
+      archiveEditorCall('isValidNote', value) !== false;
+    const resetHistory = (...args) =>
+      getArchiveCoreApi().resetHistory?.(...args);
+    const archiveResetRecordingState = (...args) =>
+      getArchiveCoreApi().resetRecordingState?.(...args);
 
     const archivePauseTransport = (...args) =>
       getArchiveCoreApi().pauseTransport?.(...args);
@@ -335,10 +391,7 @@
           setSong: setArchiveSong,
           pauseTransport: archivePauseTransport,
           stopAllVoices: archiveStopAllVoices,
-          resetRecordingState: () => {
-            isRecordingChords = false;
-            currentRecordingClipId = null;
-          },
+          resetRecordingState: archiveResetRecordingState,
           isValidNote: note => etIsValidNote(note),
           updateNextIdFromClips: archiveUpdateNextIdFromClips,
           getArrangerMarkers: getArchiveArrangerMarkers,
@@ -356,28 +409,21 @@
           saveDirHandle,
           resetHistory,
           resetPerformanceSerialization,
-          edSyncToolbar,
-          edRenderEditor,
+          syncToolbar: archiveEditorSyncToolbar,
+          renderEditor: archiveEditorRenderEditor,
           renderAll: archiveRenderAll,
           saveState: archiveSaveState,
           getElement: id => $(id),
           initHighlightEffect: archiveInitHighlightEffect,
-          rebuildSongDocument: () => {
-            if (typeof rebuildPerformanceSongDocument === 'function') {
-              rebuildPerformanceSongDocument();
-            }
-          },
-          syncViewStyles: () => {
-            if (typeof syncViewStylesFromSong === 'function') {
-              syncViewStylesFromSong();
-            }
-          },
-          syncMetadata: song => SongMetadata.syncFromDom(song),
+          rebuildSongDocument: () =>
+            window.rebuildPerformanceSongDocument?.(),
+          syncViewStyles: () => window.syncViewStylesFromSong?.(),
+          syncMetadata: song => window.SongMetadata.syncFromDom(song),
           artistKey: archArtistKey,
-          saveCurrentVersion,
+          saveCurrentVersion: archiveEditorSaveCurrentVersion,
           getAllSongs: edGetAllSongs,
           setAllSongs: edSetAllSongs,
-          getIsElectron: () => isElectron
+          getIsElectron: () => Boolean(window.electronAPI?.isElectron)
         });
       }
       return _archiveProjectPersistenceService;
@@ -394,15 +440,15 @@
           getSong: getArchiveSong,
           getElement: id => $(id),
           setSong: setArchiveSong,
-          setProjectFilePath: setEditorProjectFilePath,
-          clearProjectFilePath: clearEditorProjectFilePath,
+          setProjectFilePath: archiveEditorSetProjectFilePath,
+          clearProjectFilePath: archiveEditorClearProjectFilePath,
           pauseTransport: archivePauseTransport,
           stopAllVoices: archiveStopAllVoices,
           updateNextIdFromClips: archiveUpdateNextIdFromClips,
           getArrangerMarkers: getArchiveArrangerMarkers,
           ensureAudioCtx: archiveEnsureAudioCtx,
           updateTrackMix: archiveUpdateTrackMix,
-          applyImportChords,
+          applyImportChords: archiveEditorApplyImportChords,
           loadAudioBlobsForProject: archiveLoadAudioBlobsForProject,
           saveAudioBlobsForProject: archiveSaveAudioBlobsForProject,
           peaksFromBuffer,
@@ -418,14 +464,14 @@
           loadDirHandle,
           saveDirHandle,
           loadAudioFromHardDrive: archiveLoadAudioFromHardDrive,
-          getIsElectron: () => isElectron,
+          getIsElectron: () => Boolean(window.electronAPI?.isElectron),
           resetHistory: archiveResetHistory,
           resetPerformanceSerialization,
-          syncToolbar: edSyncToolbar,
-          renderEditor: edRenderEditor,
+          syncToolbar: archiveEditorSyncToolbar,
+          renderEditor: archiveEditorRenderEditor,
           initHighlightEffect: archiveInitHighlightEffect,
           saveState: archiveSaveState,
-          saveSong: edSaveSong,
+          saveSong: archiveEditorSaveSong,
           renderAll: archiveRenderAll,
           toast,
           logError: console.error,
@@ -664,7 +710,7 @@
           },
           renderArchive: archRender,
           renderArtists: archRenderArtists,
-          openArchive: edOpenArchive,
+          openArchive: archOpen,
           toast
         });
       }
@@ -1127,13 +1173,11 @@ function archUpdateActiveFilters() {
       if (getArchiveSongOrNull() && historyLength() > 1) {
         if (confirm(t('saveSong') + '?')) await edSaveToArchive();
       }
-      if (typeof clearEditorProjectFilePath === 'function') {
-        clearEditorProjectFilePath();
-      }
+      archiveEditorClearProjectFilePath();
       archivePauseTransport();
 archiveStopAllVoices();
 
-setArchiveSong(edBlankSong());
+setArchiveSong(archiveEditorCreateBlankSong());
 
 archiveResetHistory();
 resetPerformanceSerialization();
@@ -1147,8 +1191,7 @@ daw.waveCache.clear();
 daw.loopEnabled = false;
 daw.loopA = 0;
 daw.loopB = 10;
-isRecordingChords = false;
-currentRecordingClipId = null;
+      archiveResetRecordingState();
 
 // Reset tracks to defaults
 daw.tracks = [
@@ -1175,8 +1218,8 @@ if ($('edArtist')) $('edArtist').value = '';
 if ($('edTitle')) $('edTitle').value = '';
 localStorage.removeItem('ed_current_song');
 
-edSyncToolbar();
-edRenderEditor(true);
+archiveEditorSyncToolbar();
+archiveEditorRenderEditor(true);
 archiveRenderAll();
 archiveSaveState();
 
@@ -1215,8 +1258,8 @@ archiveSaveState();
     }
 
     async function edExportProject() {
-      if (typeof edExportProjectFull === 'function') {
-        return edExportProjectFull();
+      if (getArchiveEditorApi().exportProjectFull) {
+        return archiveEditorExportProjectFull();
       }
       toast('سرویس خروجی پروژه هنوز آماده نیست');
     }
@@ -1268,11 +1311,11 @@ archiveSaveState();
             const data = JSON.parse(text);
             if (data && typeof data === 'object') {
               await loadProjectData(data);
-              edSaveSong();
+              archiveEditorSaveSong();
             }
           } catch(err) { console.error('Load last file error:', err); }
           toast(`${added} وارد شد، ${updated} به‌روزرسانی` + (errors ? `، ${errors} خطا` : ''));
-          edOpenArchive();
+          archOpen();
         }
       };
 
@@ -1318,3 +1361,71 @@ archiveSaveState();
         return anyLoaded;
       } catch (_) { return false; }
     }
+
+    function archClearArtistFilter() {
+      _archState.artistFilter = null;
+      archRenderArtists();
+      archRender();
+      archUpdateActiveFilters();
+    }
+
+    archivePublicApi.publish({
+      getAllSongs: edGetAllSongs,
+      setAllSongs: edSetAllSongs,
+      saveToArchive: edSaveToArchive,
+      saveArchiveToFolder: edSaveArchiveToFolder,
+      open: archOpen,
+      close: archClose,
+      loadSong: archLoadSong,
+      loadSongReadOnly: archLoadSongReadOnly,
+      deleteSong: archTrashSong,
+      restoreSong: archRestoreSong,
+      permanentDelete: archPermanentDelete,
+      newSong: edNewSong,
+      exportProject: edExportProject,
+      exportXml: edExportXML,
+      importProject: edImportProject,
+      importArchiveFromJson: edImportArchiveFromJson,
+      importFiles: archImportFiles,
+      importFolder: archImportFolder,
+      importFullArchive: archImportFullArchive,
+      exportSong: archExportSong,
+      exportAll: archExportAll,
+      bulkExport: archBulkExport,
+      refresh: archRefresh,
+      artistKey: archArtistKey,
+      pushUndo: archPushUndo,
+      confirm: archConfirm,
+      resolveConfirm: archConfirmResolve,
+      render: archRender,
+      renderArtists: archRenderArtists,
+      updateActiveFilters: archUpdateActiveFilters,
+      clearArtistFilter: archClearArtistFilter,
+      toggleFullscreen: archToggleFullscreen,
+      toggleArtistSection: archToggleArtistSection,
+      filterArtists: archFilterArtists,
+      artistContextAction: archArtistCtx,
+      artistSlide: archArtistSlide,
+      setTab: archSetTab,
+      setView: archSetView,
+      applyFilters: archApplyFilters,
+      clearFilters: archClearFilters,
+      toggleSelectMode: archToggleSelectMode,
+      selectAll: archSelectAll,
+      toggleSelect: archToggleSelect,
+      bulkFavorite: archBulkFav,
+      bulkTrash: archBulkTrash,
+      editClose: archEditClose,
+      editSave: archEditSave,
+      contextAction: archCtxAction,
+      exitReadOnly: archExitReadOnly,
+      createEditableCopy: archCreateEditableCopy,
+      getAudioDirHandle: () => _audioDirHandle,
+      loadDirHandle,
+      saveDirHandle,
+      setProjectFilePath: archiveEditorSetProjectFilePath,
+      clearProjectFilePath: archiveEditorClearProjectFilePath
+    });
+  })(
+    typeof window !== 'undefined' ? window : globalThis
+  );

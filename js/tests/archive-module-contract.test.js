@@ -23,7 +23,9 @@ function scriptIndex(sourceName) {
   return index;
 }
 
-// ArchiveModule is the provider of archive globals consumed by later chunks.
+// ArchiveModule is loaded after its explicit public-api factory and before
+// consumers that use the frozen archive namespace.
+assert.ok(scriptIndex('js/archive/ArchivePublicApi.js') < scriptIndex('js/archive/ArchiveModule.js'));
 assert.ok(
   scriptIndex('js/archive/ArchiveRuntimeAdapter.js') <
     scriptIndex('js/archive/ArchiveModule.js')
@@ -157,54 +159,51 @@ assert.ok(
     scriptIndex('js/projecthub.js')
 );
 
-const publicArchiveFunctions = [
-  'edGetAllSongs',
-  'edSetAllSongs',
-  'edSaveToArchive',
-  'edSaveArchiveToFolder',
-  'edOpenArchive',
-  'archOpen',
-  'archClose',
-  'archLoadSong',
-  'archLoadSongReadOnly',
-  'edLoadFromArchive',
-  'edDeleteFromArchive',
-  'archTrashSong',
-  'archRestoreSong',
-  'archPermanentDelete',
-  'edNewSong',
-  'edExportProject',
-  'edExportXML',
-  'edImportProject',
-  'archImportFiles',
-  'archImportFolder',
-  'archImportFullArchive',
-  'archExportAll',
-  'archBulkExport',
-  'archRefresh',
-  'archArtistKey',
-  'archPushUndo',
-  'archConfirm',
-  'archConfirmResolve',
-  'archRender',
-  'archRenderArtists',
-  'archUpdateActiveFilters'
+const publicArchiveMethods = [
+  'getAllSongs',
+  'setAllSongs',
+  'saveToArchive',
+  'saveArchiveToFolder',
+  'open',
+  'close',
+  'loadSong',
+  'loadSongReadOnly',
+  'deleteSong',
+  'restoreSong',
+  'permanentDelete',
+  'newSong',
+  'exportProject',
+  'exportXml',
+  'importProject',
+  'importFiles',
+  'importFolder',
+  'importFullArchive',
+  'exportAll',
+  'bulkExport',
+  'refresh',
+  'artistKey',
+  'pushUndo',
+  'confirm',
+  'resolveConfirm',
+  'render',
+  'renderArtists',
+  'updateActiveFilters'
 ];
 
-for (const functionName of publicArchiveFunctions) {
+for (const methodName of publicArchiveMethods) {
   assert.match(
     archive,
-    new RegExp(`\\b(?:async\\s+)?function\\s+${functionName}\\s*\\(`),
-    `Archive public function missing: ${functionName}`
+    new RegExp(`\\b${methodName}\\s*:`),
+    `Archive namespace method missing: ${methodName}`
   );
 }
 
-// These are the high-risk consumers that must keep their names during facade
-// extraction. The test intentionally checks source contracts, not implementation.
-assert.match(editor, /['"]archiveOpen['"]:\s*edOpenArchive/);
-assert.match(editor, /['"]archiveSave['"]:\s*\(\)\s*=>\s*edSaveToArchive\(\)/);
-assert.match(projectHub, /typeof archLoadSong === ['"]function['"]/);
-assert.match(projectHub, /typeof archOpen === ['"]function['"]/);
-assert.match(projectHub, /typeof archTrashSong === ['"]function['"]/);
+assert.match(archive, /archivePublicApi\.publish\(\{/);
+assert.match(archive, /namespace:\s*['"]AkordyarArchiveApi['"]/);
+assert.match(archive, /\(function attachArchiveModule\(globalScope\)/);
+assert.doesNotMatch(projectHub, /typeof\s+(?:arch|ed)[A-Z]\w*\s*===\s*['"]function['"]/);
+assert.match(projectHub, /window\.AkordyarArchiveApi/);
+assert.match(editor, /editorArchiveCall\(['"]open['"]\)/);
+assert.match(editor, /editorArchiveCall\(['"]saveToArchive['"]\)/);
 
 console.log('ArchiveModule public contract tests passed');

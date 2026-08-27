@@ -29,6 +29,19 @@
     return window.AkordyarCoreApi || {};
   }
 
+  function getArchiveApi() {
+    return window.AkordyarArchiveApi || {};
+  }
+
+  function getEditorApi() {
+    return window.AkordyarEditorApi || {};
+  }
+
+  function callApi(api, name, ...args) {
+    const fn = api?.[name];
+    return typeof fn === 'function' ? fn(...args) : undefined;
+  }
+
   const coreEnsureAudioCtx = (...args) =>
     getCoreArrangerApi().ensureAudioCtx?.(...args);
   const coreRenderAll = (...args) =>
@@ -45,7 +58,7 @@
   /* ---------- Data: Recent Projects (از آرشیو واقعی) ---------- */
   function getRecentProjects() {
     try {
-      const songs = (typeof edGetAllSongs === 'function') ? edGetAllSongs() : [];
+      const songs = callApi(getArchiveApi(), 'getAllSongs') || [];
       return songs.slice(0, 8).map((s) => ({
         id: s.id,
         name: s.title || s.name || 'بدون نام',
@@ -307,10 +320,8 @@
       undoStack = [];
       undoIndex = -1;
     }
-    if (typeof archLoadSong === 'function') {
-      await archLoadSong(id);
-    } else if (typeof edLoadFromArchive === 'function') {
-      await edLoadFromArchive(id);
+    if (typeof getArchiveApi().loadSong === 'function') {
+      await callApi(getArchiveApi(), 'loadSong', id);
     } else {
       console.warn('[ProjectHub] No archive loader available');
     }
@@ -323,10 +334,10 @@
       undoStack = [];
       undoIndex = -1;
     }
-    if (typeof edNewSong === 'function') {
-      await edNewSong();
+    if (typeof getArchiveApi().newSong === 'function') {
+      await callApi(getArchiveApi(), 'newSong');
     } else {
-      console.warn('[ProjectHub] edNewSong not available');
+      console.warn('[ProjectHub] Archive new-song action is unavailable');
     }
     closeHub();
   }
@@ -345,8 +356,8 @@
     }
 
     // ۲) ریست کامل پروژه
-    if (typeof edNewSong === 'function') {
-      await edNewSong();
+    if (typeof getArchiveApi().newSong === 'function') {
+      await callApi(getArchiveApi(), 'newSong');
     }
 
     // ۳) اعمال تنظیمات قالب روی song
@@ -382,8 +393,8 @@
       if (cfg.timelineDuration && daw) daw.timelineDuration = cfg.timelineDuration;
 
       // ۶) به‌روزرسانی UI
-      if (typeof edSyncToolbar === 'function') edSyncToolbar();
-      if (typeof edRenderEditor === 'function') edRenderEditor(true);
+      callApi(getEditorApi(), 'syncToolbar');
+      callApi(getEditorApi(), 'renderEditor', true);
       coreRenderAll();
       coreSaveState();
 
@@ -403,18 +414,12 @@
   }
 
   function openArchive() {
-    if (typeof archOpen === 'function') {
-      archOpen();
-    } else if (typeof edOpenArchive === 'function') {
-      edOpenArchive();
-    }
+    callApi(getArchiveApi(), 'open');
     closeHub();
   }
 
   function importProject() {
-    if (typeof edImportProject === 'function') {
-      edImportProject();
-    }
+    callApi(getArchiveApi(), 'importProject');
     closeHub();
   }
 
@@ -430,11 +435,11 @@
   }
 
   async function deleteProject(id) {
-    if (typeof archTrashSong === 'function') {
-      await archTrashSong(id);
+    if (typeof getArchiveApi().deleteSong === 'function') {
+      await callApi(getArchiveApi(), 'deleteSong', id);
       renderProjects();
     } else {
-      console.warn('[ProjectHub] archTrashSong not available');
+      console.warn('[ProjectHub] Archive delete action is unavailable');
     }
   }
 

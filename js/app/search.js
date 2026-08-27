@@ -1,4 +1,10 @@
 ﻿// ===== Quick Search Panel Functions =====
+const quickSearchArchiveApi = () => window.AkordyarArchiveApi || {};
+const quickSearchArchiveCall = (name, ...args) => {
+  const fn = quickSearchArchiveApi()[name];
+  return typeof fn === 'function' ? fn(...args) : undefined;
+};
+
 let _quickSearchDragging = false;
 let _quickSearchDragOffset = { x: 0, y: 0 };
 let _quickSearchPointerId = null;
@@ -104,7 +110,8 @@ function quickSearchFilter() {
   const tempoRange = document.getElementById('qspFilterTempo')?.value || '';
   const keyFilter = document.getElementById('qspFilterKey')?.value || '';
   
-  const songs = edGetAllSongs().filter(s => !s.deletedAt);
+  const songs = (quickSearchArchiveCall('getAllSongs') || [])
+    .filter(s => !s.deletedAt);
   
   if (!query && !sig && !genre && !tempoRange && !keyFilter) {
     // Show recent/opened songs or all
@@ -176,8 +183,8 @@ function renderQuickSearchList(songs, container) {
 }
 
 function quickSearchLoadSong(id) {
-  // Use the existing archLoadSong function but close panel instead of archive modal
-  const songs = edGetAllSongs();
+  // Load through the archive namespace without opening the archive modal.
+  const songs = quickSearchArchiveCall('getAllSongs') || [];
   const s = songs.find(x => String(x.id) === String(id));
   if (!s || s.deletedAt) {
     toast('ترانه یافت نشد');
@@ -185,7 +192,7 @@ function quickSearchLoadSong(id) {
   }
   
   closeQuickSearchPanel();
-  archLoadSong(id);
+  quickSearchArchiveCall('loadSong', id);
 }
 
 function escapeHtml(text) {
