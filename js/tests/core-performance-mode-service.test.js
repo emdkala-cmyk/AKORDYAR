@@ -68,6 +68,8 @@ let scheduledPopup = null;
 const runtime = CorePerformanceModeService.create({
   getElement: id => elements[id],
   getActiveElement: () => ({ blur: () => calls.push('blur') }),
+  isTextEditingEvent: event =>
+    event?.target?.contentEditable === 'true',
   getEditingArr: () => editingArr,
   getPerformanceState: () => ({ ...state }),
   updatePerformanceState: patch => Object.assign(state, patch),
@@ -147,6 +149,18 @@ const runtime = CorePerformanceModeService.create({
   runtime.perfTogglePauseMode();
   assert.equal(state.perfPauseMode, false);
   assert.equal(elements.perfPauseModeBtn.classList.contains('arr-stl-active'), false);
+
+  const callsBeforeBlockedSpace = calls.length;
+  assert.equal(
+    runtime.perfTogglePlay({
+      type: 'keydown',
+      key: ' ',
+      target: { contentEditable: 'true' }
+    }),
+    false
+  );
+  assert.equal(daw.isPlaying, false);
+  assert.equal(calls.length, callsBeforeBlockedSpace);
 
   daw.playhead = 0;
   runtime.perfTogglePlay();

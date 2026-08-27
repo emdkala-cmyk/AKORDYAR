@@ -845,7 +845,7 @@ assert.doesNotMatch(appCore, /function startTransport\(\)/);
 assert.doesNotMatch(appCore, /function pauseTransport\(\)/);
 assert.doesNotMatch(appCore, /function getArrangerEnd\(\)/);
 assert.match(corePerformanceModeService, /async function openPerfMode\(\)/);
-assert.match(corePerformanceModeService, /function perfTogglePlay\(\)/);
+assert.match(corePerformanceModeService, /function perfTogglePlay\(/);
 assert.match(corePerformanceModeService, /function perfTranspose\(/);
 assert.match(corePerformanceModeService, /function startPerfTimer\(\)/);
 assert.match(corePerformanceRuntimeService, /function requireService/);

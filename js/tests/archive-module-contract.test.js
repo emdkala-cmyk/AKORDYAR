@@ -18,7 +18,10 @@ const projectHub = fs.readFileSync(
 );
 
 function scriptIndex(sourceName) {
-  const index = html.indexOf(`src="${sourceName}"`);
+  let index = html.indexOf(`src="${sourceName}"`);
+  if (index === -1 && !sourceName.includes('?')) {
+    index = html.indexOf(`src="${sourceName}?`);
+  }
   assert.notEqual(index, -1, `${sourceName} must be loaded`);
   return index;
 }

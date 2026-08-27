@@ -73,10 +73,17 @@ let arranger = {
   playbackPolicy: null
 };
 const calls = [];
+const documentRef = {
+  body: { tagName: 'BODY' },
+  documentElement: { tagName: 'HTML' },
+  activeElement: null,
+  getSelection: () => null
+};
 
 const runtime = CoreTransportService.create({
   getDAW: () => daw,
   getElement: id => elements[id],
+  documentRef,
   getTransportState: () => transportState,
   ensureAudioCtx: () => calls.push('audio'),
   cancelCountIn: () => calls.push('cancel-count-in'),
@@ -131,6 +138,38 @@ const runtime = CoreTransportService.create({
   toast: message => calls.push(['toast', message]),
   logger: { log: () => {}, warn: () => {}, error: () => {} }
 });
+
+const editorTextTarget = {
+  tagName: 'SPAN',
+  closest: selector =>
+    selector === '[contenteditable]'
+      ? { tagName: 'DIV', contentEditable: 'true' }
+      : null
+};
+assert.equal(
+  runtime.togglePlay({
+    type: 'keydown',
+    key: ' ',
+    target: editorTextTarget
+  }),
+  false
+);
+assert.equal(daw.isPlaying, false);
+
+documentRef.activeElement = {
+  tagName: 'DIV',
+  contentEditable: 'true'
+};
+assert.equal(
+  runtime.togglePlay({
+    type: 'keydown',
+    code: 'Space',
+    target: documentRef.body
+  }),
+  false
+);
+assert.equal(daw.isPlaying, false);
+documentRef.activeElement = null;
 
 runtime.seekTransport(30);
 assert.equal(daw.playhead, 20);

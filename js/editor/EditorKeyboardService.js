@@ -6,30 +6,136 @@
  * remain controlled by app/editor.js.
  */
 (function attachEditorKeyboardService(globalScope) {
-  function isEditableTarget(target) {
-    let element = target;
-    if (element?.nodeType === 3) {
-      element = element.parentElement || element.parentNode;
+  function normalizeElement(target) {
+    if (target?.nodeType === 3) {
+      return target.parentElement || target.parentNode;
+    }
+    return target;
+  }
+
+  function isTextEditingTarget(target) {
+    let element = normalizeElement(target);
+    const tagName = String(element?.tagName || '').toUpperCase();
+
+    if (tagName === 'INPUT' || tagName === 'TEXTAREA') return true;
+    if (tagName === 'SELECT') return false;
+
+    const editableAncestor = element?.closest?.('[contenteditable]');
+    if (editableAncestor) {
+      const contentEditableAttribute =
+        editableAncestor.getAttribute?.('contenteditable');
+      if (contentEditableAttribute != null) {
+        return (
+          String(contentEditableAttribute).toLowerCase() !== 'false'
+        );
+      }
+      if (editableAncestor.isContentEditable === true) return true;
+
+      const contentEditable = String(
+        editableAncestor.contentEditable || ''
+      ).toLowerCase();
+      if (
+        contentEditable === 'true' ||
+        contentEditable === 'plaintext-only'
+      ) {
+        return true;
+      }
     }
 
-    const tagName = String(element?.tagName || '').toUpperCase();
-    if (['INPUT', 'TEXTAREA', 'SELECT'].includes(tagName)) return true;
-    if (element?.isContentEditable === true) return true;
+    while (element) {
+      const contentEditableAttribute =
+        element.getAttribute?.('contenteditable');
+      if (contentEditableAttribute != null) {
+        return (
+          String(contentEditableAttribute).toLowerCase() !== 'false'
+        );
+      }
 
-    const contentEditable = String(element?.contentEditable || '').toLowerCase();
+      if (element.isContentEditable === true) return true;
+
+      const contentEditable = String(
+        element.contentEditable || ''
+      ).toLowerCase();
+      if (
+        contentEditable === 'true' ||
+        contentEditable === 'plaintext-only'
+      ) {
+        return true;
+      }
+
+      const next = element.parentElement || element.parentNode;
+      if (next === element) break;
+      element = next;
+    }
+
+    return false;
+  }
+
+  function isEditableTarget(target) {
+    const element = normalizeElement(target);
+    const tagName = String(element?.tagName || '').toUpperCase();
+    if (tagName === 'SELECT') return true;
+    return isTextEditingTarget(element);
+  }
+
+  function isDocumentLikeTarget(target, documentRef) {
+    const element = normalizeElement(target);
+    if (!element) return true;
+    if (element === documentRef || element?.nodeType === 9) return true;
+    if (element === documentRef?.body) return true;
+    if (element === documentRef?.documentElement) return true;
+
+    const tagName = String(element?.tagName || '').toUpperCase();
+    return tagName === 'BODY' || tagName === 'HTML';
+  }
+
+  function isTextEditingEvent(event, documentRef = globalScope.document) {
+    if (!event) return false;
+
+    const composedPath = event.composedPath?.();
     if (
-      contentEditable === 'true' ||
-      contentEditable === 'plaintext-only'
+      Array.isArray(composedPath) &&
+      composedPath.some(target => isTextEditingTarget(target))
     ) {
       return true;
     }
 
-    const editableAncestor = element?.closest?.('[contenteditable]');
-    if (!editableAncestor) return false;
-    const ancestorValue = editableAncestor.getAttribute?.('contenteditable');
+    if (isTextEditingTarget(event.target)) return true;
+    if (!isDocumentLikeTarget(event.target, documentRef)) return false;
+
+    if (isTextEditingTarget(documentRef?.activeElement)) return true;
+
+    const selection =
+      documentRef?.getSelection?.() || globalScope.getSelection?.();
+    return isTextEditingTarget(selection?.anchorNode);
+  }
+
+  function isEditableEvent(event, documentRef = globalScope.document) {
+    if (!event) return false;
+
+    const composedPath = event.composedPath?.();
+    if (
+      Array.isArray(composedPath) &&
+      composedPath.some(target => isEditableTarget(target))
+    ) {
+      return true;
+    }
+
+    if (isEditableTarget(event.target)) return true;
+    if (!isDocumentLikeTarget(event.target, documentRef)) return false;
+
+    if (isEditableTarget(documentRef?.activeElement)) return true;
+
+    const selection =
+      documentRef?.getSelection?.() || globalScope.getSelection?.();
+    return isEditableTarget(selection?.anchorNode);
+  }
+
+  function isSpaceEvent(event) {
     return (
-      ancestorValue == null ||
-      String(ancestorValue).toLowerCase() !== 'false'
+      event?.code === 'Space' ||
+      event?.key === ' ' ||
+      event?.key === 'Spacebar'
     );
   }
 
@@ -143,8 +249,8 @@
         return true;
       }
 
-      const editable = isEditableTarget(event.target);
-      const isSpace = event.code === 'Space';
+      const editable = isEditableEvent(event, windowRef?.document);
+      const isSpace = isSpaceEvent(event);
       const hasModifier = event.ctrlKey || event.metaKey || event.altKey;
 
       // A focused native select consumes Space to open its dropdown before the
@@ -196,12 +302,12 @@
     function handleGlobalKeydown(event) {
       if (isShortcutEditing()) return false;
 
-      const editable = isEditableTarget(event.target);
+      const editable = isEditableEvent(event, windowRef?.document);
       const daw = getDAW() || {};
       const selectedClipCount = Number(daw.selectedIds?.size) || 0;
 
       if (
-        event.code === 'Space' &&
+        isSpaceEvent(event) &&
         event.ctrlKey &&
         isSyncActive() &&
         !editable
@@ -407,7 +513,7 @@
     }
 
     function handleAuxiliaryKeydown(event) {
-      if (isEditableTarget(event?.target)) return false;
+      if (isEditableEvent(event, windowRef?.document)) return false;
 
       const key = String(event.key || '').toLowerCase();
       if (
@@ -485,7 +591,7 @@
     }
 
     function handleKeydown(event) {
-      const editable = isEditableTarget(event?.target);
+      const editable = isEditableEvent(event, windowRef?.document);
       const modalOpen = Boolean(isChordModalOpen());
       const editorModal = modalOpen && Boolean(isEditorChordModal());
 
@@ -635,7 +741,11 @@
 
   globalScope.EditorKeyboardService = Object.freeze({
     create,
-    isEditableTarget
+    isEditableTarget,
+    isEditableEvent,
+    isTextEditingTarget,
+    isTextEditingEvent,
+    isSpaceEvent
   });
 
   if (typeof module !== 'undefined' && module.exports) {

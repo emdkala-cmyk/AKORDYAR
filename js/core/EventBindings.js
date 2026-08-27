@@ -122,45 +122,116 @@ class EventBindings {
   }
 
   bindGlobalKeyboard() {
-    const isTextEditingTarget = target => {
-      let element = target;
-      if (element?.nodeType === 3) {
-        element = element.parentElement || element.parentNode;
+    const keyboardService = this.window?.EditorKeyboardService;
+    const normalizeElement = target => {
+      if (target?.nodeType === 3) {
+        return target.parentElement || target.parentNode;
       }
+      return target;
+    };
+    const isTextEditingTarget =
+      keyboardService?.isTextEditingTarget ||
+      (target => {
+        let element = normalizeElement(target);
+        const tagName = String(element?.tagName || '').toUpperCase();
+        if (tagName === 'INPUT' || tagName === 'TEXTAREA') return true;
+        if (tagName === 'SELECT') return false;
+
+        const editableAncestor = element?.closest?.('[contenteditable]');
+        if (editableAncestor) {
+          const contentEditableAttribute =
+            editableAncestor.getAttribute?.('contenteditable');
+          if (contentEditableAttribute != null) {
+            return (
+              String(contentEditableAttribute).toLowerCase() !== 'false'
+            );
+          }
+          if (editableAncestor.isContentEditable === true) return true;
+
+          const contentEditable = String(
+            editableAncestor.contentEditable || ''
+          ).toLowerCase();
+          if (
+            contentEditable === 'true' ||
+            contentEditable === 'plaintext-only'
+          ) {
+            return true;
+          }
+        }
+
+        while (element) {
+          const contentEditableAttribute =
+            element.getAttribute?.('contenteditable');
+          if (contentEditableAttribute != null) {
+            return (
+              String(contentEditableAttribute).toLowerCase() !== 'false'
+            );
+          }
+          if (element.isContentEditable === true) return true;
+
+          const contentEditable = String(
+            element.contentEditable || ''
+          ).toLowerCase();
+          if (
+            contentEditable === 'true' ||
+            contentEditable === 'plaintext-only'
+          ) {
+            return true;
+          }
+
+          const next = element.parentElement || element.parentNode;
+          if (next === element) break;
+          element = next;
+        }
+        return false;
+      });
+    const isDocumentLikeTarget = target => {
+      const element = normalizeElement(target);
+      if (!element) return true;
+      if (element === this.document || element?.nodeType === 9) return true;
+      if (element === this.document?.body) return true;
+      if (element === this.document?.documentElement) return true;
 
       const tagName = String(element?.tagName || '').toUpperCase();
-      if (tagName === 'SELECT') return false;
-      if (tagName === 'INPUT' || tagName === 'TEXTAREA') return true;
-      if (element?.isContentEditable === true) return true;
-
-      const contentEditable = String(element?.contentEditable || '').toLowerCase();
-      if (
-        contentEditable === 'true' ||
-        contentEditable === 'plaintext-only'
-      ) {
-        return true;
-      }
-
-      const ancestor = element?.closest?.('[contenteditable]');
-      if (!ancestor) return false;
-      const value = ancestor.getAttribute?.('contenteditable');
-      if (value != null) return String(value).toLowerCase() !== 'false';
-      return String(ancestor.contentEditable || '').toLowerCase() !== 'false';
+      return tagName === 'BODY' || tagName === 'HTML';
     };
+    const isTextEditingEvent =
+      keyboardService?.isTextEditingEvent ||
+      (event => {
+        if (!event) return false;
+        const composedPath = event.composedPath?.();
+        if (
+          Array.isArray(composedPath) &&
+          composedPath.some(target => isTextEditingTarget(target))
+        ) {
+          return true;
+        }
+        if (isTextEditingTarget(event.target)) return true;
+        if (!isDocumentLikeTarget(event.target)) return false;
+        if (isTextEditingTarget(this.document?.activeElement)) return true;
+
+        const selection =
+          this.document?.getSelection?.() ||
+          this.window?.getSelection?.();
+        return isTextEditingTarget(selection?.anchorNode);
+      });
+    const isSpaceEvent =
+      keyboardService?.isSpaceEvent ||
+      (event =>
+        event?.code === 'Space' ||
+        event?.key === ' ' ||
+        event?.key === 'Spacebar');
 
     const shouldBypassEditableSpace = event =>
-      event?.code === 'Space' &&
+      isSpaceEvent(event) &&
       !event.ctrlKey &&
       !event.metaKey &&
       !event.altKey &&
-      isTextEditingTarget(event.target);
+      isTextEditingEvent(event, this.document);
 
     if (typeof this.onGlobalKeydownCapture === 'function') {
       const captureHandler = event => {
         if (shouldBypassEditableSpace(event)) {
-          // Stop the event before any separately-bound legacy keydown
-          // listener can interpret Space as a transport command.
-          event.stopPropagation?.();
           return false;
         }
         return this.onGlobalKeydownCapture(event);

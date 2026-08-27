@@ -4,6 +4,14 @@ const KeyboardService = require('../editor/EditorKeyboardService.js');
 function createWindow() {
   return {
     listeners: new Map(),
+    document: {
+      body: { tagName: 'BODY' },
+      documentElement: { tagName: 'HTML' },
+      activeElement: null,
+      getSelection() {
+        return null;
+      }
+    },
     addEventListener(name, handler) {
       this.listeners.set(name, handler);
     },
@@ -83,6 +91,34 @@ const editorTextChild = keyEvent('Space', {
 assert.equal(service.handleGlobalKeydownCapture(editorTextChild), false);
 assert.equal(editorTextChild.prevented, false);
 assert.deepEqual(calls, ['quantize', 'move:right']);
+
+const editorTextKeyOnly = keyEvent('', {
+  key: ' ',
+  target: {
+    tagName: 'SPAN',
+    closest: selector =>
+      selector === '[contenteditable]'
+        ? { tagName: 'DIV', contentEditable: 'true' }
+        : null
+  }
+});
+assert.equal(service.handleGlobalKeydownCapture(editorTextKeyOnly), false);
+assert.equal(editorTextKeyOnly.prevented, false);
+assert.deepEqual(calls, ['quantize', 'move:right']);
+
+const activeEditor = {
+  tagName: 'DIV',
+  contentEditable: 'true'
+};
+windowRef.document.activeElement = activeEditor;
+const bodySpace = keyEvent('', {
+  key: ' ',
+  target: windowRef.document.body
+});
+assert.equal(service.handleGlobalKeydownCapture(bodySpace), false);
+assert.equal(bodySpace.prevented, false);
+assert.deepEqual(calls, ['quantize', 'move:right']);
+windowRef.document.activeElement = null;
 
 const del = keyEvent('Delete');
 windowRef.dispatch(del);

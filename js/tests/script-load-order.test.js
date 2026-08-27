@@ -43,7 +43,10 @@ assert.doesNotThrow(
 );
 
 function scriptIndex(sourceName) {
-  const index = html.indexOf(`src="${sourceName}"`);
+  let index = html.indexOf(`src="${sourceName}"`);
+  if (index === -1 && !sourceName.includes('?')) {
+    index = html.indexOf(`src="${sourceName}?`);
+  }
   assert.notEqual(index, -1, `${sourceName} must be loaded`);
   return index;
 }
@@ -658,10 +661,10 @@ assert.ok(
 );
 assert.ok(
   scriptIndex('js/editor/KeyboardMappingService.js') <
-    scriptIndex('js/editor/EditorKeyboardService.js?v=20260827-11')
+    scriptIndex('js/editor/EditorKeyboardService.js?v=20260827-12')
 );
 assert.ok(
-  scriptIndex('js/editor/EditorKeyboardService.js?v=20260827-11') <
+  scriptIndex('js/editor/EditorKeyboardService.js?v=20260827-12') <
     scriptIndex('js/editor/EditorKeyboardRuntimeService.js')
 );
 assert.ok(

@@ -2304,8 +2304,8 @@ if ($('edDoBoth')) {
               parseInt($('edTempo')?.value, 10) || 120
             ),
           setLoopFromSelectionAndPlay: () => setLoopFromSelectionAndPlay(),
-          perfTogglePlay: () => perfTogglePlay(),
-          togglePlay: () => togglePlay(),
+          perfTogglePlay: (...args) => perfTogglePlay(...args),
+          togglePlay: (...args) => togglePlay(...args),
           undo: () => undo(),
           redo: () => redo(),
           ensureAudioCtx: () => ensureAudioCtx(),

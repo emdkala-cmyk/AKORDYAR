@@ -9,9 +9,112 @@
 (function attachCoreTransportService(globalScope) {
   'use strict';
 
+  function normalizeElement(target) {
+    if (target?.nodeType === 3) {
+      return target.parentElement || target.parentNode;
+    }
+    return target;
+  }
+
+  function isTextEditingTarget(target) {
+    let element = normalizeElement(target);
+    const tagName = String(element?.tagName || '').toUpperCase();
+    if (tagName === 'INPUT' || tagName === 'TEXTAREA') return true;
+    if (tagName === 'SELECT') return false;
+
+    const editableAncestor = element?.closest?.('[contenteditable]');
+    if (editableAncestor) {
+      const contentEditableAttribute =
+        editableAncestor.getAttribute?.('contenteditable');
+      if (contentEditableAttribute != null) {
+        return (
+          String(contentEditableAttribute).toLowerCase() !== 'false'
+        );
+      }
+      if (editableAncestor.isContentEditable === true) return true;
+
+      const contentEditable = String(
+        editableAncestor.contentEditable || ''
+      ).toLowerCase();
+      if (
+        contentEditable === 'true' ||
+        contentEditable === 'plaintext-only'
+      ) {
+        return true;
+      }
+    }
+
+    while (element) {
+      const contentEditableAttribute =
+        element.getAttribute?.('contenteditable');
+      if (contentEditableAttribute != null) {
+        return (
+          String(contentEditableAttribute).toLowerCase() !== 'false'
+        );
+      }
+      if (element.isContentEditable === true) return true;
+
+      const contentEditable = String(
+        element.contentEditable || ''
+      ).toLowerCase();
+      if (
+        contentEditable === 'true' ||
+        contentEditable === 'plaintext-only'
+      ) {
+        return true;
+      }
+
+      const next = element.parentElement || element.parentNode;
+      if (next === element) break;
+      element = next;
+    }
+    return false;
+  }
+
+  function isDocumentLikeTarget(target, documentRef) {
+    const element = normalizeElement(target);
+    if (!element) return true;
+    if (element === documentRef || element?.nodeType === 9) return true;
+    if (element === documentRef?.body) return true;
+    if (element === documentRef?.documentElement) return true;
+
+    const tagName = String(element?.tagName || '').toUpperCase();
+    return tagName === 'BODY' || tagName === 'HTML';
+  }
+
+  function isTextEditingEventFallback(event, documentRef) {
+    if (!event) return false;
+
+    const composedPath = event.composedPath?.();
+    if (
+      Array.isArray(composedPath) &&
+      composedPath.some(target => isTextEditingTarget(target))
+    ) {
+      return true;
+    }
+
+    if (isTextEditingTarget(event.target)) return true;
+    if (!isDocumentLikeTarget(event.target, documentRef)) return false;
+    if (isTextEditingTarget(documentRef?.activeElement)) return true;
+
+    const selection = documentRef?.getSelection?.() ||
+      globalScope.getSelection?.();
+    return isTextEditingTarget(selection?.anchorNode);
+  }
+
+  function isSpaceEvent(event) {
+    return (
+      event?.code === 'Space' ||
+      event?.key === ' ' ||
+      event?.key === 'Spacebar'
+    );
+  }
+
   function create({
     getDAW = () => globalScope.RuntimeStateAdapter?.getDAW?.() || null,
     getElement = id => globalScope.document?.getElementById?.(id),
+    documentRef = globalScope.document,
+    isTextEditingEvent: isTextEditingEventRef = null,
     getTransportState = () => ({}),
     ensureAudioCtx = () => {},
     cancelCountIn = () => {},
@@ -58,6 +161,25 @@
     logger = globalScope.console || console
   } = {}) {
     let playStartPos = 0;
+
+    function isTextEditingEvent(event) {
+      if (!event) return false;
+      if (typeof isTextEditingEventRef === 'function') {
+        return Boolean(isTextEditingEventRef(event, documentRef));
+      }
+
+      const keyboardServiceCheck =
+        globalScope.EditorKeyboardService?.isTextEditingEvent;
+      if (typeof keyboardServiceCheck === 'function') {
+        return Boolean(keyboardServiceCheck(event, documentRef));
+      }
+
+      return isTextEditingEventFallback(event, documentRef);
+    }
+
+    function shouldBlockEditableSpace(event) {
+      return isSpaceEvent(event) && isTextEditingEvent(event);
+    }
 
     function readDAW() {
       return getDAW?.();
@@ -153,9 +275,11 @@
       if (button) button.textContent = value;
     }
 
-    function togglePlay() {
+    function togglePlay(event) {
+      if (shouldBlockEditableSpace(event)) return false;
+
       const daw = readDAW();
-      if (!daw) return;
+      if (!daw) return false;
 
       if (daw.isPlaying) {
         const state = readTransportState();
@@ -172,6 +296,7 @@
         playStartPos = daw.playhead;
         startTransport();
       }
+      return true;
     }
 
     function runArrangerPreparation() {

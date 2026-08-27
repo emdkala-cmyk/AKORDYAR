@@ -11,6 +11,9 @@
   function create({
     getElement = id => globalScope.document?.getElementById?.(id),
     getActiveElement = () => globalScope.document?.activeElement,
+    isTextEditingEvent = event =>
+      globalScope.EditorKeyboardService?.isTextEditingEvent?.(event) ||
+      false,
     getEditingArr = () => null,
     getPerformanceState = () => ({}),
     updatePerformanceState = () => {},
@@ -164,16 +167,18 @@
       );
     }
 
-    function perfTogglePlay() {
+    function perfTogglePlay(event) {
+      if (isTextEditingEvent?.(event)) return false;
+
       blurActiveElement();
       const daw = getDAW?.();
-      if (!daw) return;
+      if (!daw) return false;
 
       if (daw.isPlaying) {
         pauseTransport();
         const button = getElement('perfPlayBtn');
         if (button) button.textContent = '▶';
-        return;
+        return true;
       }
 
       ensureAudioCtx();
@@ -187,6 +192,7 @@
       startTransport();
       const button = getElement('perfPlayBtn');
       if (button) button.textContent = '⏸';
+      return true;
     }
 
     function perfRestartSong() {

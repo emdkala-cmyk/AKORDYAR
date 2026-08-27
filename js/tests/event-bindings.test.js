@@ -95,14 +95,12 @@ const editableText = {
   tagName: 'SPAN',
   closest: selector => selector === '[contenteditable]' ? editableRoot : null
 };
-let editablePropagationStopped = false;
 const editableSpace = {
   code: 'Space',
   target: editableText,
   ctrlKey: false,
   metaKey: false,
   altKey: false,
-  stopPropagation: () => { editablePropagationStopped = true; }
 };
 windowCaptureHandler(editableSpace);
 windowKeydownHandler(editableSpace);
@@ -110,10 +108,9 @@ documentKeydownHandler(editableSpace);
 assert.equal(globalCaptureCalls, 0);
 assert.equal(globalKeydownCalls, 0);
 assert.equal(documentKeydownEvents.length, 1);
-assert.equal(editablePropagationStopped, true);
 
 const plainSpace = {
-  code: 'Space',
+  key: ' ',
   target: { tagName: 'DIV' },
   ctrlKey: false,
   metaKey: false,
