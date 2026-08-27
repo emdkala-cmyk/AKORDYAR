@@ -50,7 +50,7 @@
           el = document.createElement('span');
           el.className = 'p-chord';
           el.setAttribute('data-chord-key', key);
-          el.style.cssText = 'position:absolute;pointer-events:none;font-weight:bold;line-height:1.15;box-sizing:border-box;background:transparent;z-index:5;direction:ltr;white-space:nowrap;visibility:hidden;';
+          el.style.cssText = 'position:absolute;pointer-events:none;font-weight:bold;line-height:1.15;box-sizing:border-box;background:transparent;z-index:5;direction:ltr;white-space:nowrap;visibility:hidden;-webkit-font-smoothing:antialiased;text-rendering:geometricPrecision;';
           pb.appendChild(el);
           _pChordEls[key] = el;
           return { el: el, created: true };
@@ -115,16 +115,20 @@
             if (ch.anchorType === 'LineStart') { x = a.rect.right + MARGIN; }
             else if (ch.anchorType === 'LineEnd') { x = a.rect.left - MARGIN; }
             else { x = (a.rect.left + a.rect.right) / 2; }
-            var nt = (a.rect.top - wrapRect.top + scrollTop - _pCfg.cSize - GAP) + 'px';
-            var nl = (x - wrapRect.left - elW / 2) + 'px';
+            var xLocal = Math.round(x - wrapRect.left);
+            var topValue = Math.round(
+              a.rect.top - wrapRect.top + scrollTop - _pCfg.cSize - GAP
+            );
+            var nt = topValue + 'px';
+            var nl = Math.round(xLocal - elW / 2) + 'px';
             if (el.style.top !== nt) el.style.top = nt;
             if (el.style.left !== nl) el.style.left = nl;
             if (ensured.created) el.style.visibility = 'visible';
 
             var lnEnsured = _pEnsureChordLineEl(key, pb);
             var ln = lnEnsured.el;
-            var lnX = (x - wrapRect.left) + 'px';
-            var lnTop = (parseFloat(nt) + _pCfg.cSize) + 'px';
+            var lnX = xLocal + 'px';
+            var lnTop = Math.round(topValue + _pCfg.cSize) + 'px';
             var lnH = Math.max(4, GAP) + 'px';
             if (ln.style.left !== lnX) ln.style.left = lnX;
             if (ln.style.top !== lnTop) ln.style.top = lnTop;
@@ -147,6 +151,11 @@
 
         _pScheduleChordRender('init');
         window.addEventListener('resize', function() { _pScheduleChordRender('resize'); });
+        if (document.fonts && document.fonts.ready) {
+          document.fonts.ready.then(function() {
+            _pScheduleChordRender('fonts');
+          }).catch(function() {});
+        }
 
         window._pCfg = _pCfg;
         window._pChords = _pChords;

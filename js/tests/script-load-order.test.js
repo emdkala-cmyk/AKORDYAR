@@ -309,7 +309,7 @@ assert.ok(
     scriptIndex('js/app/core.js')
 );
 assert.ok(
-  scriptIndex('js/app/CorePopupRuntimeService.js') <
+  scriptIndex('js/app/CorePopupRuntimeService.js?v=20260827-11') <
     scriptIndex('js/app/core.js')
 );
 assert.ok(
@@ -338,7 +338,7 @@ assert.ok(
 );
 assert.ok(
   scriptIndex('js/core/Meter.js') <
-  scriptIndex('js/playerViewRenderer.js?v=20260817-10')
+  scriptIndex('js/playerViewRenderer.js?v=20260827-11')
 );
 assert.ok(
   syncClientHtml.indexOf('src="js/core/Meter.js"') <
@@ -658,10 +658,10 @@ assert.ok(
 );
 assert.ok(
   scriptIndex('js/editor/KeyboardMappingService.js') <
-    scriptIndex('js/editor/EditorKeyboardService.js')
+    scriptIndex('js/editor/EditorKeyboardService.js?v=20260827-11')
 );
 assert.ok(
-  scriptIndex('js/editor/EditorKeyboardService.js') <
+  scriptIndex('js/editor/EditorKeyboardService.js?v=20260827-11') <
     scriptIndex('js/editor/EditorKeyboardRuntimeService.js')
 );
 assert.ok(

@@ -28,6 +28,8 @@ const windowRef = createTarget();
 const keyupEvents = [];
 const pointerEvents = [];
 const documentKeydownEvents = [];
+let globalCaptureCalls = 0;
+let globalKeydownCalls = 0;
 let inlineActionCalls = 0;
 let inputActionCalls = 0;
 let formActionCalls = 0;
@@ -46,6 +48,8 @@ const bindings = new EventBindings({
     saveDebounced: () => { inputActionCalls++; },
     applyFormValue: () => { formActionCalls++; }
   },
+  onGlobalKeydownCapture: () => { globalCaptureCalls++; },
+  onGlobalKeydown: () => { globalKeydownCalls++; },
   onGlobalKeyup: (event) => keyupEvents.push(event),
   onGlobalDocumentKeydown: (event) => documentKeydownEvents.push(event),
   onGlobalMousedownCapture: (event) => pointerEvents.push(event)
@@ -76,6 +80,49 @@ documentKeydownHandler({ type: 'keydown', key: 'c' });
 assert.equal(keyupEvents.length, 1);
 assert.equal(pointerEvents.length, 1);
 assert.equal(documentKeydownEvents.length, 1);
+
+const windowCaptureHandler = windowRef.added.find(
+  item => item.eventName === 'keydown' && item.options === true
+).handler;
+const windowKeydownHandler = windowRef.added.find(
+  item => item.eventName === 'keydown' && item.options !== true
+).handler;
+const editableRoot = {
+  contentEditable: 'true',
+  getAttribute: name => name === 'contenteditable' ? 'true' : null
+};
+const editableText = {
+  tagName: 'SPAN',
+  closest: selector => selector === '[contenteditable]' ? editableRoot : null
+};
+let editablePropagationStopped = false;
+const editableSpace = {
+  code: 'Space',
+  target: editableText,
+  ctrlKey: false,
+  metaKey: false,
+  altKey: false,
+  stopPropagation: () => { editablePropagationStopped = true; }
+};
+windowCaptureHandler(editableSpace);
+windowKeydownHandler(editableSpace);
+documentKeydownHandler(editableSpace);
+assert.equal(globalCaptureCalls, 0);
+assert.equal(globalKeydownCalls, 0);
+assert.equal(documentKeydownEvents.length, 1);
+assert.equal(editablePropagationStopped, true);
+
+const plainSpace = {
+  code: 'Space',
+  target: { tagName: 'DIV' },
+  ctrlKey: false,
+  metaKey: false,
+  altKey: false
+};
+windowCaptureHandler(plainSpace);
+windowKeydownHandler(plainSpace);
+assert.equal(globalCaptureCalls, 1);
+assert.equal(globalKeydownCalls, 1);
 
 const inlineClickHandler = inlineGroup.added.find(item => item.eventName === 'click').handler;
 inlineClickHandler({

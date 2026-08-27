@@ -118,8 +118,10 @@ assert.ok(toggles.some(([name, value]) => name === 'active' && value === false))
 assert.ok(toggles.some(([name, value]) => name === 'active' && value === true));
 assert.deepEqual(body.lastScroll, {
   top: lines[1].offsetTop - 50 + lines[1].offsetHeight / 2,
-  behavior: 'smooth'
+  behavior: 'auto'
 });
+assert.equal(lines[1].style.color, '');
+assert.equal(lines[0].style.color, '#0fa966');
 
 controls['pv-tSize'].value = 35;
 controls['pv-tSize'].oninput();

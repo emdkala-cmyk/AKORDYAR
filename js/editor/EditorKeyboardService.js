@@ -7,17 +7,29 @@
  */
 (function attachEditorKeyboardService(globalScope) {
   function isEditableTarget(target) {
-    const tagName = target?.tagName || '';
-    const editableAncestor = target?.closest?.('[contenteditable="true"]');
+    let element = target;
+    if (element?.nodeType === 3) {
+      element = element.parentElement || element.parentNode;
+    }
+
+    const tagName = String(element?.tagName || '').toUpperCase();
+    if (['INPUT', 'TEXTAREA', 'SELECT'].includes(tagName)) return true;
+    if (element?.isContentEditable === true) return true;
+
+    const contentEditable = String(element?.contentEditable || '').toLowerCase();
+    if (
+      contentEditable === 'true' ||
+      contentEditable === 'plaintext-only'
+    ) {
+      return true;
+    }
+
+    const editableAncestor = element?.closest?.('[contenteditable]');
+    if (!editableAncestor) return false;
+    const ancestorValue = editableAncestor.getAttribute?.('contenteditable');
     return (
-      tagName === 'INPUT' ||
-      tagName === 'TEXTAREA' ||
-      tagName === 'SELECT' ||
-      Boolean(
-        target?.isContentEditable ||
-          target?.contentEditable === 'true' ||
-          editableAncestor
-      )
+      ancestorValue == null ||
+      String(ancestorValue).toLowerCase() !== 'false'
     );
   }
 

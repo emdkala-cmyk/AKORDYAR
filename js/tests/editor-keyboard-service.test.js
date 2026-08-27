@@ -75,7 +75,7 @@ const editorTextChild = keyEvent('Space', {
   target: {
     tagName: 'SPAN',
     closest: selector =>
-      selector === '[contenteditable="true"]'
+      selector === '[contenteditable]'
         ? { tagName: 'DIV', contentEditable: 'true' }
         : null
   }

@@ -87,6 +87,9 @@
       getSongState = () => null,
       getDAW = () => ({}),
       getTransportPlayhead = () => 0,
+      getHighlightState = () =>
+        globalScope.RuntimeStateAdapter?.getPerformanceStore?.()
+          ?.getState?.().highlightState || null,
       getSyncTimes = () => [],
       transposeChord = name => name,
       renderChords = () => {},
@@ -178,6 +181,7 @@
       getSongState,
       getDAW,
       getTransportPlayhead,
+      getHighlightState,
       installPopupHighlightLoop,
       schedule,
       EventCtor

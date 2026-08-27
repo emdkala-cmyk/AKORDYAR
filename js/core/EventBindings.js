@@ -122,17 +122,63 @@ class EventBindings {
   }
 
   bindGlobalKeyboard() {
+    const isTextEditingTarget = target => {
+      let element = target;
+      if (element?.nodeType === 3) {
+        element = element.parentElement || element.parentNode;
+      }
+
+      const tagName = String(element?.tagName || '').toUpperCase();
+      if (tagName === 'SELECT') return false;
+      if (tagName === 'INPUT' || tagName === 'TEXTAREA') return true;
+      if (element?.isContentEditable === true) return true;
+
+      const contentEditable = String(element?.contentEditable || '').toLowerCase();
+      if (
+        contentEditable === 'true' ||
+        contentEditable === 'plaintext-only'
+      ) {
+        return true;
+      }
+
+      const ancestor = element?.closest?.('[contenteditable]');
+      if (!ancestor) return false;
+      const value = ancestor.getAttribute?.('contenteditable');
+      if (value != null) return String(value).toLowerCase() !== 'false';
+      return String(ancestor.contentEditable || '').toLowerCase() !== 'false';
+    };
+
+    const shouldBypassEditableSpace = event =>
+      event?.code === 'Space' &&
+      !event.ctrlKey &&
+      !event.metaKey &&
+      !event.altKey &&
+      isTextEditingTarget(event.target);
+
     if (typeof this.onGlobalKeydownCapture === 'function') {
+      const captureHandler = event => {
+        if (shouldBypassEditableSpace(event)) {
+          // Stop the event before any separately-bound legacy keydown
+          // listener can interpret Space as a transport command.
+          event.stopPropagation?.();
+          return false;
+        }
+        return this.onGlobalKeydownCapture(event);
+      };
       this.listen(
         this.window,
         'keydown',
-        this.onGlobalKeydownCapture,
+        captureHandler,
         true
       );
     }
 
     if (typeof this.onGlobalKeydown === 'function') {
-      this.listen(this.window, 'keydown', this.onGlobalKeydown);
+      const bubbleHandler = event => {
+        if (shouldBypassEditableSpace(event)) return false;
+        return this.onGlobalKeydown(event);
+      };
+      this.listen(this.window, 'keydown', bubbleHandler);
     }
 
     if (typeof this.onGlobalKeyup === 'function') {
@@ -140,7 +186,11 @@ class EventBindings {
     }
 
     if (typeof this.onGlobalDocumentKeydown === 'function') {
-      this.listen(this.document, 'keydown', this.onGlobalDocumentKeydown);
+      const documentHandler = event => {
+        if (shouldBypassEditableSpace(event)) return false;
+        return this.onGlobalDocumentKeydown(event);
+      };
+      this.listen(this.document, 'keydown', documentHandler);
     }
   }
 

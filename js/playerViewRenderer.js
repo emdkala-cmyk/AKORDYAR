@@ -8,53 +8,6 @@
 const PlayerViewRenderer = (() => {
 
   let _lastScrolledLineId = null;
-  const _scrollAnimations = new WeakMap();
-
-  function animateContainerScroll(container, targetTop) {
-    if (!container) return;
-    const target = Math.max(0, Number(targetTop) || 0);
-    const previous = _scrollAnimations.get(container);
-    if (previous) {
-      previous.cancelled = true;
-      if (previous.rafId && typeof cancelAnimationFrame === 'function') {
-        cancelAnimationFrame(previous.rafId);
-      }
-    }
-
-    const start = Number(container.scrollTop) || 0;
-    const distance = target - start;
-    if (Math.abs(distance) < 1) {
-      container.scrollTop = target;
-      _scrollAnimations.delete(container);
-      return;
-    }
-
-    const duration = Math.min(460, Math.max(260, Math.abs(distance) * 0.8));
-    const startedAt = (typeof performance !== 'undefined' && performance.now)
-      ? performance.now()
-      : Date.now();
-    const raf = typeof requestAnimationFrame === 'function'
-      ? requestAnimationFrame
-      : (callback => setTimeout(() => callback(Date.now()), 16));
-    const state = { rafId: 0, cancelled: false };
-    const step = now => {
-      if (state.cancelled) return;
-      const elapsed = Math.max(0, now - startedAt);
-      const progress = Math.min(1, elapsed / duration);
-      const eased = progress < 0.5
-        ? 4 * progress * progress * progress
-        : 1 - Math.pow(-2 * progress + 2, 3) / 2;
-      container.scrollTop = start + distance * eased;
-      if (progress < 1) {
-        state.rafId = raf(step);
-      } else {
-        _scrollAnimations.delete(container);
-      }
-    };
-
-    _scrollAnimations.set(container, state);
-    state.rafId = raf(step);
-  }
 
   /**
    * پیدا کردن موقعیت پیکسلی یک کاراکتر در یک خط متن
@@ -289,11 +242,10 @@ const PlayerViewRenderer = (() => {
       lineEl.style.lineHeight   = String(lineHeight);
       lineEl.style.padding      = '4px 12px';
       lineEl.style.borderRadius = '8px';
-      lineEl.style.transition   = 'opacity 0.32s ease, color 0.32s ease, background 0.32s ease, text-shadow 0.32s ease';
+      lineEl.style.transition   = 'opacity 0.2s ease, color 0.2s ease, background 0.2s ease';
       lineEl.style.position     = 'relative';
       lineEl.style.marginTop    = mobileLineMargin + 'em';
       lineEl.style.color        = textColor;
-      lineEl.style.willChange   = 'opacity, color, text-shadow';
 
       lineEl.textContent = line.text || '\u200B';
 
@@ -319,14 +271,9 @@ const PlayerViewRenderer = (() => {
         frame.style.opacity = '0';
         frame.style.transition = [
           'opacity 180ms ease',
-          'top 220ms cubic-bezier(0.22, 0.61, 0.36, 1)',
-          'left 220ms cubic-bezier(0.22, 0.61, 0.36, 1)',
-          'width 220ms cubic-bezier(0.22, 0.61, 0.36, 1)',
-          'height 220ms cubic-bezier(0.22, 0.61, 0.36, 1)',
           'background 180ms ease',
           'box-shadow 180ms ease'
         ].join(', ');
-        frame.style.willChange = 'opacity, top, left, width, height';
         frame.style.pointerEvents = 'none';
         frame.style.zIndex = '8';
         frame.style.boxSizing = 'border-box';
@@ -424,19 +371,25 @@ const PlayerViewRenderer = (() => {
             xViewport = (rect.left + rect.right) / 2;
           }
 
-          const xContainer = xViewport - containerRect.left + container.scrollLeft;
-          const yContainer = rect.top - containerRect.top + container.scrollTop;
+          const xContainer = Math.round(
+            xViewport - containerRect.left + container.scrollLeft
+          );
+          const yContainer = Math.round(
+            rect.top - containerRect.top + container.scrollTop
+          );
           // Keep the Range's visual-row y-coordinate.  Mobile line-height
           // above reserves a chord band between wrapped rows, so chords keep
           // their true anchor/order instead of collapsing into one row.
           const chordLineTop = yContainer;
-          const chordTop = chordLineTop - cSize - GAP;
-          const connectorTop = chordLineTop - GAP;
+          const chordTop = Math.round(chordLineTop - cSize - GAP);
+          const connectorTop = Math.round(chordLineTop - GAP);
 
           el.style.top = chordTop + 'px';
-          el.style.left = (xContainer - el.offsetWidth / 2) + 'px';
+          el.style.left = Math.round(
+            xContainer - el.offsetWidth / 2
+          ) + 'px';
           el.style.opacity = '1';
-          connector.style.left = xContainer + 'px';
+          connector.style.left = Math.round(xContainer) + 'px';
           connector.style.top = connectorTop + 'px';
           connector.style.height = Math.max(4, GAP) + 'px';
           connector.style.visibility = 'visible';
@@ -649,7 +602,7 @@ const PlayerViewRenderer = (() => {
           // white when the active line changes.
           el.style.color = isChord ? chordColor : textColor;
           el.style.textShadow = isChord
-            ? '0 1px 0 rgba(0,0,0,0.75), 0 0 10px rgba(230,170,40,0.22)'
+            ? '0 1px 0 rgba(0,0,0,0.75)'
             : '0 1px 0 rgba(0,0,0,0.8), 0 2px 0 rgba(0,0,0,0.7), 0 4px 8px rgba(0,0,0,0.5)';
         } else {
           el.style.color = isChord
@@ -755,10 +708,19 @@ const PlayerViewRenderer = (() => {
         const boxH = container.clientHeight;
         const elTop = activeEl.offsetTop;
         const elH = activeEl.offsetHeight;
-        animateContainerScroll(
-          container,
-          elTop - boxH / 2 + elH / 2
+        const targetTop = Math.max(
+          0,
+          Math.round(elTop - boxH / 2 + elH / 2)
         );
+        try {
+          if (typeof container.scrollTo === 'function') {
+            container.scrollTo({ top: targetTop, behavior: 'auto' });
+          } else {
+            container.scrollTop = targetTop;
+          }
+        } catch (_) {
+          container.scrollTop = targetTop;
+        }
       }
     }
   }

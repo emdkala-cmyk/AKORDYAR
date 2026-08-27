@@ -43,6 +43,9 @@
     getSongState = () => null,
     getDAW = () => null,
     getTransportPlayhead = () => 0,
+    getHighlightState = () =>
+      globalScope.RuntimeStateAdapter?.getPerformanceStore?.()
+        ?.getState?.().highlightState || null,
     installPopupHighlightLoop = () => {},
     schedule = (...args) => globalScope.setTimeout?.(...args),
     EventCtor = globalScope.Event
@@ -75,7 +78,10 @@
       });
       const popup = getPopup();
       const config = popupWindowBridge?.get?.(popup, '_pCfg');
-      if (!config || typeof config !== 'object') return;
+      if (!config || typeof config !== 'object') {
+        syncHighlight();
+        return;
+      }
       config.cSize = settings.cSize;
       config.cColor = settings.cColor;
       config.cFont = 'JetBrains Mono';
@@ -86,6 +92,7 @@
         'style'
       );
       if (!scheduled) popupWindowBridge?.call?.(popup, '_pRenderChords');
+      syncHighlight();
     }
 
     function setupWheelHandlers(doc) {
@@ -162,23 +169,69 @@
         if (Number.isFinite(times[i]) && times[i] <= playhead) activeIndex = i;
         else if (Number.isFinite(times[i]) && times[i] > playhead) break;
       }
+      const performanceHighlight = getHighlightState?.();
+      const storeLineMatch = String(
+        performanceHighlight?.activeLineId || ''
+      ).match(/^ln(\d+)$/i);
+      const storeActiveIndex = storeLineMatch
+        ? Number(storeLineMatch[1])
+        : -1;
+      const storeDoneLines =
+        performanceHighlight?.doneLines instanceof Set
+          ? performanceHighlight.doneLines
+          : Array.isArray(performanceHighlight?.doneLines)
+            ? new Set(performanceHighlight.doneLines)
+            : null;
+      const hasStoreLine =
+        Number.isInteger(storeActiveIndex) &&
+        storeActiveIndex >= 0 &&
+        [...(body.children || [])].some(
+          element => Number(element.dataset?.li) === storeActiveIndex
+        );
+      if (hasStoreLine) {
+        activeIndex = storeActiveIndex;
+      }
       [...(body.children || [])].forEach(element => {
         if (!element.dataset?.li) return;
         const index = +element.dataset.li;
-        element.classList.toggle('active', index === activeIndex);
-        element.classList.toggle(
-          'done',
-          times[index] != null && times[index] < playhead && index !== activeIndex
-        );
+        const isActive = index === activeIndex;
+        const isDone = storeDoneLines
+          ? storeDoneLines.has(index) && !isActive
+          : times[index] != null && times[index] < playhead && !isActive;
+        element.classList.toggle('active', isActive);
+        element.classList.toggle('done', isDone);
+        // The popup builder uses inline styles for the user's base color.
+        // Clear those properties on the active row so the effect stylesheet
+        // can actually render the highlight above the inline declaration.
+        element.style.color = isActive ? '' : settings.tColor;
+        element.style.textShadow = '';
+        element.style.opacity = '';
       });
-      if (activeIndex < 0 || activeIndex === lastScrolledIndex) return;
+      if (activeIndex < 0) {
+        lastScrolledIndex = -999;
+        return;
+      }
+      if (activeIndex === lastScrolledIndex) return;
       lastScrolledIndex = activeIndex;
       const active = body.querySelector?.('[data-li="' + activeIndex + '"]');
       if (active) {
-        body.scrollTo?.({
-          top: active.offsetTop - body.clientHeight / 2 + active.offsetHeight / 2,
-          behavior: 'smooth'
-        });
+        const top = Math.max(
+          0,
+          Math.round(
+            active.offsetTop -
+              body.clientHeight / 2 +
+              active.offsetHeight / 2
+          )
+        );
+        try {
+          if (typeof body.scrollTo === 'function') {
+            body.scrollTo({ top, behavior: 'auto' });
+          } else {
+            body.scrollTop = top;
+          }
+        } catch (_) {
+          body.scrollTop = top;
+        }
       }
     }
 
