@@ -1,8 +1,8 @@
 /**
  * EditorSongRuntimeService — the single song ownership seam.
  *
- * EditorRuntimeAdapter/EdCurAdapter owns the published runtime reference.
- * This service exposes that reference through one explicit contract.
+ * EditorRuntimeAdapter owns the published runtime reference. This service
+ * exposes that reference through one explicit contract for editor workflows.
  */
 (function attachEditorSongRuntimeService(globalScope) {
   'use strict';
@@ -15,34 +15,39 @@
       if (typeof runtimeAdapter?.getSong === 'function') {
         return runtimeAdapter.getSong();
       }
-      return globalScope.EdCurAdapter?.getEdCur?.() || null;
+      return null;
     }
 
     function setSong(song) {
       if (typeof runtimeAdapter?.setSong === 'function') {
         return runtimeAdapter.setSong(song);
       }
-      globalScope.EdCurAdapter?.setEdCur?.(song);
       return song;
     }
 
-    function assertSynchronized() {
-      const runtimeAdapterSong = getSong();
-      const hasEdCurAdapter =
-        typeof globalScope.EdCurAdapter?.getEdCur === 'function';
-      const edCurAdapterSong = hasEdCurAdapter
-        ? globalScope.EdCurAdapter.getEdCur()
-        : runtimeAdapterSong;
-      if (runtimeAdapterSong !== edCurAdapterSong) {
-        logger?.warn?.(
-          'EditorSongRuntimeService: runtime song references diverged'
-        );
-        return false;
+    function onSongChange(listener) {
+      if (typeof runtimeAdapter?.onSongChange === 'function') {
+        return runtimeAdapter.onSongChange(listener);
       }
-      return true;
+      return () => {};
     }
 
-    return Object.freeze({ getSong, setSong, assertSynchronized });
+    function assertSynchronized() {
+      const available =
+        typeof runtimeAdapter?.getSong === 'function' &&
+        typeof runtimeAdapter?.setSong === 'function';
+      if (!available) {
+        logger?.warn?.('EditorSongRuntimeService: runtime adapter is unavailable');
+      }
+      return available;
+    }
+
+    return Object.freeze({
+      getSong,
+      setSong,
+      onSongChange,
+      assertSynchronized
+    });
   }
 
   globalScope.EditorSongRuntimeService = Object.freeze({ create });

@@ -9,7 +9,7 @@
   'use strict';
 
   function create({
-    getDAW = () => globalScope.getEditorDAW?.() || globalScope.DAW || {},
+    getDAW = () => globalScope.RuntimeStateAdapter?.getDAW?.() || {},
     uid = prefix => `${prefix || 'c'}${Date.now()}`,
     roundMs = value => value,
     refreshClipWaveImage = () => {},

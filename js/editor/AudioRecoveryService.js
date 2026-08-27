@@ -5,7 +5,7 @@
  * IndexedDB, Electron file paths, persisted file handles, a saved directory,
  * and (when explicitly allowed) a directory picker.
  *
- * The service does not read edCur, DAW, PERF, DOM, or Electron globals
+ * The service does not read Song Runtime, DAW, PERF, DOM, or Electron globals
  * directly. Runtime access is injected through callbacks.
  */
 (function attachAudioRecoveryService(globalScope) {

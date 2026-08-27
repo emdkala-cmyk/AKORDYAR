@@ -12,11 +12,12 @@
   function create({
     documentRef = globalScope.document,
     getElement = id => documentRef?.getElementById?.(id),
-    getDAW = () => globalScope.getEditorDAW?.() || globalScope.DAW,
-    getClip = id => globalScope.getClip?.(id),
-    selectedClips = () => globalScope.selectedClips?.() || [],
+    getDAW = () => globalScope.RuntimeStateAdapter?.getDAW?.() || null,
+    getClip = () => null,
+    selectedClips = () => [],
     clearEditorTextSelection = () => {},
-    clearChordSelection = () => globalScope.edClearChordSelection?.(),
+    clearChordSelection = (...args) =>
+      globalScope.AkordyarEditorApi?.clearChordSelection?.(...args),
     selectionService = null,
     clearSectionSelection = () => {},
     toggleClipSelection = clipId => {

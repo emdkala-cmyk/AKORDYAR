@@ -4,11 +4,11 @@ const calls = [];
 globalThis.RuntimeStateAdapter = {
   getPerformanceStore: () => globalThis.PerformanceStore || null
 };
-globalThis.EdCurAdapter = {
-  getEdCur: () => ({ id: 'song-1' })
+globalThis.EditorRuntimeAdapter = {
+  getSong: () => ({ id: 'song-1' })
 };
-globalThis.rebuildSongDocumentFromEdCur = () => calls.push('rebuild');
-globalThis.syncViewStylesFromEdCur = () => calls.push('styles');
+globalThis.rebuildPerformanceSongDocument = () => calls.push('rebuild');
+globalThis.syncViewStylesFromSong = () => calls.push('styles');
 globalThis.publishPerformanceState = () => calls.push('publish');
 globalThis.PerformanceStore = {
   resetStore: () => calls.push('reset')
@@ -27,8 +27,8 @@ assert.deepEqual(calls, [
   'reset', 'rebuild', 'styles'
 ]);
 
-delete globalThis.rebuildSongDocumentFromEdCur;
-delete globalThis.syncViewStylesFromEdCur;
+delete globalThis.rebuildPerformanceSongDocument;
+delete globalThis.syncViewStylesFromSong;
 delete globalThis.publishPerformanceState;
 delete globalThis.PerformanceStore;
 assert.doesNotThrow(() => bridge.onContentChanged());

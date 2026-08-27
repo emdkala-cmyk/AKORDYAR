@@ -46,7 +46,7 @@ function createState() {
     projectRoot: null,
     projectDuration: 0,
     project: {},
-    edCur: null,
+    song: null,
     edSeqPoints: []
   };
 }
@@ -267,7 +267,7 @@ test('loadProject state را بازیابی و audio pool را load می‌کن�
       }
     ],
 
-    edCur: {
+    song: {
       title: 'Song'
     },
 
@@ -318,7 +318,7 @@ test('loadProject state را بازیابی و audio pool را load می‌کن�
   );
 });
 
-test('loadProject loader را در موفقیت پنهان می‌کند و edCur را repair می‌کند', async () => {
+test('loadProject loader را در موفقیت پنهان می‌کند و song را repair می‌کند', async () => {
   const loader = { style: { display: 'none' } };
   const repairedSong = { title: 'ترمیم‌شده' };
   const { service, state } = createService({
@@ -329,13 +329,13 @@ test('loadProject loader را در موفقیت پنهان می‌کند و edCu
 
   await service.loadProject({
     project: {},
-    edCur: { title: 'خراب' },
+    song: { title: 'خراب' },
     tracks: [],
     clips: [],
     sections: []
   });
 
-  assert.equal(state.edCur, repairedSong);
+  assert.equal(state.song, repairedSong);
   assert.equal(loader.style.display, 'none');
 });
 
@@ -355,7 +355,7 @@ test('loadProject در خطای داخلی هم loader را رها نمی‌کن
   });
 
   await assert.rejects(
-    () => service.loadProject({ edCur: {}, tracks: [], clips: [], sections: [] }),
+    () => service.loadProject({ song: {}, tracks: [], clips: [], sections: [] }),
     /repair failed/
   );
   assert.equal(loader.style.display, 'none');

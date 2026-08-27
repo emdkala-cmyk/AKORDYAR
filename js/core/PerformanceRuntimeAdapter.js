@@ -1,9 +1,8 @@
 /**
  * PerformanceRuntimeAdapter
  *
- * Keeps the legacy PERF object compatible while giving new code a controlled
- * state boundary. The owner remains app/core.js until the remaining render
- * helpers are extracted.
+ * Gives the performance runtime a controlled state boundary. The owner is
+ * registered by RuntimeStateAdapter and is never published as a raw global.
  */
 (function attachPerformanceRuntimeAdapter(globalScope) {
   function create(state = {}) {

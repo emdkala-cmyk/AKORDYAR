@@ -63,30 +63,30 @@
   // =========================================================================
   section('3. SongDocument');
   var fake = {id:'s1',title:'Test',artist:'A',key:'Am',keyMode:'minor',transpose:0,originalKey:'Am',lyrics:'L1\nL2',chords:[{name:'[C]',lineIndex:0,charIndex:0}],syncTimes:[0,3.5],chordLineClips:[],seqPoints:[],styles:{tSize:36}};
-  var d1 = SDM.buildSongDocumentFromEdCur(fake);
+  var d1 = SDM.buildSongDocument(fake);
   assert(d1.title==='Test','build: title preserved');
   assert(d1.lines.length===2,'build: 2 lines');
   assert(d1.cues.length===2,'build: 2 cues');
   assert(d1.cues[1].time===3.5,'build: cue time');
-  var tgt = {id:'s1'}; SDM.writeToEdCur(d1,tgt);
+  var tgt = {id:'s1'}; SDM.writeToSong(d1,tgt);
   assert(tgt.title==='Test','write: title');
   assert(tgt.lyrics==='L1\nL2','write: lyrics');
-  var d2 = SDM.buildSongDocumentFromEdCur(tgt);
+  var d2 = SDM.buildSongDocument(tgt);
   assert(d2.title===d1.title,'roundtrip: title');
-  assert(SDM.buildSongDocumentFromEdCur(null).id==='','null edCur: empty');
+  assert(SDM.buildSongDocument(null).id==='','null song: empty');
 
   // =========================================================================
 // 4. alignChords
 // =========================================================================
 section('4. alignChords');
-var dc = SDM.buildSongDocumentFromEdCur({id:'s2',lyrics:'Hello World\nTest',chords:[{name:'[Am]',lineIndex:0,charIndex:0},{name:'[G]',lineIndex:0,charIndex:6}],syncTimes:[],key:'C',keyMode:'major',transpose:0});
+var dc = SDM.buildSongDocument({id:'s2',lyrics:'Hello World\nTest',chords:[{name:'[Am]',lineIndex:0,charIndex:0},{name:'[G]',lineIndex:0,charIndex:6}],syncTimes:[],key:'C',keyMode:'major',transpose:0});
 var al = SE.alignChords(dc);
 assert(al!==null,'returns doc');
 assert(al.lines[0].chords.length>0,'line 0 has chords');
 
 // ── RTL/LTR chord alignment ──
 section('4a. RTL alignment');
-var dcRTL = SDM.buildSongDocumentFromEdCur({
+var dcRTL = SDM.buildSongDocument({
   id:'sRTL', lyrics:'سلام دنیا', key:'C', keyMode:'major', transpose:0,
   chords:[{name:'[Am]',lineIndex:0,charIndex:0},{name:'[G]',lineIndex:0,charIndex:5}],
   syncTimes:[]
@@ -103,7 +103,7 @@ assert(alRTL.lines[0].chords[0].name.indexOf('Am')!==-1,'RTL: chord 0 name prese
 assert(alRTL.lines[0].chords[1].name.indexOf('G')!==-1,'RTL: chord 1 name preserved');
 
 section('4b. Mixed RTL/LTR alignment');
-var dcMixed = SDM.buildSongDocumentFromEdCur({
+var dcMixed = SDM.buildSongDocument({
   id:'sMixed', lyrics:'Hello سلام World', key:'C', keyMode:'major', transpose:0,
   chords:[{name:'[C]',lineIndex:0,charIndex:0},{name:'[Dm]',lineIndex:0,charIndex:6}],
   syncTimes:[]
@@ -115,7 +115,7 @@ assert(alMixed.lines[0].chords[0].name.indexOf('C')!==-1,'Mixed: chord 0 name');
 assert(alMixed.lines[0].chords[1].name.indexOf('Dm')!==-1,'Mixed: chord 1 name');
 
 section('4c. Alignment stability (round-trip)');
-var dcRT = SDM.buildSongDocumentFromEdCur({
+var dcRT = SDM.buildSongDocument({
   id:'sRT', lyrics:'Line One\nLine Two', key:'C', keyMode:'major', transpose:0,
   chords:[{name:'[E]',lineIndex:0,charIndex:0},{name:'[F]',lineIndex:1,charIndex:0}],
   syncTimes:[]
@@ -127,7 +127,7 @@ assert(rt2.lines[1].chords.length===rt1.lines[1].chords.length,'Round-trip: line
 assert(rt2.lines[0].chords[0].tokenIndex===rt1.lines[0].chords[0].tokenIndex,'Round-trip: tokenIndex stable');
 
 section('4d. Chord alignment after transpose');
-var dcTrans = SDM.buildSongDocumentFromEdCur({
+var dcTrans = SDM.buildSongDocument({
   id:'sTrans', lyrics:'Am G C', key:'C', keyMode:'major', transpose:0,
   chords:[{name:'Am',lineIndex:0,charIndex:0},{name:'G',lineIndex:0,charIndex:3},{name:'C',lineIndex:0,charIndex:5}],
   syncTimes:[]
@@ -145,7 +145,7 @@ for (var i=0; i<tokenBefore.length; i++) {
 }
 
 section('4e. Multi-line alignment');
-var dcMulti = SDM.buildSongDocumentFromEdCur({
+var dcMulti = SDM.buildSongDocument({
   id:'sMulti', lyrics:'Line1\nLine2\nLine3', key:'C', keyMode:'major', transpose:0,
   chords:[
     {name:'[A]',lineIndex:0,charIndex:0},
@@ -196,7 +196,7 @@ assert(alMulti.lines[2].chords[0].lineIndex===2,'Multi: chord C on line 2');
   // 7. processSong pipeline
   // =========================================================================
   section('7. processSong');
-  var pd = SE.processSong(SDM.buildSongDocumentFromEdCur({id:'p1',lyrics:'Am G\nC',chords:[{name:'[Am]',lineIndex:0,charIndex:0},{name:'[G]',lineIndex:0,charIndex:3},{name:'[C]',lineIndex:1,charIndex:0}],syncTimes:[],key:'C',keyMode:'major',transpose:0}));
+  var pd = SE.processSong(SDM.buildSongDocument({id:'p1',lyrics:'Am G\nC',chords:[{name:'[Am]',lineIndex:0,charIndex:0},{name:'[G]',lineIndex:0,charIndex:3},{name:'[C]',lineIndex:1,charIndex:0}],syncTimes:[],key:'C',keyMode:'major',transpose:0}));
   assert(pd!==null,'processSong returns doc');
   assert(pd.lines.length===2,'2 lines');
 

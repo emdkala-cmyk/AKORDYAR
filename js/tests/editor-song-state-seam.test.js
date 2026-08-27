@@ -15,21 +15,13 @@ const htmlSource = fs.readFileSync(
 
 assert.match(
   editorSource,
-  /let edCur = window\.EditorRuntimeAdapter\?\.getSong\?\.\(\) \|\| null;/
-);
-assert.match(
-  editorSource,
-  /window\.EdCurAdapter\?\.onChange\?\.\(\(_eventName, song\) =>/
-);
-assert.match(
-  editorSource,
   /return window\.EditorRuntimeAdapter\?\.getSong\?\.\(\) \|\| null;/
 );
+assert.match(editorSource, /function getCurrentEditorSong\(\)/);
+assert.doesNotMatch(editorSource, /\blet editorSong\b/);
+assert.doesNotMatch(editorSource, /onSongChange\?\.\(song =>/);
 assert.doesNotMatch(editorSource, /EditorLegacySongBridge/);
-assert.ok(
-  htmlSource.indexOf('js/core/EdCurAdapter.js') <
-    htmlSource.indexOf('js/app/editor.js')
-);
+assert.doesNotMatch(htmlSource, /js\/core\/EdCurAdapter\.js/);
 
 const context = { console };
 context.window = context;
@@ -43,11 +35,10 @@ function load(relativePath) {
   );
 }
 
-load('js/core/EdCurAdapter.js');
 load('js/core/EditorRuntimeAdapter.js');
 
 let editorSongMirror = context.EditorRuntimeAdapter.getSong();
-context.EdCurAdapter.onChange((_eventName, song) => {
+context.EditorRuntimeAdapter.onSongChange(song => {
   editorSongMirror = song;
 });
 
@@ -56,7 +47,7 @@ context.EditorRuntimeAdapter.setSong(firstSong);
 assert.equal(editorSongMirror, firstSong);
 
 const secondSong = { id: 'song-2' };
-context.window.edCur = secondSong;
+context.EditorRuntimeAdapter.setSong(secondSong);
 assert.equal(editorSongMirror, secondSong);
 
 console.log('Editor song state seam tests passed');

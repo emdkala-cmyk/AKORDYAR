@@ -1,7 +1,5 @@
 const assert = require('node:assert/strict');
 
-delete globalThis.DAW;
-delete globalThis.PERF;
 delete globalThis.PerformanceStore;
 delete globalThis.electronAPI;
 
@@ -23,12 +21,16 @@ assert.throws(
 const daw = { id: 'daw' };
 const perf = { id: 'perf' };
 const electronAPI = { isElectron: true };
-globalThis.DAW = daw;
-globalThis.PERF = perf;
+assert.equal(globalThis.DAW, undefined);
+assert.equal(globalThis.PERF, undefined);
+globalThis.RuntimeStateAdapter.setDAW(daw);
+globalThis.RuntimeStateAdapter.setPERF(perf);
 globalThis.electronAPI = electronAPI;
 
 assert.equal(globalThis.RuntimeStateAdapter.getDAWOrThrow(), daw);
 assert.equal(globalThis.RuntimeStateAdapter.getPERFOrThrow(), perf);
 assert.equal(globalThis.RuntimeStateAdapter.getElectronAPI(), electronAPI);
+assert.equal(globalThis.DAW, undefined);
+assert.equal(globalThis.PERF, undefined);
 
 console.log('RuntimeStateAdapter contract tests passed');

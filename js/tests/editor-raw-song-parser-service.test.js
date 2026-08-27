@@ -12,7 +12,7 @@ assert.equal(
   'C  G\nhello world'
 );
 
-const ltr = parser.parseRawSongToEdCur({
+const ltr = parser.parseRawSong({
   title: 'Test',
   artist: 'Artist',
   key: 'Am',
@@ -31,7 +31,7 @@ assert.deepEqual(
 );
 assert.deepEqual(ltr.warnings, []);
 
-const explicit = parser.parseRawSongToEdCur({
+const explicit = parser.parseRawSong({
   rawText: 'C  G\n*سلام*'
 });
 assert.equal(explicit.lyrics, 'سلام');
@@ -43,7 +43,7 @@ assert.deepEqual(
   ]
 );
 
-const rtl = parser.parseRawSongToEdCur({
+const rtl = parser.parseRawSong({
   rawText: 'C\nسلام دنیا'
 });
 assert.equal(rtl.lyrics, 'سلام دنیا');

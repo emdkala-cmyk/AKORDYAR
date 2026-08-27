@@ -20,7 +20,6 @@ function load(relativePath) {
   );
 }
 
-load('js/core/EdCurAdapter.js');
 load('js/core/EditorRuntimeAdapter.js');
 load('js/core/EditorSongRuntimeService.js');
 load('js/editor/AudioRecoveryService.js');
@@ -32,7 +31,6 @@ const runtimeSong = context.EditorSongRuntimeService.create({
 
 const firstSong = { id: 'song-1', title: 'اول' };
 assert.equal(runtimeSong.setSong(firstSong), firstSong);
-assert.equal(context.window.edCur, firstSong);
 assert.equal(runtimeSong.getSong(), firstSong);
 assert.equal(runtimeSong.assertSynchronized(), true);
 
@@ -57,14 +55,12 @@ const daw = { clips: [], bufferCache: new Map() };
 
   assert.equal(restored.id, 'song-2');
   assert.equal(restored.repaired, true);
-  assert.equal(context.window.edCur, restored);
   assert.equal(runtimeSong.getSong(), restored);
   assert.equal(runtimeSong.assertSynchronized(), true);
 
   const thirdSong = { id: 'song-3' };
   runtimeSong.setSong(thirdSong);
   assert.equal(runtimeSong.getSong(), thirdSong);
-  assert.equal(context.window.edCur, thirdSong);
 
   console.log('Editor runtime seam tests passed');
 })().catch(error => {

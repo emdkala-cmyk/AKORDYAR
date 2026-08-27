@@ -50,12 +50,12 @@
   function create({
     documentRef = globalScope.document,
     getElement = id => documentRef?.getElementById?.(id),
-    getDAW = () => globalScope.getEditorDAW?.() || globalScope.DAW,
+    getDAW = () => globalScope.RuntimeStateAdapter?.getDAW?.() || null,
     getIconRegistry = () => globalScope.IconRegistry,
-    ensureAudioCtx = () => globalScope.ensureAudioCtx?.(),
+    ensureAudioCtx = () => {},
     uid = prefix => `${prefix}${Date.now()}`,
-    saveState = () => globalScope.saveState?.(),
-    renderAll = () => globalScope.renderAll?.(),
+    saveState = () => {},
+    renderAll = () => {},
     toast = () => {},
     translate = key => globalScope.t?.(key) ?? key
   } = {}) {

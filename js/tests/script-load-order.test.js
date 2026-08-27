@@ -194,6 +194,10 @@ assert.ok(
 );
 assert.ok(
   scriptIndex('js/app/CoreClipInteractionService.js') <
+    scriptIndex('js/app/CoreTimelineRuntimeService.js')
+);
+assert.ok(
+  scriptIndex('js/app/CoreTimelineRuntimeService.js') <
     scriptIndex('js/app/core.js')
 );
 assert.ok(
@@ -237,6 +241,10 @@ assert.ok(
     scriptIndex('js/app/core.js')
 );
 assert.ok(
+  scriptIndex('js/app/CorePerformanceRuntimeService.js') <
+    scriptIndex('js/app/core.js')
+);
+assert.ok(
   scriptIndex('js/app/CoreLoopVisualService.js') <
     scriptIndex('js/app/core.js')
 );
@@ -269,7 +277,15 @@ assert.ok(
     scriptIndex('js/app/core.js')
 );
 assert.ok(
+  scriptIndex('js/app/CoreArrangerRuntimeService.js') <
+    scriptIndex('js/app/core.js')
+);
+assert.ok(
   scriptIndex('js/app/CoreFocusModeService.js') <
+    scriptIndex('js/app/core.js')
+);
+assert.ok(
+  scriptIndex('js/app/CorePopupRuntimeService.js') <
     scriptIndex('js/app/core.js')
 );
 assert.ok(
@@ -421,6 +437,34 @@ assert.ok(
     scriptIndex('js/app/editor.js')
 );
 assert.ok(
+  scriptIndex('js/editor/EditorAutoImportStateService.js') <
+    scriptIndex('js/editor/EditorAutoImportRuntimeService.js')
+);
+assert.ok(
+  scriptIndex('js/editor/EditorAutoImportUiService.js') <
+    scriptIndex('js/editor/EditorAutoImportRuntimeService.js')
+);
+assert.ok(
+  scriptIndex('js/editor/EditorAutoImportFileSaveService.js') <
+    scriptIndex('js/editor/EditorAutoImportRuntimeService.js')
+);
+assert.ok(
+  scriptIndex('js/editor/EditorAutoImportWorkflowService.js') <
+    scriptIndex('js/editor/EditorAutoImportRuntimeService.js')
+);
+assert.ok(
+  scriptIndex('js/editor/EditorAutoImportRetryService.js') <
+    scriptIndex('js/editor/EditorAutoImportRuntimeService.js')
+);
+assert.ok(
+  scriptIndex('js/editor/EditorRawSongParserService.js') <
+    scriptIndex('js/editor/EditorAutoImportRuntimeService.js')
+);
+assert.ok(
+  scriptIndex('js/editor/EditorAutoImportRuntimeService.js') <
+    scriptIndex('js/app/editor.js')
+);
+assert.ok(
   scriptIndex('js/editor/MidiScoreImportService.js') <
     scriptIndex('js/app/core.js')
 );
@@ -506,6 +550,10 @@ assert.ok(
 );
 assert.ok(
   scriptIndex('js/editor/EditorArrangerHotSwapService.js') <
+    scriptIndex('js/editor/EditorArrangerRuntimeService.js')
+);
+assert.ok(
+  scriptIndex('js/editor/EditorArrangerRuntimeService.js') <
     scriptIndex('js/app/editor.js')
 );
 assert.ok(
@@ -530,6 +578,10 @@ assert.ok(
 );
 assert.ok(
   scriptIndex('js/editor/EditorTimelineChordEditorService.js') <
+    scriptIndex('js/editor/EditorPublicApi.js')
+);
+assert.ok(
+  scriptIndex('js/editor/EditorPublicApi.js') <
     scriptIndex('js/app/editor.js')
 );
 assert.ok(
@@ -561,7 +613,7 @@ assert.ok(
     scriptIndex('js/app/editor.js')
 );
 assert.ok(
-  scriptIndex('js/editor/EditorAudioStorageFacadeService.js') <
+  scriptIndex('js/editor/EditorAudioStorageRuntimeService.js') <
     scriptIndex('js/app/core.js')
 );
 assert.ok(
@@ -577,6 +629,14 @@ assert.ok(
     scriptIndex('js/editor/EditorKeyboardService.js')
 );
 assert.ok(
+  scriptIndex('js/editor/EditorKeyboardService.js') <
+    scriptIndex('js/editor/EditorKeyboardRuntimeService.js')
+);
+assert.ok(
+  scriptIndex('js/editor/EditorKeyboardRuntimeService.js') <
+    scriptIndex('js/app/editor.js')
+);
+assert.ok(
   scriptIndex('js/editor/EditorColorToolService.js') <
     scriptIndex('js/app/editor.js')
 );
@@ -585,7 +645,7 @@ assert.ok(
     scriptIndex('js/app/core.js')
 );
 assert.ok(
-  scriptIndex('js/core/EdCurAdapter.js') <
+  scriptIndex('js/core/EditorRuntimeAdapter.js') <
     scriptIndex('js/archive/ArchiveRuntimeAdapter.js')
 );
 assert.ok(
@@ -718,10 +778,10 @@ assert.ok(
 );
 assert.ok(
   scriptIndex('js/editor/SyncAnalysis.js') <
-    scriptIndex('js/editor/EditorSyncAnalysisUiService.js')
+    scriptIndex('js/editor/EditorSyncAnalysisRuntimeService.js')
 );
 assert.ok(
-  scriptIndex('js/editor/EditorSyncAnalysisUiService.js') <
+  scriptIndex('js/editor/EditorSyncAnalysisRuntimeService.js') <
     scriptIndex('js/app/core.js')
 );
 assert.ok(

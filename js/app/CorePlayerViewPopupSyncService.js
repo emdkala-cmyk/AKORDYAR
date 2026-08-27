@@ -7,7 +7,8 @@
   'use strict';
 
   function create({
-    popup,
+    popup = null,
+    getPopup = () => popup,
     documentRef,
     popupWindowBridge,
     getSnapshot,
@@ -17,16 +18,23 @@
     schedule = (...args) => globalScope.setTimeout?.(...args),
     EventCtor = globalScope.Event
   } = {}) {
+    function currentPopup() {
+      return getPopup?.() || popup;
+    }
+
     function renderFallback(reason, delay) {
       schedule(() => {
         try {
-          if (!isPopupOpen(popup)) return;
+          const activePopup = currentPopup();
+          if (!isPopupOpen(activePopup)) return;
           const scheduled = popupWindowBridge?.call?.(
-            popup,
+            activePopup,
             '_pScheduleChordRender',
             reason
           );
-          if (!scheduled) popupWindowBridge?.call?.(popup, '_pRenderChords');
+          if (!scheduled) {
+            popupWindowBridge?.call?.(activePopup, '_pRenderChords');
+          }
         } catch (_) {}
       }, delay);
     }
@@ -85,24 +93,27 @@
       });
 
       try {
+        const activePopup = currentPopup();
         const previousVersion =
-          Number(popupWindowBridge?.get?.(popup, '_pStructureVersion')) || 0;
+          Number(popupWindowBridge?.get?.(activePopup, '_pStructureVersion')) || 0;
         const nextVersion = previousVersion + (structureChanged ? 1 : 0);
         if (structureChanged) {
           popupWindowBridge?.clearManagedNodes?.(
-            popup,
+            activePopup,
             ['_pChordEls', '_pChordLineEls']
           );
         }
-        popupWindowBridge?.set?.(popup, '_pChords', chords);
-        popupWindowBridge?.set?.(popup, '_pStructureVersion', nextVersion);
+        popupWindowBridge?.set?.(activePopup, '_pChords', chords);
+        popupWindowBridge?.set?.(activePopup, '_pStructureVersion', nextVersion);
         const reason = structureChanged ? 'structure' : 'data';
         const scheduled = popupWindowBridge?.call?.(
-          popup,
+          activePopup,
           '_pScheduleChordRender',
           reason
         );
-        if (!scheduled) popupWindowBridge?.call?.(popup, '_pRenderChords');
+        if (!scheduled) {
+          popupWindowBridge?.call?.(activePopup, '_pRenderChords');
+        }
         if (structureChanged) {
           [120, 300, 600].forEach(delay =>
             renderFallback('structure', delay)
@@ -122,17 +133,20 @@
             "'" + (settings.font || tFont) + "', sans-serif";
         });
         if (settings.cSize || settings.cColor) {
-          const config = popupWindowBridge?.get?.(popup, '_pCfg');
+          const activePopup = currentPopup();
+          const config = popupWindowBridge?.get?.(activePopup, '_pCfg');
           if (config && typeof config === 'object') {
             config.cSize = settings.cSize || 38;
             config.cColor = settings.cColor || '#e6aa28';
-            popupWindowBridge?.set?.(popup, '_pCfg', config);
+            popupWindowBridge?.set?.(activePopup, '_pCfg', config);
             const scheduled = popupWindowBridge?.call?.(
-              popup,
+              activePopup,
               '_pScheduleChordRender',
               'style'
             );
-            if (!scheduled) popupWindowBridge?.call?.(popup, '_pRenderChords');
+            if (!scheduled) {
+              popupWindowBridge?.call?.(activePopup, '_pRenderChords');
+            }
           }
         }
       } catch (_) {}
@@ -141,7 +155,7 @@
         void body.offsetHeight;
       } catch (_) {}
       popupWindowBridge?.dispatch?.(
-        popup,
+        currentPopup(),
         EventCtor ? new EventCtor('resize') : { type: 'resize' }
       );
       return true;

@@ -28,14 +28,11 @@
     clips = [],
     sections = [],
     arrangerMarkers = null,
-    legacyLoopState = null,
     fallbackEnd = 0
   } = {}) {
     const contentEnd = getTimelineEnd({ clips, sections });
     const fallback = Math.max(0, finiteNumber(fallbackEnd));
     const timelineEnd = contentEnd > 0 ? contentEnd : fallback;
-    // `legacyLoopState` is intentionally ignored. Editor loop points must not
-    // become arranger A/B points unless the user explicitly enables them.
     const markerSource = arrangerMarkers &&
       typeof arrangerMarkers === 'object' &&
       arrangerMarkers.enabled === true
@@ -57,8 +54,8 @@
     let start = hasConfiguredRange ? configuredStart : 0;
     let end = hasConfiguredRange ? configuredEnd : timelineEnd;
 
-    // Never create an unreachable boundary when a legacy/default B is longer
-    // than the actual song timeline.
+    // Never create an unreachable boundary when a default B is longer than
+    // the actual song timeline.
     if (timelineEnd > 0) {
       if (start >= timelineEnd) {
         start = 0;

@@ -28,7 +28,7 @@ const scheduling = {
     return true;
   },
   stopMetronome: () => calls.push('stop'),
-  checkLegacyTick: (time, options) => {
+  checkMetronomeTick: (time, options) => {
     calls.push(['tick', time, options]);
     return 'tick-result';
   }

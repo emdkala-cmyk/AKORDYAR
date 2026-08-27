@@ -26,7 +26,7 @@
       getDAW,
       getSong,
       getSongOrNull,
-      setEditorSong,
+      setSong,
       pauseTransport,
       stopAllVoices,
       resetRecordingState,
@@ -79,7 +79,7 @@
       daw.loopB = 10;
       daw.arrangerMarkers = { enabled: false, start: 0, end: 0 };
       resetRecordingState();
-      setEditorSong(clone(data));
+      setSong(clone(data));
       const song = getSong();
       if (!song.styles) song.styles = {};
       const defaults = {

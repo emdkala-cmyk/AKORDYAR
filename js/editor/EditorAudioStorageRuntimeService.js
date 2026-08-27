@@ -1,10 +1,12 @@
 /**
- * EditorAudioStorageFacadeService
+ * EditorAudioStorageRuntimeService
  *
- * Publishes the legacy audio-storage function names while keeping the actual
- * IndexedDB implementation lazy and isolated from editor.js.
+ * Provides a lazy, dependency-injected runtime for
+ * EditorAudioStorageService. The runtime is registered as one service object;
+ * individual storage methods are never copied onto the global scope.
+ * The module name and registration both describe the runtime role.
  */
-(function attachEditorAudioStorageFacadeService(globalScope) {
+(function attachEditorAudioStorageRuntimeService(globalScope) {
   'use strict';
 
   const METHODS = [
@@ -30,15 +32,16 @@
     BlobCtor = globalScope.Blob,
     fetchRef = (...args) => globalScope.fetch?.(...args),
     urlRef = globalScope.URL,
-    getDAW = () => globalScope.getEditorDAW?.(),
-    ensureAudioCtx = (...args) => globalScope.ensureAudioCtx?.(...args),
+    getDAW = () => globalScope.RuntimeStateAdapter?.getDAW?.() || null,
+    ensureAudioCtx = (...args) =>
+      globalScope.AkordyarCoreApi?.ensureAudioCtx?.(...args),
     getWavEncoder = () =>
-      globalScope.getEditorProjectExportService?.()?.audioBufferToWav,
+      globalScope.EditorProjectExportService?.audioBufferToWav,
     getElement = id => globalScope.document?.getElementById?.(id),
     getStorageEstimate = () => globalScope.navigator?.storage?.estimate?.(),
     compressionServiceFactory = () =>
       globalScope.AudioCompressionService?.create?.(),
-    toast = (...args) => globalScope.toast?.(...args),
+    toast = (...args) => globalScope.AkordyarCoreApi?.toast?.(...args),
     logger = console
   } = {}) {
     let instance = null;
@@ -69,22 +72,22 @@
       return instance;
     }
 
-    const facade = {
-      getEditorAudioStorageService: getStorageService
+    const runtime = {
+      getService: getStorageService
     };
     METHODS.forEach(method => {
-      facade[method] = (...args) =>
+      runtime[method] = (...args) =>
         getStorageService()?.[method]?.(...args);
     });
 
-    return Object.freeze(facade);
+    return Object.freeze(runtime);
   }
 
   const service = Object.freeze({ create });
-  globalScope.EditorAudioStorageFacadeService = service;
+  globalScope.EditorAudioStorageRuntimeService = service;
 
   if (typeof window !== 'undefined') {
-    Object.assign(globalScope, create());
+    globalScope.EditorAudioStorageRuntime = create();
   }
 
   if (typeof module !== 'undefined' && module.exports) {

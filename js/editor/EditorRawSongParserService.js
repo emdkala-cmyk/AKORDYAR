@@ -215,7 +215,7 @@
       return warnings;
     }
 
-    function parseRawSongToEdCur(parsedSong) {
+    function parseRawSong(parsedSong) {
       const result = {
         title: parsedSong.title || '',
         artist: parsedSong.artist || '',
@@ -520,7 +520,7 @@
       isChordOnlyLine,
       extractChordPositions,
       validateParsedSong,
-      parseRawSongToEdCur
+      parseRawSong
     });
   }
 

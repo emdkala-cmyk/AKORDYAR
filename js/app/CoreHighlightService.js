@@ -29,7 +29,7 @@
     getPopup = () => null,
     isPopupOpen = popup => Boolean(popup && !popup.closed),
     popupDocument = () => null,
-    saveSong = () => globalScope.edSaveSong?.()
+    saveSong = () => {}
   } = {}) {
     function getHighlightEffect() {
       return (

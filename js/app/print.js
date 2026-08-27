@@ -12,7 +12,7 @@
  * 4. iframe.contentWindow.print() فراخوانی می‌شود و iframe بعد از چاپ حذف می‌شود
  */
 function printSong() {
-  const song = window.EdCurAdapter?.getEdCur?.() || null;
+  const song = window.EditorRuntimeAdapter?.getSong?.() || null;
   if (!song) { toast('ابتدا یک ترانه باز کنید'); return; }
   if (printSong._active) return;
   printSong._active = true;

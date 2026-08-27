@@ -14,6 +14,9 @@ const coreTimelineGrid = read('js/app/CoreTimelineGridService.js');
 const coreTimelineSectionBridge = read(
   'js/app/CoreTimelineSectionBridgeService.js'
 );
+const coreTimelineRuntime = read(
+  'js/app/CoreTimelineRuntimeService.js'
+);
 const coreTimelineChordEditorBridge = read(
   'js/app/CoreTimelineChordEditorBridgeService.js'
 );
@@ -22,6 +25,9 @@ const dawState = read('js/core/DAWRuntimeState.js');
 const transportState = read('js/core/EditorTransportStateService.js');
 const editor = read('js/app/editor.js');
 const keyboardService = read('js/editor/EditorKeyboardService.js');
+const keyboardRuntimeService = read(
+  'js/editor/EditorKeyboardRuntimeService.js'
+);
 const colorToolService = read('js/editor/EditorColorToolService.js');
 const timelineRenderer = read('js/core/TimelineTrackRendererService.js');
 const sectionRenderer = read('js/core/TimelineSectionRendererService.js');
@@ -36,9 +42,10 @@ const timelineCss = read('styles/timeline.css');
 assert.match(dawState, /selectedTrackId:\s*null/);
 assert.match(coreTimelineRenderer, /function selectTrack\(trackId\)/);
 assert.match(coreTimelineRenderer, /getTimelineTrackRendererService/);
-assert.match(core, /CoreTimelineRendererService/);
-assert.match(core, /CoreTimelineSectionBridgeService/);
-assert.match(core, /CoreTimelineChordEditorBridgeService/);
+assert.match(core, /CoreTimelineRuntimeService/);
+assert.match(coreTimelineRuntime, /CoreTimelineRendererService/);
+assert.match(coreTimelineRuntime, /CoreTimelineSectionBridgeService/);
+assert.match(coreTimelineRuntime, /CoreTimelineChordEditorBridgeService/);
 assert.match(
   coreTimelineSectionBridge,
   /function getTimelineSectionRendererService\(\)/
@@ -70,6 +77,12 @@ assert.match(core, /function renderAll\(options = \{\}\)/);
 assert.match(core, /function renderClips\(options = \{\}\)/);
 assert.match(coreTimelineGrid, /preserveWaveforms/);
 assert.match(editor, /EditorKeyboardService/);
+assert.match(editor, /EditorKeyboardRuntimeService/);
+assert.doesNotMatch(
+  editor,
+  /window\.EditorKeyboardService\.create\(\{/
+);
+assert.match(keyboardRuntimeService, /keyboardService\.create\(\{/);
 assert.match(keyboardService, /event\.code === 'KeyZ'/);
 assert.match(html, /id="timelineHorizontalScrollbar"/);
 assert.match(html, /id="timelineVerticalScrollbar"/);

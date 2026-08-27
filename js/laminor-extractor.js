@@ -781,9 +781,9 @@ function validateExtractedLine(line) {
 /**
  * تبدیل خروجی extractor به فرمت قابل استفاده در Akordyar
  * @param {Array} lines - خروجی extractLaminorSong
- * @returns {Object} فرمت edCur
+ * @returns {Object} normalized song payload
  */
-function convertExtractedLinesToEdCur(lines) {
+function convertExtractedLinesToSong(lines) {
   const result = {
     lyrics: '',
     chords: [],
@@ -1029,7 +1029,7 @@ async function extractLaminorFromHtml(html) {
 if (typeof window !== 'undefined') {
   window.extractLaminorSong = extractLaminorSong;
   window.extractLaminorFromHtml = extractLaminorFromHtml;
-  window.convertExtractedLinesToEdCur = convertExtractedLinesToEdCur;
+  window.convertExtractedLinesToSong = convertExtractedLinesToSong;
   window.validateExtractedLine = validateExtractedLine;
   window.waitForStableLayout = waitForStableLayout;
   window.normalizeLaminorKey = normalizeLaminorKey;

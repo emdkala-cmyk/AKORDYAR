@@ -14,7 +14,7 @@
     getEditingArr = () => null,
     getPerformanceState = () => ({}),
     updatePerformanceState = () => {},
-    getDAW = () => globalScope.getEditorDAW?.() || globalScope.DAW,
+    getDAW = () => globalScope.RuntimeStateAdapter?.getDAW?.() || null,
     getArrangerMarkers = () => ({ enabled: false, start: 0, end: 0 }),
     ensureArrItem = () => ({}),
     loadArrSong = () => Promise.resolve(),

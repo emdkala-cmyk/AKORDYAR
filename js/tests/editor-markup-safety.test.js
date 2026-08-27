@@ -3,7 +3,12 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const source = fs.readFileSync(
-  path.resolve(__dirname, '..', 'app', 'editor.js'),
+  path.resolve(
+    __dirname,
+    '..',
+    'editor',
+    'EditorAutoImportRuntimeService.js'
+  ),
   'utf8'
 );
 const retrySource = fs.readFileSync(
@@ -17,7 +22,7 @@ const retrySource = fs.readFileSync(
 );
 
 assert.match(source, /function escapeHtml\(value\)/);
-assert.match(source, /escapeHtml\(n\)/);
+assert.match(source, /escapeHtml\(name\)/);
 assert.match(retrySource, /escapeHtml\(artistName\)/);
 assert.doesNotMatch(source, /🎵 \$\{n\}/);
 assert.doesNotMatch(source, /شناسایی \$\{artistName\}/);

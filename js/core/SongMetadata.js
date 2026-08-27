@@ -2,9 +2,9 @@
  * SongMetadata — مدیریت متمرکز metadata آهنگ
  *
  * فیلدهای تحت پوشش: title, artist, key, keyMode, tempo, timeSignature
- * این ماژول خواندن/نوشتن بین edCur و DOM را یکپارچه می‌کند.
+ * این ماژول خواندن/نوشتن metadata بین Song Runtime و DOM را یکپارچه می‌کند.
  *
- * وابستگی: document, edCur (global)
+ * وابستگی: document
  */
 
 const SongMetadata = (() => {
@@ -32,61 +32,61 @@ const SongMetadata = (() => {
   };
 
   /**
-   * خواندن metadata از DOM و نوشتن در edCur
+   * خواندن metadata از DOM و نوشتن در song
    */
-  function syncFromDom(edCur, opts) {
-    if (!edCur) return;
+  function syncFromDom(song, opts) {
+    if (!song) return;
     opts = opts || {};
-    if (opts.includeTitle !== false)  edCur.title = getDomVal('title') || '';
-    if (opts.includeArtist !== false) edCur.artist = getDomVal('artist') || '';
-    if (opts.includeTimeSig !== false) edCur.timeSignature = getDomVal('timeSignature') || DEFAULTS.timeSignature;
-    if (opts.includeTempo !== false)  edCur.tempo = parseInt(getDomVal('tempo')) || DEFAULTS.tempo;
-    if (opts.includeGenre !== false)  edCur.genre = getDomVal('genre') || '';
+    if (opts.includeTitle !== false)  song.title = getDomVal('title') || '';
+    if (opts.includeArtist !== false) song.artist = getDomVal('artist') || '';
+    if (opts.includeTimeSig !== false) song.timeSignature = getDomVal('timeSignature') || DEFAULTS.timeSignature;
+    if (opts.includeTempo !== false)  song.tempo = parseInt(getDomVal('tempo')) || DEFAULTS.tempo;
+    if (opts.includeGenre !== false)  song.genre = getDomVal('genre') || '';
     if (opts.includeKey !== false) {
-      edCur.key = getDomVal('key') || edCur.key || DEFAULTS.key;
-      edCur.keyMode = getDomVal('keyMode') || edCur.keyMode || DEFAULTS.keyMode;
+      song.key = getDomVal('key') || song.key || DEFAULTS.key;
+      song.keyMode = getDomVal('keyMode') || song.keyMode || DEFAULTS.keyMode;
     }
   }
 
   /**
-   * نوشتن مقادیر edCur در DOM
+   * نوشتن مقادیر song در DOM
    */
-  function syncToDom(edCur, opts) {
-    if (!edCur) return;
+  function syncToDom(song, opts) {
+    if (!song) return;
     opts = opts || {};
     var incKey = opts.includeKey !== false;
 
-    setDomVal('title', edCur.title || '');
-    setDomVal('artist', edCur.artist || '');
-    setDomVal('timeSignature', edCur.timeSignature || DEFAULTS.timeSignature);
-    setDomVal('tempo', edCur.tempo || DEFAULTS.tempo);
-    setDomVal('genre', edCur.genre || '');
+    setDomVal('title', song.title || '');
+    setDomVal('artist', song.artist || '');
+    setDomVal('timeSignature', song.timeSignature || DEFAULTS.timeSignature);
+    setDomVal('tempo', song.tempo || DEFAULTS.tempo);
+    setDomVal('genre', song.genre || '');
     if (incKey) {
-      setDomVal('key', edCur.key || DEFAULTS.key);
-      setDomVal('keyMode', edCur.keyMode || DEFAULTS.keyMode);
+      setDomVal('key', song.key || DEFAULTS.key);
+      setDomVal('keyMode', song.keyMode || DEFAULTS.keyMode);
     }
   }
 
   /**
    * تنظیم مقادیر پیش‌فرض برای فیلدهای missing
    */
-  function applyDefaults(edCur) {
-    if (!edCur) return;
-    if (!edCur.timeSignature) edCur.timeSignature = DEFAULTS.timeSignature;
-    if (!edCur.tempo) edCur.tempo = DEFAULTS.tempo;
-    if (edCur.transpose == null) edCur.transpose = 0;
+  function applyDefaults(song) {
+    if (!song) return;
+    if (!song.timeSignature) song.timeSignature = DEFAULTS.timeSignature;
+    if (!song.tempo) song.tempo = DEFAULTS.tempo;
+    if (song.transpose == null) song.transpose = 0;
   }
 
   /**
    * اصلاح فرمت key: اگر 'Am' باشد → key='A', keyMode='min'
    */
-  function fixKeyFormat(edCur, isValidNote) {
-    if (!edCur || !edCur.key) return;
-    if (edCur.key.endsWith('m') && edCur.keyMode !== 'min') {
-      var cleanKey = edCur.key.replace(/m$/, '');
+  function fixKeyFormat(song, isValidNote) {
+    if (!song || !song.key) return;
+    if (song.key.endsWith('m') && song.keyMode !== 'min') {
+      var cleanKey = song.key.replace(/m$/, '');
       if (typeof isValidNote === 'function' && isValidNote(cleanKey)) {
-        edCur.key = cleanKey;
-        edCur.keyMode = 'min';
+        song.key = cleanKey;
+        song.keyMode = 'min';
       }
     }
   }
@@ -94,22 +94,22 @@ const SongMetadata = (() => {
   /**
    * نرمال‌سازی کامل metadata
    */
-  function normalize(edCur, isValidNote) {
-    applyDefaults(edCur);
-    fixKeyFormat(edCur, isValidNote);
-    if (!edCur.originalKey) {
-      edCur.originalKey = edCur.key;
-      edCur.originalKeyMode = edCur.keyMode || 'maj';
+  function normalize(song, isValidNote) {
+    applyDefaults(song);
+    fixKeyFormat(song, isValidNote);
+    if (!song.originalKey) {
+      song.originalKey = song.key;
+      song.originalKeyMode = song.keyMode || 'maj';
     }
   }
 
   /**
    * گرفتن رشته نمایشی گام (مثل "Am", "C", "F#m")
    */
-  function getDisplayKey(edCur) {
-    if (!edCur) return 'C';
-    var k = edCur.key || 'C';
-    var m = edCur.keyMode || 'maj';
+  function getDisplayKey(song) {
+    if (!song) return 'C';
+    var k = song.key || 'C';
+    var m = song.keyMode || 'maj';
     // If key already ends with 'm' (e.g. 'Am'), don't append another 'm'
     if (m === 'min' && !k.endsWith('m')) return k + 'm';
     return k;

@@ -10,11 +10,12 @@
   function create({
     getElement = id => globalScope.document?.getElementById?.(id),
     getArrangers = () => [],
+    getEditingArranger = () => null,
     setEditingArr = () => {},
     renderArrangerManager = () => {},
     openArrEditor = () => {},
     startPointerDrag = (...args) =>
-      globalScope.startEditorPointerDrag?.(...args)
+      globalScope.EditorRuntimeAdapter?.startPointerDrag?.(...args)
   } = {}) {
     function close() {
       const modal = getElement?.('arrangerModal');
@@ -69,7 +70,7 @@
       });
     }
 
-    function open() {
+    function open(preferredArranger = null) {
       const modal = getElement?.('arrangerModal');
       if (!modal) return;
       modal.classList?.add?.('show');
@@ -77,7 +78,12 @@
 
       const arrangers = getArrangers?.() || [];
       if (arrangers.length > 0) {
-        setEditingArr(arrangers[0]);
+        const currentArranger = preferredArranger || getEditingArranger?.();
+        const selectedArranger =
+          currentArranger && arrangers.includes(currentArranger)
+            ? currentArranger
+            : arrangers[0];
+        setEditingArr(selectedArranger);
         openArrEditor?.();
       } else {
         const editor = getElement?.('arrEditor');

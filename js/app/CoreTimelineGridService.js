@@ -10,22 +10,20 @@
   function create({
     documentRef = globalScope.document,
     timelineGrid = globalScope.TimelineGrid,
-    getDAW = () => globalScope.getEditorDAW?.() || globalScope.DAW || {},
+    getDAW = () => globalScope.RuntimeStateAdapter?.getDAW?.() || {},
     getTimingContext = () =>
       globalScope.requireEditorSongStateService?.()?.getTimingContext?.() ||
       {},
-    getProjectEnd = () => globalScope.getProjectEnd?.() || 0,
-    timeToX = value => globalScope.timeToX?.(value) || 0,
+    getProjectEnd = () => 0,
+    timeToX = () => 0,
     getElement = id => documentRef?.getElementById?.(id),
-    getTimeSignatureGridConfig = (...args) =>
-      globalScope.getTimeSignatureGridConfig?.(...args),
-    getActiveQuantizeGridStep = (...args) =>
-      globalScope.getActiveQuantizeGridStep?.(...args),
+    getTimeSignatureGridConfig = () => ({}),
+    getActiveQuantizeGridStep = () => 0,
     getTransportState = () => globalScope.editorTransportState || {},
-    renderTracks = () => globalScope.renderTracks?.(),
-    renderClips = (...args) => globalScope.renderClips?.(...args),
-    updatePlayheadUI = () => globalScope.updatePlayheadUI?.(),
-    startMetronome = () => globalScope.startMetronome?.()
+    renderTracks = () => {},
+    renderClips = () => {},
+    updatePlayheadUI = () => {},
+    startMetronome = () => {}
   } = {}) {
     function drawLaneGrid(canvas) {
       if (!canvas || typeof timelineGrid?.drawLaneGrid !== 'function') {

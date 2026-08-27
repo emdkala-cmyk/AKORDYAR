@@ -34,7 +34,7 @@ assert.equal(historyService.saveState(), false);
 historyService.init({
   getDAW: () => daw,
   getPERF: () => perf,
-  getEdCur: () => song,
+  getSong: () => song,
   getEdSeqPoints: () => [],
   clearEdTimers: () => {},
   edSaveSong: () => {},
@@ -47,7 +47,7 @@ historyService.init({
   scheduleAllFromPlayhead: () => {},
   edSyncToolbar: () => {},
   edRenderEditor: () => {},
-  setEdCur: () => {},
+  setSong: () => {},
   setEdSeqPoints: () => {},
   edFlushPendingCommit: () => {},
   edCommitTimerRef: () => null,
@@ -64,14 +64,16 @@ assert.equal(historyService.isEnabled(), true);
 const serialized = historyService.serializeState();
 assert.match(serialized, /"song-1"/);
 assert.match(serialized, /"akordyar-project"/);
+assert.match(serialized, /"song"\s*:/);
+assert.doesNotMatch(serialized, /"edCur"\s*:/);
 assert.equal(historyService.saveState(), true);
 
 historyService.init({
   getDAW: () => daw,
   getPERF: () => perf,
-  getEdCur: () => null,
+  getSong: () => null,
   getEdSeqPoints: () => [],
-  setEdCur: () => {},
+  setSong: () => {},
   setEdSeqPoints: () => {}
 });
 assert.equal(historyService.activate(), false);

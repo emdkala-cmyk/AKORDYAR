@@ -10,17 +10,16 @@
 
   function create({
     mixerFactory = () => globalScope.EditorMixerService?.create,
-    getDAW = () => globalScope.getEditorDAW?.() || globalScope.DAW,
+    getDAW = () => globalScope.RuntimeStateAdapter?.getDAW?.() || null,
     getElement = id => globalScope.document?.getElementById?.(id),
     documentRef = globalScope.document,
     windowRef = globalScope,
-    saveState = (...args) => globalScope.saveState?.(...args),
-    renderTracks = (...args) => globalScope.renderTracks?.(...args),
-    renderClips = (...args) => globalScope.renderClips?.(...args),
-    scheduleAllFromPlayhead = (...args) =>
-      globalScope.scheduleAllFromPlayhead?.(...args),
+    saveState = () => {},
+    renderTracks = () => {},
+    renderClips = () => {},
+    scheduleAllFromPlayhead = () => {},
     startPointerDrag = (...args) =>
-      globalScope.startEditorPointerDrag?.(...args)
+      globalScope.EditorRuntimeAdapter?.startPointerDrag?.(...args)
   } = {}) {
     let mixer = null;
 

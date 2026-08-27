@@ -50,12 +50,12 @@
   } = {}) {
     const document = documentRef;
     const window = windowRef;
-    const getEditorDAW = getDAW;
+    const getRuntimeDAW = getDAW;
     const requireEditorSongStateService = getSongState;
     let isRecordingChords = Boolean(getIsRecordingChords());
 
     function updateTrackSelectionUI() {
-      const selectedId = getEditorDAW().selectedTrackId;
+      const selectedId = getRuntimeDAW().selectedTrackId;
       document
         .querySelectorAll('.track-name[data-track-id], .track-lane[data-track-id]')
         .forEach(element => {
@@ -67,9 +67,9 @@
     }
 
     function selectTrack(trackId) {
-      const track = getEditorDAW().tracks.find(item => item.id === trackId);
+      const track = getRuntimeDAW().tracks.find(item => item.id === trackId);
       if (!track) return null;
-      getEditorDAW().selectedTrackId = track.id;
+      getRuntimeDAW().selectedTrackId = track.id;
       updateTrackSelectionUI();
       return track;
     }
@@ -85,7 +85,7 @@
           duration: 4,
           color: '#3FB8AF'
         };
-        getEditorDAW().sections.push(section);
+        getRuntimeDAW().sections.push(section);
         ensureTimelineFits(section.start + section.duration + 5);
         saveState();
         renderClips();
@@ -93,7 +93,7 @@
     }
 
     function renderTracks() {
-      const daw = getEditorDAW();
+      const daw = getRuntimeDAW();
       const names = document.getElementById('track-names-container');
       const lanes = document.getElementById('lanes-container');
       if (!names || !lanes) return;
@@ -246,14 +246,14 @@
             track.muted = !track.muted;
             updateTrackMix(track.id);
             renderAll();
-            if (getEditorDAW().isPlaying) scheduleAllFromPlayhead();
+            if (getRuntimeDAW().isPlaying) scheduleAllFromPlayhead();
           });
           header.querySelector('[data-solo]')?.addEventListener('click', event => {
             event.stopPropagation();
             track.solo = !track.solo;
-            getEditorDAW().tracks.forEach(item => updateTrackMix(item.id));
+            getRuntimeDAW().tracks.forEach(item => updateTrackMix(item.id));
             renderAll();
-            if (getEditorDAW().isPlaying) scheduleAllFromPlayhead();
+            if (getRuntimeDAW().isPlaying) scheduleAllFromPlayhead();
           });
           header.querySelector('[data-lock]')?.addEventListener('click', event => {
             event.stopPropagation();
@@ -328,14 +328,14 @@
             event.stopPropagation();
             track.transpose = Math.max(-12, (track.transpose || 0) - 1);
             updateTransposeValue();
-            if (getEditorDAW().isPlaying) scheduleAllFromPlayhead();
+            if (getRuntimeDAW().isPlaying) scheduleAllFromPlayhead();
             saveState();
           });
           header.querySelector(`[data-trans-up="${track.id}"]`)?.addEventListener('click', event => {
             event.stopPropagation();
             track.transpose = Math.min(12, (track.transpose || 0) + 1);
             updateTransposeValue();
-            if (getEditorDAW().isPlaying) scheduleAllFromPlayhead();
+            if (getRuntimeDAW().isPlaying) scheduleAllFromPlayhead();
             saveState();
           });
         }

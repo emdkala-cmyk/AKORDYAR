@@ -93,7 +93,7 @@
     storage = globalScope.localStorage,
     documentRef = globalScope.document,
     getSongState = () => globalScope.requireEditorSongStateService?.(),
-    getDAW = () => globalScope.getEditorDAW?.() || globalScope.DAW,
+    getDAW = () => globalScope.RuntimeStateAdapter?.getDAW?.() || null,
     toast = null
   } = {}) {
     let currentLang = readLanguage(storage);

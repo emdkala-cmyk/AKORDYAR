@@ -1,4 +1,4 @@
-﻿console.log("!!! APP_CORE_LOADED_FROM_DISK !!!");
+console.log("!!! APP_CORE_LOADED_FROM_DISK !!!");
 // ==========================================
 // PART 1: Initialization & Electron Setup
 // ==========================================
@@ -27,19 +27,36 @@ const isBrowser = typeof window !== 'undefined';
 // globalScope فقط برای انتشار runtime state نهایی استفاده می‌شود.
 // placeholder قدیمی DAW حذف شده تا adapter هیچ‌وقت state ناقص را نبیند.
 const globalScope = isBrowser ? window : global;
-let corePerformanceUiRuntime = null;
-let coreArrangerPreparationRuntime = null;
-let coreArrangerManagerRendererRuntime = null;
-let coreArrangerFileImportRuntime = null;
-let coreArrangerFileExportRuntime = null;
-let coreArrangerCrossfadeRuntime = null;
+const coreEditorRuntime = globalScope.EditorRuntimeAdapter;
+if (
+  !coreEditorRuntime?.getDAWOrThrow ||
+  !coreEditorRuntime?.getPERFOrThrow ||
+  !coreEditorRuntime?.startPointerDrag
+) {
+  throw new Error(
+    'EditorRuntimeAdapter باید قبل از app/core.js بارگذاری شود.'
+  );
+}
+const coreGetRuntimeDAW = () => coreEditorRuntime.getDAWOrThrow();
+const coreGetRuntimePERF = () => coreEditorRuntime.getPERFOrThrow();
+const coreStartPointerDrag = (...args) =>
+  coreEditorRuntime.startPointerDrag(...args);
+const coreAudioStorageRuntime = globalScope.EditorAudioStorageRuntime;
+if (!coreAudioStorageRuntime) {
+  throw new Error(
+    'EditorAudioStorageRuntime باید قبل از app/core.js بارگذاری شود.'
+  );
+}
+const coreSaveAudioBlobToDB = (...args) =>
+  coreAudioStorageRuntime.saveAudioBlobToDB?.(...args);
+const coreSaveAudioBlobsForProject = (...args) =>
+  coreAudioStorageRuntime.saveAudioBlobsForProject?.(...args);
+let corePerformanceRuntime = null;
+let coreArrangerRuntime = null;
 let coreWavEncoderRuntime = null;
-let coreArrangerEditorRuntime = null;
-let coreArrangerSongTransferRuntime = null;
-let coreArrangerSongsOverviewRuntime = null;
-let coreArrangerSetlistRendererRuntime = null;
-let coreClipRendererRuntime = null;
-let coreArrangerBackgroundPreloadRuntime = null;
+let coreTimelineRuntime = null;
+let coreClipInteractionRuntime = null;
+let corePopupRuntime = null;
 
 const corePublicApiFactory = globalScope.CorePublicApi;
 if (!corePublicApiFactory?.create) {
@@ -47,7 +64,8 @@ if (!corePublicApiFactory?.create) {
 }
 const corePublicApi = corePublicApiFactory.create({
   target: globalScope,
-  namespace: 'AkordyarCoreApi'
+  namespace: 'AkordyarCoreApi',
+  exposeGlobals: false
 });
 
 coreWavEncoderRuntime =
@@ -86,7 +104,6 @@ function getEditorCustomPromptService() {
 function customPrompt(message, defaultValue = '') {
   return getEditorCustomPromptService().prompt(message, defaultValue);
 }
-if (typeof window !== 'undefined') window.customPrompt = customPrompt;
 
     let settingsRuntime = null;
     function getAppSettings() {
@@ -103,7 +120,7 @@ if (typeof window !== 'undefined') window.customPrompt = customPrompt;
         getElement: id => $(id),
         getTransportState: () => editorTransportState,
         getSongState: () => requireEditorSongStateService(),
-        getDAW: () => getEditorDAW(),
+        getDAW: () => coreGetRuntimeDAW(),
         timelineGrid: globalScope.TimelineGrid,
         meter: globalScope.Meter,
         quantizer: globalScope.EditorChordQuantizeService,
@@ -127,15 +144,6 @@ if (typeof window !== 'undefined') window.customPrompt = customPrompt;
       applyQuantize,
       quantizeSelectedChords
     } = coreGridQuantizeRuntime;
-    Object.assign(globalScope, {
-      getTimeSignatureGridConfig,
-      getActiveQuantizeGridStep,
-      toggleSnap,
-      snapTime,
-      showQuantizeModal,
-      applyQuantize,
-      quantizeSelectedChords
-    });
     corePublicApi.publish({
       getTimeSignatureGridConfig,
       getActiveQuantizeGridStep,
@@ -149,7 +157,7 @@ if (typeof window !== 'undefined') window.customPrompt = customPrompt;
 
     const coreTransportRuntime =
       globalScope.CoreTransportService?.create?.({
-        getDAW: () => getEditorDAW(),
+        getDAW: () => coreGetRuntimeDAW(),
         getElement: id => $(id),
         getTransportState: () => editorTransportState,
         ensureAudioCtx: (...args) => ensureAudioCtx(...args),
@@ -213,8 +221,10 @@ if (typeof window !== 'undefined') window.customPrompt = customPrompt;
         publishPlaybackSync: (...args) => publishPlaybackSync(...args),
         updateSyncHighlight: (...args) => updateSyncHighlight(...args),
         isSyncActive: () => syncActive,
-        isLyricPopupOpen: () =>
-          typeof isPopupOpen === 'function' && isPopupOpen(_lyricPopup),
+        isLyricPopupOpen: () => {
+          const popup = corePopupRuntime?.getLyricPopup?.();
+          return typeof isPopupOpen === 'function' && isPopupOpen(popup);
+        },
         requestAnimationFrameRef: (...args) =>
           globalScope.requestAnimationFrame?.(...args),
         cancelAnimationFrameRef: (...args) =>
@@ -240,14 +250,13 @@ if (typeof window !== 'undefined') window.customPrompt = customPrompt;
       transportToStart,
       transportToEnd
     } = coreTransportRuntime;
-    Object.assign(globalScope, coreTransportRuntime);
-    corePublicApi.publish(coreTransportRuntime);
+    corePublicApi.publish(coreTransportRuntime, { exposeGlobals: false });
 
     const coreMetronomeRuntime =
       globalScope.CoreMetronomeService?.create?.({
         getElement: id => $(id),
         getTransportState: () => editorTransportState,
-        getDAW: () => getEditorDAW(),
+        getDAW: () => coreGetRuntimeDAW(),
         getProjectEnd: () => getProjectEnd(),
         seekTransport: (...args) => seekTransport(...args),
         stopAllVoices: (...args) => stopAllVoices(...args),
@@ -275,17 +284,6 @@ if (typeof window !== 'undefined') window.customPrompt = customPrompt;
       stopMetronome,
       checkMetronomeTick
     } = coreMetronomeRuntime;
-    Object.assign(globalScope, {
-      alignPlayheadToNearestMeasure,
-      setCountInBars,
-      getMetronomeSchedulerBridge,
-      isCountInRunning,
-      cancelCountIn,
-      toggleMetronome,
-      startMetronome,
-      stopMetronome,
-      checkMetronomeTick
-    });
     corePublicApi.publish({
       alignPlayheadToNearestMeasure,
       setCountInBars,
@@ -303,7 +301,7 @@ if (typeof window !== 'undefined') window.customPrompt = customPrompt;
         documentRef: document,
         windowRef: window,
         getElement: id => document.getElementById(id),
-        getFocusMode: () => _focusMode,
+        getFocusMode: () => corePopupRuntime?.getFocusMode?.() || false,
         panelLayoutService: globalScope.DockablePanelLayoutService,
         timelineScrollbarsService: globalScope.TimelineScrollbarsService,
         timelinePanelLayoutService: globalScope.TimelinePanelLayoutService
@@ -320,13 +318,6 @@ if (typeof window !== 'undefined') window.customPrompt = customPrompt;
       initDockableSidePanels,
       togglePanel
     } = corePanelLayoutRuntime;
-    Object.assign(globalScope, {
-      getTimelinePanelHeight,
-      setTimelinePanelHeight,
-      syncDockableSidePanelGrid,
-      initDockableSidePanels,
-      togglePanel
-    });
     corePublicApi.publish({
       getTimelinePanelHeight,
       setTimelinePanelHeight,
@@ -384,7 +375,10 @@ const PERF = globalScope.PerformanceRuntimeState?.create?.() || {
   pendingRenderAll: false,
   pendingSyncPanelRender: false
 };
-globalScope.PERF = PERF;
+if (typeof globalScope.RuntimeStateAdapter?.setPERF !== 'function') {
+  throw new Error('RuntimeStateAdapter باید قبل از app/core.js بارگذاری شود.');
+}
+globalScope.RuntimeStateAdapter.setPERF(PERF);
 
 const functionUtils = globalScope.AkordyarFunctionUtils;
 if (!functionUtils) {
@@ -418,27 +412,30 @@ const requestRenderSyncLyrics = debounce(() => { renderSyncLyrics(); }, 120);
       throw new Error('DAWRuntimeState باید قبل از app/core.js بارگذاری شود.');
     }
     const DAW = globalScope.DAWRuntimeState.create();
-    globalScope.DAW = DAW;
+    if (typeof globalScope.RuntimeStateAdapter?.setDAW !== 'function') {
+      throw new Error('RuntimeStateAdapter باید قبل از app/core.js بارگذاری شود.');
+    }
+    globalScope.RuntimeStateAdapter.setDAW(DAW);
     const arrangerPlaybackPolicy = globalScope.ArrangerPlaybackPolicyService;
 
     let activeMidiNotes = new Set(), midiTimeout = null, isRecordingChords = false, currentRecordingClipId = null;
     let currentChord = { root: 'None', type: 'None', tension: '', bass: 'None' };
     // Playhead scroll mode: 'page' (scrolls page by page) or 'center' (stationary center)
-    getEditorDAW().playheadMode = 'page';
+    coreGetRuntimeDAW().playheadMode = 'page';
     // Arranger transition boundary (B). Looping itself stays disabled.
     let selectionEnd = 0;
 
     const $ = (id) => document.getElementById(id);
-    const uid = (p = 'c') => p + (getEditorDAW().nextId++);
+    const uid = (p = 'c') => p + (coreGetRuntimeDAW().nextId++);
     const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
     const roundMs = (t) => Math.round(t * 1e9) / 1e9;
 
     // آپدیت nextId بر اساس بزرگ‌ترین ID موجود (جلوگیری از تداخل آیدی)
     function updateNextIdFromClips() {
-      const allIds = [...getEditorDAW().clips.map(c => c.id), ...(getEditorDAW().sections || []).map(s => s.id)];
+      const allIds = [...coreGetRuntimeDAW().clips.map(c => c.id), ...(coreGetRuntimeDAW().sections || []).map(s => s.id)];
       allIds.forEach(id => {
         const num = parseInt(id.replace(/^[a-z]+/, ''), 10);
-        if (!isNaN(num) && num >= getEditorDAW().nextId) getEditorDAW().nextId = num + 1;
+        if (!isNaN(num) && num >= coreGetRuntimeDAW().nextId) coreGetRuntimeDAW().nextId = num + 1;
       });
     }
 
@@ -454,7 +451,7 @@ const requestRenderSyncLyrics = debounce(() => { renderSyncLyrics(); }, 120);
     }
 
     function ensureAudioCtx() {
-      const daw = getEditorDAW();
+      const daw = coreGetRuntimeDAW();
       if (!daw.audioCtx) {
         const Ctx = window.AudioContext || window.webkitAudioContext;
         daw.audioCtx = new Ctx(); daw.masterGain = daw.audioCtx.createGain();
@@ -469,10 +466,10 @@ const requestRenderSyncLyrics = debounce(() => { renderSyncLyrics(); }, 120);
 
     const editorTransportRuntimeService =
       globalScope.EditorTransportRuntimeService.create({
-        getDAW: () => getEditorDAW(),
+        getDAW: () => coreGetRuntimeDAW(),
         getMeterConfig: getTimeSignatureGridConfig,
         getLoop: () => {
-          const daw = getEditorDAW();
+          const daw = coreGetRuntimeDAW();
           return {
             enabled: Boolean(daw.loopEnabled),
             start: daw.loopA,
@@ -481,7 +478,7 @@ const requestRenderSyncLyrics = debounce(() => { renderSyncLyrics(); }, 120);
         },
         contextProvider: () => {
           try {
-            return getEditorDAW()?.audioCtx || null;
+            return coreGetRuntimeDAW()?.audioCtx || null;
           } catch (_) {
             return null;
           }
@@ -503,12 +500,12 @@ const requestRenderSyncLyrics = debounce(() => { renderSyncLyrics(); }, 120);
 
     const playbackTimelineController =
       globalScope.PlaybackTimelineController?.create({
-        getDAW: () => getEditorDAW(),
+        getDAW: () => coreGetRuntimeDAW(),
         ensureAudioCtx,
         stopAllVoices,
         getTransportClockSnapshot,
         getNode: id => $(id),
-        timeToX: t => t * getEditorDAW().pxPerSecond,
+        timeToX: t => t * coreGetRuntimeDAW().pxPerSecond,
         formatTime,
         onPlayheadTime: displayTime => {
           try { window.__midiScorePlayhead?.(displayTime); } catch (_) {}
@@ -674,10 +671,10 @@ const coreHistoryBridgeRuntime =
       window.__historyAttached = value;
     },
     getHistoryService: () => requireHistoryService(),
-    getDAW: () => getEditorDAW(),
-    getPERF: () => getEditorPERF(),
+    getDAW: () => coreGetRuntimeDAW(),
+    getPERF: () => coreGetRuntimePERF(),
     getSongState: () => requireEditorSongStateService(),
-    setSong: (...args) => setEditorSong(...args),
+    setSong: (...args) => coreEditorRuntime.setSong(...args),
     repairSong: song => window.TextEncodingService?.repairSong?.(song) || song,
     getSeqPoints: () => edSeqPoints,
     setSeqPoints: value => {
@@ -738,23 +735,72 @@ function historyLength() {
 function isHistoryApplying() {
   return getHistoryService().isApplying();
 }
-    const coreTimelineGeometryRuntime =
-      globalScope.CoreTimelineGeometryService?.create?.({
-        getDAW: () => getEditorDAW(),
-        getTimelineInner: () => document.getElementById('tl-inner'),
-        clamp: (value, minimum, maximum) => clamp(value, minimum, maximum),
+    coreTimelineRuntime =
+      globalScope.CoreTimelineRuntimeService?.create?.({
+        documentRef: document,
+        windowRef: window,
+        getDAW: () => coreGetRuntimeDAW(),
+        getSongState: () => requireEditorSongStateService(),
         getTimingContext: () =>
           requireEditorSongStateService().getTimingContext(),
+        getTimelineInner: () => document.getElementById('tl-inner'),
+        clamp: (value, minimum, maximum) => clamp(value, minimum, maximum),
         meter: globalScope.Meter,
         syncTimelineViewportToPlayhead: (...args) =>
-          syncTimelineViewportToPlayhead(...args)
+          syncTimelineViewportToPlayhead(...args),
+        ensureAudioCtx: () => ensureAudioCtx(),
+        setAudioContext: ctx => {
+          if (!coreGetRuntimeDAW().audioCtx) {
+            coreGetRuntimeDAW().audioCtx = ctx;
+          }
+        },
+        getWaveCache: () => coreGetRuntimeDAW().waveCache,
+        timelineGrid: globalScope.TimelineGrid,
+        getElement: id => $(id),
+        getTimeSignatureGridConfig: (...args) =>
+          getTimeSignatureGridConfig(...args),
+        getActiveQuantizeGridStep: (...args) =>
+          getActiveQuantizeGridStep(...args),
+        snapTime: (...args) => snapTime(...args),
+        getTransportState: () => editorTransportState,
+        updatePlayheadUI: (...args) => updatePlayheadUI(...args),
+        startMetronome: (...args) => startMetronome(...args),
+        getIsRecordingChords: () => isRecordingChords,
+        setIsRecordingChords: value => {
+          isRecordingChords = value;
+        },
+        getIconRegistry: () => globalScope.IconRegistry,
+        uid: prefix => uid(prefix),
+        roundMs: value => roundMs(value),
+        saveState: (...args) => saveState(...args),
+        renderAll: (...args) => renderAll(...args),
+        scheduleAllFromPlayhead: (...args) =>
+          scheduleAllFromPlayhead(...args),
+        ensureTimelineFits: (...args) =>
+          ensureTimelineFits(...args),
+        toast: message => toast(message),
+        translate: key => globalScope.t?.(key) ?? key,
+        customPrompt,
+        getClipFilePath: (...args) =>
+          globalScope.AkordyarEditorApi?.getClipFilePath?.(...args) || '',
+        openChordEditor: (...args) =>
+          globalScope.AkordyarEditorApi?.openChordEditor?.(...args),
+        editorAction: (name, ...args) =>
+          globalScope.AkordyarEditorApi?.[name]?.(...args),
+        coreAction: (name, ...args) =>
+          corePublicApi.get(name)?.(...args),
+        startPointerDrag: (...args) =>
+          coreStartPointerDrag(...args),
+        getClipInteractionRuntime: () => coreClipInteractionRuntime
       });
-    if (!coreTimelineGeometryRuntime) {
+    if (!coreTimelineRuntime) {
       throw new Error(
-        'CoreTimelineGeometryService باید قبل از app/core.js بارگذاری شود.'
+        'CoreTimelineRuntimeService باید قبل از app/core.js بارگذاری شود.'
       );
     }
+
     const {
+      waveformBridge,
       timeToX,
       xToTime,
       timeToBarBeat,
@@ -763,59 +809,58 @@ function isHistoryApplying() {
       ensureTimelineFits,
       clientToTime,
       clientToInnerPoint,
-      autoScrollToPlayhead
-    } = Object.assign(globalScope, coreTimelineGeometryRuntime);
-    corePublicApi.publish(coreTimelineGeometryRuntime);
-    const waveformBridge =
-      globalScope.EditorWaveformBridgeService.create({
-        ensureAudioCtx: () => ensureAudioCtx(),
-        setAudioContext: (ctx) => {
-          if (!getEditorDAW().audioCtx) getEditorDAW().audioCtx = ctx;
-        },
-        getWaveCache: () => getEditorDAW().waveCache,
-        documentRef: document,
-        clamp: (value, min, max) => clamp(value, min, max),
-        timeToX: (value) => timeToX(value)
+      autoScrollToPlayhead,
+      getClip,
+      selectedClips,
+      splitClipAt,
+      splitSelectedAtPlayhead,
+      openTimelineChordEditor,
+      getIconSvg,
+      openIconPicker,
+      addNewTrack,
+      getTimelineTrackRendererService,
+      updateTrackSelectionUI,
+      selectTrack,
+      renderTracks,
+      drawLaneGrid,
+      renderRuler,
+      handleTimingChange,
+      getTimelineSectionRendererService,
+      renderClips: renderTimelineClips,
+      waveformService
+    } = coreTimelineRuntime;
+
+    corePublicApi.publish({
+      timeToX,
+      xToTime,
+      timeToBarBeat,
+      barBeatToTime,
+      getProjectEnd,
+      ensureTimelineFits,
+      clientToTime,
+      clientToInnerPoint,
+      autoScrollToPlayhead,
+      getClip,
+      selectedClips,
+      splitClipAt,
+      splitSelectedAtPlayhead,
+      openTimelineChordEditor,
+      getIconSvg,
+      openIconPicker,
+      addNewTrack,
+      getTimelineTrackRendererService,
+      updateTrackSelectionUI,
+      selectTrack,
+      renderTracks,
+      drawLaneGrid,
+      renderRuler,
+      handleTimingChange,
+      getTimelineSectionRendererService
     });
-    window.waveformService = waveformBridge.service;
-    const coreClipRuntime =
-      globalScope.CoreClipService?.create?.({
-        getDAW: () => getEditorDAW(),
-        uid: prefix => uid(prefix),
-        roundMs: value => roundMs(value),
-        refreshClipWaveImage: clip => refreshClipWaveImage(clip),
-        saveState: () => saveState(),
-        renderAll: (...args) => renderAll(...args),
-        scheduleAllFromPlayhead: (...args) => scheduleAllFromPlayhead(...args),
-        toast: message => toast(message),
-        translate: key => globalScope.t?.(key) ?? key
-      });
-    if (!coreClipRuntime) throw new Error(
-      'CoreClipService باید قبل از app/core.js بارگذاری شود.'
-    );
-    const { getClip, selectedClips, splitClipAt, splitSelectedAtPlayhead } =
-      coreClipRuntime;
-    Object.assign(globalScope, coreClipRuntime);
-    corePublicApi.publish(coreClipRuntime);
 
-    const coreTimelineChordEditorRuntime =
-      globalScope.CoreTimelineChordEditorBridgeService?.create?.({
-        getClip: clipId => getClip(clipId),
-        openChordEditor: (...args) => openChordEditor(...args),
-        now: () => Date.now()
-      });
-    if (!coreTimelineChordEditorRuntime) {
-      throw new Error(
-        'CoreTimelineChordEditorBridgeService باید قبل از app/core.js بارگذاری شود.'
-      );
+    function renderClips(options = {}) {
+      return renderTimelineClips?.(options);
     }
-    const { openTimelineChordEditor } = coreTimelineChordEditorRuntime;
-    Object.assign(globalScope, { openTimelineChordEditor });
-    corePublicApi.publish(coreTimelineChordEditorRuntime);
-
-function setEditorSong(song) {
-  return requireEditorSongRuntimeService().setSong(song);
-}
 
 function saveState() {
   return getHistoryService().saveState();
@@ -851,7 +896,7 @@ function applyState(stateStr) {
     const coreMixerRuntime =
       globalScope.CoreMixerBridgeService?.create?.({
         mixerFactory: () => globalScope.EditorMixerService?.create,
-        getDAW: () => getEditorDAW(),
+        getDAW: () => coreGetRuntimeDAW(),
         getElement: id => $(id),
         documentRef: document,
         windowRef: window,
@@ -861,7 +906,7 @@ function applyState(stateStr) {
         scheduleAllFromPlayhead: (...args) =>
           scheduleAllFromPlayhead(...args),
         startPointerDrag: (...args) =>
-          startEditorPointerDrag(...args)
+          coreStartPointerDrag(...args)
       });
     if (!coreMixerRuntime) throw new Error(
       'CoreMixerBridgeService باید قبل از app/core.js بارگذاری شود.'
@@ -873,18 +918,11 @@ function applyState(stateStr) {
       renderMixer,
       initMixerDrag
     } = coreMixerRuntime;
-    Object.assign(globalScope, {
-      getEditorMixerService,
-      updateTrackMix,
-      toggleMixer,
-      renderMixer,
-      initMixerDrag
-    });
     corePublicApi.publish(coreMixerRuntime);
 
     function stopAllVoices() {
-      for (const [id, v] of getEditorDAW().voices) { try { v.source.onended = null; v.source.stop(0); } catch (_) {} try { v.source.disconnect(); } catch (_) {} try { v.gain.disconnect(); } catch (_) {} }
-      getEditorDAW().voices.clear();
+      for (const [id, v] of coreGetRuntimeDAW().voices) { try { v.source.onended = null; v.source.stop(0); } catch (_) {} try { v.source.disconnect(); } catch (_) {} try { v.gain.disconnect(); } catch (_) {} }
+      coreGetRuntimeDAW().voices.clear();
     }
 
     function renderAll(options = {}) {
@@ -892,157 +930,13 @@ function applyState(stateStr) {
       edRenderClMarkers();
     }
 
-    const coreTrackSetupRuntime =
-      globalScope.CoreTrackSetupService?.create?.({
-        documentRef: document,
-        getElement: id => $(id),
-        getDAW: () => getEditorDAW(),
-        getIconRegistry: () => globalScope.IconRegistry,
-        ensureAudioCtx: () => ensureAudioCtx(),
-        uid: prefix => uid(prefix),
-        saveState: () => saveState(),
-        renderAll: () => renderAll(),
-        toast: message => toast(message),
-        translate: key => t(key)
-      });
-    if (!coreTrackSetupRuntime) {
-      throw new Error(
-        'CoreTrackSetupService باید قبل از app/core.js بارگذاری شود.'
-      );
-    }
-    const { getIconSvg, openIconPicker, addNewTrack } =
-      coreTrackSetupRuntime;
-    Object.assign(globalScope, coreTrackSetupRuntime);
-    corePublicApi.publish(coreTrackSetupRuntime);
-
-    const coreTimelineRendererRuntime =
-      globalScope.CoreTimelineRendererService?.create?.({
-        documentRef: document,
-        windowRef: window,
-        getDAW: () => getEditorDAW(),
-        getSongState: () => requireEditorSongStateService(),
-        getIsRecordingChords: () => isRecordingChords,
-        setIsRecordingChords: value => { isRecordingChords = value; },
-        getIconSvg,
-        customPrompt,
-        uid,
-        roundMs
-      });
-    if (!coreTimelineRendererRuntime) {
-      throw new Error(
-        'CoreTimelineRendererService باید قبل از app/core.js بارگذاری شود.'
-      );
-    }
-    const {
-      getTimelineTrackRendererService,
-      updateTrackSelectionUI,
-      selectTrack,
-      renderTracks
-    } = coreTimelineRendererRuntime;
-    Object.assign(globalScope, {
-      getTimelineTrackRendererService,
-      updateTrackSelectionUI,
-      selectTrack,
-      renderTracks
-    });
-    corePublicApi.publish(coreTimelineRendererRuntime);
-
-    const coreTimelineGridRuntime =
-      globalScope.CoreTimelineGridService?.create?.({
-        documentRef: document,
-        timelineGrid: globalScope.TimelineGrid,
-        getDAW: () => getEditorDAW(),
-        getTimingContext: () =>
-          requireEditorSongStateService().getTimingContext(),
-        getProjectEnd: () => getProjectEnd(),
-        timeToX: value => timeToX(value),
-        getElement: id => $(id),
-        getTimeSignatureGridConfig: (...args) =>
-          getTimeSignatureGridConfig(...args),
-        getActiveQuantizeGridStep: (...args) =>
-          getActiveQuantizeGridStep(...args),
-        getTransportState: () => editorTransportState,
-        renderTracks: () => renderTracks(),
-        renderClips: (...args) => renderClips(...args),
-        updatePlayheadUI: () => updatePlayheadUI(),
-        startMetronome: () => startMetronome()
-      });
-    if (!coreTimelineGridRuntime) {
-      throw new Error(
-        'CoreTimelineGridService باید قبل از app/core.js بارگذاری شود.'
-      );
-    }
-    const {
-      drawLaneGrid,
-      renderRuler,
-      handleTimingChange
-    } = coreTimelineGridRuntime;
-    Object.assign(globalScope, {
-      drawLaneGrid,
-      renderRuler,
-      handleTimingChange
-    });
-    corePublicApi.publish(coreTimelineGridRuntime);
-
-    const coreTimelineSectionBridgeRuntime =
-      globalScope.CoreTimelineSectionBridgeService?.create?.({
-        documentRef: document,
-        windowRef: window,
-        getDAW: () => getEditorDAW(),
-        timeToX,
-        xToTime,
-        snapTime,
-        roundMs,
-        renderClips: () => renderClips(),
-        selectedClips,
-        startPointerDrag: (...args) => startEditorPointerDrag(...args),
-        getTimelineInner: () => $('tl-inner'),
-        onDocumentMouseMove: (...args) =>
-          coreClipInteractionRuntime.onDocMouseMove(...args),
-        onDocumentMouseUp: (...args) =>
-          coreClipInteractionRuntime.onDocMouseUp(...args),
-        saveState
-      });
-    if (!coreTimelineSectionBridgeRuntime) {
-      throw new Error(
-        'CoreTimelineSectionBridgeService باید قبل از app/core.js بارگذاری شود.'
-      );
-    }
-    const { getTimelineSectionRendererService } =
-      coreTimelineSectionBridgeRuntime;
-    Object.assign(globalScope, { getTimelineSectionRendererService });
-    corePublicApi.publish(coreTimelineSectionBridgeRuntime);
-
-    coreClipRendererRuntime =
-      globalScope.CoreClipRendererService?.create?.({
-        documentRef: document,
-        getDAW: () => getEditorDAW(),
-        timeToX: value => timeToX(value),
-        refreshClipWaveImage: (...args) => refreshClipWaveImage(...args),
-        getClipFilePath: (...args) => getClipFilePath(...args),
-        onClipMouseDown: (...args) => onClipMouseDown(...args),
-        openTimelineChordEditor: (...args) =>
-          openTimelineChordEditor(...args),
-        renderSections: () =>
-          getTimelineSectionRendererService()?.renderSections?.()
-      });
-    if (!coreClipRendererRuntime) {
-      throw new Error(
-        'CoreClipRendererService باید قبل از app/core.js بارگذاری شود.'
-      );
-    }
-
-    function renderClips(options = {}) {
-      return coreClipRendererRuntime?.render?.(options);
-    }
-
-    function updateHud() { $('clip-count').textContent = String(getEditorDAW().clips.length + (getEditorDAW().sections || []).length); }
+    function updateHud() { $('clip-count').textContent = String(coreGetRuntimeDAW().clips.length + (coreGetRuntimeDAW().sections || []).length); }
 
     const coreAudioBlobSaveSchedulerRuntime =
       globalScope.CoreAudioBlobSaveSchedulerService?.create?.({
         getSongId: () => requireEditorSongStateService().currentSong()?.id,
         saveAudioBlobsForProject: (...args) =>
-          saveAudioBlobsForProject(...args),
+          coreSaveAudioBlobsForProject(...args),
         schedule: (...args) => setTimeout(...args),
         cancel: timer => clearTimeout(timer),
         logger: console
@@ -1058,7 +952,7 @@ function applyState(stateStr) {
     const coreSelectionRuntime =
       globalScope.CoreSelectionService?.create?.({
         documentRef: document,
-        getDAW: () => getEditorDAW(),
+        getDAW: () => coreGetRuntimeDAW(),
         renderClips,
         updateHud
       });
@@ -1069,7 +963,7 @@ function applyState(stateStr) {
 
     const coreAudioImportRuntime =
       globalScope.CoreAudioImportService?.create?.({
-        getDAW: () => getEditorDAW(),
+        getDAW: () => coreGetRuntimeDAW(),
         getFileInput: () => $('audio-file-input'),
         renderTracks: (...args) => renderTracks(...args),
         clearSelection: (...args) =>
@@ -1083,9 +977,9 @@ function applyState(stateStr) {
         peaksFromBuffer: (...args) => peaksFromBuffer(...args),
         refreshClipWaveImage: clip => refreshClipWaveImage(clip),
         ensureTimelineFits: value => ensureTimelineFits(value),
-        saveAudioBlobToDB: (...args) => saveAudioBlobToDB(...args),
-        saveAudioBlobsForProject: (...args) =>
-          saveAudioBlobsForProject(...args),
+         saveAudioBlobToDB: (...args) => coreSaveAudioBlobToDB(...args),
+         saveAudioBlobsForProject: (...args) =>
+           coreSaveAudioBlobsForProject(...args),
         saveState: (...args) => saveState(...args),
         renderAll: (...args) => renderAll(...args),
         scheduleAllFromPlayhead: (...args) =>
@@ -1106,7 +1000,6 @@ function applyState(stateStr) {
       importFileForTrack,
       bindFileInput
     } = coreAudioImportRuntime;
-    Object.assign(globalScope, { openFileForTrack });
     corePublicApi.publish({ openFileForTrack, importFileForTrack });
     bindFileInput();
 
@@ -1118,8 +1011,9 @@ function applyState(stateStr) {
     const coreClipboardRuntime =
       globalScope.CoreClipboardBridgeService?.create?.({
         clipboardFactory: () => globalScope.ClipboardService,
-        getEdSaveSong: () => globalScope.edSaveSong,
-        getDAW: () => getEditorDAW(),
+        getEdSaveSong: () =>
+          globalScope.AkordyarEditorApi?.saveSong || null,
+        getDAW: () => coreGetRuntimeDAW(),
         selectedClips: () => selectedClips(),
         uid,
         roundMs,
@@ -1140,7 +1034,7 @@ function applyState(stateStr) {
 
     const coreClipEditRuntime =
       globalScope.CoreClipEditService?.create?.({
-        getDAW: () => getEditorDAW(),
+        getDAW: () => coreGetRuntimeDAW(),
         roundMs: value => roundMs(value),
         splitClipAt: (...args) => splitClipAt(...args),
         seekTransport: (...args) => seekTransport(...args),
@@ -1155,19 +1049,18 @@ function applyState(stateStr) {
       'CoreClipEditService باید قبل از app/core.js بارگذاری شود.'
     );
     const { cutAtTime } = coreClipEditRuntime;
-    Object.assign(globalScope, { cutAtTime });
     corePublicApi.publish({ cutAtTime });
 
-    const coreClipInteractionRuntime =
+    coreClipInteractionRuntime =
       globalScope.CoreClipInteractionService?.create?.({
         documentRef: document,
         getElement: id => $(id),
-        getDAW: () => getEditorDAW(),
+        getDAW: () => coreGetRuntimeDAW(),
         getClip: clipId => getClip(clipId),
         selectedClips: () => selectedClips(),
         clearEditorTextSelection: () => clearEditorTextSelection(),
         clearChordSelection: (...args) =>
-          globalScope.edClearChordSelection?.(...args),
+          globalScope.AkordyarEditorApi?.clearChordSelection?.(...args),
         selectionService: coreSelectionRuntime,
         renderClips: (...args) => renderClips(...args),
         renderAll: (...args) => renderAll(...args),
@@ -1187,7 +1080,7 @@ function applyState(stateStr) {
         openTimelineChordEditor: (...args) =>
           openTimelineChordEditor(...args),
         startPointerDrag: (...args) =>
-          startEditorPointerDrag(...args),
+          coreStartPointerDrag(...args),
         saveState: (...args) => saveState(...args),
         scheduleAllFromPlayhead: (...args) =>
           scheduleAllFromPlayhead(...args),
@@ -1203,19 +1096,13 @@ function applyState(stateStr) {
       onDocMouseMove,
       onDocMouseUp
     } = coreClipInteractionRuntime;
-    Object.assign(globalScope, {
-      getMarqueeLaneElements,
-      onClipMouseDown,
-      onDocMouseMove,
-      onDocMouseUp
-    });
     corePublicApi.publish(coreClipInteractionRuntime);
 
     let recordingRuntime = null;
 
     const coreRecordingRuntime =
       globalScope.CoreRecordingService?.create?.({
-        getDAW: () => getEditorDAW(),
+        getDAW: () => coreGetRuntimeDAW(),
         documentRef: document,
         getNavigator: () => globalScope.navigator,
         getMediaRecorder: () => globalScope.MediaRecorder,
@@ -1230,14 +1117,14 @@ function applyState(stateStr) {
         startTransport: (...args) => startTransport(...args),
         pauseTransport: (...args) => pauseTransport(...args),
         timeToX: value => timeToX(value),
-        decodeFileToBuffer: (...args) => decodeFileToBuffer(...args),
-        peaksFromBuffer: (...args) => peaksFromBuffer(...args),
-        refreshClipWaveImage: (...args) =>
-          refreshClipWaveImage(...args),
-        ensureTimelineFits: (...args) => ensureTimelineFits(...args),
-        saveState: (...args) => saveState(...args),
-        saveAudioBlobToDB: (...args) =>
-          globalScope.saveAudioBlobToDB?.(...args),
+         decodeFileToBuffer: (...args) => decodeFileToBuffer(...args),
+         peaksFromBuffer: (...args) => peaksFromBuffer(...args),
+         refreshClipWaveImage: (...args) =>
+           refreshClipWaveImage(...args),
+         ensureTimelineFits: (...args) => ensureTimelineFits(...args),
+         saveState: (...args) => saveState(...args),
+         saveAudioBlobToDB: (...args) =>
+           coreSaveAudioBlobToDB(...args),
         uid: prefix => uid(prefix),
         roundMs: value => roundMs(value),
         formatTime: value => formatTime(value),
@@ -1250,7 +1137,6 @@ function applyState(stateStr) {
       );
     }
     recordingRuntime = coreRecordingRuntime;
-    Object.assign(globalScope, coreRecordingRuntime);
     corePublicApi.publish(coreRecordingRuntime);
 
     /* ============================================================
@@ -1263,7 +1149,7 @@ function applyState(stateStr) {
         storage: globalScope.localStorage,
         getElement: id => $(id),
         getNavigator: () => globalScope.navigator,
-        getDAW: () => getEditorDAW(),
+        getDAW: () => coreGetRuntimeDAW(),
         getTransportState: () => editorTransportState,
         ensureAudioCtx: (...args) => ensureAudioCtx(...args),
         getAudioContextService: () => audioContextServiceBridge,
@@ -1287,19 +1173,18 @@ function applyState(stateStr) {
       );
     }
     settingsRuntime = coreSettingsRuntime;
-    Object.assign(globalScope, coreSettingsRuntime);
     corePublicApi.publish(coreSettingsRuntime);
     coreSettingsRuntime.initialize();
-    let syncChordLinePopup;
     const coreChordLineSyncRuntime =
       globalScope.CoreChordLineSyncService?.create?.({
         getSongState: () => requireEditorSongStateService(),
-        getDAW: () => getEditorDAW(),
+        getDAW: () => coreGetRuntimeDAW(),
         getChordLineSyncService: () => globalScope.ChordLineSyncService,
         isPopupOpen: popup => isPopupOpen(popup),
         getChordLinePopup: () =>
-          typeof _chordLinePopup !== 'undefined' ? _chordLinePopup : null,
-        syncChordLinePopup: () => syncChordLinePopup(),
+          corePopupRuntime?.getChordLinePopup?.() || null,
+        syncChordLinePopup: (...args) =>
+          corePopupRuntime?.syncChordLinePopup?.(...args),
         saveState: () => saveState(),
         renderAll: () => renderAll(),
         toast: message => toast(message)
@@ -1310,30 +1195,28 @@ function applyState(stateStr) {
       );
     }
     const { syncChordLineFromLyrics } = coreChordLineSyncRuntime;
-    Object.assign(globalScope, coreChordLineSyncRuntime);
     corePublicApi.publish(coreChordLineSyncRuntime);
     const coreMovableWindowRuntime =
       globalScope.CoreMovableWindowBridgeService?.create?.({
         documentRef: document,
         windowRef: window,
         startPointerDrag: (...args) =>
-          globalScope.startEditorPointerDrag?.(...args)
+          coreStartPointerDrag(...args)
       });
     if (!coreMovableWindowRuntime) {
       throw new Error(
         'CoreMovableWindowBridgeService باید قبل از app/core.js بارگذاری شود.'
       );
     }
-    Object.assign(globalScope, coreMovableWindowRuntime);
     corePublicApi.publish(coreMovableWindowRuntime);
     coreMovableWindowRuntime.initMovableWindows();
 
     // Playhead mode toggle
     function togglePlayheadMode() {
-      getEditorDAW().playheadMode = getEditorDAW().playheadMode === 'page' ? 'center' : 'page';
+      coreGetRuntimeDAW().playheadMode = coreGetRuntimeDAW().playheadMode === 'page' ? 'center' : 'page';
       const btn = $('playheadModeBtn');
-      if (btn) btn.classList.toggle('ph-center', getEditorDAW().playheadMode === 'center');
-      toast(getEditorDAW().playheadMode === 'center' ? 'پلی‌هدر ثابت در مرکز' : 'اسکرول صفحه‌ای');
+      if (btn) btn.classList.toggle('ph-center', coreGetRuntimeDAW().playheadMode === 'center');
+      toast(coreGetRuntimeDAW().playheadMode === 'center' ? 'پلی‌هدر ثابت در مرکز' : 'اسکرول صفحه‌ای');
     }
 
     const corePopupWindowRuntime =
@@ -1353,12 +1236,6 @@ function applyState(stateStr) {
       openPopupWindow,
       focusPopupWindow
     } = corePopupWindowRuntime;
-    Object.assign(globalScope, {
-      isPopupOpen,
-      popupDocument,
-      openPopupWindow,
-      focusPopupWindow
-    });
     corePublicApi.publish({
       isPopupOpen,
       popupDocument,
@@ -1371,8 +1248,7 @@ function applyState(stateStr) {
         documentRef: document,
         getElement: id => $(id),
         getSongState: () => requireEditorSongStateService(),
-        getPopup: () =>
-          typeof _lyricPopup !== 'undefined' ? _lyricPopup : null,
+        getPopup: () => corePopupRuntime?.getLyricPopup?.() || null,
         isPopupOpen: popup => isPopupOpen(popup),
         popupDocument: popup => popupDocument(popup),
         saveSong: () => {
@@ -1384,13 +1260,12 @@ function applyState(stateStr) {
         'CoreHighlightService باید قبل از app/core.js بارگذاری شود.'
       );
     }
-    Object.assign(globalScope, coreHighlightRuntime);
     corePublicApi.publish(coreHighlightRuntime);
 
     /* ===== LOOP A-B ===== */
     const coreLoopVisualRuntime =
       globalScope.CoreLoopVisualService?.create?.({
-        getDAW: () => getEditorDAW(),
+        getDAW: () => coreGetRuntimeDAW(),
         getElement: id => $(id),
         documentRef: document,
         timeToX: value => timeToX(value),
@@ -1398,7 +1273,7 @@ function applyState(stateStr) {
         clamp: (value, min, max) => clamp(value, min, max),
         getProjectEnd: () => getProjectEnd(),
         startPointerDrag: (...args) =>
-          globalScope.startEditorPointerDrag?.(...args),
+          coreStartPointerDrag(...args),
         saveState: (...args) => saveState(...args)
       });
     if (!coreLoopVisualRuntime) {
@@ -1407,13 +1282,12 @@ function applyState(stateStr) {
       );
     }
     const { renderLoopRegion } = coreLoopVisualRuntime;
-    Object.assign(globalScope, coreLoopVisualRuntime);
     corePublicApi.publish(coreLoopVisualRuntime);
     coreLoopVisualRuntime.bindLoopDrag();
 
     const coreLoopControlRuntime =
       globalScope.CoreLoopControlService?.create?.({
-        getDAW: () => getEditorDAW(),
+        getDAW: () => coreGetRuntimeDAW(),
         getElement: id => $(id),
         isPerforming: () => arrPerformActive,
         getSelectedClips: () => selectedClips(),
@@ -1441,12 +1315,11 @@ function applyState(stateStr) {
       setLoopFromSelection,
       setLoopFromSelectionAndPlay
     } = coreLoopControlRuntime;
-    Object.assign(globalScope, coreLoopControlRuntime);
     corePublicApi.publish(coreLoopControlRuntime);
 
     const coreArrangerMarkerRuntime =
       globalScope.CoreArrangerMarkerBridgeService?.create?.({
-        getDAW: () => getEditorDAW(),
+        getDAW: () => coreGetRuntimeDAW(),
         markerService: globalScope.ArrangerMarkerService,
         getProjectEnd: () => getProjectEnd(),
         timeToX: value => timeToX(value),
@@ -1456,7 +1329,7 @@ function applyState(stateStr) {
         documentRef: document,
         isPerforming: () => arrPerformActive,
         startPointerDrag: (...args) =>
-          startEditorPointerDrag(...args),
+          coreStartPointerDrag(...args),
         saveState: () => saveState(),
         saveSong: () => {
           if (typeof edSaveSong === 'function') edSaveSong();
@@ -1478,193 +1351,101 @@ function applyState(stateStr) {
       toggleArrangerMarkers,
       renderArrangerMarkers
     } = coreArrangerMarkerRuntime;
-    Object.assign(globalScope, coreArrangerMarkerRuntime);
     corePublicApi.publish(coreArrangerMarkerRuntime);
 
     /* ===== POPUP WINDOW FULLSCREEN ===== */
-    let _lyricPopup = null;
-    let _focusMode = false;
-    const coreFocusModeRuntime =
-      globalScope.CoreFocusModeService?.create?.({
-        documentRef: document,
-        getElement: id => $(id),
-        getFocusMode: () => _focusMode,
-        setFocusMode: value => {
-          _focusMode = value;
+    corePopupRuntime =
+      globalScope.CorePopupRuntimeService?.create?.({
+        state: {},
+        window: {
+          documentRef: document,
+          windowRef: window,
+          navigatorRef: window.navigator,
+          nodeFilter: window.NodeFilter,
+          popupWindowBridge,
+          isPopupOpen: popup => isPopupOpen(popup),
+          popupDocument: popup => popupDocument(popup),
+          openPopupWindow: (...args) => openPopupWindow(...args),
+          focusPopupWindow: popup => focusPopupWindow(popup),
+          EventCtor: window.Event,
+          schedule: (...args) => setTimeout(...args),
+          safeMirrorTimeline: (...args) =>
+            globalScope.safeMirrorTimeline?.(...args)
         },
-        getSongState: () => requireEditorSongStateService(),
-        schedule: (...args) => setTimeout(...args),
-        renderChords: () => edRenderChords(),
-        toast: message => toast(message),
-        translate: key => t(key)
-      });
-    if (!coreFocusModeRuntime) {
-      throw new Error(
-        'CoreFocusModeService باید قبل از app/core.js بارگذاری شود.'
-      );
-    }
-    Object.assign(globalScope, coreFocusModeRuntime);
-    corePublicApi.publish(coreFocusModeRuntime);
-
-    function installPopupHighlightLoop(popup, doc) {
-      if (!popup || !doc?.body) return;
-      const script = doc.createElement('script');
-      script.textContent = '(function(){if(window.__akordHighlightLoopStarted)return;window.__akordHighlightLoopStarted=true;function frame(){try{window._syncHighlight?.()}catch(_){}if(!window.closed)window.requestAnimationFrame(frame)}frame()})();';
-      doc.body.appendChild(script);
-    }
-
-    function openLyricPopup() {
-      if (isPopupOpen(_lyricPopup)) { focusPopupWindow(_lyricPopup); return; }
-      _lyricPopup = openPopupWindow('lyricPopup', 'width=900,height=700,menubar=no,toolbar=no,location=no,status=no');
-      if (!_lyricPopup) { toast(t('popupBlocked')); return; }
-      popupWindowBridge?.set?.(_lyricPopup, '__popupRole', 'player');
-      syncLyricPopup();
-      setTimeout(safeMirrorTimeline, 1000);
-    }
-
-    // ===== LYRIC-ONLY POPUP (singer view, no chords) =====
-    let _lyricOnlyPopup = null;
-    function openLyricOnlyPopup() {
-      if (isPopupOpen(_lyricOnlyPopup)) { focusPopupWindow(_lyricOnlyPopup); return; }
-      _lyricOnlyPopup = openPopupWindow('lyricOnlyPopup', 'width=650,height=400,menubar=no,toolbar=no,location=no,status=no');
-      if (!_lyricOnlyPopup) { toast(t('popupBlocked')); return; }
-      popupWindowBridge?.set?.(_lyricOnlyPopup, '__popupRole', 'singer');
-      syncLyricOnlyPopup();
-    }
-    const coreLyricOnlyPopupRuntime =
-      globalScope.CoreLyricOnlyPopupService?.create?.({
-        getPopup: () => _lyricOnlyPopup,
-        isPopupOpen: popup => isPopupOpen(popup),
-        popupDocument: popup => popupDocument(popup),
-        getSnapshot: () =>
-          requireEditorSongStateService().getPresentationSnapshot(),
-        popupWindowBridge,
-        windowRef: window,
-        getDAW: () => getEditorDAW(),
-        getTransportPlayhead: () => getTransportPlayhead(),
-        getSyncTimes: () => requireEditorSongStateService().getSyncTimes(),
-        installPopupHighlightLoop
-      });
-    if (!coreLyricOnlyPopupRuntime) {
-      throw new Error(
-        'CoreLyricOnlyPopupService باید قبل از app/core.js بارگذاری شود.'
-      );
-    }
-    function syncLyricOnlyPopup(...args) {
-      return coreLyricOnlyPopupRuntime.sync(...args);
-    }
-
-    // ===== CHORD LINE POPUP (detachable, small) =====
-    let _chordLinePopup = null;
-    const coreChordLinePopupRuntime =
-      globalScope.CoreChordLinePopupService?.create?.({
-        getPopup: () => _chordLinePopup,
-        setPopup: popup => {
-          _chordLinePopup = popup;
+        actions: {
+          getSongState: () => requireEditorSongStateService(),
+          getDAW: () => coreGetRuntimeDAW(),
+          getTransportPlayhead: () => getTransportPlayhead(),
+          getSyncTimes: () => requireEditorSongStateService().getSyncTimes(),
+          transposeChord: (...args) => edTransposeChord(...args),
+          renderChords: () => edRenderChords(),
+          toast: message => toast(message),
+          translate: key => t(key),
+          getCurrentLang: () => currentLang,
+          applyHighlightClassToPopup: (...args) =>
+            coreHighlightRuntime.applyHighlightClassToPopup?.(...args)
         },
-        getSongState: () => requireEditorSongStateService(),
-        isPopupOpen: popup => isPopupOpen(popup),
-        popupDocument: popup => popupDocument(popup),
-        openPopupWindow: (...args) => openPopupWindow(...args),
-        focusPopupWindow: popup => focusPopupWindow(popup),
-        popupWindowBridge,
-        windowRef: window,
-        navigatorRef: window.navigator,
-        nodeFilter: window.NodeFilter,
-        transposeChord: (...args) => edTransposeChord(...args),
-        translate: key => t(key),
-        toast: message => toast(message)
+        services: {
+          focusMode: globalScope.CoreFocusModeService,
+          lyricOnlyPopup: globalScope.CoreLyricOnlyPopupService,
+          chordLinePopup: globalScope.CoreChordLinePopupService,
+          playerViewSettings: globalScope.CorePlayerViewSettingsService,
+          playerViewPopupSync: globalScope.CorePlayerViewPopupSyncService,
+          playerViewPopupBuilder:
+            globalScope.CorePlayerViewPopupBuilderService,
+          playerViewPopup: globalScope.CorePlayerViewPopupService,
+          chordRenderer: globalScope.CorePlayerViewChordRendererService
+        }
       });
-    if (!coreChordLinePopupRuntime) {
+    if (!corePopupRuntime) {
       throw new Error(
-        'CoreChordLinePopupService باید قبل از app/core.js بارگذاری شود.'
+        'CorePopupRuntimeService باید قبل از app/core.js بارگذاری شود.'
       );
     }
-    const { openChordLinePopup } = coreChordLinePopupRuntime;
-    syncChordLinePopup = coreChordLinePopupRuntime.syncChordLinePopup;
-    Object.assign(globalScope, coreChordLinePopupRuntime);
-    corePublicApi.publish(coreChordLinePopupRuntime);
-
-    const corePlayerViewSettingsRuntime =
-      globalScope.CorePlayerViewSettingsService?.create?.({
-        getPopup: () => _lyricPopup,
-        isPopupOpen: popup => isPopupOpen(popup),
-        popupDocument: popup => popupDocument(popup),
-        popupWindowBridge,
-        windowRef: window,
-        getSongState: () => requireEditorSongStateService(),
-        getDAW: () => getEditorDAW(),
-        getTransportPlayhead: () => getTransportPlayhead(),
-        installPopupHighlightLoop,
-        schedule: (...args) => setTimeout(...args),
-        EventCtor: window.Event
-      });
-    if (!corePlayerViewSettingsRuntime) {
-      throw new Error(
-        'CorePlayerViewSettingsService باید قبل از app/core.js بارگذاری شود.'
-      );
-    }
-    Object.assign(globalScope, corePlayerViewSettingsRuntime);
-    corePublicApi.publish(corePlayerViewSettingsRuntime);
-
-    const corePlayerViewPopupSyncRuntime =
-      globalScope.CorePlayerViewPopupSyncService?.create?.({
-        popup: _lyricPopup,
-        documentRef: () => popupDocument(_lyricPopup),
-        popupWindowBridge,
-        getSnapshot: () =>
-          requireEditorSongStateService().getPresentationSnapshot(),
-        transposeChord: (...args) => edTransposeChord(...args),
-        getSettings: () => corePlayerViewSettingsRuntime.getSettings(),
-        isPopupOpen: popup => isPopupOpen(popup),
-        schedule: (...args) => setTimeout(...args),
-        EventCtor: window.Event
-      });
-    if (!corePlayerViewPopupSyncRuntime) {
-      throw new Error(
-        'CorePlayerViewPopupSyncService باید قبل از app/core.js بارگذاری شود.'
-      );
-    }
-    corePublicApi.publish(corePlayerViewPopupSyncRuntime);
-
-    const corePlayerViewPopupBuilderRuntime =
-      globalScope.CorePlayerViewPopupBuilderService?.create?.({
-        popup: _lyricPopup,
-        popupWindowBridge,
-        chordRenderer: globalScope.CorePlayerViewChordRendererService,
-        settingsRuntime: corePlayerViewSettingsRuntime,
-        applyHighlightClassToPopup
-      });
-    if (!corePlayerViewPopupBuilderRuntime) {
-      throw new Error(
-        'CorePlayerViewPopupBuilderService باید قبل از app/core.js بارگذاری شود.'
-      );
-    }
-    corePublicApi.publish(corePlayerViewPopupBuilderRuntime);
-
-    const corePlayerViewPopupRuntime =
-      globalScope.CorePlayerViewPopupService?.create?.({
-        getPopup: () => _lyricPopup,
-        isPopupOpen: popup => isPopupOpen(popup),
-        popupDocument: popup => popupDocument(popup),
-        getSnapshot: () =>
-          requireEditorSongStateService().getPresentationSnapshot(),
-        translate: key => t(key),
-        getCurrentLang: () => currentLang,
-        transposeChord: (...args) => edTransposeChord(...args),
-        popupSyncRuntime: corePlayerViewPopupSyncRuntime,
-        popupBuilderRuntime: corePlayerViewPopupBuilderRuntime
-      });
-    if (!corePlayerViewPopupRuntime) {
-      throw new Error(
-        'CorePlayerViewPopupService باید قبل از app/core.js بارگذاری شود.'
-      );
-    }
-    corePublicApi.publish(corePlayerViewPopupRuntime);
-
-    function syncLyricPopup(...args) {
-      return corePlayerViewPopupRuntime.sync(...args);
-    }
+    const {
+      getLyricPopup,
+      getLyricOnlyPopup,
+      getChordLinePopup,
+      getFocusMode,
+      openLyricPopup,
+      syncLyricPopup,
+      openLyricOnlyPopup,
+      syncLyricOnlyPopup,
+      openChordLinePopup,
+      syncChordLinePopup,
+      toggleFocusMode,
+      getSettings,
+      save,
+      apply,
+      setupWheelHandlers,
+      syncHighlight,
+      initialize,
+      fontFamily,
+      syncExistingPopup,
+      render
+    } = corePopupRuntime;
+    corePublicApi.publish({
+      getLyricPopup,
+      getLyricOnlyPopup,
+      getChordLinePopup,
+      getFocusMode,
+      openLyricPopup,
+      syncLyricPopup,
+      openLyricOnlyPopup,
+      syncLyricOnlyPopup,
+      openChordLinePopup,
+      syncChordLinePopup,
+      toggleFocusMode,
+      getSettings,
+      save,
+      apply,
+      setupWheelHandlers,
+      syncHighlight,
+      initialize,
+      fontFamily,
+      syncExistingPopup,
+      render
+    }, { exposeGlobals: false });
 
 // ==========================================
 // PART 3: Project Load & Audio Export (WAV)
@@ -1685,7 +1466,7 @@ function bufferToWave(abuffer, len) {
 function renderTimeline() {
   return window.EditorLifecycleService?.renderTimeline?.({
     documentRef: document,
-    getDAW: () => getEditorDAW()
+    getDAW: () => coreGetRuntimeDAW()
   });
 }
 
@@ -1756,7 +1537,7 @@ let syncTapKeyHandler = null;
         controllerClass: globalScope.SyncModeController,
         state: syncModeState,
         seqState: seqClState,
-        getDAW: () => getEditorDAW(),
+        getDAW: () => coreGetRuntimeDAW(),
         songState: requireEditorSongStateService(),
         getElement: id => $(id),
         translate: key => t(key),
@@ -1767,12 +1548,9 @@ let syncTapKeyHandler = null;
         seekTransport: (time, keepPlaying) =>
           seekTransport(time, keepPlaying),
         getProjectEnd: () => getProjectEnd(),
-        getLyricPopup: () =>
-          typeof _lyricPopup !== 'undefined' ? _lyricPopup : null,
-        getLyricOnlyPopup: () =>
-          typeof _lyricOnlyPopup !== 'undefined' ? _lyricOnlyPopup : null,
-        getChordLinePopup: () =>
-          typeof _chordLinePopup !== 'undefined' ? _chordLinePopup : null,
+        getLyricPopup: () => getLyricPopup(),
+        getLyricOnlyPopup: () => getLyricOnlyPopup(),
+        getChordLinePopup: () => getChordLinePopup(),
         renderChords: () => edRenderChords(),
         commit: () => edCommit(),
         saveState: () => saveState(),
@@ -1817,7 +1595,6 @@ let syncTapKeyHandler = null;
       edClApplyMarkers,
       initSyncUI
     } = coreSyncModeRuntime;
-    Object.assign(globalScope, coreSyncModeRuntime);
     corePublicApi.publish(coreSyncModeRuntime);
 
     const coreSequentialChordRemapRuntime =
@@ -1836,7 +1613,6 @@ let syncTapKeyHandler = null;
     }
     const { remap: edRemapSeqPoints } =
       coreSequentialChordRemapRuntime;
-    Object.assign(globalScope, { edRemapSeqPoints });
     corePublicApi.publish({ edRemapSeqPoints });
 
     // Chord visibility toggle (editor only, independent of popup)
@@ -1882,551 +1658,241 @@ let syncTapKeyHandler = null;
     }, true);
 
     /* ===== ARRANGER ===== */
-    let arrangers = JSON.parse(localStorage.getItem('arrangers_v1') || '[]');
-    window.arrangers = arrangers; // exposed for ProjectHub
-    let editingArr = null;
-
-    // ===== Normalize playlist name for comparison (case-insensitive, whitespace-insensitive) =====
-    const normalizePlaylistName = (name) =>
-      String(name || "")
-        .trim()
-        .replace(/\s+/g, " ")
-        .toLocaleLowerCase("fa-IR");
-
-    // ===== Check if playlist name already exists (excluding optional current id) =====
-    function playlistNameExists(name, excludeId = null) {
-      const normalizedName = normalizePlaylistName(name);
-      return arrangers.some(a => a.id !== excludeId && normalizePlaylistName(a.name) === normalizedName);
-    }
-
-    // ===== Arranger Enhanced: Per-song settings =====
-    // Each arranger item: { id, transpose: 0, notes: '' }
-    // Arranger level: { crossfade: 0, pauseBetween: false }
-    function ensureArrItem(arr, idx) {
-      if (!arr._itemSettings) arr._itemSettings = {};
-      const id = arr.items[idx];
-      if (!arr._itemSettings[id]) arr._itemSettings[id] = { transpose: 0, notes: '' };
-      return arr._itemSettings[id];
-    }
-    function getArrItemSetting(arr, songId) {
-      if (!arr._itemSettings) return { transpose: 0, notes: '' };
-      return arr._itemSettings[songId] || { transpose: 0, notes: '' };
-    }
-
-    function saveArrangers() { localStorage.setItem('arrangers_v1', JSON.stringify(arrangers)); }
-
-    coreArrangerFileExportRuntime =
-      globalScope.CoreArrangerFileExportService?.create?.({
-        documentRef: document,
-        windowRef: window,
-        getAllSongs: () => edGetAllSongs(),
-        toast: message => toast(message),
-        blobRef: globalScope.Blob,
-        urlRef: globalScope.URL
-      });
-    if (!coreArrangerFileExportRuntime) {
-      throw new Error(
-        'CoreArrangerFileExportService باید قبل از app/core.js بارگذاری شود.'
-      );
-    }
-
-    coreArrangerManagerRendererRuntime =
-      globalScope.CoreArrangerManagerRendererService?.create?.({
-        documentRef: document,
-        getElement: id => $(id),
-        getArrangers: () => arrangers,
-        getEditingArr: () => editingArr,
-        setArrangers: value => {
-          arrangers = value;
+    coreArrangerRuntime =
+      globalScope.CoreArrangerRuntimeService?.create?.({
+        state: {
+          storage: localStorage
         },
-        setEditingArr: value => {
-          editingArr = value;
+        actions: {
+          getAllSongs: () => edGetAllSongs(),
+          setAllSongs: (...args) => edSetAllSongs(...args),
+          getCurrentSong: () => requireEditorSongStateService().currentSong(),
+          saveCurrentSong: (...args) => edSaveToArchive(...args),
+          customPrompt: (...args) => customPrompt(...args),
+          confirm: message => window.confirm(message),
+          translate: key => t(key),
+          toast: message => toast(message),
+          startPointerDrag: (...args) => coreStartPointerDrag(...args)
         },
-        openArrEditor: (...args) => openArrEditor(...args),
-        saveArrangers: (...args) => saveArrangers(...args),
-        exportArranger: (...args) => exportArranger(...args),
-        confirmRef: message => confirm(message),
-        translate: key => t(key),
-        toast: message => toast(message)
-      });
-    if (!coreArrangerManagerRendererRuntime) {
-      throw new Error(
-        'CoreArrangerManagerRendererService باید قبل از app/core.js بارگذاری شود.'
-      );
-    }
-
-    function renderArrangerManager(...args) {
-      return coreArrangerManagerRendererRuntime?.render?.(...args);
-    }
-
-    coreArrangerSongsOverviewRuntime =
-      globalScope.CoreArrangerSongsOverviewService?.create?.({
-        getElement: id => $(id),
-        getEditingArr: () => editingArr,
-        getAllSongs: () => edGetAllSongs(),
-        getItemSetting: (...args) => getArrItemSetting(...args)
-      });
-    if (!coreArrangerSongsOverviewRuntime) {
-      throw new Error(
-        'CoreArrangerSongsOverviewService باید قبل از app/core.js بارگذاری شود.'
-      );
-    }
-
-    coreArrangerFileImportRuntime =
-      globalScope.CoreArrangerFileImportService?.create?.({
-        documentRef: document,
-        getArrangers: () => arrangers,
-        setEditingArr: value => {
-          editingArr = value;
+        ui: {
+          documentRef: document,
+          getElement: id => $(id)
         },
-        getAllSongs: () => edGetAllSongs(),
-        setAllSongs: (...args) => edSetAllSongs(...args),
-        playlistNameExists: (...args) => playlistNameExists(...args),
-        saveArrangers: (...args) => saveArrangers(...args),
-        renderArrangerManager: (...args) => renderArrangerManager(...args),
-        openArrEditor: (...args) => openArrEditor(...args),
-        toast: message => toast(message),
+        timing: {
+          now: () => Date.now(),
+          isoNow: () => new Date().toISOString(),
+          schedule: (...args) => setTimeout(...args),
+          cancel: timer => clearTimeout(timer)
+        },
         logger: console,
-        now: () => Date.now(),
-        isoNow: () => new Date().toISOString()
+        windowRef: window
       });
-    if (!coreArrangerFileImportRuntime) {
+    if (!coreArrangerRuntime) {
       throw new Error(
-        'CoreArrangerFileImportService باید قبل از app/core.js بارگذاری شود.'
-      );
-    }
-
-    coreArrangerSongTransferRuntime =
-      globalScope.CoreArrangerSongTransferService?.create?.({
-        getCurrentSong: () => requireEditorSongStateService().currentSong(),
-        saveCurrentSong: (...args) => edSaveToArchive(...args),
-        getArrangers: () => arrangers,
-        setEditingArr: value => {
-          editingArr = value;
-        },
-        saveArrangers: (...args) => saveArrangers(...args),
-        openArrangerModal: (...args) => openArrangerModal(...args),
-        toast: message => toast(message),
-        logger: console,
-        now: () => Date.now()
-      });
-    if (!coreArrangerSongTransferRuntime) {
-      throw new Error(
-        'CoreArrangerSongTransferService باید قبل از app/core.js بارگذاری شود.'
-      );
-    }
-
-    // Send current song to Arranger Track
-    async function sendCurrentSongToArranger() {
-      return coreArrangerSongTransferRuntime?.send?.();
-    }
-
-    const coreArrangerEditorActionsRuntime =
-      globalScope.CoreArrangerEditorActionsService?.create?.({
-        documentRef: document,
-        getElement: id => $(id),
-        getEditingArr: () => editingArr,
-        setEditingArr: value => {
-          editingArr = value;
-        },
-        saveArrangers: (...args) => saveArrangers(...args),
-        renderArrangerManager: (...args) => renderArrangerManager(...args),
-        renderArrSongsList: (...args) =>
-          coreArrangerSongsOverviewRuntime?.render?.(...args),
-        saveCurrentArranger: (...args) => saveCurrentArranger(...args),
-        exportArranger: (...args) => exportArranger(...args),
-        toast: message => toast(message)
-      });
-    if (!coreArrangerEditorActionsRuntime) {
-      throw new Error(
-        'CoreArrangerEditorActionsService باید قبل از app/core.js بارگذاری شود.'
+        'CoreArrangerRuntimeService باید قبل از app/core.js بارگذاری شود.'
       );
     }
     const {
+      getArrangers,
+      setArrangers,
+      getEditingArr,
+      setEditingArr,
+      normalizePlaylistName,
+      playlistNameExists,
+      ensureArrItem,
+      getArrItemSetting,
+      saveArrangers,
+      renderArrangerManager,
+      sendCurrentSongToArranger,
+      openArrEditor,
+      exportArranger,
+      importArrangerFromFile,
+      renderArrSongsList,
       switchArrTab,
       closeArrEditor,
-      exportCurrentArranger
-    } = coreArrangerEditorActionsRuntime;
-    Object.assign(globalScope, coreArrangerEditorActionsRuntime);
-    corePublicApi.publish(coreArrangerEditorActionsRuntime);
-
-    function openArrEditor() {
-      return coreArrangerEditorRuntime?.open?.();
-    }
-
-    /**
-     * exportArranger — اکسپورت یک پلی‌لیست مشخص به فایل JSON
-     * @param {Object} arr - پلی‌لیست برای اکسپورت
-     */
-    async function exportArranger(arr) {
-      return coreArrangerFileExportRuntime?.exportArranger?.(arr);
-    }
-
-    /**
-     * importArrangerFromFile — بارگذاری پلی‌لیست از فایل JSON
-     * اگر پلی‌لیستی با همان نام وجود داشته باشد، خطا می‌دهد.
-     */
-    async function importArrangerFromFile(...args) {
-      return coreArrangerFileImportRuntime?.importFromFile?.(...args);
-    }
-
-    const coreArrangerControlsRuntime =
-      globalScope.CoreArrangerControlsService?.create?.({
-        getEditingArr: () => editingArr,
-        getElement: id => $(id),
-        ensureArrItem: (...args) => ensureArrItem(...args),
-        customPrompt: (...args) => customPrompt(...args),
-        confirm: message => window.confirm(message),
-        saveArrangers: (...args) => saveArrangers(...args),
-        renderArrPool: (...args) => renderArrPool(...args),
-        renderArrSetlist: (...args) => renderArrSetlist(...args)
-      });
-    if (!coreArrangerControlsRuntime) {
-      throw new Error(
-        'CoreArrangerControlsService باید قبل از app/core.js بارگذاری شود.'
-      );
-    }
-    const {
+      exportCurrentArranger,
       arrSetCrossfade,
       arrTogglePauseBetween,
       arrAutoTranspose,
       arrClearNotes,
-      arrFilterSongs
-    } = coreArrangerControlsRuntime;
-    Object.assign(globalScope, {
-      arrSetCrossfade,
-      arrTogglePauseBetween,
-      arrAutoTranspose,
-      arrClearNotes,
-      arrFilterSongs
-    });
-    corePublicApi.publish(coreArrangerControlsRuntime);
-
-    const coreArrangerSongNoteRuntime =
-      globalScope.CoreArrangerSongNoteService?.create?.({
-        getEditingArr: () => editingArr,
-        getAllSongs: () => edGetAllSongs(),
-        getElement: id => $(id),
-        ensureArrItem: (...args) => ensureArrItem(...args),
-        saveArrangers: (...args) => saveArrangers(...args),
-        renderArrSetlist: (...args) => renderArrSetlist(...args)
-      });
-    if (!coreArrangerSongNoteRuntime) {
-      throw new Error(
-        'CoreArrangerSongNoteService باید قبل از app/core.js بارگذاری شود.'
-      );
-    }
-    const {
+      arrFilterSongs,
       openArrSongNote,
       closeArrSongNote,
-      saveArrSongNote
-    } = coreArrangerSongNoteRuntime;
-    Object.assign(globalScope, {
-      openArrSongNote,
-      closeArrSongNote,
-      saveArrSongNote
-    });
-    corePublicApi.publish(coreArrangerSongNoteRuntime);
-
-    // ===== Arranger Setlist Management =====
-    coreArrangerSetlistRendererRuntime =
-      globalScope.CoreArrangerSetlistRendererService?.create?.({
-        documentRef: document,
-        getElement: id => $(id),
-        getEditingArr: () => editingArr,
-        getAllSongs: () => edGetAllSongs(),
-        getSearchQuery: () => $('arrSearchInput')?.value || '',
-        ensureArrItem: (...args) => ensureArrItem(...args),
-        saveArrangers: (...args) => saveArrangers(...args),
-        openArrSongNote: (...args) => openArrSongNote(...args),
-        translate: key => t(key)
-      });
-    if (!coreArrangerSetlistRendererRuntime) {
-      throw new Error(
-        'CoreArrangerSetlistRendererService باید قبل از app/core.js بارگذاری شود.'
-      );
-    }
-
-    function renderArrSetlist(...args) {
-      return coreArrangerSetlistRendererRuntime?.render?.(...args);
-    }
-
-    const coreArrangerPoolRendererRuntime =
-      globalScope.CoreArrangerPoolRendererService?.create?.({
-        documentRef: document,
-        getElement: id => $(id),
-        getEditingArr: () => editingArr,
-        getAllSongs: () => edGetAllSongs(),
-        getSearchQuery: () => $('arrSearchInput')?.value || '',
-        saveArrangers: (...args) => saveArrangers(...args),
-        renderArrSetlist: (...args) => renderArrSetlist(...args),
-        translate: key => t(key)
-      });
-    if (!coreArrangerPoolRendererRuntime) {
-      throw new Error(
-        'CoreArrangerPoolRendererService باید قبل از app/core.js بارگذاری شود.'
-      );
-    }
-    function renderArrPool(...args) {
-      return coreArrangerPoolRendererRuntime.render(...args);
-    }
-
-    coreArrangerEditorRuntime =
-      globalScope.CoreArrangerEditorService?.create?.({
-        getElement: id => $(id),
-        getEditingArr: () => editingArr,
-        renderArrPool: (...args) => renderArrPool(...args),
-        renderArrSetlist: (...args) => renderArrSetlist(...args),
-        switchArrTab: (...args) => switchArrTab(...args),
-        renderArrangerManager: (...args) => renderArrangerManager(...args),
-        logger: console
-      });
-    if (!coreArrangerEditorRuntime) {
-      throw new Error(
-        'CoreArrangerEditorService باید قبل از app/core.js بارگذاری شود.'
-      );
-    }
-
-    const coreArrangerModalRuntime =
-      globalScope.CoreArrangerModalService?.create?.({
-        getElement: id => $(id),
-        getArrangers: () => arrangers,
-        setEditingArr: value => {
-          editingArr = value;
-        },
-        renderArrangerManager: (...args) => renderArrangerManager(...args),
-        openArrEditor: (...args) => openArrEditor(...args),
-        startPointerDrag: (...args) => startEditorPointerDrag(...args)
-      });
-    if (!coreArrangerModalRuntime) {
-      throw new Error(
-        'CoreArrangerModalService باید قبل از app/core.js بارگذاری شود.'
-      );
-    }
-    function openArrangerModal(...args) {
-      return coreArrangerModalRuntime.open(...args);
-    }
-    function closeArrangerModal(...args) {
-      return coreArrangerModalRuntime.close(...args);
-    }
-    corePublicApi.publish({
+      saveArrSongNote,
+      renderArrSetlist,
+      renderArrPool,
       openArrangerModal,
-      closeArrangerModal
-    });
-
-    const coreArrangerCreationRuntime =
-      globalScope.CoreArrangerCreationService?.create?.({
-        getArrangers: () => arrangers,
-        prompt: (...args) => customPrompt(...args),
-        playlistNameExists: (...args) => playlistNameExists(...args),
-        saveArrangers: (...args) => saveArrangers(...args),
-        setEditingArr: value => {
-          editingArr = value;
-        },
-        renderArrangerManager: (...args) => renderArrangerManager(...args),
-        openArrEditor: (...args) => openArrEditor(...args),
-        toast: message => toast(message),
-        now: () => Date.now(),
-        isoNow: () => new Date().toISOString()
-      });
-    if (!coreArrangerCreationRuntime) {
-      throw new Error(
-        'CoreArrangerCreationService باید قبل از app/core.js بارگذاری شود.'
-      );
-    }
-    function createNewArranger(...args) {
-      return coreArrangerCreationRuntime.createNewArranger(...args);
-    }
-    // Expose for ProjectHub (Hub "➕ جدید" button).
-    corePublicApi.publish({ createNewArranger });
-
-    const coreArrangerSaveRuntime =
-      globalScope.CoreArrangerSaveService?.create?.({
-        getElement: id => $(id),
-        getEditingArr: () => editingArr,
-        playlistNameExists: (...args) => playlistNameExists(...args),
-        saveArrangers: (...args) => saveArrangers(...args),
-        renderArrangerManager: (...args) => renderArrangerManager(...args),
-        toast: message => toast(message),
-        isoNow: () => new Date().toISOString(),
-        schedule: (...args) => setTimeout(...args),
-        cancel: timer => clearTimeout(timer)
-      });
-    if (!coreArrangerSaveRuntime) {
-      throw new Error(
-        'CoreArrangerSaveService باید قبل از app/core.js بارگذاری شود.'
-      );
-    }
-    function saveCurrentArranger(...args) {
-      return coreArrangerSaveRuntime.saveCurrentArranger(...args);
-    }
-    function saveCurrentArrangerDebounced(...args) {
-      return coreArrangerSaveRuntime.saveCurrentArrangerDebounced(...args);
-    }
+      closeArrangerModal,
+      createNewArranger,
+      saveCurrentArranger,
+      saveCurrentArrangerDebounced
+    } = coreArrangerRuntime.publicApi;
+    corePublicApi.publish(coreArrangerRuntime.publicApi);
 
     // ===== Performance Mode (Live Dashboard) =====
-    let arrPerformIdx = -1, arrPerformActive = false, arrPerformData = null, arrPreparePending = false;
+    let arrPerformIdx = -1;
+    let arrPerformActive = false;
+    let arrPerformData = null;
+    let arrPreparePending = false;
     let _arrNextState = null;
-    let _arrHasLoggedNoNextSong = false; // جلوگیری از تکرار لاگ "No more songs"
-    let _arrPrepStartedForIndex = -1;    // جلوگیری از تکرار لاگ "Starting prep"
+    let _arrHasLoggedNoNextSong = false;
+    let _arrPrepStartedForIndex = -1;
     let perfModeActive = false;
     let perfStageMode = false;
     let perfPauseMode = false;
     let perfLiveTranspose = 0;
-
-    // Crossfade state
-    let _arrCrossfadeGain = null;
     let _arrIsCrossfading = false;
-
-    // ─── Background Preload State ───
-    // برای preload همه آهنگ‌های ارنجر در پس‌زمینه
     let _bgPreloadActive = false;
-    let _bgPreloadedSongIds = new Set(); // آهنگ‌هایی که preload شد
-
-    // ─── Wait Poll State ───
-    // وقتی آهنگ فعلی تموم می‌شه ولی prep آهنگ بعدی هنوز انجام نشده،
-    // این فلگ فعال می‌شه و یک poll مستقل از tick، منتظر اتمام prep می‌مونه
+    let _bgPreloadedSongIds = new Set();
     let _arrWaitPollActive = false;
 
-    coreArrangerPreparationRuntime =
-      globalScope.CoreArrangerPreparationService?.create?.({
-        getArranger: () => arrPerformData || editingArr,
-        getCurrentIndex: () => arrPerformIdx,
-        isActive: () => arrPerformActive,
-        hasLoggedNoNextSong: () => _arrHasLoggedNoNextSong,
-        setHasLoggedNoNextSong: value => {
-          _arrHasLoggedNoNextSong = value;
-        },
-        setNextState: value => {
-          _arrNextState = value;
-        },
-        getAllSongs: () => edGetAllSongs(),
-        preloadAudioForSong: (...args) => preloadAudioForSong(...args),
-        getDAW: () => getEditorDAW(),
-        createPlaybackBoundary: config =>
-          arrangerPlaybackPolicy?.createBoundary?.(config),
-        getArrangerMarkers: song =>
-          globalScope.ArrangerMarkerService?.fromSong?.(song),
-        getItemSetting: (...args) => getArrItemSetting(...args),
-        peaksFromBuffer: (...args) => peaksFromBuffer(...args),
-        restoreAudioForProjectSilently: (...args) =>
-          restoreAudioForProjectSilently(...args),
-        wait: delay => new Promise(resolve => setTimeout(resolve, delay)),
-        logger: console
-      });
-    if (!coreArrangerPreparationRuntime) {
-      throw new Error(
-        'CoreArrangerPreparationService باید قبل از app/core.js بارگذاری شود.'
-      );
-    }
+    const performanceState = {
+      get arrPerformIdx() { return arrPerformIdx; },
+      set arrPerformIdx(value) { arrPerformIdx = value; },
+      get arrPerformActive() { return arrPerformActive; },
+      set arrPerformActive(value) { arrPerformActive = value; },
+      get arrPerformData() { return arrPerformData; },
+      set arrPerformData(value) { arrPerformData = value; },
+      get arrPreparePending() { return arrPreparePending; },
+      set arrPreparePending(value) { arrPreparePending = value; },
+      get nextState() { return _arrNextState; },
+      set nextState(value) { _arrNextState = value; },
+      get hasLoggedNoNextSong() { return _arrHasLoggedNoNextSong; },
+      set hasLoggedNoNextSong(value) { _arrHasLoggedNoNextSong = value; },
+      get prepStartedForIndex() { return _arrPrepStartedForIndex; },
+      set prepStartedForIndex(value) { _arrPrepStartedForIndex = value; },
+      get perfModeActive() { return perfModeActive; },
+      set perfModeActive(value) { perfModeActive = value; },
+      get perfStageMode() { return perfStageMode; },
+      set perfStageMode(value) { perfStageMode = value; },
+      get perfPauseMode() { return perfPauseMode; },
+      set perfPauseMode(value) { perfPauseMode = value; },
+      get perfLiveTranspose() { return perfLiveTranspose; },
+      set perfLiveTranspose(value) { perfLiveTranspose = value; },
+      get backgroundPreloadActive() { return _bgPreloadActive; },
+      set backgroundPreloadActive(value) { _bgPreloadActive = value; },
+      get preloadedSongIds() { return _bgPreloadedSongIds; },
+      set preloadedSongIds(value) { _bgPreloadedSongIds = value; },
+      get waitPollActive() { return _arrWaitPollActive; },
+      set waitPollActive(value) { _arrWaitPollActive = value; },
+      get isCrossfading() { return _arrIsCrossfading; },
+      set isCrossfading(value) { _arrIsCrossfading = value; }
+    };
 
-    const corePerformanceModeRuntime =
-      globalScope.CorePerformanceModeService?.create?.({
-        getElement: id => $(id),
-        getActiveElement: () => document.activeElement,
-        getEditingArr: () => editingArr,
-        getPerformanceState: () => ({
-          arrPerformData,
-          arrPerformIdx,
-          arrPerformActive,
-          perfModeActive,
-          perfStageMode,
-          perfPauseMode,
-          perfLiveTranspose,
-          arrNextState: _arrNextState,
-          bgPreloadActive: _bgPreloadActive,
-          arrWaitPollActive: _arrWaitPollActive,
-          arrPreparePending,
-          arrHasLoggedNoNextSong: _arrHasLoggedNoNextSong,
-          arrPrepStartedForIndex: _arrPrepStartedForIndex
-        }),
-        updatePerformanceState: patch => {
-          if (Object.prototype.hasOwnProperty.call(patch, 'arrPerformData')) {
-            arrPerformData = patch.arrPerformData;
-          }
-          if (Object.prototype.hasOwnProperty.call(patch, 'arrPerformIdx')) {
-            arrPerformIdx = patch.arrPerformIdx;
-          }
-          if (Object.prototype.hasOwnProperty.call(patch, 'arrPerformActive')) {
-            arrPerformActive = patch.arrPerformActive;
-          }
-          if (Object.prototype.hasOwnProperty.call(patch, 'perfModeActive')) {
-            perfModeActive = patch.perfModeActive;
-          }
-          if (Object.prototype.hasOwnProperty.call(patch, 'perfStageMode')) {
-            perfStageMode = patch.perfStageMode;
-          }
-          if (Object.prototype.hasOwnProperty.call(patch, 'perfPauseMode')) {
-            perfPauseMode = patch.perfPauseMode;
-          }
-          if (Object.prototype.hasOwnProperty.call(patch, 'perfLiveTranspose')) {
-            perfLiveTranspose = patch.perfLiveTranspose;
-          }
-          if (Object.prototype.hasOwnProperty.call(patch, 'arrNextState')) {
-            _arrNextState = patch.arrNextState;
-          }
-          if (Object.prototype.hasOwnProperty.call(patch, 'bgPreloadActive')) {
-            _bgPreloadActive = patch.bgPreloadActive;
-          }
-          if (Object.prototype.hasOwnProperty.call(patch, 'arrWaitPollActive')) {
-            _arrWaitPollActive = patch.arrWaitPollActive;
-          }
-          if (Object.prototype.hasOwnProperty.call(patch, 'arrPreparePending')) {
-            arrPreparePending = patch.arrPreparePending;
-          }
-          if (
-            Object.prototype.hasOwnProperty.call(
-              patch,
-              'arrHasLoggedNoNextSong'
-            )
-          ) {
-            _arrHasLoggedNoNextSong = patch.arrHasLoggedNoNextSong;
-          }
-          if (
-            Object.prototype.hasOwnProperty.call(
-              patch,
-              'arrPrepStartedForIndex'
-            )
-          ) {
-            _arrPrepStartedForIndex = patch.arrPrepStartedForIndex;
+    corePerformanceRuntime =
+      globalScope.CorePerformanceRuntimeService?.create?.({
+        state: {
+          getPerformanceState: () => ({
+            arrPerformData: performanceState.arrPerformData,
+            arrPerformIdx: performanceState.arrPerformIdx,
+            arrPerformActive: performanceState.arrPerformActive,
+            perfModeActive: performanceState.perfModeActive,
+            perfStageMode: performanceState.perfStageMode,
+            perfPauseMode: performanceState.perfPauseMode,
+            perfLiveTranspose: performanceState.perfLiveTranspose,
+            arrNextState: performanceState.nextState,
+            bgPreloadActive: performanceState.backgroundPreloadActive,
+            arrWaitPollActive: performanceState.waitPollActive,
+            arrPreparePending: performanceState.arrPreparePending,
+            arrHasLoggedNoNextSong: performanceState.hasLoggedNoNextSong,
+            arrPrepStartedForIndex: performanceState.prepStartedForIndex
+          }),
+          updatePerformanceState: patch => {
+            if ('arrPerformData' in patch) performanceState.arrPerformData = patch.arrPerformData;
+            if ('arrPerformIdx' in patch) performanceState.arrPerformIdx = patch.arrPerformIdx;
+            if ('arrPerformActive' in patch) performanceState.arrPerformActive = patch.arrPerformActive;
+            if ('perfModeActive' in patch) performanceState.perfModeActive = patch.perfModeActive;
+            if ('perfStageMode' in patch) performanceState.perfStageMode = patch.perfStageMode;
+            if ('perfPauseMode' in patch) performanceState.perfPauseMode = patch.perfPauseMode;
+            if ('perfLiveTranspose' in patch) performanceState.perfLiveTranspose = patch.perfLiveTranspose;
+            if ('arrNextState' in patch) performanceState.nextState = patch.arrNextState;
+            if ('bgPreloadActive' in patch) performanceState.backgroundPreloadActive = patch.bgPreloadActive;
+            if ('arrWaitPollActive' in patch) performanceState.waitPollActive = patch.arrWaitPollActive;
+            if ('arrPreparePending' in patch) performanceState.arrPreparePending = patch.arrPreparePending;
+            if ('arrHasLoggedNoNextSong' in patch) performanceState.hasLoggedNoNextSong = patch.arrHasLoggedNoNextSong;
+            if ('arrPrepStartedForIndex' in patch) performanceState.prepStartedForIndex = patch.arrPrepStartedForIndex;
+          },
+          getArranger: () => arrPerformData || getEditingArr(),
+          getPreparationArranger: () => arrPerformData || getEditingArr(),
+          getPreloadArranger: () => arrPerformData,
+          getCurrentIndex: () => arrPerformIdx,
+          isActive: () => arrPerformActive,
+          hasLoggedNoNextSong: () => _arrHasLoggedNoNextSong,
+          setHasLoggedNoNextSong: value => {
+            _arrHasLoggedNoNextSong = value;
+          },
+          setNextState: value => {
+            _arrNextState = value;
+          },
+          getBackgroundActive: () => _bgPreloadActive,
+          setBackgroundActive: value => {
+            _bgPreloadActive = value;
+          },
+          getPreloadedIds: () => _bgPreloadedSongIds,
+          setPreloadedIds: value => {
+            _bgPreloadedSongIds = value;
+          },
+          getCrossfadeDuration: () => arrPerformData?.crossfade || 0,
+          setIsCrossfading: value => {
+            _arrIsCrossfading = value;
           }
         },
-        getDAW: () => getEditorDAW(),
-        getArrangerMarkers: () => getArrangerMarkers(),
-        ensureArrItem: (...args) => ensureArrItem(...args),
-        loadArrSong: (...args) => loadArrSong(...args),
-        renderPerfUI: (...args) => renderPerfUI(...args),
-        renderPerformancePanel: (...args) => renderPerfUI(...args),
-        startBackgroundPreload: (...args) =>
-          _startBackgroundPreload(...args),
-        closeArrangerModal: (...args) => closeArrangerModal(...args),
-        openLyricOnlyPopup: (...args) =>
-          openLyricOnlyPopup(...args),
-        openLyricPopup: (...args) => openLyricPopup(...args),
-        pauseTransport: (...args) => pauseTransport(...args),
-        startTransport: (...args) => startTransport(...args),
-        seekTransport: (...args) => seekTransport(...args),
-        ensureAudioCtx: (...args) => ensureAudioCtx(...args),
-        scheduleAllFromPlayhead: (...args) =>
-          scheduleAllFromPlayhead(...args),
-        saveArrangers: (...args) => saveArrangers(...args),
-        getSongState: () => requireEditorSongStateService(),
-        saveSong: (...args) => edSaveSong(...args),
-        handleTimingChange: (...args) => handleTimingChange(...args),
-        startPointerDrag: (...args) =>
-          startEditorPointerDrag(...args),
-        clamp: (...args) => clamp(...args),
-        translate: key => t(key),
-        toast: message => toast(message),
-        schedule: (...args) => setTimeout(...args),
-        setIntervalRef: (...args) => setInterval(...args),
-        clearIntervalRef: (...args) => clearInterval(...args),
-        now: () => Date.now(),
+        actions: {
+          getDAW: () => coreGetRuntimeDAW(),
+          getEditingArr: () => getEditingArr(),
+          getAllSongs: () => edGetAllSongs(),
+          getItemSetting: (...args) => getArrItemSetting(...args),
+          getPerformanceMarkers: () => getArrangerMarkers(),
+          getSongMarkers: song =>
+            globalScope.ArrangerMarkerService?.fromSong?.(song),
+          createPlaybackBoundary: config =>
+            arrangerPlaybackPolicy?.createBoundary?.(config),
+          preloadAudioForSong: (...args) => preloadAudioForSong(...args),
+          peaksFromBuffer: (...args) => peaksFromBuffer(...args),
+          restoreAudioForProjectSilently: (...args) =>
+            restoreAudioForProjectSilently(...args),
+          loadArrSong: (...args) => loadArrSong(...args),
+          hotSwapToNextSong: (...args) => hotSwapToNextSong(...args),
+          stopAllVoices: (...args) => stopAllVoices(...args),
+          pauseTransport: (...args) => pauseTransport(...args),
+          startTransport: (...args) => startTransport(...args),
+          seekTransport: (...args) => seekTransport(...args),
+          ensureAudioCtx: (...args) => ensureAudioCtx(...args),
+          scheduleAllFromPlayhead: (...args) =>
+            scheduleAllFromPlayhead(...args),
+          saveArrangers: (...args) => saveArrangers(...args),
+          getSongState: () => requireEditorSongStateService(),
+          saveSong: (...args) => edSaveSong(...args),
+          handleTimingChange: (...args) => handleTimingChange(...args),
+          getArrangerEnd: (...args) => getArrangerEnd(...args),
+          getCurrentSong: () =>
+            requireEditorSongStateService().currentSong(),
+          ensureArrItem: (...args) => ensureArrItem(...args),
+          closeArrangerModal: (...args) => closeArrangerModal(...args),
+          openLyricOnlyPopup: (...args) => openLyricOnlyPopup(...args),
+          openLyricPopup: (...args) => openLyricPopup(...args),
+          startPointerDrag: (...args) => coreStartPointerDrag(...args)
+        },
+        ui: {
+          documentRef: document,
+          getElement: id => $(id),
+          getActiveElement: () => document.activeElement
+        },
+        timing: {
+          clamp: (...args) => clamp(...args),
+          translate: key => t(key),
+          toast: message => toast(message),
+          schedule: (...args) => setTimeout(...args),
+          setIntervalRef: (...args) => setInterval(...args),
+          clearIntervalRef: (...args) => clearInterval(...args),
+          now: () => Date.now(),
+          wait: delay => new Promise(resolve => setTimeout(resolve, delay))
+        },
         logger: console
       });
-    if (!corePerformanceModeRuntime) {
+    if (!corePerformanceRuntime) {
       throw new Error(
-        'CorePerformanceModeService باید قبل از app/core.js بارگذاری شود.'
+        'CorePerformanceRuntimeService باید قبل از app/core.js بارگذاری شود.'
       );
     }
     const {
@@ -2442,113 +1908,41 @@ let syncTapKeyHandler = null;
       perfJumpToSong,
       startPerfTimer,
       stopPerfTimer,
+      startArrangerPerform,
+      startBackgroundPreload: _startBackgroundPreload,
+      renderPerfUI,
+      prepareNextArrSong,
+      arrCrossfadeSwap
+    } = corePerformanceRuntime;
+    corePublicApi.publish({
+      openPerfMode,
+      perfStop,
+      perfTogglePauseMode,
+      perfTogglePlay,
+      perfRestartSong,
+      perfPrevSong,
+      perfNextSong,
+      perfTranspose,
+      perfTempoChange,
+      perfJumpToSong,
+      startPerfTimer,
+      stopPerfTimer,
       startArrangerPerform
-    } = corePerformanceModeRuntime;
-    Object.assign(globalScope, corePerformanceModeRuntime);
-    corePublicApi.publish(corePerformanceModeRuntime);
+    });
 
-    coreArrangerBackgroundPreloadRuntime =
-      globalScope.CoreArrangerBackgroundPreloadService?.create?.({
-        getArranger: () => arrPerformData,
-        getActive: () => _bgPreloadActive,
-        setActive: value => {
-          _bgPreloadActive = value;
-        },
-        getPreloadedIds: () => _bgPreloadedSongIds,
-        setPreloadedIds: value => {
-          _bgPreloadedSongIds = value;
-        },
-        getAllSongs: () => edGetAllSongs(),
-        getDAW: () => getEditorDAW(),
-        preloadAudioForSong: (...args) => preloadAudioForSong(...args),
-        wait: delay => new Promise(resolve => setTimeout(resolve, delay)),
-        logger: console
-      });
-    if (!coreArrangerBackgroundPreloadRuntime) {
-      throw new Error(
-        'CoreArrangerBackgroundPreloadService باید قبل از app/core.js بارگذاری شود.'
-      );
-    }
-
-    coreArrangerCrossfadeRuntime =
-      globalScope.CoreArrangerCrossfadeService?.create?.({
-        getCrossfadeDuration: () => arrPerformData?.crossfade || 0,
-        hasNextState: () => Boolean(_arrNextState),
-        setIsCrossfading: value => {
-          _arrIsCrossfading = value;
-        },
-        ensureAudioCtx: (...args) => ensureAudioCtx(...args),
-        getDAW: () => getEditorDAW(),
-        stopAllVoices: (...args) => stopAllVoices(...args),
-        hotSwapToNextSong: (...args) => hotSwapToNextSong(...args),
-        schedule: (...args) => setTimeout(...args),
-        logger: console
-      });
-    if (!coreArrangerCrossfadeRuntime) {
-      throw new Error(
-        'CoreArrangerCrossfadeService باید قبل از app/core.js بارگذاری شود.'
-      );
-    }
-
-    corePerformanceUiRuntime =
-      globalScope.CorePerformanceUiService?.create?.({
-        documentRef: document,
-        getElement: id => $(id),
-        getPerformanceState: () => ({
-          perfModeActive,
-          arrPerformData,
-          arrPerformIdx
-        }),
-        getAllSongs: () => edGetAllSongs(),
-        getItemSetting: (...args) => getArrItemSetting(...args),
-        getCurrentSong: () => requireEditorSongStateService().currentSong(),
-        getDAW: () => getEditorDAW(),
-        getArrangerEnd: () => getArrangerEnd(),
-        jumpToSong: index => perfJumpToSong(index),
-        saveArrangers: (...args) => saveArrangers(...args),
-        seekTransport: (...args) => seekTransport(...args),
-        ensureAudioCtx: (...args) => ensureAudioCtx(...args),
-        startTransport: (...args) => startTransport(...args)
-      });
-    if (!corePerformanceUiRuntime) {
-      throw new Error(
-        'CorePerformanceUiService باید قبل از app/core.js بارگذاری شود.'
-      );
-    }
-
-    /**
-     * _startBackgroundPreload — preload تمام آهنگ‌های ارنجر در پس‌زمینه
-     *
-     * این تابع بلافاصله بعد از openPerfMode صدا زده می‌شه و تمام آهنگ‌های
-     * ست‌لیست رو به‌صورت یکی‌یکی preload می‌کنه. این کار تضمین می‌کنه که
-     * وقتی به آهنگ بعدی می‌رسیم، بافر صوتی از قبل در getEditorDAW().bufferCache هست.
-     *
-     * مهم: این تابع غیرمسدودکننده هست و نباید پخش فعلی رو مختل کنه.
-     */
-    function _startBackgroundPreload() {
-      return coreArrangerBackgroundPreloadRuntime?.start?.();
-    }
-
-    // Render performance mode UI
-    function renderPerfUI(...args) {
-      return corePerformanceUiRuntime?.render?.(...args);
-    }
-
-    // Pre-build the next song's full DAW state while current plays.
-    async function prepareNextArrSong(...args) {
-      return coreArrangerPreparationRuntime?.prepare?.(...args);
-    }
-
-    // Crossfade between songs — نسخه بهبودیافته با overlap واقعی
-    //
-    // استراتژی:
-    //   1. صدای آهنگ فعلی رو از طریق masterGain fade-out می‌کنیم
-    //   2. همزمان hot-swap می‌کنیم و آهنگ جدید رو schedule می‌کنیم
-    //   3. masterGain رو fade-in می‌کنیم
-    //
-    // این روش یک "gapless crossfade" ایجاد می‌کنه: در طول fadeTime،
-    // صدای قدیمی fade-out و صدای جدید fade-in می‌شه. در نقطه میانی،
-    // هر دو آهنگ در حال پخش هستن (overlap).
-    function arrCrossfadeSwap() {
-      return coreArrangerCrossfadeRuntime?.swap?.();
-    }
+    corePublicApi.publish({
+      customPrompt,
+      formatTime,
+      toast,
+      ensureAudioCtx,
+      clearEditorTextSelection,
+      updateNextIdFromClips,
+      renderClips,
+      saveState,
+      applyState,
+      stopAllVoices,
+      renderAll,
+      resetHistory,
+      isHistoryApplying,
+      attachHistoryService
+    });

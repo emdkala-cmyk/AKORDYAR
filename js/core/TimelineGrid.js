@@ -1,13 +1,13 @@
 ﻿/**
  * TimelineGrid — grid configuration, lane grid drawing, ruler rendering.
  *
- * No dependency on edCur or DAW globals.
+ * No dependency on Song Runtime or DAW globals.
  * All required state passed explicitly via arguments.
  */
 /**
  * TimelineGrid — grid configuration, lane grid drawing, ruler rendering.
  *
- * No dependency on edCur or DAW globals.
+ * No dependency on Song Runtime or DAW globals.
  * All required state passed explicitly via arguments.
  * Math delegation: Meter.js (pure, no DOM).
  */

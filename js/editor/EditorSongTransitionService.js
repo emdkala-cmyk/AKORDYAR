@@ -8,7 +8,7 @@
  * - ساخت دوباره‌ی trackهای صوتی
  * - بازیابی audio وابسته به پروژه
  *
- * سرویس به DOM، edCur، DAW یا PERF global دسترسی ندارد و همه‌ی runtime
+ * سرویس به DOM، Song Runtime، DAW یا PERF global دسترسی ندارد و همه‌ی runtime
  * dependencyها را از طریق callback دریافت می‌کند.
  */
 (function attachEditorSongTransitionService(globalScope) {

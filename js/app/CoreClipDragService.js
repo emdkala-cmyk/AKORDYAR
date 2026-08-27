@@ -10,8 +10,8 @@
 
   function create({
     documentRef = globalScope.document,
-    getDAW = () => globalScope.getEditorDAW?.() || globalScope.DAW,
-    getClip = id => globalScope.getClip?.(id),
+    getDAW = () => globalScope.RuntimeStateAdapter?.getDAW?.() || null,
+    getClip = () => null,
     xToTime = value => value,
     snapTime = value => value,
     roundMs = value => value,

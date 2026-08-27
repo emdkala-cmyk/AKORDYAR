@@ -1,10 +1,10 @@
 /**
- * EditorSyncAnalysisUiService
+ * EditorSyncAnalysisRuntimeService
  *
  * Keeps tempo/key analysis UI orchestration outside core.js. Pure analysis is
  * delegated to SyncAnalysis; editor state and side effects are injected.
  */
-(function attachEditorSyncAnalysisUiService(globalScope) {
+(function attachEditorSyncAnalysisRuntimeService(globalScope) {
   'use strict';
 
   function create({
@@ -12,12 +12,12 @@
     getSongState = () => globalScope.requireEditorSongStateService?.(),
     performanceRef = globalScope.performance,
     getElement = id => globalScope.document?.getElementById?.(id),
-    saveSong = (...args) => globalScope.edSaveSong?.(...args),
+    saveSong = () => {},
     handleTimingChange = (...args) =>
-      globalScope.handleTimingChange?.(...args),
-    syncToolbar = (...args) => globalScope.edSyncToolbar?.(...args),
-    renderEditor = (...args) => globalScope.edRenderEditor?.(...args),
-    toast = (...args) => globalScope.toast?.(...args)
+      globalScope.AkordyarCoreApi?.handleTimingChange?.(...args),
+    syncToolbar = () => {},
+    renderEditor = () => {},
+    toast = () => {}
   } = {}) {
     let tapTimes = [];
 
@@ -117,11 +117,7 @@
   }
 
   const service = Object.freeze({ create });
-  globalScope.EditorSyncAnalysisUiService = service;
-
-  if (typeof window !== 'undefined') {
-    Object.assign(globalScope, create());
-  }
+  globalScope.EditorSyncAnalysisRuntimeService = service;
 
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = service;

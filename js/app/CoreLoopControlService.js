@@ -8,7 +8,7 @@
   'use strict';
 
   function create({
-    getDAW = () => globalScope.getEditorDAW?.() || globalScope.DAW,
+    getDAW = () => globalScope.RuntimeStateAdapter?.getDAW?.() || null,
     getElement = id => globalScope.document?.getElementById?.(id),
     isPerforming = () => false,
     getSelectedClips = () => [],

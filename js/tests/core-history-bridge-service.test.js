@@ -50,7 +50,6 @@ assert.equal(runtime.attach(), historyService);
 assert.equal(attached, true);
 assert.equal(initContext.getDAW().id, 'daw');
 assert.equal(initContext.getPERF().id, 'perf');
-assert.equal(initContext.getEdCur(), song);
 assert.equal(initContext.getSong(), song);
 assert.deepEqual(initContext.repairSong(song), { id: 'song-1', repaired: true });
 assert.deepEqual(initContext.getEdSeqPoints(), seqPoints);

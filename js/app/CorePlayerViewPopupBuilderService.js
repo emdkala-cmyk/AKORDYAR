@@ -7,7 +7,8 @@
   'use strict';
 
   function create({
-    popup,
+    popup = null,
+    getPopup = () => popup,
     popupWindowBridge,
     chordRenderer,
     settingsRuntime,
@@ -110,7 +111,7 @@
       if (!script) throw new Error('Player View chord renderer unavailable.');
       documentRef.body.appendChild(script);
       const saved = settingsRuntime?.getSettings?.() || {};
-      popupWindowBridge?.set?.(popup, '_pCfg', {
+      popupWindowBridge?.set?.(getPopup?.() || popup, '_pCfg', {
         cSize: saved.cSize || cSize,
         cColor: saved.cColor || cColor,
         cFont: 'JetBrains Mono'

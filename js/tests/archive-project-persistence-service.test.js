@@ -36,7 +36,7 @@ const context = {
   getDAW: () => daw,
   getSong: () => currentSong,
   getSongOrNull: () => currentSong,
-  setEditorSong: song => {
+  setSong: song => {
     currentSong = song;
   },
   pauseTransport: () => calls.push('pause'),

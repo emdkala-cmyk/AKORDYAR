@@ -45,7 +45,7 @@ const service = ChordImportService.create({
   normalizeRawText: value => String(value || '').trim(),
   hasPersian: value => /[\u0600-\u06ff]/.test(value),
   isChordOnlyLine: value => /^C(?:\\s+G)?$/.test(value),
-  parseRawSongToEdCur: parsed => {
+  parseRawSong: parsed => {
     parsedSong = parsed;
     return {
       lyrics: parsed.rawText,

@@ -10,9 +10,9 @@
   function create({
     controllerFactory = () =>
       globalScope.EditorArrangerMarkerControllerService?.create,
-    getDAW = () => globalScope.getEditorDAW?.() || globalScope.DAW,
+    getDAW = () => globalScope.RuntimeStateAdapter?.getDAW?.() || null,
     markerService = globalScope.ArrangerMarkerService,
-    getProjectEnd = () => globalScope.getProjectEnd?.() || 0,
+    getProjectEnd = () => 0,
     timeToX = value => value,
     xToTime = value => value,
     clamp = (value, minimum, maximum) =>

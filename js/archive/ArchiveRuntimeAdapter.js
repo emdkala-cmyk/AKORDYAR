@@ -2,30 +2,13 @@
  * ArchiveRuntimeAdapter — runtime contract for archive workflows.
  *
  * ArchiveModule should use this boundary instead of reaching into app/core
- * globals directly. The adapter keeps legacy globals behind the existing
- * EdCurAdapter and RuntimeStateAdapter contracts.
+ * globals directly.
  */
 const archiveRuntimeGlobal = typeof window !== 'undefined' ? window : globalThis;
-let archiveSongRuntimeService = null;
-
-function getArchiveSongRuntimeService() {
-  if (
-    !archiveSongRuntimeService &&
-    archiveRuntimeGlobal.EditorSongRuntimeService?.create
-  ) {
-    archiveSongRuntimeService =
-      archiveRuntimeGlobal.EditorSongRuntimeService.create({
-        runtimeAdapter: archiveRuntimeGlobal.EditorRuntimeAdapter
-      });
-  }
-  return archiveSongRuntimeService;
-}
 
 const ArchiveRuntimeAdapter = Object.freeze({
   getSong() {
-    return getArchiveSongRuntimeService()?.getSong?.()
-      || archiveRuntimeGlobal.EdCurAdapter?.getEdCur?.()
-      || null;
+    return archiveRuntimeGlobal.EditorRuntimeAdapter?.getSong?.() || null;
   },
 
   getSongOrThrow() {
@@ -37,14 +20,11 @@ const ArchiveRuntimeAdapter = Object.freeze({
   },
 
   setSong(song) {
-    const runtimeService = getArchiveSongRuntimeService();
-    if (runtimeService?.setSong) return runtimeService.setSong(song);
-    const setEdCur = archiveRuntimeGlobal.EdCurAdapter?.setEdCur;
-    if (typeof setEdCur !== 'function') {
-      throw new Error('ArchiveRuntimeAdapter: EdCurAdapter.setEdCur is unavailable');
+    const runtimeAdapter = archiveRuntimeGlobal.EditorRuntimeAdapter;
+    if (typeof runtimeAdapter?.setSong !== 'function') {
+      throw new Error('ArchiveRuntimeAdapter: editor song runtime is unavailable');
     }
-    setEdCur(song);
-    return song;
+    return runtimeAdapter.setSong(song);
   },
 
   getDAW() {

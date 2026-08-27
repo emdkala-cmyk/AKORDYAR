@@ -12,14 +12,14 @@
     getElement = id => documentRef?.getElementById?.(id),
     getTransportState = () => ({}),
     getSongState = () => globalScope.requireEditorSongStateService?.(),
-    getDAW = () => globalScope.getEditorDAW?.() || globalScope.DAW,
+    getDAW = () => globalScope.RuntimeStateAdapter?.getDAW?.() || null,
     timelineGrid = globalScope.TimelineGrid,
     meter = globalScope.Meter,
     quantizer = globalScope.EditorChordQuantizeService,
-    saveState = () => globalScope.saveState?.(),
-    renderClips = () => globalScope.renderClips?.(),
-    renderRuler = () => globalScope.renderRuler?.(),
-    toast = (...args) => globalScope.toast?.(...args),
+    saveState = () => {},
+    renderClips = () => {},
+    renderRuler = () => {},
+    toast = () => {},
     round = value => value
   } = {}) {
     let modalDismissBound = false;

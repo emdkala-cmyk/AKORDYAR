@@ -78,7 +78,7 @@ const lifecycle = [];
     },
     initHighlightEffect: () => { highlight += 1; }
   });
-  const restored = await initializer.initializeEditor();
+  const restored = await initializer.initialize();
 
   assert.equal(restored.title, 'Saved');
   assert.equal(restored.repaired, true);

@@ -63,7 +63,7 @@ const service = LoadService.create({
       assert.deepEqual(options.clips, daw.clips);
       assert.deepEqual(options.sections, daw.sections);
       assert.deepEqual(options.arrangerMarkers, song._arrangerMarkers);
-      assert.deepEqual(options.legacyLoopState, song._dawLoop);
+      assert.equal('legacyLoopState' in options, false);
       return {
         start: 3,
         end: 12,

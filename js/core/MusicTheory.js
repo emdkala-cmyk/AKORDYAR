@@ -1,7 +1,7 @@
 ﻿/**
  * MusicTheory — centralized note name constants, key utilities, and time signature grid config.
  * 
- * Pure functions only — no DOM or edCur dependencies.
+ * Pure functions only — no DOM or Song Runtime dependencies.
  */
 
 const MusicTheory = (() => {

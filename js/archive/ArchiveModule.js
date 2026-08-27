@@ -38,6 +38,31 @@
     let _archiveReadOnlyService = null;
     let _archiveArtistCatalogService = null;
 
+    function getArchiveCoreApi() {
+      return window.AkordyarCoreApi || {};
+    }
+
+    const archivePauseTransport = (...args) =>
+      getArchiveCoreApi().pauseTransport?.(...args);
+    const archiveUpdateTrackMix = (...args) =>
+      getArchiveCoreApi().updateTrackMix?.(...args);
+    const archiveLoadAudioFromHardDrive = (...args) =>
+      getArchiveCoreApi().loadAudioFromHardDrive?.(...args);
+    const archiveInitHighlightEffect = (...args) =>
+      getArchiveCoreApi().initHighlightEffect?.(...args);
+    const archiveEnsureAudioCtx = (...args) =>
+      getArchiveCoreApi().ensureAudioCtx?.(...args);
+    const archiveStopAllVoices = (...args) =>
+      getArchiveCoreApi().stopAllVoices?.(...args);
+    const archiveUpdateNextIdFromClips = (...args) =>
+      getArchiveCoreApi().updateNextIdFromClips?.(...args);
+    const archiveRenderAll = (...args) =>
+      getArchiveCoreApi().renderAll?.(...args);
+    const archiveSaveState = (...args) =>
+      getArchiveCoreApi().saveState?.(...args);
+    const archiveResetHistory = (...args) =>
+      getArchiveCoreApi().resetHistory?.(...args);
+
     function getArchiveProjectImportRouteService() {
       if (
         !_archProjectImportRouteService &&
@@ -73,6 +98,41 @@
       return getArchiveCurrentSongService().getSongOrNull();
     }
 
+    function setArchiveSong(song) {
+      const setSong = window.EditorRuntimeAdapter?.setSong;
+      if (typeof setSong !== 'function') {
+        throw new Error('EditorRuntimeAdapter is not loaded. Check script order.');
+      }
+      return setSong.call(window.EditorRuntimeAdapter, song);
+    }
+
+    function getArchiveAudioStorageRuntime() {
+      const runtime = window.EditorAudioStorageRuntime;
+      if (!runtime) {
+        throw new Error(
+          'EditorAudioStorageRuntime is not loaded. Check script order.'
+        );
+      }
+      return runtime;
+    }
+
+    const archiveLoadAudioBlobsForProject = (...args) =>
+      getArchiveAudioStorageRuntime().loadAudioBlobsForProject?.(...args);
+    const archiveSaveAudioBlobsForProject = (...args) =>
+      getArchiveAudioStorageRuntime().saveAudioBlobsForProject?.(...args);
+    const archiveGetFileHandle = (...args) =>
+      getArchiveAudioStorageRuntime().getFileHandle?.(...args);
+    const archiveBase64ToUint8 = (...args) =>
+      getArchiveAudioStorageRuntime().base64ToUint8?.(...args);
+    const archiveDecodeWebMToBuffer = (...args) =>
+      getArchiveAudioStorageRuntime().decodeWebMToBuffer?.(...args);
+    const archiveGetAudioCompressionService = (...args) =>
+      getArchiveAudioStorageRuntime().getAudioCompressionService?.(...args);
+    const archiveResampleFloat32 = (...args) =>
+      getArchiveAudioStorageRuntime().resampleFloat32?.(...args);
+    const archiveDeleteAudioBlobsForProject = (...args) =>
+      getArchiveAudioStorageRuntime().deleteAudioBlobsForProject?.(...args);
+
     function resetPerformanceSerialization() {
       return getArchiveCurrentSongService().resetPerformanceSerialization();
     }
@@ -95,7 +155,7 @@
         }
         _archiveStorageService = create({
           globalScope: window,
-          toast: message => window.toast?.(message)
+          toast: message => getArchiveCoreApi().toast?.(message)
         });
       }
       return _archiveStorageService;
@@ -272,24 +332,24 @@
           getDAW: getArchiveDAW,
           getSong: getArchiveSong,
           getSongOrNull: getArchiveSongOrNull,
-          setEditorSong,
-          pauseTransport,
-          stopAllVoices,
+          setSong: setArchiveSong,
+          pauseTransport: archivePauseTransport,
+          stopAllVoices: archiveStopAllVoices,
           resetRecordingState: () => {
             isRecordingChords = false;
             currentRecordingClipId = null;
           },
           isValidNote: note => etIsValidNote(note),
-          updateNextIdFromClips,
+          updateNextIdFromClips: archiveUpdateNextIdFromClips,
           getArrangerMarkers: getArchiveArrangerMarkers,
-          ensureAudioCtx,
-          updateTrackMix,
-          loadAudioBlobsForProject,
-          saveAudioBlobsForProject,
-          loadAudioFromHardDrive,
+          ensureAudioCtx: archiveEnsureAudioCtx,
+          updateTrackMix: archiveUpdateTrackMix,
+          loadAudioBlobsForProject: archiveLoadAudioBlobsForProject,
+          saveAudioBlobsForProject: archiveSaveAudioBlobsForProject,
+          loadAudioFromHardDrive: archiveLoadAudioFromHardDrive,
           peaksFromBuffer,
           refreshClipWaveImage,
-          getFileHandle,
+          getFileHandle: archiveGetFileHandle,
           decodeFileToBuffer,
           getAudioDirHandle: () => _audioDirHandle,
           loadDirHandle,
@@ -298,18 +358,18 @@
           resetPerformanceSerialization,
           edSyncToolbar,
           edRenderEditor,
-          renderAll,
-          saveState,
+          renderAll: archiveRenderAll,
+          saveState: archiveSaveState,
           getElement: id => $(id),
-          initHighlightEffect,
+          initHighlightEffect: archiveInitHighlightEffect,
           rebuildSongDocument: () => {
-            if (typeof rebuildSongDocumentFromEdCur === 'function') {
-              rebuildSongDocumentFromEdCur();
+            if (typeof rebuildPerformanceSongDocument === 'function') {
+              rebuildPerformanceSongDocument();
             }
           },
           syncViewStyles: () => {
-            if (typeof syncViewStylesFromEdCur === 'function') {
-              syncViewStylesFromEdCur();
+            if (typeof syncViewStylesFromSong === 'function') {
+              syncViewStylesFromSong();
             }
           },
           syncMetadata: song => SongMetadata.syncFromDom(song),
@@ -333,39 +393,40 @@
           getDAW: getArchiveDAW,
           getSong: getArchiveSong,
           getElement: id => $(id),
-          setEditorSong,
+          setSong: setArchiveSong,
           setProjectFilePath: setEditorProjectFilePath,
           clearProjectFilePath: clearEditorProjectFilePath,
-          pauseTransport,
-          stopAllVoices,
-          updateNextIdFromClips,
+          pauseTransport: archivePauseTransport,
+          stopAllVoices: archiveStopAllVoices,
+          updateNextIdFromClips: archiveUpdateNextIdFromClips,
           getArrangerMarkers: getArchiveArrangerMarkers,
-          ensureAudioCtx,
-          updateTrackMix,
+          ensureAudioCtx: archiveEnsureAudioCtx,
+          updateTrackMix: archiveUpdateTrackMix,
           applyImportChords,
-          loadAudioBlobsForProject,
-          saveAudioBlobsForProject,
+          loadAudioBlobsForProject: archiveLoadAudioBlobsForProject,
+          saveAudioBlobsForProject: archiveSaveAudioBlobsForProject,
           peaksFromBuffer,
           refreshClipWaveImage,
-          base64ToUint8,
-          decodeWebMToBuffer,
-          decompressBytes: value => getAudioCompressionService()?.decompressBytes(value) || value,
-          resampleFloat32,
-          getFileHandle,
+          base64ToUint8: archiveBase64ToUint8,
+          decodeWebMToBuffer: archiveDecodeWebMToBuffer,
+          decompressBytes: value =>
+            archiveGetAudioCompressionService()?.decompressBytes(value) || value,
+          resampleFloat32: archiveResampleFloat32,
+          getFileHandle: archiveGetFileHandle,
           decodeFileToBuffer,
           getAudioDirHandle: () => _audioDirHandle,
           loadDirHandle,
           saveDirHandle,
-          loadAudioFromHardDrive,
+          loadAudioFromHardDrive: archiveLoadAudioFromHardDrive,
           getIsElectron: () => isElectron,
-          resetHistory,
+          resetHistory: archiveResetHistory,
           resetPerformanceSerialization,
           syncToolbar: edSyncToolbar,
           renderEditor: edRenderEditor,
-          initHighlightEffect,
-          saveState,
+          initHighlightEffect: archiveInitHighlightEffect,
+          saveState: archiveSaveState,
           saveSong: edSaveSong,
-          renderAll,
+          renderAll: archiveRenderAll,
           toast,
           logError: console.error,
           getGlobal: () => window
@@ -549,7 +610,7 @@
           getAllSongs: edGetAllSongs,
           getCurrentSong: getArchiveSongOrNull,
           setAllSongs: edSetAllSongs,
-          setEditorSong,
+          setSong: setArchiveSong,
           generateId: archGenId,
           ensureSongParsed,
           closeArchive: archClose,
@@ -740,7 +801,7 @@
           },
           confirm: archConfirm,
           pushUndo: archPushUndo,
-          deleteAudioBlobsForProject,
+          deleteAudioBlobsForProject: archiveDeleteAudioBlobsForProject,
           generateId: archGenId,
           render: archRender,
           renderArtists: archRenderArtists,
@@ -775,7 +836,7 @@
     function ensureSongParsed(song) {
       if (song.rawText && (!song.lyrics || !song.lyrics.trim()) && (!song.chords || !song.chords.length)) {
         try {
-          const parsed = parseRawSongToEdCur(song);
+          const parsed = parseRawSong(song);
           if (parsed.lyrics) song.lyrics = parsed.lyrics;
           if (parsed.chords && parsed.chords.length) song.chords = parsed.chords;
           // Also sync key/keyMode from parsed result
@@ -1069,12 +1130,12 @@ function archUpdateActiveFilters() {
       if (typeof clearEditorProjectFilePath === 'function') {
         clearEditorProjectFilePath();
       }
-      pauseTransport();
-stopAllVoices();
+      archivePauseTransport();
+archiveStopAllVoices();
 
-setEditorSong(edBlankSong());
+setArchiveSong(edBlankSong());
 
-resetHistory();
+archiveResetHistory();
 resetPerformanceSerialization();
 
 daw.clips = [];
@@ -1098,7 +1159,7 @@ daw.tracks = [
   { id: 't4', name: 'Keys', icon: '🎹', type: 'audio', muted: false, solo: false, vol: 0.8, pan: 0, transpose: 0 },
   { id: 't5', name: 'Drums', icon: '🥁', type: 'audio', muted: false, solo: false, vol: 0.8, pan: 0, transpose: 0 }
 ];
-ensureAudioCtx();
+archiveEnsureAudioCtx();
 daw.tracks.forEach(t => {
   if (t.type === 'audio') {
     t._pannerNode = daw.audioCtx.createStereoPanner();
@@ -1116,15 +1177,15 @@ localStorage.removeItem('ed_current_song');
 
 edSyncToolbar();
 edRenderEditor(true);
-renderAll();
-saveState();
+archiveRenderAll();
+archiveSaveState();
 
       // Update loop toggle button state
       const loopBtn2 = $('loopToggleBtn');
       if (loopBtn2) loopBtn2.classList.remove('loop-active');
 
       // Apply highlight effect (default)
-      initHighlightEffect();
+      archiveInitHighlightEffect();
 
     }
     // ===== Audio Directory Handle for auto-loading =====

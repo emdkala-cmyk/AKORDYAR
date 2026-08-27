@@ -173,7 +173,7 @@ assert.equal(service.isCountInRunning(), true);
 assert.equal(service.cancelCountIn(), true);
 assert.equal(countIn.cancelCalls, 1);
 
-const legacyService = TransportSchedulingService.create({
+const fallbackService = TransportSchedulingService.create({
   getDAW: () => daw,
   getMeterConfig: meterConfig,
   AudioContextServiceCtor,
@@ -184,18 +184,18 @@ const legacyService = TransportSchedulingService.create({
   logger: { log() {} }
 });
 
-assert.equal(legacyService.startMetronome({
+assert.equal(fallbackService.startMetronome({
   bpm: 120,
   timeSignature: '4/4'
 }), true);
 assert.equal(
-  legacyService.checkLegacyTick(0, { bpm: 120, timeSignature: '4/4' }).isAccent,
+  fallbackService.checkMetronomeTick(0, { bpm: 120, timeSignature: '4/4' }).isAccent,
   true
 );
-assert.equal(legacyService.checkLegacyTick(0, {
+assert.equal(fallbackService.checkMetronomeTick(0, {
   bpm: 120,
   timeSignature: '4/4'
 }), null);
-legacyService.stopMetronome();
+fallbackService.stopMetronome();
 
 console.log('Transport scheduling service tests passed');

@@ -140,7 +140,6 @@
           clips: daw.clips,
           sections: daw.sections,
           arrangerMarkers: song._arrangerMarkers,
-          legacyLoopState: song._dawLoop,
           fallbackEnd: 30
         }) || fallbackPlaybackBoundary();
 

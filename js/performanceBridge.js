@@ -1,7 +1,7 @@
 /**
- * performanceBridge.js — پل ارتباطی بین edCur و معماری Performance
+ * performanceBridge.js — پل ارتباطی بین Song Runtime و معماری Performance
  *
- * 1. SongDocument جدید از edCur
+ * 1. SongDocument جدید از Song Runtime
  * 2. playbackState از DAW
  * 3. Singer/Player popup با full render روی contentUpdated
  * 4. Embedded view با full render روی contentUpdated
@@ -53,7 +53,7 @@ function getRuntimePerformanceStore() {
 }
 
 function getCurrentSong() {
-  return window.EdCurAdapter?.getEdCur?.() || null;
+  return window.EditorRuntimeAdapter?.getSong?.() || null;
 }
 
 function getRuntimePlaybackDuration(daw) {
@@ -97,16 +97,16 @@ function getRuntimePlaybackTime(daw) {
 }
 
 /* ═══════════════════════════════════════════════
-   rebuildSongDocumentFromEdCur
+   rebuildPerformanceSongDocument
    ═══════════════════════════════════════════════ */
 
-function rebuildSongDocumentFromEdCur() {
+function rebuildPerformanceSongDocument() {
   const song = getCurrentSong();
   const store = getRuntimePerformanceStore();
   if (!song) return;
   if (!window.SongDocumentModel || !window.SharedEngine) return;
 
-  _songDocument = window.SongDocumentModel.buildSongDocumentFromEdCur(song);
+  _songDocument = window.SongDocumentModel.buildSongDocument(song);
   _songDocument = window.SharedEngine.processSong(_songDocument);
 
   if (store) {
@@ -129,8 +129,8 @@ function rebuildSongDocumentFromEdCur() {
    ═══════════════════════════════════════════════ */
 
 function onPerformanceSongChanged(embeddedContainer) {
-  if (typeof rebuildSongDocumentFromEdCur === 'function') {
-    rebuildSongDocumentFromEdCur();
+  if (typeof rebuildPerformanceSongDocument === 'function') {
+    rebuildPerformanceSongDocument();
   }
 
   const store = getRuntimePerformanceStore();
@@ -171,7 +171,7 @@ window.onPerformanceSongChanged = onPerformanceSongChanged;
    viewStyles sync
    ═══════════════════════════════════════════════ */
 
-function syncViewStylesFromEdCur() {
+function syncViewStylesFromSong() {
   const song = getCurrentSong();
   const store = getRuntimePerformanceStore();
   if (!song || !store) return;
@@ -181,7 +181,7 @@ function syncViewStylesFromEdCur() {
   store.setViewState('embeddedPerformanceView', vs.embeddedPerformanceView || {});
 }
 
-function syncViewStylesToEdCur() {
+function syncViewStylesToSong() {
   const song = getCurrentSong();
   const store = getRuntimePerformanceStore();
   if (!song || !store) return;
@@ -447,7 +447,8 @@ function _clearPlayerUnsubs() {
 
 function openPlayerView() {
   // از popup قدیمی استفاده کن
-  if (typeof openLyricPopup === 'function') { openLyricPopup(); return; }
+  const openPopup = window.AkordyarCoreApi?.openLyricPopup;
+  if (typeof openPopup === 'function') { openPopup(); return; }
   toast('Player View در دسترس نیست');
 }
 
@@ -499,8 +500,8 @@ let _forceRenderEmbedded = null;
 
 function forceRenderEmbeddedView() {
   if (_forceRenderEmbedded) _forceRenderEmbedded();
-  else if (typeof rebuildSongDocumentFromEdCur === 'function') {
-    rebuildSongDocumentFromEdCur();
+  else if (typeof rebuildPerformanceSongDocument === 'function') {
+    rebuildPerformanceSongDocument();
   }
 }
 

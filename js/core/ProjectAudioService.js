@@ -295,7 +295,7 @@ class ProjectAudioService {
     this.state.tracks = projectData.tracks || [];
     this.state.clips = projectData.clips || [];
     this.state.sections = projectData.sections || [];
-    this.state.edCur = this.repairSong(projectData.edCur || null);
+    this.state.song = this.repairSong(projectData.song || null);
     this.state.edSeqPoints = projectData.edSeqPoints || [];
 
     for (const [clipId, clip] of Object.entries(this.state.pool)) {

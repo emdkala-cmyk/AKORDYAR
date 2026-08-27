@@ -10,39 +10,28 @@
   'use strict';
 
   function create({
-    getDAW = () => globalScope.getEditorDAW?.() || globalScope.DAW,
+    getDAW = () => globalScope.RuntimeStateAdapter?.getDAW?.() || null,
     getElement = id => globalScope.document?.getElementById?.(id),
     getTransportState = () => ({}),
-    ensureAudioCtx = () => globalScope.ensureAudioCtx?.(),
-    cancelCountIn = () => globalScope.cancelCountIn?.(),
-    isCountInRunning = () => Boolean(globalScope.isCountInRunning?.()),
+    ensureAudioCtx = () => {},
+    cancelCountIn = () => {},
+    isCountInRunning = () => false,
     getProjectEnd = () => 0,
     snapTime = value => value,
     playheadMath = globalScope.PlayheadMath,
-    setTransportOrigin = (...args) =>
-      globalScope.setTransportOrigin?.(...args),
-    getTransportPlayhead = (...args) =>
-      globalScope.getTransportPlayhead?.(...args) || 0,
-    updatePlayheadUI = (...args) =>
-      globalScope.updatePlayheadUI?.(...args),
-    scheduleAllFromPlayhead = (...args) =>
-      globalScope.scheduleAllFromPlayhead?.(...args),
-    stopAllVoices = (...args) =>
-      globalScope.stopAllVoices?.(...args),
-    startMetronome = (...args) =>
-      globalScope.startMetronome?.(...args),
-    stopMetronome = (...args) =>
-      globalScope.stopMetronome?.(...args),
-    getMetronomeSchedulerBridge = () =>
-      globalScope.getMetronomeSchedulerBridge?.() || null,
-    checkMetronomeTick = (...args) =>
-      globalScope.checkMetronomeTick?.(...args),
+    setTransportOrigin = () => {},
+    getTransportPlayhead = () => 0,
+    updatePlayheadUI = () => {},
+    scheduleAllFromPlayhead = () => {},
+    stopAllVoices = () => {},
+    startMetronome = () => {},
+    stopMetronome = () => {},
+    getMetronomeSchedulerBridge = () => null,
+    checkMetronomeTick = () => {},
     getCountInScheduler = () =>
       globalScope.countInSchedulerBridge || null,
-    alignPlayheadToNearestMeasure = (...args) =>
-      globalScope.alignPlayheadToNearestMeasure?.(...args),
-    getTimeSignatureGridConfig = (...args) =>
-      globalScope.getTimeSignatureGridConfig?.(...args),
+    alignPlayheadToNearestMeasure = () => {},
+    getTimeSignatureGridConfig = () => ({}),
     getAppSettings = () => ({}),
     getRecordingRuntime = () => null,
     getAudioContextService = () => null,

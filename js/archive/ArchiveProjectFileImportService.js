@@ -26,7 +26,7 @@
       getDAW,
       getSong,
       getElement = id => globalScope.document?.getElementById(id),
-      setEditorSong,
+      setSong,
       setProjectFilePath = () => {},
       clearProjectFilePath = () => {},
       pauseTransport = () => {},
@@ -110,7 +110,7 @@
         daw.loopA = 0;
         daw.loopB = 10;
         daw.arrangerMarkers = { enabled: false, start: 0, end: 0 };
-        setEditorSong(data);
+        setSong(data);
         const song = getSong();
         if (!song.styles) song.styles = {};
         Object.keys(DEFAULT_STYLES).forEach(key => {

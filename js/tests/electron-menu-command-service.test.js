@@ -8,7 +8,8 @@ const original = {};
   'edSaveSong',
   'edSaveProjectFile',
   'edExportProjectFull',
-  'getEditorDAW',
+  'EditorRuntimeAdapter',
+  'AkordyarCoreApi',
   'startTransport',
   'pauseTransport',
   'stopTransport',
@@ -28,16 +29,20 @@ globalThis.edImportProject = () => calls.push('open');
 globalThis.edSaveSong = () => calls.push('save');
 globalThis.edSaveProjectFile = () => calls.push('save-file');
 globalThis.edExportProjectFull = () => calls.push('export');
-globalThis.getEditorDAW = () => ({ isPlaying: false });
-globalThis.startTransport = () => calls.push('start');
-globalThis.pauseTransport = () => calls.push('pause');
-globalThis.stopTransport = () => calls.push('stop');
-globalThis.transportToStart = () => calls.push('start-position');
-globalThis.transportToEnd = () => calls.push('end-position');
-globalThis.openArrangerModal = () => calls.push('arranger');
+globalThis.EditorRuntimeAdapter = {
+  getDAW: () => ({ isPlaying: false })
+};
+globalThis.AkordyarCoreApi = {
+  startTransport: () => calls.push('start'),
+  pauseTransport: () => calls.push('pause'),
+  stopTransport: () => calls.push('stop'),
+  transportToStart: () => calls.push('start-position'),
+  transportToEnd: () => calls.push('end-position'),
+  openArrangerModal: () => calls.push('arranger'),
+  openSettings: () => calls.push('settings')
+};
 globalThis.edOpenArchive = () => calls.push('archive');
 globalThis.getMidiScoreController = () => ({ open: () => calls.push('score') });
-globalThis.openSettings = () => calls.push('settings');
 
 const handlers = new Map();
 const service = menuModule.create({

@@ -13,7 +13,7 @@
     documentRef = globalScope.document,
     windowRef = globalScope,
     startPointerDrag = (...args) =>
-      globalScope.startEditorPointerDrag?.(...args)
+      globalScope.EditorRuntimeAdapter?.startPointerDrag?.(...args)
   } = {}) {
     let movableWindowService = null;
 

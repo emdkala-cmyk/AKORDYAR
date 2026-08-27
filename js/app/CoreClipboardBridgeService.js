@@ -12,24 +12,19 @@
     clipboardFactory = () => globalScope.ClipboardService,
     deletionFactory = () =>
       globalScope.CoreClipDeletionService?.create,
-    getEdSaveSong = () => globalScope.edSaveSong,
-    getDAW = () => globalScope.getEditorDAW?.() || globalScope.DAW,
-    selectedClips = () => globalScope.selectedClips?.() || [],
-    uid = (...args) => globalScope.uid?.(...args),
+    getEdSaveSong = () => globalScope.AkordyarEditorApi?.saveSong,
+    getDAW = () => globalScope.RuntimeStateAdapter?.getDAW?.() || null,
+    selectedClips = () => [],
+    uid = prefix => `${prefix || 'c'}${Date.now()}`,
     roundMs = value => value,
-    peaksFromBuffer = (...args) =>
-      globalScope.peaksFromBuffer?.(...args) || [],
-    refreshClipWaveImage = (...args) =>
-      globalScope.refreshClipWaveImage?.(...args),
-    ensureTimelineFits = (...args) =>
-      globalScope.ensureTimelineFits?.(...args),
-    saveState = (...args) => globalScope.saveState?.(...args),
-    renderAll = (...args) => globalScope.renderAll?.(...args),
-    scheduleAllFromPlayhead = (...args) =>
-      globalScope.scheduleAllFromPlayhead?.(...args),
-    stopAllVoices = (...args) =>
-      globalScope.stopAllVoices?.(...args),
-    toast = (...args) => globalScope.toast?.(...args),
+    peaksFromBuffer = () => [],
+    refreshClipWaveImage = () => {},
+    ensureTimelineFits = () => {},
+    saveState = () => {},
+    renderAll = () => {},
+    scheduleAllFromPlayhead = () => {},
+    stopAllVoices = () => {},
+    toast = () => {},
     translate = (...args) => globalScope.t?.(...args) ?? args[0]
   } = {}) {
     let clipboardService = null;

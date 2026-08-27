@@ -11,8 +11,8 @@
     documentRef = globalScope.document,
     windowRef = globalScope,
     getElement = id => documentRef?.getElementById?.(id),
-    getDAW = () => globalScope.getEditorDAW?.() || {},
-    getClip = clipId => globalScope.getClip?.(clipId),
+    getDAW = () => globalScope.RuntimeStateAdapter?.getDAW?.() || {},
+    getClip = () => null,
     getMidiChordService = () => null,
     getCurrentChord = () => ({
       root: 'None',

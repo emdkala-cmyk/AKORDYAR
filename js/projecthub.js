@@ -25,6 +25,17 @@
     return window.ArchiveRuntimeAdapter?.getDAW?.() || null;
   }
 
+  function getCoreArrangerApi() {
+    return window.AkordyarCoreApi || {};
+  }
+
+  const coreEnsureAudioCtx = (...args) =>
+    getCoreArrangerApi().ensureAudioCtx?.(...args);
+  const coreRenderAll = (...args) =>
+    getCoreArrangerApi().renderAll?.(...args);
+  const coreSaveState = (...args) =>
+    getCoreArrangerApi().saveState?.(...args);
+
   function escH(s) {
     const d = document.createElement('div');
     d.textContent = String(s ?? '');
@@ -183,31 +194,16 @@
   /* ---------- Data: Arranger Playlists (ارنجر ترک‌ها از localStorage) ---------- */
   function getArrangerPlaylists() {
     try {
-      // Access the arranger data published by the active core runtime.
-      if (typeof window.arrangers !== 'undefined' && Array.isArray(window.arrangers)) {
-        return window.arrangers.map((arr) => ({
-          id: arr.id,
-          name: arr.name || 'بدون نام',
-          songCount: (arr.items || []).length,
-          crossfade: arr.crossfade || 0,
-          pauseBetween: !!arr.pauseBetween,
-          icon: '🎼'
-        }));
-      }
-      // Fallback: try to read from localStorage directly
-      try {
-        const stored = JSON.parse(localStorage.getItem('arrangers_v1') || '[]');
-        return stored.map((arr) => ({
-          id: arr.id,
-          name: arr.name || 'بدون نام',
-          songCount: (arr.items || []).length,
-          crossfade: arr.crossfade || 0,
-          pauseBetween: !!arr.pauseBetween,
-          icon: '🎼'
-        }));
-      } catch (e) {
-        return [];
-      }
+      const arrangers = getCoreArrangerApi().getArrangers?.();
+      if (!Array.isArray(arrangers)) return [];
+      return arrangers.map((arr) => ({
+        id: arr.id,
+        name: arr.name || 'بدون نام',
+        songCount: (arr.items || []).length,
+        crossfade: arr.crossfade || 0,
+        pauseBetween: !!arr.pauseBetween,
+        icon: '🎼'
+      }));
     } catch (e) {
       console.warn('[ProjectHub] Error loading arranger playlists:', e);
       return [];
@@ -353,7 +349,7 @@
       await edNewSong();
     }
 
-    // ۳) اعمال تنظیمات قالب روی edCur
+    // ۳) اعمال تنظیمات قالب روی song
     // توجه: عنوان ترانه ست نمیشود — قالب فقط ساختار DAW را تنظیم میکند
     const cfg = template.config;
     try {
@@ -371,7 +367,7 @@
       // ۴) تنظیم ترک‌های DAW بر اساس قالب
       if (cfg.tracks && Array.isArray(cfg.tracks) && daw) {
         daw.tracks = JSON.parse(JSON.stringify(cfg.tracks));
-        if (typeof ensureAudioCtx === 'function') ensureAudioCtx();
+        coreEnsureAudioCtx();
         daw.tracks.forEach(t => {
           if (t.type === 'audio' && daw.audioCtx) {
             t._pannerNode = daw.audioCtx.createStereoPanner();
@@ -388,8 +384,8 @@
       // ۶) به‌روزرسانی UI
       if (typeof edSyncToolbar === 'function') edSyncToolbar();
       if (typeof edRenderEditor === 'function') edRenderEditor(true);
-      if (typeof renderAll === 'function') renderAll();
-      if (typeof saveState === 'function') saveState();
+      coreRenderAll();
+      coreSaveState();
 
       console.log(`[ProjectHub] Template applied: ${template.name}`);
     } catch (e) {
@@ -423,8 +419,9 @@
   }
 
   function openSettings() {
-    if (typeof window.openSettings === 'function') {
-      window.openSettings();
+    const openSettingsCommand = window.AkordyarCoreApi?.openSettings;
+    if (typeof openSettingsCommand === 'function') {
+      openSettingsCommand();
     } else {
       const modal = $('settingsModal');
       if (modal) modal.classList.add('show');
@@ -443,26 +440,18 @@
 
   /* ---------- Arranger Actions ---------- */
   function openArrangerFromPlaylist(id) {
-    // Try to open the arranger modal and select the specific playlist
-    if (typeof window.openArrangerModal === 'function') {
-      window.openArrangerModal();
-    } else {
-      // Fallback: try to open via the global onclick handler
-      const modal = document.getElementById('arrangerModal');
-      if (modal) modal.classList.add('show');
-    }
+    const arrangerApi = getCoreArrangerApi();
+    const arranger = arrangerApi
+      .getArrangers?.()
+      ?.find?.(item => String(item.id) === String(id));
+    arrangerApi.setEditingArr?.(arranger || null);
+    arrangerApi.openArrangerModal?.();
     // بستن هاب تا محیط ارنجر دیده شود
     closeHub();
   }
 
   function createNewArranger() {
-    if (typeof window.createNewArranger === 'function') {
-      window.createNewArranger();
-    } else {
-      // Fallback: try the global function
-      const modal = document.getElementById('arrangerModal');
-      if (modal) modal.classList.add('show');
-    }
+    getCoreArrangerApi().createNewArranger?.();
     // بستن هاب تا محیط ارنجر دیده شود
     closeHub();
   }

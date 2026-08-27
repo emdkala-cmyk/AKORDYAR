@@ -16,7 +16,7 @@
   ];
 
   function create({
-    getDAW = () => globalScope.getEditorDAW?.() || globalScope.DAW,
+    getDAW = () => globalScope.RuntimeStateAdapter?.getDAW?.() || null,
     documentRef = globalScope.document,
     getNavigator = () => globalScope.navigator,
     getMediaRecorder = () => globalScope.MediaRecorder,
@@ -25,24 +25,20 @@
       globalScope.requestAnimationFrame?.(...args),
     cancelAnimationFrameRef = (...args) =>
       globalScope.cancelAnimationFrame?.(...args),
-    ensureAudioCtx = () => globalScope.ensureAudioCtx?.(),
-    updateTrackMix = (...args) => globalScope.updateTrackMix?.(...args),
-    renderAll = (...args) => globalScope.renderAll?.(...args),
-    startTransport = (...args) => globalScope.startTransport?.(...args),
-    pauseTransport = (...args) => globalScope.pauseTransport?.(...args),
+    ensureAudioCtx = () => {},
+    updateTrackMix = () => {},
+    renderAll = () => {},
+    startTransport = () => {},
+    pauseTransport = () => {},
     timeToX = value => value,
-    decodeFileToBuffer = (...args) =>
-      globalScope.decodeFileToBuffer?.(...args),
-    peaksFromBuffer = (...args) =>
-      globalScope.peaksFromBuffer?.(...args) || [],
-    refreshClipWaveImage = (...args) =>
-      globalScope.refreshClipWaveImage?.(...args),
-    ensureTimelineFits = (...args) =>
-      globalScope.ensureTimelineFits?.(...args),
-    saveState = (...args) => globalScope.saveState?.(...args),
+    decodeFileToBuffer = () => null,
+    peaksFromBuffer = () => [],
+    refreshClipWaveImage = () => {},
+    ensureTimelineFits = () => {},
+    saveState = () => {},
     saveAudioBlobToDB = (...args) =>
-      globalScope.saveAudioBlobToDB?.(...args),
-    uid = prefix => globalScope.uid?.(prefix),
+      globalScope.EditorAudioStorageRuntime?.saveAudioBlobToDB?.(...args),
+    uid = prefix => `${prefix || 'c'}${Date.now()}`,
     roundMs = value => value,
     formatTime = value => String(value),
     toast = () => {},

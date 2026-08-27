@@ -9,12 +9,11 @@
   'use strict';
 
   function create({
-    getDAW = () => globalScope.getEditorDAW?.() || globalScope.DAW,
-    stopAllVoices = () => globalScope.stopAllVoices?.(),
-    saveState = () => globalScope.saveState?.(),
-    renderAll = () => globalScope.renderAll?.(),
-    scheduleAllFromPlayhead = () =>
-      globalScope.scheduleAllFromPlayhead?.(),
+    getDAW = () => globalScope.RuntimeStateAdapter?.getDAW?.() || null,
+    stopAllVoices = () => {},
+    saveState = () => {},
+    renderAll = () => {},
+    scheduleAllFromPlayhead = () => {},
     toast = () => {},
     translate = key => globalScope.t?.(key) ?? key
   } = {}) {

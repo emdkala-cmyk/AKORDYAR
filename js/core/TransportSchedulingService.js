@@ -50,8 +50,8 @@
 
     let metronomeScheduler = null;
     let countInScheduler = null;
-    let legacyRunning = false;
-    let legacyBeat = 0;
+    let fallbackRunning = false;
+    let fallbackBeat = 0;
     let soundType = 'classic';
     let lastTimingLog = null;
 
@@ -121,22 +121,22 @@
         });
         if (!started) return false;
 
-        legacyRunning = false;
+        fallbackRunning = false;
         return true;
       }
 
       if (!metronomeEngine) return false;
       metronomeEngine.start();
-      legacyRunning = true;
-      legacyBeat = -1;
+      fallbackRunning = true;
+      fallbackBeat = -1;
       return true;
     }
 
     function stopMetronome() {
       metronomeScheduler?.stop?.();
       if (metronomeEngine) metronomeEngine.stop();
-      legacyRunning = false;
-      legacyBeat = 0;
+      fallbackRunning = false;
+      fallbackBeat = 0;
     }
 
     function playClick(isAccent, requestedSoundType = soundType) {
@@ -146,12 +146,12 @@
       ) || false;
     }
 
-    function checkLegacyTick(
+    function checkMetronomeTick(
       playheadTime,
       { bpm = 120, timeSignature = '4/4' } = {}
     ) {
       const daw = getDAW();
-      if (!legacyRunning || !daw?.isPlaying) return null;
+      if (!fallbackRunning || !daw?.isPlaying) return null;
 
       const config = getMeterConfig(timeSignature, bpm);
       const beatDuration = Number(config?.beatDuration);
@@ -187,12 +187,12 @@
         if (!beatEvent) return null;
 
         playClick(beatEvent.isAccent);
-        legacyBeat = beatEvent.beatIndex;
+        fallbackBeat = beatEvent.beatIndex;
         return beatEvent;
       }
 
       const currentBeat = Math.floor(playheadTime / beatDuration);
-      if (currentBeat === legacyBeat) return null;
+      if (currentBeat === fallbackBeat) return null;
 
       const beatEvent = {
         beatIndex: currentBeat,
@@ -200,7 +200,7 @@
         isAccent: strongBeat(currentBeat % beatsPerMeasure, timeSignature)
       };
       playClick(beatEvent.isAccent);
-      legacyBeat = currentBeat;
+      fallbackBeat = currentBeat;
       return beatEvent;
     }
 
@@ -221,7 +221,7 @@
       startMetronome,
       stopMetronome,
       playClick,
-      checkLegacyTick,
+      checkMetronomeTick,
       isCountInRunning,
       cancelCountIn
     });

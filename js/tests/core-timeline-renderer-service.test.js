@@ -29,11 +29,7 @@ const globals = {
       };
     }
   },
-  getEditorDAW: () => daw,
-  requireEditorSongStateService: () => ({ currentSong: () => ({}) }),
-  t: value => `translated:${value}`,
-  clientToTime: value => value / 2,
-  uid: prefix => `${prefix}99`
+  getEditorDAW: () => daw
 };
 const previous = {};
 for (const [key, value] of Object.entries(globals)) {
@@ -46,7 +42,10 @@ try {
     documentRef: {},
     windowRef: {},
     getDAW: globals.getEditorDAW,
-    getSongState: globals.requireEditorSongStateService
+    getSongState: () => ({ currentSong: () => ({}) }),
+    translate: value => `translated:${value}`,
+    clientToTime: value => value / 2,
+    uid: prefix => `${prefix}99`
   });
 
   assert.equal(factoryCalls, 0);

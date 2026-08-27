@@ -28,7 +28,7 @@
 
   function buildTimeline() {
     const daw = globalScope.RuntimeStateAdapter?.getDAW?.() || null;
-    const song = globalScope.EdCurAdapter?.getEdCur?.() || null;
+    const song = globalScope.EditorRuntimeAdapter?.getSong?.() || null;
     const sourceClips = Array.isArray(daw?.clips)
       ? daw.clips.filter(clip => clip && clip.type === 'chord')
       : [];
@@ -68,7 +68,7 @@
   // returned privately to the requesting phone.
   function buildMidiScorePayload(scoreState, requestedPartId = null, includeTrack = false) {
     const score = scoreState?.score;
-    const song = globalScope.EdCurAdapter?.getEdCur?.() || null;
+    const song = globalScope.EditorRuntimeAdapter?.getSong?.() || null;
     const playheadMode = song?.liveScoreSettings?.playheadMode === 'measure'
       ? 'measure'
       : 'line';
@@ -170,7 +170,7 @@
 
   function buildMusicXmlScorePayload(scoreState, requestedPartId = null, includePart = false) {
     const score = scoreState?.score;
-    const song = globalScope.EdCurAdapter?.getEdCur?.() || null;
+    const song = globalScope.EditorRuntimeAdapter?.getSong?.() || null;
     const projectTempo = Math.max(
       1,
       Number(song?.tempo) || Number(
@@ -547,17 +547,19 @@
           try { MasterSyncEvents.onLeave?.(res.message.p || {}); } catch (_) {}
         } else if (t === Protocol.MSG.SEEK_REQUEST) {
           const time = Number(res.message.p && res.message.p.time);
-          if (Number.isFinite(time) && typeof globalScope.seekTransport === 'function') {
-            globalScope.seekTransport(time, false, true);
+          const coreApi = globalScope.AkordyarCoreApi;
+          if (Number.isFinite(time) && typeof coreApi?.seekTransport === 'function') {
+            coreApi.seekTransport(time, false, true);
           }
       } else if (t === Protocol.MSG.TRANSPORT_REQUEST) {
           const action = res.message.p && res.message.p.action;
-          if (action === 'play' && typeof globalScope.startTransport === 'function') {
-            globalScope.startTransport();
-          } else if (action === 'pause' && typeof globalScope.pauseTransport === 'function') {
-            globalScope.pauseTransport();
-          } else if (action === 'stop' && typeof globalScope.stopTransport === 'function') {
-            globalScope.stopTransport();
+          const coreApi = globalScope.AkordyarCoreApi;
+          if (action === 'play' && typeof coreApi?.startTransport === 'function') {
+            coreApi.startTransport();
+          } else if (action === 'pause' && typeof coreApi?.pauseTransport === 'function') {
+            coreApi.pauseTransport();
+          } else if (action === 'stop' && typeof coreApi?.stopTransport === 'function') {
+            coreApi.stopTransport();
           }
         } else if (t === Protocol.MSG.MIDI_SCORE_REQUEST) {
           const requesterId = res.message.m && res.message.m.requesterId;

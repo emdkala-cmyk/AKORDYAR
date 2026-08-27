@@ -8,41 +8,49 @@
 (function attachRuntimeStateAdapter(globalScope) {
   let dawRuntime = null;
   let performanceRuntime = null;
+  let dawState = null;
+  let performanceState = null;
+
+  function setDAW(state) {
+    dawState = state && typeof state === 'object' ? state : null;
+    dawRuntime = dawState && globalScope.DAWRuntimeAdapter?.create
+      ? globalScope.DAWRuntimeAdapter.create(dawState)
+      : null;
+    return dawState;
+  }
+
+  function setPERF(state) {
+    performanceState = state && typeof state === 'object' ? state : null;
+    performanceRuntime =
+      performanceState && globalScope.PerformanceRuntimeAdapter?.create
+        ? globalScope.PerformanceRuntimeAdapter.create(performanceState)
+        : null;
+    return performanceState;
+  }
 
   function getDAWRuntime() {
-    if (
-      !dawRuntime &&
-      globalScope.DAWRuntimeAdapter?.create &&
-      globalScope.DAW
-    ) {
-      dawRuntime = globalScope.DAWRuntimeAdapter.create(globalScope.DAW);
-    }
     return dawRuntime;
   }
 
   function getPerformanceRuntime() {
-    if (
-      !performanceRuntime &&
-      globalScope.PerformanceRuntimeAdapter?.create &&
-      globalScope.PERF
-    ) {
-      performanceRuntime =
-        globalScope.PerformanceRuntimeAdapter.create(globalScope.PERF);
-    }
     return performanceRuntime;
   }
 
   const RuntimeStateAdapter = Object.freeze({
+    setDAW,
+
     getDAW() {
-      return getDAWRuntime()?.getState?.() || globalScope.DAW || null;
+      return getDAWRuntime()?.getState?.() || dawState || null;
     },
 
     getDAWAdapter() {
       return getDAWRuntime();
     },
 
+    setPERF,
+
     getPERF() {
-      return getPerformanceRuntime()?.getState?.() || globalScope.PERF || null;
+      return getPerformanceRuntime()?.getState?.() || performanceState || null;
     },
 
     getPERFAdapter() {

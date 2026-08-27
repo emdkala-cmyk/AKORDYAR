@@ -6,9 +6,7 @@
  */
 (function attachDomainBridge(globalScope) {
   function getSong() {
-    return globalScope.EditorRuntimeAdapter?.getSong?.()
-      || globalScope.EdCurAdapter?.getEdCur?.()
-      || null;
+    return globalScope.EditorRuntimeAdapter?.getSong?.() || null;
   }
 
   function getPerformanceStore() {
@@ -21,12 +19,12 @@
   }
 
   function onSongChanged() {
-    callRuntime('rebuildSongDocumentFromEdCur');
-    callRuntime('syncViewStylesFromEdCur');
+    callRuntime('rebuildPerformanceSongDocument');
+    callRuntime('syncViewStylesFromSong');
   }
 
   function onKeyOrTransposeChanged() {
-    callRuntime('rebuildSongDocumentFromEdCur');
+    callRuntime('rebuildPerformanceSongDocument');
     if (getPerformanceStore()) callRuntime('publishPerformanceState');
   }
 

@@ -12,6 +12,8 @@ const html = fs.readFileSync(
   'utf8'
 );
 assert.match(core, /globalScope\.DAWRuntimeState\.create\(\)/);
+assert.match(core, /RuntimeStateAdapter\.setDAW\(DAW\)/);
+assert.doesNotMatch(core, /globalScope\.DAW\s*=/);
 assert.doesNotMatch(
   core,
   /globalScope\.DAWRuntimeState\?\.\.create\?\.\(\)\s*\|\|\s*\{/,
@@ -24,6 +26,10 @@ assert.equal(
 );
 assert.ok(
   html.indexOf('js/core/DAWRuntimeState.js') <
+    html.indexOf('js/app/core.js')
+);
+assert.ok(
+  html.indexOf('js/core/RuntimeStateAdapter.js') <
     html.indexOf('js/app/core.js')
 );
 

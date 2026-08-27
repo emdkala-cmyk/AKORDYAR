@@ -38,7 +38,7 @@ async function run() {
     setAllSongs: value => {
       songs.splice(0, songs.length, ...value);
     },
-    setEditorSong: song => { currentSong = song; },
+    setSong: song => { currentSong = song; },
     generateId: () => 'copy-id',
     ensureSongParsed: () => { parsed++; },
     closeArchive: () => { closed++; },

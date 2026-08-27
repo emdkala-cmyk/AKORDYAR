@@ -1,6 +1,6 @@
 const assert = require('node:assert/strict');
-const SyncAnalysisUiService = require(
-  '../editor/EditorSyncAnalysisUiService.js'
+const SyncAnalysisRuntimeService = require(
+  '../editor/EditorSyncAnalysisRuntimeService.js'
 );
 
 const elements = {
@@ -26,7 +26,7 @@ const song = {
   getChords: () => chords
 };
 
-const service = SyncAnalysisUiService.create({
+const service = SyncAnalysisRuntimeService.create({
   analysis: {
     detectTempoFromSyncTimes: () => ({
       ok: true,
@@ -89,4 +89,4 @@ assert.deepEqual(changes.slice(-4), [
   ['render']
 ]);
 
-console.log('EditorSyncAnalysisUiService tests passed');
+console.log('EditorSyncAnalysisRuntimeService tests passed');

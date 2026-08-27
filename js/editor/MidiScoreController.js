@@ -16,10 +16,7 @@
     onSongChanged = () => {},
     toast = () => {},
     getDAW = () =>
-      globalScope.EditorRuntimeAdapter?.getDAW?.() ||
-      globalScope.RuntimeStateAdapter?.getDAW?.() ||
-      globalScope.DAW ||
-      null,
+      globalScope.RuntimeStateAdapter?.getDAW?.() || null,
     importService = globalScope.MidiScoreImportService,
     model = globalScope.MidiScoreModel,
     renderer = globalScope.MidiScoreRenderer,

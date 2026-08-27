@@ -16,7 +16,7 @@
       getAllSongs = () => [],
       getCurrentSong = () => null,
       setAllSongs = () => {},
-      setEditorSong = () => {},
+      setSong = () => {},
       generateId = () => `${Date.now()}_${Math.random().toString(36).slice(2)}`,
       ensureSongParsed = () => {},
       closeArchive = () => {},
@@ -75,7 +75,7 @@
       const songs = getAllSongs();
       songs.unshift(copy);
       setAllSongs(songs);
-      setEditorSong(copy);
+      setSong(copy);
       toast('نسخه قابل ویرایش ساخته شد');
     }
 

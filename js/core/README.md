@@ -10,7 +10,7 @@
 | --- | --- |
 | ذخیره و بازیابی فایل صوتی | `js/core/ProjectAudioService.js` |
 | نگهداری و بازیابی صدای پروژه | `js/editor/EditorAudioStorageService.js` |
-| facade سازگار برای مسیرهای editor | `js/editor/EditorAudioStorageFacadeService.js` |
+| runtime ذخیره و بازیابی صوت | `js/editor/EditorAudioStorageRuntimeService.js` |
 | بازیابی صدای پروژه | `js/editor/AudioRecoveryService.js` |
 | ورود فایل صوتی و ساخت waveform | `js/app/CoreAudioImportService.js` |
 | ذخیرهٔ پروژهٔ editor | `js/editor/EditorSongPersistenceService.js` |
@@ -19,7 +19,7 @@
 ## مسیر افزودن فایل صوتی
 
 ورود فایل از انتخاب فایل یا drag & drop به `CoreAudioImportService` می‌رسد.
-این سرویس از facadeهای صوتی فعال برای ذخیره، decode، ساخت waveform، ثبت
+این سرویس از runtime صوتی تزریقی برای ذخیره، decode، ساخت waveform، ثبت
 کلیپ و refresh تایم‌لاین استفاده می‌کند. در Electron دسترسی فایل فقط از
 `window.electronAPI` و در وب از storage سرویس‌های جدید انجام می‌شود.
 

@@ -107,7 +107,6 @@
           clips,
           sections,
           arrangerMarkers: songData._arrangerMarkers,
-          legacyLoopState: songData._dawLoop,
           fallbackEnd: 30
         }) || {
           start: 0,

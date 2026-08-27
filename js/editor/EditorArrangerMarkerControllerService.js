@@ -17,7 +17,7 @@
     documentRef = globalScope.document,
     isPerforming = () => false,
     startPointerDrag = (...args) =>
-      globalScope.startEditorPointerDrag?.(...args),
+      globalScope.EditorRuntimeAdapter?.startPointerDrag?.(...args),
     saveState = () => {},
     saveSong = () => {},
     toast = () => {},

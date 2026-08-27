@@ -2,7 +2,7 @@
  * EditorProjectExportService
  *
  * ساخت snapshot قابل‌ذخیره از song/DAW و embedding فایل‌های صوتی کپی‌شده.
- * این سرویس هیچ دسترسی مستقیمی به DOM، edCur، DAW global یا PERF ندارد.
+ * این سرویس هیچ دسترسی مستقیمی به DOM، Song Runtime، DAW global یا PERF ندارد.
  */
 (function attachEditorProjectExportService(globalScope) {
   function clone(value) {

@@ -18,6 +18,7 @@ function executableLines(source) {
 const archive = executableLines(read('js/archive/ArchiveModule.js'));
 const projectHub = executableLines(read('js/projecthub.js'));
 const performanceBridge = executableLines(read('js/performanceBridge.js'));
+const masterSync = executableLines(read('js/sync/masterSync.js'));
 const archiveRuntimeAdapter = read('js/archive/ArchiveRuntimeAdapter.js');
 const editorRuntimeAdapter = read('js/core/EditorRuntimeAdapter.js');
 const domainBridge = read('js/core/DomainBridge.js');
@@ -32,6 +33,9 @@ const editorChordImportService = read('js/editor/EditorChordImportService.js');
 const editorMidiInputService = read('js/editor/EditorMidiInputService.js');
 const editorAutoImportStateService = read(
   'js/editor/EditorAutoImportStateService.js'
+);
+const editorAutoImportRuntimeService = read(
+  'js/editor/EditorAutoImportRuntimeService.js'
 );
 const editorAutoImportFileSaveService = read(
   'js/editor/EditorAutoImportFileSaveService.js'
@@ -48,8 +52,14 @@ const editorArrangerSongLoadService = read(
 const editorArrangerHotSwapService = read(
   'js/editor/EditorArrangerHotSwapService.js'
 );
+const editorArrangerRuntimeService = read(
+  'js/editor/EditorArrangerRuntimeService.js'
+);
 const editorProjectExportWorkflowService = read(
   'js/editor/EditorProjectExportWorkflowService.js'
+);
+const editorAudioStorageRuntimeService = read(
+  'js/editor/EditorAudioStorageRuntimeService.js'
 );
 const editorPlaylistBackupService = read(
   'js/editor/EditorPlaylistBackupService.js'
@@ -61,8 +71,8 @@ const editorColorToolService = read(
   'js/editor/EditorColorToolService.js'
 );
 const editorLyricsRenderer = read('js/editor/EditorLyricsRenderer.js');
-const editorSyncAnalysisUiService = read(
-  'js/editor/EditorSyncAnalysisUiService.js'
+const editorSyncAnalysisRuntimeService = read(
+  'js/editor/EditorSyncAnalysisRuntimeService.js'
 );
 const midiMonitorService = read('js/app/MidiMonitorService.js');
 const coreGridQuantizeService = read('js/app/CoreGridQuantizeService.js');
@@ -71,12 +81,18 @@ const coreTransportService = read('js/app/CoreTransportService.js');
 const corePerformanceModeService = read(
   'js/app/CorePerformanceModeService.js'
 );
+const corePerformanceRuntimeService = read(
+  'js/app/CorePerformanceRuntimeService.js'
+);
 const corePanelLayoutService = read('js/app/CorePanelLayoutService.js');
 const coreTimelineGeometryService = read('js/app/CoreTimelineGeometryService.js');
 const coreTimelineRendererService = read('js/app/CoreTimelineRendererService.js');
 const coreTimelineGridService = read('js/app/CoreTimelineGridService.js');
 const coreTimelineSectionBridgeService = read(
   'js/app/CoreTimelineSectionBridgeService.js'
+);
+const coreTimelineRuntimeService = read(
+  'js/app/CoreTimelineRuntimeService.js'
 );
 const coreTimelineChordEditorBridgeService = read(
   'js/app/CoreTimelineChordEditorBridgeService.js'
@@ -121,7 +137,11 @@ const coreArrangerControlsService = read(
 const coreArrangerEditorActionsService = read(
   'js/app/CoreArrangerEditorActionsService.js'
 );
+const coreArrangerRuntimeService = read(
+  'js/app/CoreArrangerRuntimeService.js'
+);
 const coreFocusModeService = read('js/app/CoreFocusModeService.js');
+const corePopupRuntimeService = read('js/app/CorePopupRuntimeService.js');
 const coreSyncModeBridgeService = read(
   'js/app/CoreSyncModeBridgeService.js'
 );
@@ -147,11 +167,18 @@ assert.doesNotMatch(performanceBridge, /\bDAW\s*\./);
 assert.doesNotMatch(performanceBridge, /\bPERF\s*\./);
 
 assert.match(archiveRuntimeAdapter, /getSong\(\)/);
+assert.doesNotMatch(archiveRuntimeAdapter, /EdCurAdapter|getEdCur|setEdCur/);
 assert.match(archiveRuntimeAdapter, /getDAW\(\)/);
 assert.match(archiveRuntimeAdapter, /getPERF\(\)/);
 assert.match(editorRuntimeAdapter, /getDAWOrThrow\(\)/);
 assert.match(editorRuntimeAdapter, /getPERFOrThrow\(\)/);
 assert.match(editorRuntimeAdapter, /startPointerDrag/);
+assert.match(editorRuntimeAdapter, /onSongChange/);
+assert.doesNotMatch(editorRuntimeAdapter, /EdCurAdapter/);
+assert.doesNotMatch(
+  editorRuntimeAdapter,
+  /globalScope\.(?:getEditorDAW|getEditorPERF|getEditorSong|startEditorPointerDrag)/
+);
 assert.match(domainBridge, /getPerformanceStore/);
 assert.match(domainBridge, /callRuntime/);
 assert.doesNotMatch(domainBridge, /window\.edCur/);
@@ -164,11 +191,29 @@ assert.match(editorSongStateService, /setSeqPoints/);
 assert.match(editorSongStateService, /setSyncTime/);
 assert.doesNotMatch(editorSongRuntimeService, /document/);
 assert.match(editorSongRuntimeService, /assertSynchronized/);
+assert.match(editorSongRuntimeService, /onSongChange/);
+assert.doesNotMatch(editorSongRuntimeService, /EdCurAdapter|getEdCur|setEdCur/);
 assert.doesNotMatch(
   editorSongRuntimeService,
   /EditorLegacySongBridge|getLegacySong|setLegacySong|legacyBridge/
 );
 assert.doesNotMatch(editor, /EditorLegacySongBridge/);
+assert.match(
+  editorAudioStorageRuntimeService,
+  /EditorAudioStorageRuntimeService/
+);
+assert.match(
+  editorAudioStorageRuntimeService,
+  /EditorAudioStorageRuntime\s*=\s*create\(\)/
+);
+assert.doesNotMatch(
+  editorAudioStorageRuntimeService,
+  /Object\.assign\(globalScope,\s*create\(\)\)/
+);
+assert.doesNotMatch(
+  editorAudioStorageRuntimeService,
+  /globalScope\.(?:getAudioCompressionService|openAudioDB|saveFileHandle|getFileHandle|saveAudioBlobToDB|getAudioBlobFromDB|saveAudioBlobsForProject|loadAudioBlobsForProject|deleteAudioBlobsForProject|formatBytes|base64ToUint8|decodeWebMToBuffer|resampleFloat32|refreshStorageInfo)\b/
+);
 assert.doesNotMatch(syncModeController, /getEdCur/);
 assert.match(syncModeController, /songState\.setSeqPoints/);
 assert.match(syncModeController, /songState\.replaceSyncTimes/);
@@ -212,6 +257,15 @@ assert.doesNotMatch(editorAutoImportStateService, /window\._ai/);
 assert.doesNotMatch(editor, /window\._ai(?:Results|ArtistMap|Stats|FailedSongs|FailedFiles)/);
 assert.doesNotMatch(editor, /window\._autoImportDirHandle/);
 assert.doesNotMatch(editor, /window\.(?:timelineScrollbars|timelinePanelLayout)/);
+assert.match(editorAutoImportRuntimeService, /function parseArtistNames\(/);
+assert.match(editorAutoImportRuntimeService, /function escapeHtml\(/);
+assert.match(editorAutoImportRuntimeService, /function saveSongToArchive\(/);
+assert.match(editorAutoImportRuntimeService, /function buildProgressDetail\(/);
+assert.match(editorAutoImportRuntimeService, /workflowService\.create/);
+assert.match(editorAutoImportRuntimeService, /retryService\.create/);
+assert.doesNotMatch(editor, /function parseArtistNames\(/);
+assert.doesNotMatch(editor, /function saveSongToArchive\(/);
+assert.doesNotMatch(editor, /function buildProgressDetail\(/);
 assert.match(editorAutoImportFileSaveService, /async function saveFiles\(\)/);
 assert.match(
   editorAutoImportFileSaveService,
@@ -230,19 +284,13 @@ assert.match(
   editorAutoImportWorkflowService,
   /function buildFinalReport/
 );
-assert.doesNotMatch(editor, /async function startAutoImport\(\)/);
-assert.match(
-  editor,
-  /function startAutoImport\(\)\s*\{\s*return editorAutoImportWorkflowService\.start\(\);\s*\}/
-);
+assert.match(editorAutoImportRuntimeService, /function startAutoImport\(\)/);
+assert.doesNotMatch(editor, /function startAutoImport\(\)/);
 assert.match(editorAutoImportRetryService, /async function retryFailed\(\)/);
 assert.match(editorAutoImportRetryService, /function groupByArtist/);
 assert.match(editorAutoImportRetryService, /song => !song\.error && song\.rawText/);
-assert.doesNotMatch(editor, /async function autoRetryFailed\(\)[\s\S]*groupByArtist/);
-assert.match(
-  editor,
-  /async function autoRetryFailed\(\)\s*\{\s*return getEditorAutoImportRetryService\(\)\?\.retryFailed\?\.\(\);\s*\}/
-);
+assert.match(editorAutoImportRuntimeService, /function autoRetryFailed\(\)/);
+assert.doesNotMatch(editor, /function autoRetryFailed\(\)/);
 assert.doesNotMatch(editor, /━━━ خلاصه شناسایی ━━━/);
 assert.match(editorArrangerSongLoadService, /async function load\(index\)/);
 assert.match(
@@ -259,10 +307,22 @@ assert.doesNotMatch(
 );
 assert.match(
   editor,
-  /async function loadArrSong\(idx\)\s*\{\s*return getEditorArrangerSongLoadService\(\)\?\.load\(idx\);\s*\}/
+  /async function loadArrSong\(idx\)\s*\{\s*return getEditorArrangerRuntime\(\)\?\.loadArrSong\?\.\(idx\);\s*\}/
 );
 assert.match(editorArrangerHotSwapService, /function hotSwapToNextSong\(\)/);
 assert.match(editorArrangerHotSwapService, /function applyPlaybackBoundary/);
+assert.match(
+  editorArrangerRuntimeService,
+  /hotSwapService\.create/
+);
+assert.match(
+  editorArrangerRuntimeService,
+  /songLoadService\.create/
+);
+assert.doesNotMatch(
+  editor,
+  /EditorArranger(?:SongLoad|HotSwap)Service\.create/
+);
 assert.doesNotMatch(editor, /if \(!_arrNextState\) return false;/);
 assert.doesNotMatch(
   editor,
@@ -270,7 +330,7 @@ assert.doesNotMatch(
 );
 assert.match(
   editor,
-  /function hotSwapToNextSong\(\)\s*\{\s*return getEditorArrangerHotSwapService\(\)\?\.hotSwapToNextSong\?\.\(\);\s*\}/
+  /function hotSwapToNextSong\(\.\.\.args\)\s*\{\s*return getEditorArrangerRuntime\(\)\?\.hotSwapToNextSong\?\.\(\.\.\.args\);\s*\}/
 );
 assert.match(editorProjectExportWorkflowService, /async function exportProject/);
 assert.match(editorProjectExportWorkflowService, /saveNative\?\.\(/);
@@ -333,8 +393,14 @@ assert.doesNotMatch(editorLyricsRenderer, /\bDAW\b/);
 assert.doesNotMatch(editorLyricsRenderer, /\bPERF\b/);
 assert.match(editorLyricsRenderer, /function render/);
 assert.match(appCore, /function requireEditorSongStateService\(\)/);
-assert.match(editorSyncAnalysisUiService, /function detectTempo\(\)[\s\S]*getSyncTimes/);
-assert.match(editorSyncAnalysisUiService, /function detectKey\(\)[\s\S]*getChords/);
+assert.match(editorSyncAnalysisRuntimeService, /function detectTempo\(\)[\s\S]*getSyncTimes/);
+assert.match(editorSyncAnalysisRuntimeService, /function detectKey\(\)[\s\S]*getChords/);
+assert.doesNotMatch(
+  editorSyncAnalysisRuntimeService,
+  /Object\.assign\(globalScope,\s*create\(\)\)/
+);
+assert.match(editor, /EditorSyncAnalysisRuntimeService/);
+assert.doesNotMatch(editor, /function (tapTempo|detectTempo|detectKey)\(/);
 assert.doesNotMatch(appCore, /function detectTempo\(/);
 assert.doesNotMatch(appCore, /function detectKey\(/);
 assert.match(midiMonitorService, /function updateMidiMonitor\(/);
@@ -385,6 +451,9 @@ assert.match(
   coreTimelineSectionBridgeService,
   /function getTimelineSectionRendererService\(\)/
 );
+assert.match(coreTimelineRuntimeService, /function requireService/);
+assert.match(coreTimelineRuntimeService, /const geometry =/);
+assert.match(coreTimelineRuntimeService, /(?:let|const) clipRenderer =/);
 assert.match(
   coreTimelineChordEditorBridgeService,
   /function openTimelineChordEditor\(clipId\)/
@@ -407,6 +476,11 @@ assert.doesNotMatch(
   appCore,
   /function getTimelineSectionRendererService\(\)/
 );
+assert.match(appCore, /CoreTimelineRuntimeService\?\.create/);
+assert.doesNotMatch(appCore, /CoreTimelineGeometryService\?\.create/);
+assert.doesNotMatch(appCore, /CoreClipRendererService\?\.create/);
+assert.doesNotMatch(appCore, /CoreTimelineGridService\?\.create/);
+assert.doesNotMatch(appCore, /CoreTimelineSectionBridgeService\?\.create/);
 assert.doesNotMatch(
   appCore,
   /function openTimelineChordEditor\(clipId\)/
@@ -520,6 +594,22 @@ assert.match(
   coreArrangerEditorActionsService,
   /function exportCurrentArranger\(\)/
 );
+assert.match(
+  coreArrangerRuntimeService,
+  /function requireService\(service, name\)/
+);
+assert.match(
+  coreArrangerRuntimeService,
+  /CoreArrangerManagerRendererService/
+);
+assert.match(
+  coreArrangerRuntimeService,
+  /CoreArrangerFileImportService/
+);
+assert.match(
+  coreArrangerRuntimeService,
+  /CoreArrangerSaveService/
+);
 assert.match(appCore, /CoreHistoryBridgeService/);
 assert.doesNotMatch(appCore, /function attachHistoryService\(\)/);
 assert.doesNotMatch(appCore, /function openArrSongNote\(idx\)/);
@@ -533,7 +623,37 @@ assert.doesNotMatch(appCore, /function arrFilterSongs\(\)/);
 assert.doesNotMatch(appCore, /function switchArrTab\(tab\)/);
 assert.doesNotMatch(appCore, /function closeArrEditor\(\)/);
 assert.doesNotMatch(appCore, /function exportCurrentArranger\(\)/);
+assert.match(appCore, /CoreArrangerRuntimeService\?\.create/);
+assert.doesNotMatch(
+  appCore,
+  /CoreArranger(?:ManagerRenderer|FileImport|FileExport|SongsOverview|SongTransfer|EditorActions|Controls|SongNote|SetlistRenderer|PoolRenderer|Editor|Modal|Creation|Save)Service\?\.create/
+);
+assert.doesNotMatch(appCore, /let arrangers\b/);
+assert.doesNotMatch(appCore, /let editingArr\b/);
+assert.doesNotMatch(appCore, /window\.arrangers/);
+assert.doesNotMatch(projectHub, /window\.arrangers/);
+assert.doesNotMatch(
+  projectHub,
+  /window\.(?:openArrangerModal|createNewArranger)/
+);
 assert.match(coreFocusModeService, /function toggleFocusMode\(\)/);
+assert.match(
+  corePopupRuntimeService,
+  /function requireService\(service, name\)/
+);
+assert.match(corePopupRuntimeService, /CorePlayerViewPopupService/);
+assert.match(corePopupRuntimeService, /CoreLyricOnlyPopupService/);
+assert.match(corePopupRuntimeService, /CoreChordLinePopupService/);
+assert.match(corePopupRuntimeService, /function openLyricPopup\(\)/);
+assert.match(corePopupRuntimeService, /function openLyricOnlyPopup\(\)/);
+assert.match(
+  appCore,
+  /corePublicApi\.publish\(\{[\s\S]*?syncExistingPopup,[\s\S]*?render[\s\S]*?\}, \{ exposeGlobals: false \}\)/
+);
+assert.doesNotMatch(appCore, /Object\.assign\(globalScope,\s*coreTransportRuntime\)/);
+assert.match(appCore, /corePublicApi\.publish\(coreTransportRuntime, \{ exposeGlobals: false \}\)/);
+assert.doesNotMatch(masterSync, /globalScope\.(?:seekTransport|startTransport|pauseTransport|stopTransport)/);
+assert.match(masterSync, /globalScope\.AkordyarCoreApi/);
 assert.match(
   coreSyncModeBridgeService,
   /function createSyncModeControllerBridge\(\)/
@@ -565,6 +685,10 @@ assert.doesNotMatch(appCore, /function setLoopFromSelectionAndPlay\(\)/);
 assert.doesNotMatch(appCore, /function syncChordLineFromLyrics\(\)/);
 assert.doesNotMatch(appCore, /function openPopupWindow\(name, features\)/);
 assert.doesNotMatch(appCore, /function toggleFocusMode\(\)/);
+assert.match(appCore, /CorePopupRuntimeService\?\.create/);
+assert.doesNotMatch(appCore, /CorePlayerViewPopupService\?\.create/);
+assert.doesNotMatch(appCore, /CoreLyricOnlyPopupService\?\.create/);
+assert.doesNotMatch(appCore, /CoreChordLinePopupService\?\.create/);
 assert.doesNotMatch(
   appCore,
   /function createSyncModeControllerBridge\(\)/
@@ -607,10 +731,16 @@ assert.doesNotMatch(appCore, /\bPERF\s*\./);
 assert.doesNotMatch(appCore, /\bDAW\s*\./);
 assert.doesNotMatch(editor, /\bPERF\s*\./);
 assert.doesNotMatch(editor, /\bDAW\s*\./);
-assert.equal(
-  (appCore.match(/globalScope\.DAW\s*=/g) || []).length,
-  1,
-  'core must publish exactly one DAW runtime object'
+assert.match(appCore, /RuntimeStateAdapter\.setDAW\(DAW\)/);
+assert.match(appCore, /RuntimeStateAdapter\.setPERF\(PERF\)/);
+assert.doesNotMatch(appCore, /globalScope\.(?:DAW|PERF)\s*=/);
+assert.doesNotMatch(
+  appCore,
+  /\b(?:getEditorDAW|getEditorPERF|getEditorSong|startEditorPointerDrag)\b/
+);
+assert.doesNotMatch(
+  editor,
+  /\b(?:getEditorDAW|getEditorPERF|getEditorSong|startEditorPointerDrag)\b/
 );
 assert.doesNotMatch(
   appCore,
@@ -629,20 +759,39 @@ assert.match(corePerformanceModeService, /async function openPerfMode\(\)/);
 assert.match(corePerformanceModeService, /function perfTogglePlay\(\)/);
 assert.match(corePerformanceModeService, /function perfTranspose\(/);
 assert.match(corePerformanceModeService, /function startPerfTimer\(\)/);
-assert.match(appCore, /CorePerformanceModeService/);
+assert.match(corePerformanceRuntimeService, /function requireService/);
+assert.match(corePerformanceRuntimeService, /performanceModeService/);
+assert.match(corePerformanceRuntimeService, /backgroundPreloadService/);
+assert.match(corePerformanceRuntimeService, /performanceUiService/);
+assert.match(appCore, /CorePerformanceRuntimeService/);
 assert.doesNotMatch(appCore, /async function openPerfMode\(\)/);
 assert.doesNotMatch(appCore, /function perfTogglePlay\(\)/);
 assert.doesNotMatch(appCore, /function perfTranspose\(/);
 assert.doesNotMatch(appCore, /function startPerfTimer\(\)/);
-assert.match(appCore, /requireEditorSongRuntimeService\(\)\.setSong/);
+assert.doesNotMatch(appCore, /CoreArrangerPreparationService\?\.create/);
+assert.doesNotMatch(appCore, /CoreArrangerBackgroundPreloadService\?\.create/);
+assert.doesNotMatch(appCore, /CoreArrangerCrossfadeService\?\.create/);
+assert.doesNotMatch(appCore, /CorePerformanceUiService\?\.create/);
+assert.match(appCore, /coreEditorRuntime\.setSong/);
 assert.doesNotMatch(appCore, /EdCurAdapter\?\./);
 assert.doesNotMatch(appCore, /\bedCur\b/);
-assert.equal(
-  (appCore.match(/function setEditorSong\s*\(/g) || []).length,
-  1,
-  'core must expose exactly one editor-song setter'
+assert.doesNotMatch(appCore, /\bsetEditorSong\b/);
+assert.doesNotMatch(editor, /\bsetEditorSong\b/);
+assert.doesNotMatch(archive, /\bsetEditorSong\b/);
+assert.doesNotMatch(
+  editor,
+  /\b(?:rebuildSongDocumentFromEdCur|syncViewStylesFromEdCur|syncViewStylesToEdCur)\b/
+);
+assert.doesNotMatch(
+  performanceBridge,
+  /\b(?:rebuildSongDocumentFromEdCur|syncViewStylesFromEdCur|syncViewStylesToEdCur)\b/
+);
+assert.doesNotMatch(
+  domainBridge,
+  /\b(?:rebuildSongDocumentFromEdCur|syncViewStylesFromEdCur|syncViewStylesToEdCur)\b/
 );
 assert.doesNotMatch(editor, /EdCurAdapter\?\.setEdCur/);
+assert.doesNotMatch(editor, /EdCurAdapter/);
 assert.doesNotMatch(archive, /EdCurAdapter\?\.setEdCur/);
 
 assert.doesNotMatch(search, /document\.addEventListener\(['"](?:mousemove|mouseup)['"]/);

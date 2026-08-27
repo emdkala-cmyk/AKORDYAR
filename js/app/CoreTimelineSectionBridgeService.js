@@ -12,7 +12,7 @@
     windowRef = globalScope,
     rendererFactory = () =>
       globalScope.TimelineSectionRendererService?.create,
-    getDAW = () => globalScope.getEditorDAW?.() || globalScope.DAW,
+    getDAW = () => globalScope.RuntimeStateAdapter?.getDAW?.() || null,
     timeToX = value => value,
     xToTime = value => value,
     snapTime = value => value,

@@ -1,12 +1,12 @@
 /**
  * DAWRuntimeAdapter
  *
- * Controlled access to the legacy DAW object. The adapter is intentionally
- * small: core still owns the mutable state, while consumers receive it
- * lazily through this boundary.
+ * Controlled access to the DAW runtime object. The adapter is intentionally
+ * small: the runtime registry owns the mutable state, while consumers
+ * receive it through this boundary.
  */
 (function attachDAWRuntimeAdapter(globalScope) {
-  function create(state = globalScope.DAW) {
+  function create(state = null) {
     const runtimeState = state && typeof state === 'object' ? state : null;
 
     return Object.freeze({

@@ -48,7 +48,7 @@ const service = ArchiveProjectFileImportService.create({
   getDAW: () => daw,
   getSong: () => currentSong,
   getElement: id => elements.get(id),
-  setEditorSong: song => {
+  setSong: song => {
     currentSong = song;
   },
   setProjectFilePath: value => calls.push(['path', value]),

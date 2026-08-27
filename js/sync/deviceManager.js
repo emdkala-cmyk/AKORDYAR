@@ -334,9 +334,9 @@
     function currentScoreParts() {
       const state = globalScope.PerformanceStore?.getState?.() || {};
       const xmlScore = state.musicXmlScoreState?.score ||
-        globalScope.EdCurAdapter?.getEdCur?.()?.musicXmlScore || null;
+        globalScope.EditorRuntimeAdapter?.getSong?.()?.musicXmlScore || null;
       const midiScore = state.midiScoreState?.score ||
-        globalScope.EdCurAdapter?.getEdCur?.()?.midiScore || null;
+        globalScope.EditorRuntimeAdapter?.getSong?.()?.midiScore || null;
       const score = xmlScore || midiScore;
       const normalized = xmlScore
         ? (globalScope.MusicXmlScoreModel?.normalize?.(score) || score)
@@ -344,7 +344,7 @@
       return {
         parts: normalized?.parts || [],
         mappings: state.musicXmlScoreState?.mappings ||
-          globalScope.EdCurAdapter?.getEdCur?.()?.scorePartMappings || []
+          globalScope.EditorRuntimeAdapter?.getSong?.()?.scorePartMappings || []
       };
     }
 

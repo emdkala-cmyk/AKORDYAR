@@ -16,7 +16,7 @@
     renderClips = () => {},
     scheduleAllFromPlayhead = () => {},
     startPointerDrag = (...args) =>
-      globalScope.startEditorPointerDrag?.(...args)
+      globalScope.EditorRuntimeAdapter?.startPointerDrag?.(...args)
   } = {}) {
     if (typeof getDAW !== 'function') {
       throw new TypeError('EditorMixerService requires getDAW');

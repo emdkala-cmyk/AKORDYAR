@@ -1,8 +1,157 @@
-﻿// ==========================================
+// ==========================================
 // PART 4: Timeline Rendering & UI Event Listeners
 // ==========================================
 
 // Keep selection state initialized before DOM setup can register handlers.
+const editorAppRuntime = window.EditorRuntimeAdapter;
+if (!editorAppRuntime?.getDAWOrThrow) {
+  throw new Error(
+    'EditorRuntimeAdapter باید قبل از app/editor.js بارگذاری شود.'
+  );
+}
+const editorGetRuntimeDAW = () => editorAppRuntime.getDAWOrThrow();
+const editorPublicApiRegistry = window.EditorPublicApi;
+if (!editorPublicApiRegistry?.create) {
+  throw new Error(
+    'EditorPublicApi باید قبل از app/editor.js بارگذاری شود.'
+  );
+}
+const editorPublicApi = editorPublicApiRegistry.create({
+  target: window,
+  namespace: 'AkordyarEditorApi'
+});
+const editorCoreApi = window.AkordyarCoreApi;
+if (!editorCoreApi) {
+  throw new Error(
+    'AkordyarCoreApi باید قبل از app/editor.js بارگذاری شود.'
+  );
+}
+const editorGetLyricPopup = (...args) =>
+  editorCoreApi.getLyricPopup?.(...args) || null;
+const editorGetLyricOnlyPopup = (...args) =>
+  editorCoreApi.getLyricOnlyPopup?.(...args) || null;
+const editorSyncLyricPopup = (...args) =>
+  editorCoreApi.syncLyricPopup?.(...args);
+const editorSyncLyricOnlyPopup = (...args) =>
+  editorCoreApi.syncLyricOnlyPopup?.(...args);
+const editorOpenLyricPopup = (...args) =>
+  editorCoreApi.openLyricPopup?.(...args);
+const editorOpenLyricOnlyPopup = (...args) =>
+  editorCoreApi.openLyricOnlyPopup?.(...args);
+const editorToggleFocusMode = (...args) =>
+  editorCoreApi.toggleFocusMode?.(...args);
+const {
+  getTimeSignatureGridConfig,
+  toggleSnap,
+  showQuantizeModal,
+  applyQuantize,
+  quantizeSelectedChords,
+  seekTransport,
+  toggleReturnToStart,
+  togglePlay,
+  startTransport,
+  pauseTransport,
+  stopTransport,
+  transportToStart,
+  transportToEnd,
+  setCountInBars,
+  toggleMetronome,
+  togglePanel,
+  loadAudioFromHardDrive,
+  pathDirname,
+  pathJoin,
+  timeToX,
+  xToTime,
+  getProjectEnd,
+  ensureTimelineFits,
+  clientToTime,
+  autoScrollToPlayhead,
+  getClip,
+  splitSelectedAtPlayhead,
+  addNewTrack,
+  updateTrackSelectionUI,
+  renderTracks,
+  drawLaneGrid,
+  renderRuler,
+  handleTimingChange,
+  updateTrackMix,
+  toggleMixer,
+  onClipMouseDown,
+  ensureRecLane,
+  toggleRec,
+  applyTheme,
+  applyAccent,
+  applyOutputDevice,
+  applyMetroSound,
+  previewMetronomeSound,
+  applySettingsToggles,
+  openSettings,
+  closeSettings,
+  resetSettings,
+  setHighlightEffect,
+  initHighlightEffect,
+  renderLoopRegion,
+  toggleLoop,
+  setLoopA,
+  setLoopB,
+  clearLoop,
+  setLoopFromSelection,
+  setLoopFromSelectionAndPlay,
+  edRemapSeqPoints,
+  openPerfMode,
+  perfStop,
+  perfTogglePauseMode,
+  perfTogglePlay,
+  perfRestartSong,
+  perfPrevSong,
+  perfNextSong,
+  perfTranspose,
+  customPrompt,
+  formatTime,
+  toast,
+  ensureAudioCtx,
+  updateNextIdFromClips,
+  renderClips,
+  saveState,
+  applyState,
+  stopAllVoices,
+  renderAll,
+  resetHistory,
+  isHistoryApplying,
+  attachHistoryService
+} = editorCoreApi;
+const editorAudioStorageRuntime = window.EditorAudioStorageRuntime;
+if (!editorAudioStorageRuntime) {
+  throw new Error(
+    'EditorAudioStorageRuntime باید قبل از app/editor.js بارگذاری شود.'
+  );
+}
+const {
+  getAudioBlobFromDB,
+  getFileHandle,
+  loadAudioBlobsForProject,
+  refreshStorageInfo,
+  saveAudioBlobToDB,
+  saveAudioBlobsForProject
+} = editorAudioStorageRuntime;
+const editorSyncAnalysisRuntime =
+  window.EditorSyncAnalysisRuntimeService?.create?.({
+    analysis: window.SyncAnalysis,
+    getSongState: () => getEditorSongStateService(),
+    performanceRef: window.performance,
+    getElement: id => $(id),
+    saveSong: (...args) => edSaveSong(...args),
+    handleTimingChange: (...args) =>
+      window.handleTimingChange?.(...args),
+    syncToolbar: (...args) => edSyncToolbar(...args),
+    renderEditor: (...args) => edRenderEditor(...args),
+    toast: (...args) => toast(...args)
+  });
+if (!editorSyncAnalysisRuntime) {
+  throw new Error(
+    'EditorSyncAnalysisRuntimeService باید قبل از app/editor.js بارگذاری شود.'
+  );
+}
 let edSelectedChords = [];
 let editorColorToolService = null;
 
@@ -14,7 +163,7 @@ function getEditorColorToolService() {
     editorColorToolService = window.EditorColorToolService.create({
       documentRef: document,
       getElement: id => $(id),
-      getDAW: () => getEditorDAW(),
+      getDAW: () => editorGetRuntimeDAW(),
       getSongState: () => getEditorSongStateService(),
       getSelectedChords: () => edSelectedChords,
       getClip: id => getClip(id),
@@ -73,11 +222,11 @@ const editorPopupTimelineSyncService =
     documentRef: document,
     windowRef: window,
     bridge: window.WindowBridge,
-    getPopup: () => (typeof _lyricPopup !== 'undefined' ? _lyricPopup : null),
+    getPopup: () => editorGetLyricPopup(),
     isOpen: editorPopupIsOpen,
     getDocument: editorPopupDocument,
     getSong: () => window.EditorRuntimeAdapter?.getSong?.() || null,
-    getDAW: () => getEditorDAW(),
+    getDAW: () => editorGetRuntimeDAW(),
     getProjectEnd: () => getProjectEnd(),
     getTimeSignatureGridConfig: (signature, bpm) =>
       getTimeSignatureGridConfig(signature, bpm),
@@ -97,8 +246,8 @@ function getEditorSongTransitionService() {
     typeof window.EditorSongTransitionService?.create === 'function'
   ) {
     edSongTransitionService = window.EditorSongTransitionService.create({
-      getDAW: () => getEditorDAW(),
-      setSong: song => setEditorSong(song),
+      getDAW: () => editorGetRuntimeDAW(),
+      setSong: song => editorAppRuntime.setSong(song),
       repairSong: song => window.TextEncodingService?.repairSong?.(song) || song,
       ensureSongParsed,
       hydrationService: window.EditorHydrationService,
@@ -119,7 +268,7 @@ function getEditorAudioRecoveryService() {
     typeof window.AudioRecoveryService?.create === 'function'
   ) {
     edAudioRecoveryService = window.AudioRecoveryService.create({
-      getDAW: () => getEditorDAW(),
+      getDAW: () => editorGetRuntimeDAW(),
       getSong: () => getCurrentEditorSong(),
       loadAudioBlobsForProject,
       getAudioBlobFromDB,
@@ -199,7 +348,7 @@ function getEditorProjectExportWorkflowService() {
     edProjectExportWorkflowService =
       window.EditorProjectExportWorkflowService.create({
         getSong: getCurrentEditorSong,
-        getDAW: () => getEditorDAW(),
+        getDAW: () => editorGetRuntimeDAW(),
         buildBundle: options =>
           getEditorProjectExportService()?.buildBundle(options),
         saveNative: options =>
@@ -223,8 +372,8 @@ function getEditorSongImportService() {
   ) {
     edSongImportService = window.EditorSongImportService.create({
       getSong: getCurrentEditorSong,
-      setSong: song => setEditorSong(song),
-      getDAW: () => getEditorDAW(),
+      setSong: song => editorAppRuntime.setSong(song),
+      getDAW: () => editorGetRuntimeDAW(),
       createBlankSong: edBlankSong,
       isValidNote: note => typeof etIsValidNote !== 'function' || etIsValidNote(note)
     });
@@ -240,12 +389,12 @@ function getMidiScoreController() {
   ) {
     edMidiScoreController = window.MidiScoreController.create({
       getSong: getCurrentEditorSong,
-      setSong: song => setEditorSong(song),
-      getDAW: () => getEditorDAW(),
+      setSong: song => editorAppRuntime.setSong(song),
+      getDAW: () => editorGetRuntimeDAW(),
       saveSong: () => getEditorSongPersistenceService()?.save?.(),
       onSongChanged: () => {
         try { resetPerformanceSerialization?.(); } catch (_) {}
-        try { rebuildSongDocumentFromEdCur?.(); } catch (_) {}
+        try { rebuildPerformanceSongDocument?.(); } catch (_) {}
         try { edSyncToolbar?.(); } catch (_) {}
         try { edRenderEditor?.(true); } catch (_) {}
         try { renderAll?.(); } catch (_) {}
@@ -264,86 +413,135 @@ function getMidiScoreController() {
      */
     // تابع ایمن برای کپی آکوردها از تایم‌لاین به پلیر
     function syncUIAfterSongChange() {
-      if (typeof rebuildSongDocumentFromEdCur === 'function') rebuildSongDocumentFromEdCur();
-      if (editorPopupIsOpen(_lyricPopup)) {
+      if (typeof rebuildPerformanceSongDocument === 'function') rebuildPerformanceSongDocument();
+      const lyricPopup = editorGetLyricPopup();
+      const lyricOnlyPopup = editorGetLyricOnlyPopup();
+      if (editorPopupIsOpen(lyricPopup)) {
         try {
-          const _script = editorPopupDocument(_lyricPopup)
+          const _script = editorPopupDocument(lyricPopup)
             ?.querySelector('script[data-pv="chord"]');
           if (_script) _script.remove();
         } catch(_) {}
-        setTimeout(() => { try { syncLyricPopup(); } catch(_) {} }, 50);
-        setTimeout(() => { try { syncLyricPopup(); } catch(_) {} }, 300);
+        setTimeout(() => { try { editorSyncLyricPopup(); } catch(_) {} }, 50);
+        setTimeout(() => { try { editorSyncLyricPopup(); } catch(_) {} }, 300);
         setTimeout(() => { try { safeMirrorTimeline(); } catch(_) {} }, 1000);
       }
-      if (editorPopupIsOpen(_lyricOnlyPopup)) {
-        setTimeout(() => { try { syncLyricOnlyPopup(); } catch(_) {} }, 50);
-        setTimeout(() => { try { syncLyricOnlyPopup(); } catch(_) {} }, 300);
+      if (editorPopupIsOpen(lyricOnlyPopup)) {
+        setTimeout(() => { try { editorSyncLyricOnlyPopup(); } catch(_) {} }, 50);
+        setTimeout(() => { try { editorSyncLyricOnlyPopup(); } catch(_) {} }, 300);
       }
       if (typeof _forceRenderOpenPopupsFull === 'function') _forceRenderOpenPopupsFull();
       notifyPerformanceTrackChanged();
     }
 
-    // Instant hot-swap: apply pre-built state without any async work
-    let editorArrangerHotSwapService = null;
-    function getEditorArrangerHotSwapService() {
+    // Arranger runtime: load and hot-swap wiring stays outside editor.js.
+    let editorArrangerRuntime = null;
+    function getEditorArrangerRuntime() {
       if (
-        !editorArrangerHotSwapService &&
-        typeof window.EditorArrangerHotSwapService?.create === 'function'
+        !editorArrangerRuntime &&
+        typeof window.EditorArrangerRuntimeService?.create === 'function'
       ) {
-        editorArrangerHotSwapService =
-          window.EditorArrangerHotSwapService.create({
-            getPerformanceState: () => ({
-              active: arrPerformActive,
-              pauseMode: perfPauseMode,
-              nextState: _arrNextState
-            }),
-            updatePerformanceState: patch => {
-              if ('nextState' in patch) _arrNextState = patch.nextState;
-              if ('index' in patch) arrPerformIdx = patch.index;
-              if ('hasLoggedNoNextSong' in patch) {
-                _arrHasLoggedNoNextSong = patch.hasLoggedNoNextSong;
-              }
-              if ('prepStartedForIndex' in patch) {
-                _arrPrepStartedForIndex = patch.prepStartedForIndex;
-              }
+        editorArrangerRuntime =
+          window.EditorArrangerRuntimeService.create({
+            state: {
+              getHotSwapPerformanceState: () => ({
+                active: arrPerformActive,
+                pauseMode: perfPauseMode,
+                nextState: _arrNextState
+              }),
+              updateHotSwapPerformanceState: patch => {
+                if ('nextState' in patch) _arrNextState = patch.nextState;
+                if ('index' in patch) arrPerformIdx = patch.index;
+                if ('hasLoggedNoNextSong' in patch) {
+                  _arrHasLoggedNoNextSong = patch.hasLoggedNoNextSong;
+                }
+                if ('prepStartedForIndex' in patch) {
+                  _arrPrepStartedForIndex = patch.prepStartedForIndex;
+                }
+              },
+              getSongLoadPerformanceState: () => ({
+                active: arrPerformActive,
+                index: arrPerformIdx,
+                pauseMode: perfPauseMode,
+                perfModeActive,
+                nextState: _arrNextState,
+                preparePending: arrPreparePending,
+                waitPollActive: _arrWaitPollActive,
+                hasLoggedNoNextSong: _arrHasLoggedNoNextSong,
+                prepStartedForIndex: _arrPrepStartedForIndex
+              }),
+              updateSongLoadPerformanceState: patch => {
+                if ('active' in patch) arrPerformActive = patch.active;
+                if ('index' in patch) arrPerformIdx = patch.index;
+                if ('nextState' in patch) _arrNextState = patch.nextState;
+                if ('preparePending' in patch) {
+                  arrPreparePending = patch.preparePending;
+                }
+                if ('waitPollActive' in patch) {
+                  _arrWaitPollActive = patch.waitPollActive;
+                }
+                if ('hasLoggedNoNextSong' in patch) {
+                  _arrHasLoggedNoNextSong = patch.hasLoggedNoNextSong;
+                }
+                if ('prepStartedForIndex' in patch) {
+                  _arrPrepStartedForIndex = patch.prepStartedForIndex;
+                }
+              },
+              getArrangement: () =>
+                arrPerformData ||
+                window.AkordyarCoreApi?.getEditingArr?.() ||
+                null,
+              getAllSongs: () => edGetAllSongs(),
+              getItemSetting: (...args) =>
+                window.AkordyarCoreApi?.getArrItemSetting?.(...args) || {},
+              getDAW: () => editorGetRuntimeDAW(),
+              getPlaybackPolicy: () => arrangerPlaybackPolicy,
+              getProjectEnd: () => getProjectEnd()
             },
-            getArrangement: () => arrPerformData || editingArr,
-            stopAllVoices: () => stopAllVoices(),
-            applyPreparedState: payload =>
-              getEditorSongTransitionService()?.applyPreparedState(payload),
-            getDAW: () => getEditorDAW(),
-            getPlaybackPolicy: () => arrangerPlaybackPolicy,
-            setSelectionEnd: value => {
-              selectionEnd = value;
+            actions: {
+              applyPreparedState: payload =>
+                getEditorSongTransitionService()?.applyPreparedState(payload),
+              loadSong: (...args) =>
+                getEditorSongTransitionService()?.loadSong(...args),
+              pauseTransport: () => pauseTransport(),
+              stopAllVoices: () => stopAllVoices(),
+              setSelectionEnd: value => {
+                selectionEnd = value;
+              },
+              resetRecording: () => {
+                isRecordingChords = false;
+                currentRecordingClipId = null;
+              },
+              seekTransport: (...args) => seekTransport(...args),
+              ensureAudioCtx: () => ensureAudioCtx(),
+              startTransport: () => startTransport(),
+              prepareNextSong: (...args) => prepareNextArrSong(...args)
             },
-            resetRecording: () => {
-              isRecordingChords = false;
-              currentRecordingClipId = null;
+            ui: {
+              resetHistory: () => resetHistory(),
+              syncToolbar: () => edSyncToolbar(),
+              renderEditor: (...args) => edRenderEditor(...args),
+              renderAll: (...args) => renderAll(...args),
+              saveState: () => saveState(),
+              initHighlightEffect: () => initHighlightEffect(),
+              syncUIAfterSongChange: () => syncUIAfterSongChange(),
+              renderPerfUI: () => renderPerfUI(),
+              toast: message => toast(message),
+              translate: key => t(key),
+              getElement: id => $(id),
+              mirrorTimeline: () => safeMirrorTimeline()
             },
-            seekTransport: (...args) => seekTransport(...args),
-            resetHistory: () => resetHistory(),
-            syncToolbar: () => edSyncToolbar(),
-            renderEditor: (...args) => edRenderEditor(...args),
-            renderAll: () => renderAll(),
-            saveState: () => saveState(),
-            initHighlightEffect: () => initHighlightEffect(),
-            renderPerfUI: () => renderPerfUI(),
-            toast: message => toast(message),
-            translate: key => t(key),
-            pauseTransport: () => pauseTransport(),
-            getElement: id => $(id),
-            prepareNextSong: () => prepareNextArrSong(),
-            syncUIAfterSongChange: () => syncUIAfterSongChange(),
-            mirrorTimeline: () => safeMirrorTimeline(),
-            schedule: (...args) => setTimeout(...args),
+            scheduling: {
+              schedule: (...args) => setTimeout(...args)
+            },
             logger: console
           });
       }
-      return editorArrangerHotSwapService;
+      return editorArrangerRuntime;
     }
 
-    function hotSwapToNextSong() {
-      return getEditorArrangerHotSwapService()?.hotSwapToNextSong?.();
+    function hotSwapToNextSong(...args) {
+      return getEditorArrangerRuntime()?.hotSwapToNextSong?.(...args);
     }
 
     /**
@@ -354,99 +552,24 @@ function getMidiScoreController() {
       requestAnimationFrame(function () {
         if (typeof window.onPerformanceSongChanged === 'function') {
           window.onPerformanceSongChanged();
-        } else if (typeof rebuildSongDocumentFromEdCur === 'function') {
-          if (typeof rebuildSongDocumentFromEdCur === 'function') rebuildSongDocumentFromEdCur();
+        } else if (typeof rebuildPerformanceSongDocument === 'function') {
+          if (typeof rebuildPerformanceSongDocument === 'function') rebuildPerformanceSongDocument();
         }
       });
     }
 
-    let editorArrangerSongLoadService = null;
-    function getEditorArrangerSongLoadService() {
-      if (
-        !editorArrangerSongLoadService &&
-        typeof window.EditorArrangerSongLoadService?.create === 'function'
-      ) {
-        editorArrangerSongLoadService =
-          window.EditorArrangerSongLoadService.create({
-            getArrangement: () => arrPerformData || editingArr,
-            getPerformanceState: () => ({
-              active: arrPerformActive,
-              index: arrPerformIdx,
-              pauseMode: perfPauseMode,
-              perfModeActive,
-              nextState: _arrNextState,
-              preparePending: arrPreparePending,
-              waitPollActive: _arrWaitPollActive,
-              hasLoggedNoNextSong: _arrHasLoggedNoNextSong,
-              prepStartedForIndex: _arrPrepStartedForIndex
-            }),
-            updatePerformanceState: patch => {
-              if ('active' in patch) arrPerformActive = patch.active;
-              if ('index' in patch) arrPerformIdx = patch.index;
-              if ('nextState' in patch) _arrNextState = patch.nextState;
-              if ('preparePending' in patch) {
-                arrPreparePending = patch.preparePending;
-              }
-              if ('waitPollActive' in patch) {
-                _arrWaitPollActive = patch.waitPollActive;
-              }
-              if ('hasLoggedNoNextSong' in patch) {
-                _arrHasLoggedNoNextSong = patch.hasLoggedNoNextSong;
-              }
-              if ('prepStartedForIndex' in patch) {
-                _arrPrepStartedForIndex = patch.prepStartedForIndex;
-              }
-            },
-            getAllSongs: () => edGetAllSongs(),
-            getItemSetting: (...args) => getArrItemSetting(...args),
-            getDAW: () => getEditorDAW(),
-            loadSong: (...args) =>
-              getEditorSongTransitionService()?.loadSong(...args),
-            getPlaybackPolicy: () => arrangerPlaybackPolicy,
-            getProjectEnd: () => getProjectEnd(),
-            pauseTransport: () => pauseTransport(),
-            stopAllVoices: () => stopAllVoices(),
-            setSelectionEnd: value => {
-              selectionEnd = value;
-            },
-            resetRecording: () => {
-              isRecordingChords = false;
-              currentRecordingClipId = null;
-            },
-            resetHistory: () => resetHistory(),
-            syncToolbar: () => edSyncToolbar(),
-            renderEditor: (...args) => edRenderEditor(...args),
-            renderAll: (...args) => renderAll(...args),
-            saveState: () => saveState(),
-            initHighlightEffect: () => initHighlightEffect(),
-            syncUIAfterSongChange: () => syncUIAfterSongChange(),
-            toast: message => toast(message),
-            translate: key => t(key),
-            seekTransport: (...args) => seekTransport(...args),
-            ensureAudioCtx: () => ensureAudioCtx(),
-            startTransport: () => startTransport(),
-            prepareNextSong: (...args) => prepareNextArrSong(...args),
-            renderPerfUI: () => renderPerfUI(),
-            mirrorTimeline: () => safeMirrorTimeline(),
-            schedule: (...args) => setTimeout(...args),
-            logger: console
-          });
-      }
-      return editorArrangerSongLoadService;
-    }
-
     async function loadArrSong(idx) {
-      return getEditorArrangerSongLoadService()?.load(idx);
+      return getEditorArrangerRuntime()?.loadArrSong?.(idx);
     }
 
     function setZoom(pps, anchorClientX) {
-      const scroll = $('tl-scroll'); const oldPps = getEditorDAW().pxPerSecond; const newPps = clamp(pps, 5, 260);
+      const scroll = $('tl-scroll'); const oldPps = editorGetRuntimeDAW().pxPerSecond; const newPps = clamp(pps, 5, 260);
       if (Math.abs(newPps - oldPps) < 0.01) return;
-      if (getEditorDAW().isPlaying && !getEditorDAW().isScrubbing) {
-        getEditorDAW().playhead = getTransportPlayhead();
+      if (editorGetRuntimeDAW().isPlaying && !editorGetRuntimeDAW().isScrubbing) {
+        editorGetRuntimeDAW().playhead = getTransportPlayhead();
       }
-      let anchorTime = getEditorDAW().playhead; if (typeof anchorClientX === 'number') anchorTime = clientToTime(anchorClientX);
-      const rel = timeToX(anchorTime) - scroll.scrollLeft; getEditorDAW().pxPerSecond = newPps; $('zoom-range').value = String(Math.round(newPps));
+      let anchorTime = editorGetRuntimeDAW().playhead; if (typeof anchorClientX === 'number') anchorTime = clientToTime(anchorClientX);
+      const rel = timeToX(anchorTime) - scroll.scrollLeft; editorGetRuntimeDAW().pxPerSecond = newPps; $('zoom-range').value = String(Math.round(newPps));
       // خودکار بزرگ کردن تایم‌لاین بر اساس عرض صفحه نمایش
       const visibleTime = scroll.clientWidth / newPps;
       ensureTimelineFits(visibleTime + 10);
@@ -466,7 +589,7 @@ function getMidiScoreController() {
 
     function zoomTimelineHorizontal(direction) {
       const factor = direction > 0 ? 1.2 : (1 / 1.2);
-      setZoom(getEditorDAW().pxPerSecond * factor, getTimelineZoomAnchorX());
+      setZoom(editorGetRuntimeDAW().pxPerSecond * factor, getTimelineZoomAnchorX());
     }
 
     const MIN_LANE_HEIGHT = 32;
@@ -474,11 +597,11 @@ function getMidiScoreController() {
 
     function setVerticalZoom(newH) {
       newH = clamp(Math.round(newH), MIN_LANE_HEIGHT, MAX_LANE_HEIGHT);
-      if (Math.abs(newH - getEditorDAW().laneHeight) < 1) return;
-      getEditorDAW().laneHeight = newH;
+      if (Math.abs(newH - editorGetRuntimeDAW().laneHeight) < 1) return;
+      editorGetRuntimeDAW().laneHeight = newH;
       document.documentElement.style.setProperty('--lane-h', newH + 'px');
       // Reset all per-lane heights to follow global zoom
-      getEditorDAW().tracks.forEach(t => { t.laneHeight = null; });
+      editorGetRuntimeDAW().tracks.forEach(t => { t.laneHeight = null; });
       document.querySelectorAll('.track-lane').forEach(el => { el.style.removeProperty('--lane-h'); el.style.removeProperty('height'); });
       document.querySelectorAll('.track-name').forEach(el => { el.style.removeProperty('--lane-h'); el.style.removeProperty('height'); });
       document.querySelectorAll('.lane-grid').forEach(c => drawLaneGrid(c));
@@ -490,8 +613,8 @@ function getMidiScoreController() {
       const BASE_FONT = 16; // 1rem in px
       const DEFAULT_PPS = 70;
       const DEFAULT_LANE_H = 64;
-      const vScale = getEditorDAW().laneHeight / DEFAULT_LANE_H;
-      const hScale = getEditorDAW().pxPerSecond / DEFAULT_PPS;
+      const vScale = editorGetRuntimeDAW().laneHeight / DEFAULT_LANE_H;
+      const hScale = editorGetRuntimeDAW().pxPerSecond / DEFAULT_PPS;
       const combined = Math.sqrt(vScale * hScale);
       const scaled = clamp(BASE_FONT * combined, 10, 32);
       document.documentElement.style.setProperty('--zoom-font', scaled + 'px');
@@ -499,7 +622,7 @@ function getMidiScoreController() {
 
     function setLaneHeight(trackId, newH) {
       newH = clamp(Math.round(newH), MIN_LANE_HEIGHT, MAX_LANE_HEIGHT);
-      const track = getEditorDAW().tracks.find(t => t.id === trackId);
+      const track = editorGetRuntimeDAW().tracks.find(t => t.id === trackId);
       if (!track) return;
       track.laneHeight = newH;
       const lane = document.querySelector(`.track-lane[data-track-id="${trackId}"]`);
@@ -511,11 +634,11 @@ function getMidiScoreController() {
 
     function zoomTimelineVertical(direction) {
       const factor = direction > 0 ? 1.2 : (1 / 1.2);
-      setVerticalZoom(getEditorDAW().laneHeight * factor);
+      setVerticalZoom(editorGetRuntimeDAW().laneHeight * factor);
     }
 
     function getTimelineSelectionRange() {
-      const daw = getEditorDAW();
+      const daw = editorGetRuntimeDAW();
       const clips = (daw.clips || []).filter(clip => daw.selectedIds?.has(clip.id));
       const sections = (daw.sections || []).filter(section =>
         daw.selectedSectionIds?.has(section.id)
@@ -555,7 +678,7 @@ function getMidiScoreController() {
     }
 
     function toggleSelectedTrackHeight() {
-      const daw = getEditorDAW();
+      const daw = editorGetRuntimeDAW();
       const track = daw.tracks.find(tr => tr.id === daw.selectedTrackId);
       if (!track) {
         toast('ابتدا یک لاین را انتخاب کنید');
@@ -600,7 +723,7 @@ function getMidiScoreController() {
         documentRef: document,
         windowRef: window,
         getElement: id => $(id),
-        getDAW: () => getEditorDAW(),
+        getDAW: () => editorGetRuntimeDAW(),
         getClip: clipId => getClip(clipId),
         getMidiChordService: () => getEditorMidiChordService(),
         getCurrentChord: () => currentChord,
@@ -655,7 +778,6 @@ function getMidiScoreController() {
       chordModalDelete,
       placeChordOnTimeline
     } = editorTimelineChordEditorRuntime;
-    Object.assign(window, editorTimelineChordEditorRuntime);
 
     let editorMidiChordService = null;
     function getEditorMidiChordService() {
@@ -676,7 +798,7 @@ function getMidiScoreController() {
     let midiSyncActive = false;
     const editorMidiTransportService = window.EditorMidiTransportService.create({
       getSyncActive: () => midiSyncActive,
-      getDAW: () => getEditorDAW(),
+      getDAW: () => editorGetRuntimeDAW(),
       seekTransport,
       startTransport,
       pauseTransport,
@@ -719,7 +841,7 @@ function getMidiScoreController() {
       }),
       setRecordingClipId: value => { currentRecordingClipId = value; },
       getClip: clipId => getClip(clipId),
-      getTimelineState: () => getEditorDAW(),
+      getTimelineState: () => editorGetRuntimeDAW(),
       saveState: () => saveState(),
       renderAll: () => renderAll(),
       renderClips: () => renderClips(),
@@ -804,145 +926,46 @@ function getMidiScoreController() {
     loadShortcuts();
 
     let _editingShortcutId = null;
-    // ===== AUTO IMPORT (Rewritten — multi-artist, progress, retry, accurate counts) =====
-
-    const autoImportStateService =
-      window.EditorAutoImportStateService.create();
-    const editorAutoImportFileSaveService =
-      window.EditorAutoImportFileSaveService.create({
+    // ===== AUTO IMPORT =====
+    // Auto Import owns its state, DOM workflow, parser and persistence wiring.
+    const editorAutoImportRuntime =
+      window.EditorAutoImportRuntimeService?.create?.({
         documentRef: document,
         getElement: id => $(id),
         fetchRef: (...args) => fetch(...args),
-        getSongs: () => autoImportStateService.getResults(),
-        getDirectoryHandle: () =>
-          autoImportStateService.getDirectoryHandle(),
-        setFilesSaved: value =>
-          autoImportStateService.setStat('filesSaved', value),
-        setFailedFiles: files =>
-          autoImportStateService.setFailedFiles(files),
-        toast
+        positionMapper: requireLyricPositionMapper(),
+        getAllSongs: (...args) => edGetAllSongs(...args),
+        setAllSongs: (...args) => edSetAllSongs(...args),
+        artistKey: value => archArtistKey(value),
+        isValidNote: value =>
+          typeof etIsValidNote !== 'function' || etIsValidNote(value),
+        confirmRef: (...args) => window.confirm(...args),
+        showDirectoryPicker: window.showDirectoryPicker,
+        toast,
+        logger: console
       });
-
-    // ---- Helpers ----
-    function parseArtistNames(raw) {
-      return raw.split(/[,\n،]+/).map(s => s.trim()).filter(s => s.length > 0);
+    if (!editorAutoImportRuntime) {
+      throw new Error(
+        'EditorAutoImportRuntimeService باید قبل از editor.js بارگذاری شود.'
+      );
     }
-    function escapeHtml(value) {
-      return String(value ?? '').replace(/[&<>"']/g, char => ({
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        '"': '&quot;',
-        "'": '&#39;'
-      }[char]));
-    }
-    function updateAutoArtistTags() {
-      const names = parseArtistNames($('autoArtistName')?.value || '');
-      const el = $('autoArtistTags');
-      if (!el) return;
-      el.innerHTML = names.map((n, i) =>
-        `<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(63,184,175,0.15);border:1px solid var(--accent-teal);border-radius:6px;padding:3px 10px;font-size:0.8rem;color:var(--accent-cyan-glow);font-weight:700;">🎵 ${escapeHtml(n)}${names.length > 1 ? ` <span style="opacity:0.5;font-size:0.7rem;">#${i + 1}</span>` : ''}</span>`
-      ).join('');
-    }
-    function normalizeKey(s) { return (s || '').replace(/\s+/g, '').toLowerCase(); }
-    function songUniqueId(song) {
-      // اگه URL داریم، از اون استفاده کن (هر صفحه یکتا‌ست)
-      if (song.url) return normalizeKey(song.url);
-      // اگه URL نداریم، artist + title
-      return normalizeKey(song.artist) + '::' + normalizeKey(song.title);
-    }
-
-    const autoImportUiService = window.EditorAutoImportUiService.create({
-      getElement: id => $(id)
-    });
-
-    // ---- Progress UI ----
-    function updateAutoProgress(current, total, detail) {
-      return autoImportUiService.updateProgress(current, total, detail);
-    }
-    function showProgressBar() { return autoImportUiService.showProgress(); }
-    function hideProgressBar() { return autoImportUiService.hideProgress(); }
-
-    // ---- Modal open/close ----
-    function openAutoImportModal() {
-      autoImportUiService.open();
-      const ta = $('autoArtistName');
-      if (ta && !ta._tagListenerAttached) { ta.addEventListener('input', updateAutoArtistTags); ta._tagListenerAttached = true; }
-      // Show/hide cookie field based on source
-      const srcSel = $('autoSource');
-      if (srcSel && !srcSel._cookieListener) {
-        srcSel._cookieListener = true;
-        srcSel.addEventListener('change', () => {
-          $('autoCookieField').style.display = srcSel.value === 'laminor' ? 'block' : 'none';
-        });
-        // Init on open
-        $('autoCookieField').style.display = srcSel.value === 'laminor' ? 'block' : 'none';
-      }
-    }
-    function closeAutoImportModal() { return autoImportUiService.close(); }
-
-    function autoImportNewRequest() {
-      return autoImportUiService.resetRequest();
-    }
-
-    // ---- Fetch ALL songs for one artist (server handles everything) ----
-    async function fetchArtistFromServer(artistName, apiUrl, totalCount, onProgress) {
-      if (onProgress) onProgress(`🎵 ${artistName} — در حال دریافت تمام ${totalCount} ترانه...`);
-      console.log(`[FETCH] Starting: ${artistName} — requesting ${totalCount} songs from server`);
-
-      try {
-        const resp = await fetch(apiUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            artistName,
-            count: totalCount,
-            start: 1,
-            sessionCookie: $('autoSessionCookie')?.value || ''
-          })
-        });
-        const data = await resp.json();
-
-        if (data.error) {
-          console.log(`[FETCH] Server error: ${data.error}`);
-          return { error: data.error, candidates: data.candidates, results: [] };
-        }
-
-        const got = data.results ? data.results.length : 0;
-        console.log(`[FETCH] DONE: ${artistName} — server returned ${got} songs (imported: ${data.imported}, failed: ${data.failed})`);
-        return { totalSongs: totalCount, results: data.results || [] };
-      } catch (e) {
-        console.log(`[FETCH] Network error: ${e.message}`);
-        return { error: e.message, results: [] };
-      }
-    }
-
-    // ---- Common Parser adapter ----
-    const editorRawSongParserService = window.EditorRawSongParserService.create({
-      positionMapper: requireLyricPositionMapper(),
-      logger: console
-    });
-
-    function normalizeRawText(rawText) {
-      return editorRawSongParserService.normalizeRawText(rawText);
-    }
-
-    function hasPersian(value) {
-      return editorRawSongParserService.hasPersian(value);
-    }
-
-    function isChordOnlyLine(value) {
-      return editorRawSongParserService.isChordOnlyLine(value);
-    }
-
-    function parseRawSongToEdCur(parsedSong) {
-      return editorRawSongParserService.parseRawSongToEdCur(parsedSong);
-    }
-
-    // Thin command wrapper for the editor runtime.
-    function parseSongRawText(song) {
-      return parseRawSongToEdCur(song);
-    }
+    const autoImportStateService = editorAutoImportRuntime.getState();
+    const {
+      escapeHtml,
+      songUniqueId,
+      normalizeRawText,
+      hasPersian,
+      isChordOnlyLine,
+      parseRawSong,
+      startAutoImport,
+      autoRetryFailed,
+      autoImportSaveArchive,
+      autoImportSaveConfirm,
+      autoImportDoSave,
+      openAutoImportModal,
+      closeAutoImportModal,
+      autoImportNewRequest
+    } = editorAutoImportRuntime;
 
     const editorChordImportRuntime =
       window.EditorChordImportService?.create?.({
@@ -955,11 +978,11 @@ function getMidiScoreController() {
         normalizeRawText,
         hasPersian,
         isChordOnlyLine,
-        parseRawSongToEdCur,
+        parseRawSong,
         parseChordLyricText: rawText =>
           requireLyricsParser().parseChordLyricText(rawText),
         getEditorSongImportService,
-        getDAW: () => getEditorDAW(),
+        getDAW: () => editorGetRuntimeDAW(),
         syncToolbar: (...args) => edSyncToolbar(...args),
         renderEditor: (...args) => edRenderEditor(...args),
         saveSong: (...args) => edSaveSong(...args),
@@ -979,158 +1002,6 @@ function getMidiScoreController() {
       fetchFromUrl,
       applyImportChords
     } = editorChordImportRuntime;
-
-    // ---- Save a song to archive (with proper dedup: URL + artist+title) ----
-    function saveSongToArchive(song, existingSongs) {
-      const songArtist = (song.artist || '').trim();
-      const songTitle = (song.title || '').trim();
-      const songUrlNorm = song.url ? normalizeKey(song.url) : '';
-      const songAtNorm = normalizeKey(songArtist + '::' + songTitle);
-
-      for (const es of existingSongs) {
-        // چک URL
-        if (songUrlNorm && es.url && normalizeKey(es.url) === songUrlNorm) {
-          return { saved: false, duplicate: true };
-        }
-        // چک artist + title
-        const esUid = normalizeKey((es.artist || '') + '::' + (es.title || ''));
-        if (songAtNorm && esUid && songAtNorm === esUid) {
-          return { saved: false, duplicate: true };
-        }
-      }
-
-      const tmpEd = parseSongRawText(song);
-      tmpEd.artist = songArtist;
-      tmpEd.artistKey = archArtistKey(songArtist);
-      tmpEd.title = songTitle;
-      if (song.url) tmpEd.url = song.url;
-      if (song.key) {
-        const cleanKey = song.key.replace('m', '');
-        const kMode = song.key.endsWith('m') ? 'min' : 'maj';
-        if (typeof etIsValidNote === 'function' && etIsValidNote(cleanKey)) { tmpEd.key = cleanKey; tmpEd.keyMode = kMode; }
-      }
-      if (song.rhythm) tmpEd.timeSignature = song.rhythm;
-      existingSongs.unshift(JSON.parse(JSON.stringify(tmpEd)));
-      return { saved: true, duplicate: false };
-    }
-
-    // ---- Build progress detail HTML ----
-    function buildProgressDetail() {
-      const a = autoImportStateService.getStats();
-      let d = '';
-      d += `<span class="apd-ok">✓ موفق: ${a.archived}</span>  `;
-      d += `<span class="apd-fail">✗ ناموفق: ${a.errors}</span>  `;
-      d += `<span class="apd-dup">≈ تکراری: ${a.dupes}</span>  `;
-      d += `<span class="apd-pending">◯ باقی‌مانده: ${Math.max(0, a.total - a.fetched)}</span>`;
-      return d;
-    }
-
-    const editorAutoImportWorkflowService =
-      window.EditorAutoImportWorkflowService.create({
-        documentRef: document,
-        getElement: id => $(id),
-        fetchRef: (...args) => fetch(...args),
-        getState: () => autoImportStateService,
-        parseArtistNames,
-        escapeHtml,
-        updateProgress: (...args) => updateAutoProgress(...args),
-        showProgress: () => showProgressBar(),
-        fetchArtistFromServer: (...args) =>
-          fetchArtistFromServer(...args),
-        buildProgressDetail: () => buildProgressDetail(),
-        saveSongToArchive: (...args) => saveSongToArchive(...args),
-        getAllSongs: (...args) => edGetAllSongs(...args),
-        setAllSongs: (...args) => edSetAllSongs(...args),
-        toast,
-        wait: milliseconds => new Promise(resolve => {
-          setTimeout(resolve, milliseconds);
-        }),
-        logger: console
-      });
-
-    let editorAutoImportRetryService = null;
-    function getEditorAutoImportRetryService() {
-      if (
-        !editorAutoImportRetryService &&
-        typeof window.EditorAutoImportRetryService?.create === 'function'
-      ) {
-        editorAutoImportRetryService =
-          window.EditorAutoImportRetryService.create({
-            getState: () => autoImportStateService,
-            getElement: id => $(id),
-            getSource: () => $('autoSource')?.value,
-            showProgress: () => showProgressBar(),
-            updateProgress: (...args) => updateAutoProgress(...args),
-            fetchArtistFromServer: (...args) =>
-              fetchArtistFromServer(...args),
-            escapeHtml,
-            buildProgressDetail: () => buildProgressDetail(),
-            saveSongToArchive: (...args) => saveSongToArchive(...args),
-            getAllSongs: (...args) => edGetAllSongs(...args),
-            setAllSongs: (...args) => edSetAllSongs(...args),
-            toast,
-            logger: console
-          });
-      }
-      return editorAutoImportRetryService;
-    }
-
-    // ---- MAIN: Start Auto Import ----
-    function startAutoImport() {
-      return editorAutoImportWorkflowService.start();
-    }
-
-    // ---- Retry failed songs only ----
-    async function autoRetryFailed() {
-      return getEditorAutoImportRetryService()?.retryFailed?.();
-    }
-
-    // ---- Save to archive (manual button) ----
-    function autoImportSaveArchive() {
-      const songs = autoImportStateService
-        .getResults()
-        .filter(s => !s.error && s.rawText);
-      if (!songs.length) { toast('ترانه‌ای برای ذخیره وجود ندارد'); return;
-      }
-      if (!confirm(`آیا ${songs.length} ترانه در آرشیو ذخیره شود؟`)) return;
-
-      const existingSongs = edGetAllSongs();
-      let saved = 0, dupes = 0;
-      for (const song of songs) {
-        const result = saveSongToArchive(song, existingSongs);
-        if (result.saved) saved++;
-        else if (result.duplicate) dupes++;
-      }
-      edSetAllSongs(existingSongs);
-      toast(`📁 ${saved} ترانه ذخیره شد${dupes ? '، ' + dupes + ' تکراری رد شد' : ''}`);
-    }
-
-    // ---- Save files to folder ----
-    function autoImportSaveConfirm() {
-      const songs = autoImportStateService
-        .getResults()
-        .filter(s => !s.error && s.rawText);
-      if (!songs.length) { toast('فایلی برای ذخیره وجود ندارد'); return; }
-      $('autoImportFolderInput').style.display = 'block';
-      if (window.showDirectoryPicker) {
-        window.showDirectoryPicker({ mode: 'readwrite' }).then(async dirHandle => {
-          autoImportStateService.setDirectoryHandle(dirHandle);
-          $('autoSavePathInput').value = dirHandle.name;
-          $('autoSavePathInput').disabled = true;
-        }).catch(() => {
-          autoImportStateService.setDirectoryHandle(null);
-          $('autoSavePathInput').disabled = false;
-          $('autoSavePathInput').value = '';
-        });
-      } else {
-        $('autoSavePathInput').disabled = false;
-        $('autoSavePathInput').value = '';
-      }
-    }
-
-    function autoImportDoSave() {
-      return editorAutoImportFileSaveService.saveFiles();
-    }
 
     function openShortcutModal() {
       const list = $('shortcutList'); list.innerHTML = '';
@@ -1229,7 +1100,7 @@ function getMidiScoreController() {
     /* ===================== INIT & INTERACTIONS ===================== */
     function init() {
       ensureAudioCtx();
-      getEditorDAW().tracks = [
+      editorGetRuntimeDAW().tracks = [
         { id: 't0', name: 'Chord Line', icon: '♫', type: 'chord' },
         { id: 't0s', name: 'Section', icon: '🏷', type: 'section' },
         { id: 't1', name: 'Vocals', icon: '🎤', type: 'audio', muted: false, solo: false, vol: 0.8, pan: 0, transpose: 0 },
@@ -1238,15 +1109,15 @@ function getMidiScoreController() {
         { id: 't4', name: 'Keys', icon: '🎹', type: 'audio', muted: false, solo: false, vol: 0.8, pan: 0, transpose: 0 },
         { id: 't5', name: 'Drums', icon: '🥁', type: 'audio', muted: false, solo: false, vol: 0.8, pan: 0, transpose: 0 }
       ];
-      getEditorDAW().tracks.forEach(t => {
+      editorGetRuntimeDAW().tracks.forEach(t => {
         if (t.type === 'audio') {
-          t._pannerNode = getEditorDAW().audioCtx.createStereoPanner(); t._gainNode = getEditorDAW().audioCtx.createGain();
-          t._pannerNode.connect(t._gainNode); t._gainNode.connect(getEditorDAW().masterGain); updateTrackMix(t.id);
+          t._pannerNode = editorGetRuntimeDAW().audioCtx.createStereoPanner(); t._gainNode = editorGetRuntimeDAW().audioCtx.createGain();
+          t._pannerNode.connect(t._gainNode); t._gainNode.connect(editorGetRuntimeDAW().masterGain); updateTrackMix(t.id);
         }
       });
       ensureRecLane();
-      getEditorDAW().sections = []; getEditorDAW().selectedSectionIds = new Set();
-      getEditorDAW().timelineDuration = 120; getEditorDAW().pxPerSecond = 70; saveState(); renderAll();
+      editorGetRuntimeDAW().sections = []; editorGetRuntimeDAW().selectedSectionIds = new Set();
+      editorGetRuntimeDAW().timelineDuration = 120; editorGetRuntimeDAW().pxPerSecond = 70; saveState(); renderAll();
       updateZoomFontScale();
 
       const scroll = $('tl-scroll');
@@ -1296,7 +1167,7 @@ function getMidiScoreController() {
       window.EditorTimelineInteractionService?.create?.({
         documentRef: document,
         getElement: id => $(id),
-        getDAW: () => getEditorDAW(),
+        getDAW: () => editorGetRuntimeDAW(),
         setVerticalZoom: value => setVerticalZoom(value),
         setZoom: (...args) => setZoom(...args),
         toast,
@@ -1329,14 +1200,14 @@ function getMidiScoreController() {
 
       // Update loop toggle button state
       const loopBtn = $('loopToggleBtn');
-      if (loopBtn) loopBtn.classList.toggle('loop-active', getEditorDAW().loopEnabled);
+      if (loopBtn) loopBtn.classList.toggle('loop-active', editorGetRuntimeDAW().loopEnabled);
       renderLoopRegion();
 
       // ===== DRAG & DROP audio files onto timeline =====
       const tlScroll = $('tl-scroll');
 
       const audioDropService = window.AudioDropImportService?.create?.({
-        getDAW: () => getEditorDAW(),
+        getDAW: () => editorGetRuntimeDAW(),
         getSong: getCurrentEditorSong,
         clearSelection,
         ensureAudioCtx,
@@ -1387,14 +1258,7 @@ function getMidiScoreController() {
     const ED_TYPES = ['','m','7','maj7','m7','dim','aug','sus2','sus4','6','m6','m7b5'];
     const ED_TENS = ['','add9','9','11','13','b9','#9','#11','b13'];
 
-    let edCur = window.EditorRuntimeAdapter?.getSong?.() || null;
-    window.EdCurAdapter?.onChange?.((_eventName, song) => {
-      edCur = song;
-    });
-    setEditorSong(edCur);
-
-    // The editor keeps a local mutation mirror; runtime ownership stays in
-    // EditorRuntimeAdapter/EdCurAdapter.
+    // EditorRuntimeAdapter is the single owner of the current song reference.
     function getCurrentEditorSong() {
       return window.EditorRuntimeAdapter?.getSong?.() || null;
     }
@@ -1414,7 +1278,7 @@ function getMidiScoreController() {
 function edScheduleEditorRefresh() {
   clearTimeout(edInputRenderTimer);
   edInputRenderTimer = setTimeout(() => {
-    if (!edCur) return;
+    if (!getCurrentEditorSong()) return;
     edRenderEditor(false);
   }, 80);
 }
@@ -1422,7 +1286,7 @@ function edScheduleEditorRefresh() {
 function edScheduleSave() {
   clearTimeout(edSaveTimer);
   edSaveTimer = setTimeout(() => {
-    if (!edCur) return;
+    if (!getCurrentEditorSong()) return;
     edSaveSong();
   }, 400);
 }
@@ -1443,12 +1307,12 @@ function edBlankSong() {
       const defaults = {
         storage: localStorage,
         getSong: getCurrentEditorSong,
-        setSong: setEditorSong,
+        setSong: song => editorAppRuntime.setSong(song),
         blankSong: edBlankSong,
         repairSong: song => window.TextEncodingService?.repairSong?.(song) || song,
         hydrationService: window.EditorHydrationService,
         documentRef: document,
-        daw: getEditorDAW(),
+        daw: editorGetRuntimeDAW(),
         updateNextIdFromClips,
         ensureAudioCtx,
         updateTrackMix,
@@ -1477,37 +1341,32 @@ function edBlankSong() {
         saveState,
         initHighlightEffect,
         rebuildSongDocument: () => {
-          if (typeof rebuildSongDocumentFromEdCur === 'function') {
-            rebuildSongDocumentFromEdCur();
+          if (typeof rebuildPerformanceSongDocument === 'function') {
+            rebuildPerformanceSongDocument();
           }
         },
         syncViewStyles: () => {
-          if (typeof syncViewStylesFromEdCur === 'function') {
-            syncViewStylesFromEdCur();
+          if (typeof syncViewStylesFromSong === 'function') {
+            syncViewStylesFromSong();
           }
         },
         toast
       };
       edSongInitializationOptions = defaults;
 
-      if (typeof service?.create === 'function') {
-        edSongInitializationService = service.create(defaults);
-      } else if (
-        typeof service?.initializeEditor === 'function' ||
-        typeof service?.initialize === 'function'
-      ) {
-        // Adapter path for a service that exposes the older initialize name.
-        edSongInitializationService = service;
+      if (typeof service?.create !== 'function') {
+        throw new Error(
+          'EditorSongInitializationService باید قبل از app/editor.js بارگذاری شود.'
+        );
       }
+      edSongInitializationService = service.create(defaults);
     }
     return edSongInitializationService;
   }
 
   async function edInitSong() {
     const initializationService = getEditorSongInitializationService();
-    const initializeEditor = initializationService?.initializeEditor
-      || initializationService?.initialize;
-    return initializeEditor?.({
+    return initializationService?.initialize?.({
       ...(edSongInitializationOptions || {}),
       storage: localStorage
     });
@@ -1580,19 +1439,19 @@ function edBlankSong() {
       ) {
         edSongPersistenceService = window.EditorSongPersistenceService.create({
           getSong: getCurrentEditorSong,
-          getDAW: () => getEditorDAW(),
+          getDAW: () => editorGetRuntimeDAW(),
           syncMetadata: song => SongMetadata.syncFromDom(song),
           artistKey: artist => archArtistKey(artist),
           storage: localStorage,
           scheduleAudioBlobSave: () => scheduleAudioBlobSave(),
           rebuildSongDocument: () => {
-            if (typeof rebuildSongDocumentFromEdCur === 'function') {
-              rebuildSongDocumentFromEdCur();
+            if (typeof rebuildPerformanceSongDocument === 'function') {
+              rebuildPerformanceSongDocument();
             }
           },
           syncViewStyles: () => {
-            if (typeof syncViewStylesToEdCur === 'function') {
-              syncViewStylesToEdCur();
+            if (typeof syncViewStylesToSong === 'function') {
+              syncViewStylesToSong();
             }
           }
         });
@@ -1657,7 +1516,7 @@ function edBlankSong() {
     }
 
     function edRenderEditor(rebuildContent) {
-      if (!edCur) return;
+      if (!getCurrentEditorSong()) return;
       getEditorLyricsRenderer()?.render(rebuildContent !== false);
       edRenderChords();
     }
@@ -1687,7 +1546,8 @@ function edBlankSong() {
         if (ED_ACCIDENTAL_PREF === 'flat') return false;
       }
       if (typeof window.TransposeService === 'object' && window.TransposeService && typeof window.TransposeService.keySignaturePreference === 'function') {
-        const key = edCur?.originalKey || edCur?.key;
+        const song = getCurrentEditorSong();
+        const key = song?.originalKey || song?.key;
         const fromKey = key ? (key.endsWith('m') ? key.slice(0, -1) : key) : null;
         if (fromKey) {
           const preference = window.TransposeService.keySignaturePreference(fromKey);
@@ -1698,7 +1558,7 @@ function edBlankSong() {
     }
 
     function edBaseNameFromDisplayed(name) {
-      const transpose = Number(edCur?.transpose) || 0;
+      const transpose = Number(getCurrentEditorSong()?.transpose) || 0;
       return transpose && name ? edTransposeChord(name, -transpose) : (name || '');
     }
 
@@ -1755,19 +1615,19 @@ function edBlankSong() {
     }
 
     function edSyncBaseChordName(index) {
-      getEditorChordStateService()?.syncBaseChordName(edCur, index);
+      getEditorChordStateService()?.syncBaseChordName(getCurrentEditorSong(), index);
     }
 
     function edRemoveChordAt(index) {
-      getEditorChordStateService()?.removeChordAt(edCur, index);
+      getEditorChordStateService()?.removeChordAt(getCurrentEditorSong(), index);
     }
 
     function edFilterChordsWithBase(predicate) {
-      getEditorChordStateService()?.filterChordsWithBase(edCur, predicate);
+      getEditorChordStateService()?.filterChordsWithBase(getCurrentEditorSong(), predicate);
     }
 
     function edEnsureBaseChordNamesAligned() {
-      return getEditorChordStateService()?.ensureBaseChordNamesAligned(edCur) || [];
+      return getEditorChordStateService()?.ensureBaseChordNamesAligned(getCurrentEditorSong()) || [];
     }
 
     // ===== دیز/بمل/خودکار selector =====
@@ -1795,8 +1655,9 @@ function edBlankSong() {
         ED_ACCIDENTAL_PREF = sel.value;
         try { localStorage.setItem('ed_accidental_pref', ED_ACCIDENTAL_PREF); } catch(_) {}
         // Re-apply current transpose/key so display updates immediately
-        if (edCur) {
-          if (edCur.transpose) applyTranspose(edCur.transpose);
+        const song = getCurrentEditorSong();
+        if (song) {
+          if (song.transpose) applyTranspose(song.transpose);
           else { refreshKeyUI(); renderAllChordsAndText(); }
         }
         toast('نمایش نت: ' + (ED_ACCIDENTAL_PREF === 'sharp' ? 'دیز ♯' : ED_ACCIDENTAL_PREF === 'flat' ? 'بمل ♭' : 'خودکار'));
@@ -1837,8 +1698,9 @@ function edBlankSong() {
         anchorRectIn,
         attachDrag: edAttachChordDrag,
         onPopupSync: () => {
-          if (editorPopupIsOpen(_lyricPopup)) {
-            setTimeout(() => syncLyricPopup(), 100);
+          const lyricPopup = editorGetLyricPopup();
+          if (editorPopupIsOpen(lyricPopup)) {
+            setTimeout(() => editorSyncLyricPopup(), 100);
           }
         }
       });
@@ -1941,7 +1803,7 @@ function edBlankSong() {
           setSelected: indices => getEditorSelectionService()?.set(indices),
           isColorToolActive: () => isColorToolActive(),
           onPaintChord: (index, event) => paintLyricChord(index, event),
-          isLocked: () => Boolean(edCur?.editorLocked),
+          isLocked: () => Boolean(getCurrentEditorSong()?.editorLocked),
           openChordModal: index => edOpenChordModal(index),
           geometry: getEditorChordDragService(),
           mutations: getEditorMutationService(),
@@ -2038,8 +1900,8 @@ function edBlankSong() {
           setSeqPoints: points => getEditorSongStateService()?.setSeqPoints(points),
           saveState,
           rebuildSongDocument: () => {
-            if (typeof rebuildSongDocumentFromEdCur === 'function') {
-              rebuildSongDocumentFromEdCur();
+            if (typeof rebuildPerformanceSongDocument === 'function') {
+              rebuildPerformanceSongDocument();
             }
           }
         });
@@ -2120,8 +1982,9 @@ if ($('edRedoBtn')) {
 
 if ($('edRemoveAsterisks')) {
   $('edRemoveAsterisks').onclick = () => {
-    if (!edCur || edCur.editorLocked) return;
-    const result = getEditorMutationService()?.removeAsterisks(edCur);
+    const song = getCurrentEditorSong();
+    if (!song || song.editorLocked) return;
+    const result = getEditorMutationService()?.removeAsterisks(song);
     if (!result?.changed) {
       toast('ستاره‌ای در متن وجود ندارد');
       return;
@@ -2136,14 +1999,15 @@ if ($('edReverseChords')) {
   $('edReverseChords').onclick = () => {
     // ⚠️ این دکمه فقط برای موارد خاص است که آکوردها عمداً برعکس وارد شده‌اند
     // در حالت عادی نباید از این دکمه استفاده کرد چون ترتیب موسیقایی را برعکس می‌کند
-    if (!edCur || edCur.editorLocked || !edCur.chords.length) {
+    const song = getCurrentEditorSong();
+    if (!song || song.editorLocked || !song.chords.length) {
       toast('آکوردی وجود ندارد');
       return;
     }
     if (!confirm('⚠️ آیا مطمئن هستید؟ این کار ترتیب موسیقایی آکوردها را در هر خط برعکس می‌کند و فقط برای موارد خاص کاربرد دارد.')) {
       return;
     }
-    const result = getEditorMutationService()?.reverseChords(edCur);
+    const result = getEditorMutationService()?.reverseChords(song);
     if (!result?.changed) return;
     edRenderEditor(true);
     edSaveSong();
@@ -2153,8 +2017,9 @@ if ($('edReverseChords')) {
 
 if ($('edDoBoth')) {
   $('edDoBoth').onclick = () => {
-    if (!edCur || edCur.editorLocked) return;
-    getEditorMutationService()?.removeAndReverse(edCur);
+    const song = getCurrentEditorSong();
+    if (!song || song.editorLocked) return;
+    getEditorMutationService()?.removeAndReverse(song);
     edRenderEditor(true);
     edSaveSong();
     toast('ستاره‌ها حذف و آکوردها برعکس شدند');
@@ -2171,7 +2036,7 @@ if ($('edDoBoth')) {
       ) {
         edChordVersionService = window.EditorChordVersionService.create({
           getSong: getCurrentEditorSong,
-          getDAW: () => getEditorDAW(),
+          getDAW: () => editorGetRuntimeDAW(),
           uid,
           roundMs,
           renderEditor: rebuild => edRenderEditor(rebuild),
@@ -2245,7 +2110,8 @@ if ($('edDoBoth')) {
       return getEditorChordModalService()?.close?.() || false;
     }
     function edConfirmChord() {
-      if (!edCur || edChordModalMode !== 'editor') return;
+      const song = getCurrentEditorSong();
+      if (!song || edChordModalMode !== 'editor') return;
       const commandService = getEditorChordCommandService();
       const name = commandService
         ? commandService.normalizeName($('chordManual')?.value || '')
@@ -2254,14 +2120,14 @@ if ($('edDoBoth')) {
       const chordIndex = edChordIdx;
       const pendingAnchor = edPendingAnchor;
       if (commandService) {
-        commandService.applyName(edCur, chordIndex, pendingAnchor, name);
-      } else if (chordIndex !== null && edCur.chords[chordIndex]) {
-        edCur.chords[chordIndex].name = name;
+        commandService.applyName(song, chordIndex, pendingAnchor, name);
+      } else if (chordIndex !== null && song.chords[chordIndex]) {
+        song.chords[chordIndex].name = name;
         edSyncBaseChordName(chordIndex);
       } else if (pendingAnchor) {
-        edCur.chords.push({ ...pendingAnchor, name });
-        if (!edCur.baseChordNames) edCur.baseChordNames = [];
-        edCur.baseChordNames.push(edBaseNameFromDisplayed(name));
+        song.chords.push({ ...pendingAnchor, name });
+        if (!song.baseChordNames) song.baseChordNames = [];
+        song.baseChordNames.push(edBaseNameFromDisplayed(name));
       }
       edPendingAnchor = null; edChordIdx = null;
       edCloseChordModal(); edRenderChords(); edCommit();
@@ -2271,7 +2137,7 @@ if ($('edDoBoth')) {
           edSeqCursor++;
           edRenderChords();
         } else {
-          const seqStart = edCur.chords.length - edSeqPoints.length;
+          const seqStart = song.chords.length - edSeqPoints.length;
           edFilterChordsWithBase((c, i) => i < seqStart || c.name);
           edSeqChordingActive = false;
           edSeqPoints = [];
@@ -2282,7 +2148,8 @@ if ($('edDoBoth')) {
       }
     }
     function edDeleteChord() {
-      if (edChordIdx !== null && edCur) {
+      const song = getCurrentEditorSong();
+      if (edChordIdx !== null && song) {
         edRemoveChordAt(edChordIdx);
       }
       edCloseChordModal(); edRenderChords(); edCommit();
@@ -2325,7 +2192,8 @@ if ($('edDoBoth')) {
     // Toggles the accidental spelling of ALL current chords WITHOUT changing the key.
     // If chords currently use sharps → convert to flats; if flats → convert to sharps.
     function edToggleAccidental() {
-      if (!edCur || edCur.editorLocked) { toast('🔒 ویرایشگر قفل است'); return; }
+      const song = getCurrentEditorSong();
+      if (!song || song.editorLocked) { toast('🔒 ویرایشگر قفل است'); return; }
       const cc = typeof window.TransposeService === 'object' && window.TransposeService &&
         typeof window.TransposeService.convertAccidentals === 'function'
         ? window.TransposeService.convertAccidentals
@@ -2334,25 +2202,25 @@ if ($('edDoBoth')) {
 
       // Determine current dominant spelling by looking at first accidental chord
       let toFlat = true; // default: convert sharps → flats
-      const withAcc = (edCur.chords || []).map(c => c.name || '').filter(n => /[#♯]|[b♭]/.test(n));
+      const withAcc = (song.chords || []).map(c => c.name || '').filter(n => /[#♯]|[b♭]/.test(n));
       if (withAcc.length && withAcc.every(n => /[b♭]/.test(n))) toFlat = false; // currently flats → to sharp
 
       let converted = 0;
-      (edCur.chords || []).forEach(ch => {
+      (song.chords || []).forEach(ch => {
         if (!ch.name) return;
         const newName = cc(ch.name, toFlat);
         if (newName !== ch.name) { ch.name = newName; converted++; }
       });
       // Also convert baseChordNames so future transpose stays consistent
-      if (edCur.baseChordNames && edCur.baseChordNames.length) {
-        edCur.baseChordNames = edCur.baseChordNames.map(n => n ? cc(n, toFlat) : n);
+      if (song.baseChordNames && song.baseChordNames.length) {
+        song.baseChordNames = song.baseChordNames.map(n => n ? cc(n, toFlat) : n);
       }
       if (converted === 0) { toast('آکوردی برای تبدیل یافت نشد'); return; }
       edRenderChords(true);
       edRenderEditor(false);
       syncTransposeToTimelineChords();
       edSaveSong();
-      if (typeof rebuildSongDocumentFromEdCur === 'function') rebuildSongDocumentFromEdCur();
+      if (typeof rebuildPerformanceSongDocument === 'function') rebuildPerformanceSongDocument();
       toast(toFlat ? 'آکوردها به بمل ♭ تبدیل شدند (' + converted + ')' : 'آکوردها به دیز ♯ تبدیل شدند (' + converted + ')');
     }
 
@@ -2372,22 +2240,23 @@ if ($('edDoBoth')) {
 
     // Central refresh: update all UI from state
     function refreshKeyUI() {
+      const song = getCurrentEditorSong();
       _edSyncingKey = true;
-      if (edCur) {
-        if ($('edKey')) $('edKey').value = edCur.key || 'C';
-        if ($('edKeyMode')) $('edKeyMode').value = edCur.keyMode || 'maj';
+      if (song) {
+        if ($('edKey')) $('edKey').value = song.key || 'C';
+        if ($('edKeyMode')) $('edKeyMode').value = song.keyMode || 'maj';
       }
       _edSyncingKey = false;
       // Original key label
       const origLabel = $('edOrigKeyLabel');
-      if (origLabel && edCur) {
-        const origKey = edCur.originalKey || edCur.key;
-        const origMode = edCur.originalKeyMode || edCur.keyMode;
+      if (origLabel && song) {
+        const origKey = song.originalKey || song.key;
+        const origMode = song.originalKeyMode || song.keyMode;
         origLabel.textContent = '🎵 ' + origKey + (origMode === 'min' ? 'm' : '');
         origLabel.title = 'گام اورجینال: ' + origKey + (origMode === 'min' ? 'm' : '') + ' | کلیک=تغییر | Alt+کلیک=انتقال به گام پروژه';
       }
       // Transpose display
-      const v = edCur?.transpose || 0;
+      const v = song?.transpose || 0;
       if ($('edTransVal')) $('edTransVal').textContent = (v > 0 ? '+' : '') + v;
     }
 
@@ -2399,8 +2268,9 @@ if ($('edDoBoth')) {
 
     // TRANSPOSE: always compute from baseChordNames (never from already-transposed chords)
     function applyTranspose(newTranspose) {
+      const song = getCurrentEditorSong();
       const result = getEditorKeyCommandService()?.applyTranspose(
-        edCur,
+        song,
         newTranspose,
         resolveAccidentalPreference()
       );
@@ -2411,13 +2281,14 @@ if ($('edDoBoth')) {
       renderAllChordsAndText();
       edSaveSong();
       // === Performance Architecture v2: sync transpose immediately ===
-      if (typeof rebuildSongDocumentFromEdCur === 'function') rebuildSongDocumentFromEdCur();
+      if (typeof rebuildPerformanceSongDocument === 'function') rebuildPerformanceSongDocument();
     }
 
     // KEY CHANGE: only modify chord names in current state (from baseChordNames)
     function applyKeyChange(newKey, newMode) {
+      const song = getCurrentEditorSong();
       const result = getEditorKeyCommandService()?.applyKeyChange(
-        edCur,
+        song,
         newKey,
         newMode
       );
@@ -2426,13 +2297,14 @@ if ($('edDoBoth')) {
       renderAllChordsAndText();
       edSaveSong();
       // === Performance Architecture v2: sync key change ===
-      if (typeof rebuildSongDocumentFromEdCur === 'function') rebuildSongDocumentFromEdCur();
+      if (typeof rebuildPerformanceSongDocument === 'function') rebuildPerformanceSongDocument();
     }
 
     // ORIGINAL KEY CHANGE: edit the base-key reference without moving the project
     function applyOriginalKeyChange(newKey, newMode) {
+      const song = getCurrentEditorSong();
       const result = getEditorKeyCommandService()?.applyOriginalKeyChange(
-        edCur,
+        song,
         newKey,
         newMode
       );
@@ -2441,60 +2313,73 @@ if ($('edDoBoth')) {
       refreshKeyUI();
       renderAllChordsAndText();
       edSaveSong();
-      if (typeof rebuildSongDocumentFromEdCur === 'function') rebuildSongDocumentFromEdCur();
+      if (typeof rebuildPerformanceSongDocument === 'function') rebuildPerformanceSongDocument();
     }
 
     // ALT+CLICK: make the project key equal to the independent original key.
     function syncProjectKeyToOriginal() {
-      const result = getEditorKeyCommandService()?.syncProjectKeyToOriginal(edCur);
+      const result = getEditorKeyCommandService()?.syncProjectKeyToOriginal(
+        getCurrentEditorSong()
+      );
       if (!result?.changed) return;
       if (typeof saveCurrentVersion === 'function') saveCurrentVersion();
       refreshKeyUI();
       renderAllChordsAndText();
       edSaveSong();
-      if (typeof rebuildSongDocumentFromEdCur === 'function') rebuildSongDocumentFromEdCur();
+      if (typeof rebuildPerformanceSongDocument === 'function') rebuildPerformanceSongDocument();
     }
 
     // RESET TO ORIGINAL: restore chord names from baseChordNames, preserve positions
     function resetToOriginalKey() {
-      const result = getEditorKeyCommandService()?.resetToOriginalKey(edCur);
+      const result = getEditorKeyCommandService()?.resetToOriginalKey(
+        getCurrentEditorSong()
+      );
       if (!result?.changed) return;
       refreshKeyUI();
       renderAllChordsAndText();
       edSaveSong();
     }
-    if ($('edTransUp')) $('edTransUp').onclick = () => { if (edCur && edCur.editorLocked) { toast('🔒 ویرایشگر قفل است'); return; } if (edCur) applyTranspose((edCur.transpose || 0) + 1); };
-    if ($('edTransDown')) $('edTransDown').onclick = () => { if (edCur && edCur.editorLocked) { toast('🔒 ویرایشگر قفل است'); return; } if (edCur) applyTranspose((edCur.transpose || 0) - 1); };
-    if ($('edTransVal')) $('edTransVal').addEventListener('dblclick', () => { if (edCur) applyTranspose(0); });
+    if ($('edTransUp')) $('edTransUp').onclick = () => {
+      const song = getCurrentEditorSong();
+      if (song?.editorLocked) { toast('🔒 ویرایشگر قفل است'); return; }
+      if (song) applyTranspose((song.transpose || 0) + 1);
+    };
+    if ($('edTransDown')) $('edTransDown').onclick = () => {
+      const song = getCurrentEditorSong();
+      if (song?.editorLocked) { toast('🔒 ویرایشگر قفل است'); return; }
+      if (song) applyTranspose((song.transpose || 0) - 1);
+    };
+    if ($('edTransVal')) $('edTransVal').addEventListener('dblclick', () => {
+      if (getCurrentEditorSong()) applyTranspose(0);
+    });
     // Toggle دیز/بمل برای همه آکوردها (بدون تغییر گام)
     if ($('edToggleAccidental')) $('edToggleAccidental').onclick = () => edToggleAccidental();
 
     // Click on original key label → edit, Alt+Click → project key = original key
     if ($('edOrigKeyLabel')) $('edOrigKeyLabel').addEventListener('click', (e) => {
-      if (!edCur) return;
-      if (edCur.editorLocked) {
+      const song = getCurrentEditorSong();
+      if (!song) return;
+      if (song.editorLocked) {
         toast('🔒 ویرایشگر قفل است');
         return;
       }
 
       // Alt+Click → set the project key to the independent original key.
       if (e.altKey) {
-        const originalKey = edCur.originalKey || edCur.key || 'C';
-        const originalMode = edCur.originalKeyMode || edCur.keyMode || 'maj';
+        const originalKey = song.originalKey || song.key || 'C';
+        const originalMode = song.originalKeyMode || song.keyMode || 'maj';
         syncProjectKeyToOriginal();
         toast('گام پروژه با گام اورجینال یکی شد: ' + originalKey + (originalMode === 'min' ? 'm' : ''));
         return;
       }
 
       // Normal click → change original key
-      const curOrigKey = edCur.originalKey || edCur.key;
-      const curOrigMode = edCur.originalKeyMode || edCur.keyMode || 'maj';
+      const curOrigKey = song.originalKey || song.key;
+      const curOrigMode = song.originalKeyMode || song.keyMode || 'maj';
       const curOrigStr = curOrigKey + (curOrigMode === 'min' ? 'm' : '');
-      const promptFn = typeof customPrompt === 'function'
-        ? customPrompt
-        : (typeof window.customPrompt === 'function'
-          ? window.customPrompt
-          : (message, defaultValue) => Promise.resolve(window.prompt(message, defaultValue)));
+    const promptFn = typeof customPrompt === 'function'
+      ? customPrompt
+      : (message, defaultValue) => Promise.resolve(window.prompt(message, defaultValue));
       promptFn('گام اورجینال آهنگ رو مشخص کنید:', curOrigStr).then((newOrig) => {
         if (!newOrig || newOrig.trim() === '' || newOrig.trim() === curOrigStr) return;
         const val = newOrig.trim();
@@ -2637,7 +2522,7 @@ if ($('edDoBoth')) {
     }
 
     function hasSelectedChordLineClip() {
-      const daw = typeof getEditorDAW === 'function' ? getEditorDAW() : null;
+      const daw = editorGetRuntimeDAW();
       return Boolean(
         daw?.clips?.some(clip =>
           clip?.type === 'chord' && daw.selectedIds?.has(clip.id)
@@ -2650,133 +2535,153 @@ if ($('edDoBoth')) {
     function getEditorKeyboardService() {
       if (
         !edKeyboardService &&
-        typeof window.EditorKeyboardService?.create === 'function'
+        typeof window.EditorKeyboardRuntimeService?.create === 'function'
       ) {
-        edKeyboardService = window.EditorKeyboardService.create({
+        edKeyboardService = window.EditorKeyboardRuntimeService.create({
           windowRef: window,
-          isChordModalOpen: () =>
-            $('chord-modal')?.classList.contains('show'),
-          isEditorChordModal: () => edChordModalMode === 'editor',
-          getChordIndex: () => edChordIdx,
-          isEditorLocked: () => Boolean(edCur?.editorLocked),
-          hasSelectedChords: () => edSelectedChords.length > 0,
-          hasSelectedChordLineClip,
-          isSequentialChordingActive: () => edSeqChordingActive,
-          isShortcutEditing: () => Boolean(_editingShortcutId),
-          getShortcutMatch: (event, id) => matchShortcut(event, id),
-          getDAW: () => getEditorDAW(),
-          getGridConfig: () =>
-            getTimeSignatureGridConfig(
-              $('edTimeSig')?.value || '4/4',
-              parseInt($('edTempo')?.value, 10) || 120
-            ),
-          onCancelShortcutEdit: () => {
-            _editingShortcutId = null;
-            openShortcutModal();
+          state: {
+            isChordModalOpen: () =>
+              $('chord-modal')?.classList.contains('show'),
+            isEditorChordModal: () => edChordModalMode === 'editor',
+            getChordIndex: () => edChordIdx,
+            isEditorLocked: () => Boolean(getCurrentEditorSong()?.editorLocked),
+            hasSelectedChords: () => edSelectedChords.length > 0,
+            hasSelectedChordLineClip,
+            isSequentialChordingActive: () => edSeqChordingActive,
+            isShortcutEditing: () => Boolean(_editingShortcutId),
+            isFocusMode: () =>
+              window.AkordyarCoreApi?.getFocusMode?.() || false,
+            isSyncActive: () => syncActive,
+            isPerfModeActive: () => perfModeActive,
+            isColorToolActive: () => isColorToolActive(),
+            getMappingTarget: () =>
+              getKeyboardMappingService()?.getTarget?.() || null
           },
-          onFinishShortcutEdit: (code, ctrl, shift) =>
-            finishEditShortcut(code, ctrl, shift),
-          onSetLoopFromSelectionAndPlay: () => setLoopFromSelectionAndPlay(),
-          isPerfModeActive: () => perfModeActive,
-          onPerfTogglePlay: () => perfTogglePlay(),
-          onTogglePlay: () => togglePlay(),
-          onUndo: () => undo(),
-          onRedo: () => redo(),
-          onFullscreen: () => {
-            if (!getEditorDAW().isPlaying) {
-              ensureAudioCtx();
-              if (getEditorDAW().playhead <= 0) seekTransport(0, false);
-              startTransport();
-            }
-            openLyricOnlyPopup();
-            setTimeout(openLyricPopup, 300);
+          shortcuts: {
+            getShortcutMatch: (event, id) => matchShortcut(event, id),
+            onCancelShortcutEdit: () => {
+              _editingShortcutId = null;
+              openShortcutModal();
+            },
+            onFinishShortcutEdit: (code, ctrl, shift) =>
+              finishEditShortcut(code, ctrl, shift)
           },
-          onFocusMode: () => toggleFocusMode(),
-          onSeek: (time, snap, noSnap) => seekTransport(time, snap, noSnap),
-          onDeleteSelectedClips: () => deleteSelected(),
-          onSplitSelected: () => splitSelectedAtPlayhead(),
-          onCopySelected: () => copySelected(),
-          onCutSelected: () => cutSelected(),
-          onPasteClipboard: () => pasteClipboard(),
-          onSelectAllClips: () =>
-            setSelection(getEditorDAW().clips.map(clip => clip.id)),
-          onDuplicateSelected: () => duplicateSelected(),
-          onGoStart: () => transportToStart(),
-          onSetLoopFromSelection: () => setLoopFromSelection(),
-          onToggleLoop: () => toggleLoop(),
-          onSetLoopA: () => setLoopA(),
-          onSetLoopB: () => setLoopB(),
-          onTogglePlayheadMode: () => togglePlayheadMode(),
-          onToggleMetronome: () => toggleMetronome(),
-          onToggleRecording: () => toggleRec(),
-          onToggleSelectedTrackHeight: () => toggleSelectedTrackHeight(),
-          onZoomHorizontal: zoomIn => zoomTimelineHorizontal(zoomIn ? 1 : -1),
-          onZoomVertical: zoomIn => zoomTimelineVertical(zoomIn ? 1 : -1),
-          onZoomToSelection: () => zoomTimelineToSelection(),
-          onZoomFull: () => zoomTimelineFull(),
-          isFocusMode: () => _focusMode,
-          isSyncActive: () => syncActive,
-          onSyncTap: () => syncTap(),
-          onExitSyncMode: () => {
-            exitSyncMode();
-            const tab = $('tab-sync');
-            if (tab) tab.classList.remove('active-teal');
+          transport: {
+            getDAW: () => editorGetRuntimeDAW(),
+            getGridConfig: () =>
+              getTimeSignatureGridConfig(
+                $('edTimeSig')?.value || '4/4',
+                parseInt($('edTempo')?.value, 10) || 120
+              ),
+            onSetLoopFromSelectionAndPlay: () =>
+              setLoopFromSelectionAndPlay(),
+            onPerfTogglePlay: () => perfTogglePlay(),
+            onTogglePlay: () => togglePlay(),
+            onUndo: () => undo(),
+            onRedo: () => redo(),
+            onFullscreen: () => {
+              if (!editorGetRuntimeDAW().isPlaying) {
+                ensureAudioCtx();
+                if (editorGetRuntimeDAW().playhead <= 0) seekTransport(0, false);
+                startTransport();
+              }
+              editorOpenLyricOnlyPopup();
+              setTimeout(editorOpenLyricPopup, 300);
+            },
+            onFocusMode: () => editorToggleFocusMode(),
+            onSeek: (time, snap, noSnap) => seekTransport(time, snap, noSnap),
+            onDeleteSelectedClips: () => deleteSelected(),
+            onSplitSelected: () => splitSelectedAtPlayhead(),
+            onCopySelected: () => copySelected(),
+            onCutSelected: () => cutSelected(),
+            onPasteClipboard: () => pasteClipboard(),
+            onSelectAllClips: () =>
+              setSelection(editorGetRuntimeDAW().clips.map(clip => clip.id)),
+            onDuplicateSelected: () => duplicateSelected(),
+            onGoStart: () => transportToStart(),
+            onSetLoopFromSelection: () => setLoopFromSelection(),
+            onToggleLoop: () => toggleLoop(),
+            onSetLoopA: () => setLoopA(),
+            onSetLoopB: () => setLoopB(),
+            onTogglePlayheadMode: () => togglePlayheadMode(),
+            onToggleMetronome: () => toggleMetronome(),
+            onToggleRecording: () => toggleRec(),
+            onToggleSelectedTrackHeight: () => toggleSelectedTrackHeight(),
+            onZoomHorizontal: zoomIn =>
+              zoomTimelineHorizontal(zoomIn ? 1 : -1),
+            onZoomVertical: zoomIn =>
+              zoomTimelineVertical(zoomIn ? 1 : -1),
+            onZoomToSelection: () => zoomTimelineToSelection(),
+            onZoomFull: () => zoomTimelineFull(),
+            onSyncTap: () => syncTap(),
+            onExitSyncMode: () => {
+              exitSyncMode();
+              const tab = $('tab-sync');
+              if (tab) tab.classList.remove('active-teal');
+            },
+            onClearSelection: () => clearSelection()
           },
-          onClearSelection: () => clearSelection(),
-          onHideCutGuide: () => {
-            const guide = $('cut-guide');
-            if (guide) guide.style.display = 'none';
+          ui: {
+            onHideCutGuide: () => {
+              const guide = $('cut-guide');
+              if (guide) guide.style.display = 'none';
+            },
+            onCancelMapping: () => getKeyboardMappingService()?.cancel?.(),
+            onTogglePanel: panel => togglePanel(panel)
           },
-          isColorToolActive: () => isColorToolActive(),
-          onToggleColorBrush: () => toggleColorTool('brush'),
-          onToggleColorEyedropper: () => toggleColorTool('eyedropper'),
-          onDeactivateColorTool: () => deactivateColorTool(),
-          getMappingTarget: () =>
-            getKeyboardMappingService()?.getTarget?.() || null,
-          onCancelMapping: () => getKeyboardMappingService()?.cancel?.(),
-          onTogglePanel: panel => togglePanel(panel),
-          onPerfStop: () => perfStop(),
-          onPerfNextSong: () => perfNextSong(),
-          onPerfPrevSong: () => perfPrevSong(),
-          onPerfRestartSong: () => perfRestartSong(),
-          onPerfToggleStageMode: () => perfToggleStageMode(),
-          onPerfTranspose: delta => perfTranspose(delta),
-          onPerfTogglePauseMode: () => perfTogglePauseMode(),
-          onCloseChordModal: () => edCloseChordModal(),
-          onConfirmChord: () => edConfirmChord(),
-          onTapTempo: () => tapTempo(),
-          onQuantizeSelectedChords: () => quantizeSelectedChords(),
-          onChordLineTap: () => edClTap(),
-          onSequentialEnter: () => {
-            const chords = getEditorSongStateService()?.getChords?.() || [];
-            const seqIdx = chords.length - edSeqPoints.length + edSeqCursor;
-            edOpenChordModal(seqIdx);
+          color: {
+            onToggleColorBrush: () => toggleColorTool('brush'),
+            onToggleColorEyedropper: () => toggleColorTool('eyedropper'),
+            onDeactivateColorTool: () => deactivateColorTool()
           },
-          onNavigateChord: direction => edNavigateChord(direction),
-          onMoveSelectedChords: direction => {
-            const mutation = getEditorMutationService();
-            const changed = mutation?.moveChords(
-              edCur,
-              edSelectedChords,
-              direction,
-              lineIndex => $('editor')?.children[lineIndex]?.textContent
-                ?.replace(/\u200B/g, '').length || 0,
-              isEditorVisualRTL()
-            )?.changed;
-            if (changed) {
-              edRenderChords();
-              edCommit();
-            }
+          performance: {
+            onPerfStop: () => perfStop(),
+            onPerfNextSong: () => perfNextSong(),
+            onPerfPrevSong: () => perfPrevSong(),
+            onPerfRestartSong: () => perfRestartSong(),
+            onPerfToggleStageMode: () => perfToggleStageMode(),
+            onPerfTranspose: delta => perfTranspose(delta),
+            onPerfTogglePauseMode: () => perfTogglePauseMode()
           },
-          onDeleteSelectedChords: () => {
-            const deleted = getEditorMutationService()?.deleteChords(
-              edCur,
-              edSelectedChords
-            )?.changed;
-            if (deleted) {
-              edClearChordSelection();
-              edRenderChords();
-              edCommit();
+          chord: {
+            onCloseChordModal: () => edCloseChordModal(),
+            onConfirmChord: () => edConfirmChord(),
+            onTapTempo: () => editorSyncAnalysisRuntime.tapTempo(),
+            onQuantizeSelectedChords: () => quantizeSelectedChords(),
+            onChordLineTap: () => edClTap(),
+            onSequentialEnter: () => {
+              const chords = getEditorSongStateService()?.getChords?.() || [];
+              const seqIdx = chords.length - edSeqPoints.length + edSeqCursor;
+              edOpenChordModal(seqIdx);
+            },
+            onNavigateChord: direction => edNavigateChord(direction),
+            onMoveSelectedChords: direction => {
+              const mutation = getEditorMutationService();
+              const song = getCurrentEditorSong();
+              const changed = mutation?.moveChords(
+                song,
+                edSelectedChords,
+                direction,
+                lineIndex => $('editor')?.children[lineIndex]?.textContent
+                  ?.replace(/\u200B/g, '').length || 0,
+                isEditorVisualRTL()
+              )?.changed;
+              if (changed) {
+                edRenderChords();
+                edCommit();
+              }
+            },
+            onDeleteSelectedChords: () => {
+              const song = getCurrentEditorSong();
+              const deleted = getEditorMutationService()?.deleteChords(
+                song,
+                edSelectedChords
+              )?.changed;
+              if (deleted) {
+                edClearChordSelection();
+                edRenderChords();
+                edCommit();
+              }
             }
           }
         });
@@ -2786,17 +2691,18 @@ if ($('edDoBoth')) {
 
     // Navigate between chords in modal
     function edNavigateChord(dir) {
-      if (edChordIdx === null || !edCur) return;
+      const song = getCurrentEditorSong();
+      if (edChordIdx === null || !song) return;
       const newName = $('chordManual')?.value?.trim();
-      if (newName && edCur.chords[edChordIdx]) {
-        edCur.chords[edChordIdx].name = newName;
+      if (newName && song.chords[edChordIdx]) {
+        song.chords[edChordIdx].name = newName;
         edSyncBaseChordName(edChordIdx);
       }
       const newIdx = edChordIdx + dir;
-      if (newIdx >= 0 && newIdx < edCur.chords.length) {
+      if (newIdx >= 0 && newIdx < song.chords.length) {
         edChordIdx = newIdx;
-        $('chordManual').value = edCur.chords[newIdx].name;
-        if ($('chord-preview')) $('chord-preview').textContent = edCur.chords[newIdx].name;
+        $('chordManual').value = song.chords[newIdx].name;
+        if ($('chord-preview')) $('chord-preview').textContent = song.chords[newIdx].name;
       }
     }
 
@@ -2815,9 +2721,9 @@ if ($('edDoBoth')) {
       'toggleArrangerMarkers': () => toggleArrangerMarkers(),
       'undo': () => getHistoryService().undo(),
       'redo': () => getHistoryService().redo(),
-      'fullscreen': () => { if (!getEditorDAW().isPlaying) { ensureAudioCtx(); if (getEditorDAW().playhead <= 0) seekTransport(0, false); startTransport(); } openLyricOnlyPopup(); setTimeout(openLyricPopup, 300); },
-      'singerView': openLyricOnlyPopup,
-      'playerView': (typeof openPlayerView === 'function') ? openPlayerView : openLyricPopup,
+      'fullscreen': () => { if (!editorGetRuntimeDAW().isPlaying) { ensureAudioCtx(); if (editorGetRuntimeDAW().playhead <= 0) seekTransport(0, false); startTransport(); } editorOpenLyricOnlyPopup(); setTimeout(editorOpenLyricPopup, 300); },
+      'singerView': editorOpenLyricOnlyPopup,
+      'playerView': (typeof openPlayerView === 'function') ? openPlayerView : editorOpenLyricPopup,
       'split': splitSelectedAtPlayhead, 'copy': copySelected, 'cut': cutSelected, 'paste': pasteClipboard,
       'projectHubOpen': () => window.ProjectHub?.open(),
       'archiveOpen': edOpenArchive,
@@ -2855,9 +2761,9 @@ if ($('edDoBoth')) {
       syncChordLine: () => syncChordLineFromLyrics(),
       sendToArranger: () => sendCurrentSongToArranger(),
       toggleMetronome: () => toggleMetronome(),
-      tapTempo: () => tapTempo(),
-      detectTempo: () => detectTempo(),
-      detectKey: () => detectKey(),
+      tapTempo: () => editorSyncAnalysisRuntime.tapTempo(),
+      detectTempo: () => editorSyncAnalysisRuntime.detectTempo(),
+      detectKey: () => editorSyncAnalysisRuntime.detectKey(),
       toggleMIDITab: () => toggleMIDITab(),
       toggleMIDISync: () => toggleMIDISync(),
       toggleMidiMonitor: () => toggleMidiMonitor(),
@@ -3089,13 +2995,16 @@ if ($('edDoBoth')) {
           window.EditorPlaylistBackupService.create({
             documentRef: document,
             windowRef: window,
-            getArrangers: () => arrangers,
-            getEditingArr: () => editingArr,
+            getArrangers: () =>
+              window.AkordyarCoreApi?.getArrangers?.() || [],
+            getEditingArr: () =>
+              window.AkordyarCoreApi?.getEditingArr?.() || null,
             getAllSongs: () => edGetAllSongs(),
             setAllSongs: (...args) => edSetAllSongs(...args),
-            saveArrangers: (...args) => saveArrangers(...args),
+            saveArrangers: (...args) =>
+              window.AkordyarCoreApi?.saveArrangers?.(...args),
             renderArrangerManager: (...args) =>
-              renderArrangerManager(...args),
+              window.AkordyarCoreApi?.renderArrangerManager?.(...args),
             toast: message => toast(message),
             logger: console,
             now: () => Date.now(),
@@ -3124,7 +3033,7 @@ function getClipFilePath(clip, projectFilePath = null) {
   
   // بررسی حالت‌های مختلف ذخیره‌سازی
   if (clip.storage && clip.storage.mode === 'copy') {
-    const projRoot = projectFilePath ? pathDirname(projectFilePath) : getEditorDAW().projectRoot;
+    const projRoot = projectFilePath ? pathDirname(projectFilePath) : editorGetRuntimeDAW().projectRoot;
     if (!projRoot || !clip.storage.projectPath) {
       return null;
     }
@@ -3134,7 +3043,7 @@ function getClipFilePath(clip, projectFilePath = null) {
   } else if (clip.storage && clip.storage.mode === 'reference') {
     filePath = clip.storage.externalPath;
   } else if (clip.relativePath) {
-    const projRoot = projectFilePath ? pathDirname(projectFilePath) : getEditorDAW().projectRoot;
+    const projRoot = projectFilePath ? pathDirname(projectFilePath) : editorGetRuntimeDAW().projectRoot;
     if (projRoot) {
       filePath = (window.electronAPI?.resolvePath)
                  ? window.electronAPI.resolvePath(projRoot, clip.relativePath)
@@ -3149,7 +3058,25 @@ function getClipFilePath(clip, projectFilePath = null) {
   return filePath;
 }
 
-// اطمینان از اینکه تابع getClipFilePath در global scope قابل دسترسی هست
-if (typeof window !== 'undefined') {
-  window.getClipFilePath = getClipFilePath;
-}
+editorPublicApi.publish({
+  saveSong: edSaveSong,
+  syncToolbar: edSyncToolbar,
+  renderEditor: edRenderEditor,
+  clearChordSelection: edClearChordSelection,
+  setLaneHeight,
+  switchChordVersion,
+  addChordVersion,
+  renameChordVersion,
+  buildChordEditor,
+  buildPiano,
+  updateChordPreview,
+  renderChords: edRenderChords,
+  openChordEditor,
+  closeChordEditor,
+  chordModalConfirm,
+  chordModalDelete,
+  placeChordOnTimeline,
+  getClipFilePath,
+  saveProjectFile: edSaveProjectFile,
+  exportProjectFull: edExportProjectFull
+});

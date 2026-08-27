@@ -20,6 +20,15 @@ const preparationService = fs.readFileSync(
   ),
   'utf8'
 );
+const arrangerRuntimeService = fs.readFileSync(
+  path.join(
+    projectRoot,
+    'js',
+    'app',
+    'CoreArrangerRuntimeService.js'
+  ),
+  'utf8'
+);
 const editor = fs.readFileSync(
   path.join(projectRoot, 'js', 'app', 'editor.js'),
   'utf8'
@@ -98,12 +107,10 @@ assert.match(
 );
 assert.match(transportService, /playheadMath\?\.applyLoop/);
 assert.match(core, /arrangerPlaybackPolicy\?\.createBoundary/);
-assert.match(
-  core,
-  /CoreArrangerPreparationService\?\.create/
-);
+assert.match(core, /CorePerformanceRuntimeService\?\.create/);
+assert.doesNotMatch(core, /CoreArrangerPreparationService\?\.create/);
 assert.match(preparationService, /arrangerMarkers:\s*songData\._arrangerMarkers/);
-assert.match(preparationService, /legacyLoopState:\s*songData\._dawLoop/);
+assert.doesNotMatch(preparationService, /legacyLoopState/);
 assert.match(preparationService, /playbackStart:\s*playbackBoundary\.start/);
 assert.match(songLoadService, /playbackPolicy\?\.applyToDAW/);
 assert.match(
@@ -127,7 +134,12 @@ assert.match(
   editor,
   /sendToArranger:\s*\(\)\s*=>\s*sendCurrentSongToArranger\(\)/
 );
-assert.match(core, /async function sendCurrentSongToArranger/);
+assert.match(core, /CoreArrangerRuntimeService\?\.create/);
+assert.match(
+  arrangerRuntimeService,
+  /async function sendCurrentSongToArranger/
+);
+assert.doesNotMatch(core, /async function sendCurrentSongToArranger/);
 assert.match(html, /data-action="setArrangerA"/);
 assert.match(html, /data-action="setArrangerB"/);
 assert.match(html, /data-action="toggleArrangerMarkers"/);

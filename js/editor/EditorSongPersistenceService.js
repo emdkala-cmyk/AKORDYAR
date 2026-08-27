@@ -2,7 +2,7 @@
  * EditorSongPersistenceService
  *
  * ساخت snapshot قابل‌ذخیره از song و DAW و نگهداری آن در storage.
- * این سرویس به DOM، window.edCur، DAW global یا PERF دسترسی مستقیم ندارد.
+ * این سرویس به DOM، EditorRuntimeAdapter، DAW یا PERF دسترسی مستقیم ندارد.
  */
 (function attachEditorSongPersistenceService(globalScope) {
   function cloneSerializableClip(clip) {

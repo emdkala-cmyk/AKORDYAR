@@ -5,13 +5,11 @@
   'use strict';
 
   function hasSongGetter(ctx) {
-    return typeof ctx?.getEdCur === 'function' ||
-      typeof ctx?.getSong === 'function';
+    return typeof ctx?.getSong === 'function';
   }
 
   function hasSongSetter(ctx) {
-    return typeof ctx?.setEdCur === 'function' ||
-      typeof ctx?.setSong === 'function';
+    return typeof ctx?.setSong === 'function';
   }
 
   function isHistoryContextReady(ctx) {
@@ -135,7 +133,6 @@
     getSong() {
       const ctx = this.ctx || {};
       try {
-        if (typeof ctx.getEdCur === 'function') return ctx.getEdCur();
         if (typeof ctx.getSong === 'function') return ctx.getSong();
       } catch (_) {}
       return null;
@@ -144,10 +141,6 @@
     setSong(song) {
       const ctx = this.ctx || {};
       try {
-        if (typeof ctx.setEdCur === 'function') {
-          ctx.setEdCur(song);
-          return true;
-        }
         if (typeof ctx.setSong === 'function') {
           ctx.setSong(song);
           return true;
@@ -162,8 +155,8 @@
       const ctx = this.ctx;
       const DAW = this.getDAW();
       const PERF = this.getPERF();
-      const edCur = this.getSong();
-      if (!DAW || !PERF || !edCur) return null;
+      const song = this.getSong();
+      if (!DAW || !PERF || !song) return null;
 
       try {
         const edSeqPoints = typeof ctx.getEdSeqPoints === 'function'
@@ -211,7 +204,7 @@
           tracks,
           clips,
           sections,
-          edCur: JSON.parse(JSON.stringify(edCur)),
+          song: JSON.parse(JSON.stringify(song)),
           edSeqPoints: Array.isArray(edSeqPoints)
             ? JSON.parse(JSON.stringify(edSeqPoints))
             : []
@@ -277,11 +270,11 @@
         DAW.selectedSectionIds = new Set();
         ctx.updateNextIdFromClips();
 
-        if (state.edCur) {
+        if (state.song) {
           const keepId = this.getSong()?.id;
           const repairedSong = typeof ctx.repairSong === 'function'
-            ? ctx.repairSong(state.edCur)
-            : state.edCur;
+            ? ctx.repairSong(state.song)
+            : state.song;
           this.setSong(repairedSong);
           if (keepId != null && this.getSong()) this.getSong().id = keepId;
         } else {

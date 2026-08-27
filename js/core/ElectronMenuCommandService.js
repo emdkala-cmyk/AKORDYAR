@@ -28,6 +28,12 @@
     return fn;
   }
 
+  function requireCoreFunction(name, errorMessage) {
+    const fn = globalScope.AkordyarCoreApi?.[name];
+    if (typeof fn !== 'function') throw new Error(errorMessage);
+    return fn;
+  }
+
   function actionMap() {
     return {
       'menu-new-song': {
@@ -62,26 +68,27 @@
       'menu-play-pause': {
         label: 'پخش/توقف',
         run: () => {
-          const getDAW = requireFunction('getEditorDAW', FUNCTION_NOT_FOUND.playback);
-          const actionName = getDAW()?.isPlaying ? 'pauseTransport' : 'startTransport';
-          return requireFunction(actionName, FUNCTION_NOT_FOUND.playback)();
+          const daw = globalScope.EditorRuntimeAdapter?.getDAW?.();
+          if (!daw) throw new Error(FUNCTION_NOT_FOUND.playback);
+          const actionName = daw.isPlaying ? 'pauseTransport' : 'startTransport';
+          return requireCoreFunction(actionName, FUNCTION_NOT_FOUND.playback)();
         }
       },
       'menu-stop': {
         label: 'توقف پخش',
-        run: () => requireFunction('stopTransport', FUNCTION_NOT_FOUND.stop)()
+        run: () => requireCoreFunction('stopTransport', FUNCTION_NOT_FOUND.stop)()
       },
       'menu-go-to-start': {
         label: 'رفتن به ابتدای پروژه',
-        run: () => requireFunction('transportToStart', FUNCTION_NOT_FOUND.seek)()
+        run: () => requireCoreFunction('transportToStart', FUNCTION_NOT_FOUND.seek)()
       },
       'menu-go-to-end': {
         label: 'رفتن به انتهای پروژه',
-        run: () => requireFunction('transportToEnd', FUNCTION_NOT_FOUND.seek)()
+        run: () => requireCoreFunction('transportToEnd', FUNCTION_NOT_FOUND.seek)()
       },
       'menu-arranger': {
         label: 'ارنجر',
-        run: () => requireFunction('openArrangerModal', FUNCTION_NOT_FOUND.arranger)()
+        run: () => requireCoreFunction('openArrangerModal', FUNCTION_NOT_FOUND.arranger)()
       },
       'menu-archive': {
         label: 'آرشیو آهنگ‌ها',
@@ -93,7 +100,7 @@
       },
       'menu-preferences': {
         label: 'تنظیمات برنامه',
-        run: () => requireFunction('openSettings', FUNCTION_NOT_FOUND.settings)()
+        run: () => requireCoreFunction('openSettings', FUNCTION_NOT_FOUND.settings)()
       }
     };
   }

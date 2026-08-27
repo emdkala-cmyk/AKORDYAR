@@ -1,15 +1,33 @@
 /**
  * EditorRuntimeAdapter — controlled runtime boundary for core/editor modules.
  *
- * The adapter resolves the current runtime objects lazily so it remains valid
- * while app/core.js initializes and later publishes DAW/PERF on the global
- * scope. Consumers should use the getter functions instead of binding the
- * legacy objects directly.
+ * The adapter owns the current editor song and exposes the runtime state
+ * through explicit getters. Consumers must use this namespace instead of
+ * binding to mutable globals or compatibility aliases.
  */
 (function attachEditorRuntimeAdapter(globalScope) {
+  let currentSong = null;
+  const songListeners = new Set();
+
+  function notifySongChange(song) {
+    songListeners.forEach(listener => {
+      try {
+        listener(song);
+      } catch (error) {
+        console.error(error);
+      }
+    });
+  }
+
+  function onSongChange(listener) {
+    if (typeof listener !== 'function') return () => {};
+    songListeners.add(listener);
+    return () => songListeners.delete(listener);
+  }
+
   const adapter = Object.freeze({
     getDAW() {
-      return globalScope.RuntimeStateAdapter?.getDAW?.() || globalScope.DAW || null;
+      return globalScope.RuntimeStateAdapter?.getDAW?.() || null;
     },
 
     getDAWOrThrow() {
@@ -19,7 +37,7 @@
     },
 
     getPERF() {
-      return globalScope.RuntimeStateAdapter?.getPERF?.() || globalScope.PERF || null;
+      return globalScope.RuntimeStateAdapter?.getPERF?.() || null;
     },
 
     getPERFOrThrow() {
@@ -29,13 +47,16 @@
     },
 
     getSong() {
-      return globalScope.EdCurAdapter?.getEdCur?.() || null;
+      return currentSong;
     },
 
     setSong(song) {
-      globalScope.EdCurAdapter?.setEdCur?.(song);
+      currentSong = song;
+      notifySongChange(song);
       return song;
     },
+
+    onSongChange,
 
     getPerformanceStore() {
       return globalScope.RuntimeStateAdapter?.getPerformanceStore?.() || null;
@@ -75,10 +96,6 @@
   });
 
   globalScope.EditorRuntimeAdapter = adapter;
-  globalScope.getEditorDAW = () => adapter.getDAWOrThrow();
-  globalScope.getEditorPERF = () => adapter.getPERFOrThrow();
-  globalScope.getEditorSong = () => adapter.getSong();
-  globalScope.startEditorPointerDrag = (...args) => adapter.startPointerDrag(...args);
 
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = adapter;

@@ -4,12 +4,12 @@ const song = { id: 'song-1' };
 const daw = { clips: [] };
 const perf = { lastSerializedState: 'stale' };
 const performanceStore = { lastSerializedState: 'stale-store' };
-let currentSong = null;
 
-globalThis.EdCurAdapter = {
-  getEdCur: () => currentSong,
-  setEdCur: value => {
-    currentSong = value;
+globalThis.EditorRuntimeAdapter = {
+  getSong: () => globalThis.__currentSong || null,
+  setSong: value => {
+    globalThis.__currentSong = value;
+    return value;
   }
 };
 globalThis.RuntimeStateAdapter = {

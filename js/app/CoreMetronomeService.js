@@ -11,7 +11,7 @@
   function create({
     getElement = id => globalScope.document?.getElementById?.(id),
     getTransportState = () => ({}),
-    getDAW = () => globalScope.getEditorDAW?.() || globalScope.DAW || {},
+    getDAW = () => globalScope.RuntimeStateAdapter?.getDAW?.() || {},
     getProjectEnd = () => Number.POSITIVE_INFINITY,
     seekTransport = () => {},
     stopAllVoices = () => {},
@@ -98,7 +98,7 @@
       if (!state.metroActive || !getDAW().isPlaying) return;
       const bpm = parseInt(getElement('edTempo')?.value) || 120;
       const timeSignature = getElement('edTimeSig')?.value || '4/4';
-      return getSchedulingService()?.checkLegacyTick?.(
+      return getSchedulingService()?.checkMetronomeTick?.(
         playheadTime,
         { bpm, timeSignature }
       ) || null;

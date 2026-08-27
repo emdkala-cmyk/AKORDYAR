@@ -14,7 +14,8 @@
     setFocusMode = () => {},
     getSongState = () => null,
     schedule = callback => globalScope.setTimeout?.(callback, 50),
-    renderChords = () => globalScope.edRenderChords?.(),
+    renderChords = () =>
+      globalScope.AkordyarEditorApi?.renderChords?.(),
     toast = () => {},
     translate = key => globalScope.t?.(key) ?? key
   } = {}) {

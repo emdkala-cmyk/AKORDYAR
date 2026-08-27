@@ -537,7 +537,7 @@ class SyncModeController {
     const daw = this.getDAW();
     const chordTrack = daw.tracks.find(t => t.type === 'chord');
     if (!chordTrack) { this.toast('ترک کورد لاین پیدا نشد'); return; }
-    // آکوردها در edCur.chords به ترتیب موسیقایی ذخیره شده‌اند (از بیت اول تا آخر)
+    // آکوردها در Song Runtime به ترتیب موسیقایی ذخیره شده‌اند (از بیت اول تا آخر)
     // Chord Line فقط جهت نمایش LTR دارد — ترتیب موسیقایی باید حفظ شود
     ss.clMarkers.forEach((m, i) => {
       daw.clips.push({ id: this.uid('c'), type: 'chord', trackId: chordTrack.id, name: lyrics[i].name, start: this.roundMs(m.time), duration: 2, color: '#9F7AEA' });

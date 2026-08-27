@@ -13,10 +13,10 @@
       globalScope.__historyAttached = value;
     },
     getHistoryService = () => globalScope.requireHistoryService?.(),
-    getDAW = () => globalScope.getEditorDAW?.(),
-    getPERF = () => globalScope.getEditorPERF?.(),
+    getDAW = () => globalScope.RuntimeStateAdapter?.getDAW?.() || null,
+    getPERF = () => globalScope.RuntimeStateAdapter?.getPERF?.() || null,
     getSongState = () => globalScope.requireEditorSongStateService?.(),
-    setSong = song => globalScope.setEditorSong?.(song),
+    setSong = song => globalScope.EditorRuntimeAdapter?.setSong?.(song),
     repairSong = song =>
       globalScope.TextEncodingService?.repairSong?.(song) || song,
     getSeqPoints = () => [],
@@ -44,9 +44,7 @@
       historyService.init({
         getDAW,
         getPERF,
-        getEdCur: () => getSongState?.()?.currentSong?.(),
         getSong: () => getSongState?.()?.currentSong?.(),
-        setEdCur: song => setSong?.(song),
         setSong: song => setSong?.(song),
         repairSong,
         getEdSeqPoints: () => getSeqPoints?.(),

@@ -30,8 +30,8 @@
     updateTrackMix,
     audioRecoveryService = globalScope.AudioRecoveryService,
 
-    // Compatibility callbacks for callers that still construct the recovery
-    // service through this initializer.
+    // Audio recovery dependencies are forwarded when the shared recovery
+    // service is constructed by the initializer.
     loadAudioBlobsForProject,
     getAudioBlobFromDB,
     decodeFileToBuffer,
@@ -135,7 +135,6 @@
 
     return Object.freeze({
       initialize: options => initialize(withDefaults(options)),
-      initializeEditor: options => initialize(withDefaults(options)),
       restoreAudio: (song, options) => restoreAudio(song, withDefaults(options))
     });
   }
@@ -143,7 +142,6 @@
   const service = Object.freeze({
     create,
     initialize,
-    initializeEditor: initialize,
     restoreAudio
   });
   globalScope.EditorSongInitializationService = service;

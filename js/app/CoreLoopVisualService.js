@@ -8,7 +8,7 @@
   'use strict';
 
   function create({
-    getDAW = () => globalScope.getEditorDAW?.() || globalScope.DAW,
+    getDAW = () => globalScope.RuntimeStateAdapter?.getDAW?.() || null,
     getElement = id => globalScope.document?.getElementById?.(id),
     documentRef = globalScope.document,
     timeToX = value => value,
@@ -16,8 +16,8 @@
     clamp = (value, min, max) => Math.max(min, Math.min(max, value)),
     getProjectEnd = () => Number.POSITIVE_INFINITY,
     startPointerDrag = (...args) =>
-      globalScope.startEditorPointerDrag?.(...args),
-    saveState = () => globalScope.saveState?.()
+      globalScope.EditorRuntimeAdapter?.startPointerDrag?.(...args),
+    saveState = () => {}
   } = {}) {
     function renderLoopRegion() {
       const daw = getDAW();

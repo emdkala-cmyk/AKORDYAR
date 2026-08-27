@@ -39,7 +39,6 @@ const disabledMarkerBoundary = ArrangerPlaybackPolicyService.createBoundary({
     start: 4,
     end: 12
   },
-  legacyLoopState: { loopA: 4, loopB: 12 },
   fallbackEnd: 30
 });
 assert.equal(disabledMarkerBoundary.start, 0);

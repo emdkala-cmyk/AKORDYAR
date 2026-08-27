@@ -9,7 +9,7 @@
   'use strict';
 
   function create({
-    getDAW = () => globalScope.getEditorDAW?.() || globalScope.DAW || {},
+    getDAW = () => globalScope.RuntimeStateAdapter?.getDAW?.() || {},
     roundMs = value => value,
     splitClipAt = () => null,
     seekTransport = () => {},

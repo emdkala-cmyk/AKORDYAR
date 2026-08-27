@@ -20,7 +20,7 @@
     normalizeRawText = value => value || '',
     hasPersian = () => false,
     isChordOnlyLine = () => false,
-    parseRawSongToEdCur = () => null,
+    parseRawSong = () => null,
     parseChordLyricText = () => ({
       allChords: new Set(),
       sections: []
@@ -145,7 +145,7 @@
             const extraction = await windowRef.extractLaminorFromHtml(html);
             if (extraction?.lines?.length > 0) {
               const converted =
-                windowRef.convertExtractedLinesToEdCur(extraction.lines);
+                windowRef.convertExtractedLinesToSong(extraction.lines);
               const parsed = {
                 title: '',
                 artist: '',
@@ -372,7 +372,7 @@
         }
       }
 
-      const parsedResult = parseRawSongToEdCur(parsed);
+      const parsedResult = parseRawSong(parsed);
       if (parsed._extractedChords?.length > 0) {
         parsedResult.chords = parsed._extractedChords;
         if (parsed._extractionWarnings) {

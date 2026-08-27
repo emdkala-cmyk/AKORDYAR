@@ -2,7 +2,7 @@
  * songDocumentModel.js — منبع حقیقت واحد برای همه Viewها
  *
  * مدل مشترک آهنگ: متن، آکوردها، گام، sync، و state پخش.
- * هیچ View‌ای نباید مستقیماً edCur را بخواند — باید از SongDocument استفاده کند.
+ * هیچ View‌ای نباید مستقیماً runtime song را بخواند — باید از SongDocument استفاده کند.
  *
  * توابع transpose از فرمان‌های عمومی runtime ادیتور استفاده می‌کنند.
  */
@@ -25,7 +25,7 @@
  * @property {number} lineIndex  ایندکس خط
  * @property {number} tokenIndex ایندکس token در آن خط که رویش می‌نشیند
  * @property {number} offset     آفست جزئی
- * @property {string} anchorType نوع anchor از edCur
+ * @property {string} anchorType نوع anchor از Song Runtime
  */
 
 /**
@@ -84,7 +84,7 @@
  * @property {number} transpose
  * @property {string} mode
  * @property {string} rawLyrics
- * @property {Array<Object>} rawChords   edCur.chords خام
+ * @property {Array<Object>} rawChords   chords خام Song Runtime
  * @property {Object|null} midiScore      serialized Standard MIDI score
  * @property {Object|null} musicXmlScore  serialized read-only MusicXML score
  * @property {Array<Object>} scorePartMappings MusicXML↔MIDI↔device mappings
@@ -99,12 +99,12 @@ const SongDocumentModel = (() => {
   const CURRENT_SCHEMA_VERSION = 1;
 
   /**
-   * ساخت SongDocument از edCur (مدل فعلی پروژه)
-   * @param {any} edCur
+   * ساخت SongDocument از song فعلی پروژه
+   * @param {any} song
    * @returns {SongDocument}
    */
-  function buildSongDocumentFromEdCur(ed) {
-    if (!ed) {
+  function buildSongDocument(song) {
+    if (!song) {
       return {
         id: '', title: '', artist: '',
         originalKey: 'C', currentKey: 'C', transpose: 0, mode: 'major',
@@ -128,8 +128,8 @@ const SongDocumentModel = (() => {
       };
     }
 
-    const rawLyrics = ed.lyrics || '';
-    const rawChords = Array.isArray(ed.chords) ? ed.chords : [];
+    const rawLyrics = song.lyrics || '';
+    const rawChords = Array.isArray(song.chords) ? song.chords : [];
 
     const lines = rawLyrics.split('\n').map((text, i) => ({
       id: 'ln' + i,
@@ -139,8 +139,8 @@ const SongDocumentModel = (() => {
       chords: []
     }));
 
-    const cues = Array.isArray(ed.syncTimes)
-      ? ed.syncTimes.map((tm, idx) => ({
+    const cues = Array.isArray(song.syncTimes)
+      ? song.syncTimes.map((tm, idx) => ({
           id: 'cue' + idx,
           time: Number.isFinite(tm) ? tm : NaN,
           lineIndex: idx
@@ -148,18 +148,18 @@ const SongDocumentModel = (() => {
       : [];
 
     return {
-      id:           ed.id || 'song-0',
-      title:        ed.title || '',
-      artist:       ed.artist || '',
-      originalKey:  ed.originalKey || ed.key || 'C',
-      currentKey:   ed.key || 'C',
-      transpose:    ed.transpose || 0,
-      mode:         ed.keyMode || 'major',
+      id:           song.id || 'song-0',
+      title:        song.title || '',
+      artist:       song.artist || '',
+      originalKey:  song.originalKey || song.key || 'C',
+      currentKey:   song.key || 'C',
+      transpose:    song.transpose || 0,
+      mode:         song.keyMode || 'major',
        rawLyrics:    rawLyrics,
        rawChords:    rawChords,
-       midiScore:    ed.midiScore || null,
-       musicXmlScore: ed.musicXmlScore || null,
-       scorePartMappings: Array.isArray(ed.scorePartMappings) ? ed.scorePartMappings : [],
+       midiScore:    song.midiScore || null,
+       musicXmlScore: song.musicXmlScore || null,
+       scorePartMappings: Array.isArray(song.scorePartMappings) ? song.scorePartMappings : [],
        liveScoreSettings: {
          enabled: false,
          readOnly: true,
@@ -170,14 +170,14 @@ const SongDocumentModel = (() => {
          transpositionSettings: {},
          chordLineVisibility: {},
          playheadMode: 'line',
-         ...(ed.liveScoreSettings && typeof ed.liveScoreSettings === 'object'
-           ? ed.liveScoreSettings
+         ...(song.liveScoreSettings && typeof song.liveScoreSettings === 'object'
+           ? song.liveScoreSettings
            : {}),
-         playheadMode: ed.liveScoreSettings?.playheadMode === 'measure'
+         playheadMode: song.liveScoreSettings?.playheadMode === 'measure'
            ? 'measure'
            : 'line'
        },
-       styles:       ed.styles || {},
+       styles:       song.styles || {},
       lines:        lines,
       sections:     [],
       cues:         cues,
@@ -250,30 +250,30 @@ const SongDocumentModel = (() => {
   }
 
   /**
-   * نوشتن SongDocument به edCur
+   * نوشتن SongDocument در song فعلی پروژه
    */
-  function writeToEdCur(doc, ed) {
-    if (!doc || !ed) return;
-    ed.title     = doc.title;
-    ed.artist    = doc.artist;
-    ed.key       = doc.currentKey;
-    ed.keyMode   = doc.mode;
-    ed.transpose = doc.transpose;
-    ed.lyrics    = doc.rawLyrics;
-    ed.chords    = doc.rawChords.map(ch => ({ ...ch }));
-    ed.syncTimes = doc.cues.map(c => c.time);
-    if (doc.midiScore) ed.midiScore = clone(doc.midiScore);
-    if (doc.musicXmlScore) ed.musicXmlScore = clone(doc.musicXmlScore);
-    if (Array.isArray(doc.scorePartMappings)) ed.scorePartMappings = clone(doc.scorePartMappings);
-    if (doc.liveScoreSettings) ed.liveScoreSettings = clone(doc.liveScoreSettings);
-    if (doc.originalKey) ed.originalKey = doc.originalKey;
+  function writeToSong(doc, song) {
+    if (!doc || !song) return;
+    song.title     = doc.title;
+    song.artist    = doc.artist;
+    song.key       = doc.currentKey;
+    song.keyMode   = doc.mode;
+    song.transpose = doc.transpose;
+    song.lyrics    = doc.rawLyrics;
+    song.chords    = doc.rawChords.map(ch => ({ ...ch }));
+    song.syncTimes = doc.cues.map(c => c.time);
+    if (doc.midiScore) song.midiScore = clone(doc.midiScore);
+    if (doc.musicXmlScore) song.musicXmlScore = clone(doc.musicXmlScore);
+    if (Array.isArray(doc.scorePartMappings)) song.scorePartMappings = clone(doc.scorePartMappings);
+    if (doc.liveScoreSettings) song.liveScoreSettings = clone(doc.liveScoreSettings);
+    if (doc.originalKey) song.originalKey = doc.originalKey;
   }
 
   function clone(doc) {
     return JSON.parse(JSON.stringify(doc));
   }
 
-  return { CURRENT_SCHEMA_VERSION, buildSongDocumentFromEdCur, writeToEdCur, clone, migrate };
+  return { CURRENT_SCHEMA_VERSION, buildSongDocument, writeToSong, clone, migrate };
 
 })();
 
