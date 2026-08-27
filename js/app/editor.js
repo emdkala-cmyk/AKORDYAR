@@ -119,7 +119,7 @@ const {
   clearLoop,
   setLoopFromSelection,
   setLoopFromSelectionAndPlay,
-  edRemapSeqPoints,
+  edRemapSeqPoints: editorRemapSeqPoints,
   openPerfMode,
   perfStop,
   perfTogglePauseMode,
@@ -1801,7 +1801,7 @@ function edBlankSong() {
           executeCommand: (...args) => document.execCommand?.(...args),
           remapAnchors: (oldText, newText) => edRemapAnchors(oldText, newText),
           remapSequencePoints: (oldText, newText) =>
-            edRemapSeqPoints(oldText, newText),
+            editorRemapSeqPoints(oldText, newText),
           scheduleEditorRefresh: () => edScheduleEditorRefresh(),
           scheduleCommit: () => {
             clearTimeout(edCommitTimer);

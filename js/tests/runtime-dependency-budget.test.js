@@ -368,6 +368,18 @@ assert.doesNotMatch(
   editor,
   /const ED_(?:NOTES|FLAT_NOTES|ALL_NOTE_NAMES|SEMITONE|FLAT_MAP)/
 );
+assert.match(
+  editor,
+  /edRemapSeqPoints:\s*editorRemapSeqPoints/
+);
+assert.match(
+  editor,
+  /editorRemapSeqPoints\(oldText, newText\)/
+);
+assert.doesNotMatch(
+  editor,
+  /\b(?:const|let|var)\s+edRemapSeqPoints\b/
+);
 assert.doesNotMatch(
   editor,
   /function initAccidentalSelector\(\)\s*\{\s*try/
