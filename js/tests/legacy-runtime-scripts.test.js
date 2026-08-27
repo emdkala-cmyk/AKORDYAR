@@ -87,6 +87,7 @@ for (const activeScript of [
   'js/app/CoreSequentialChordRemapService.js',
   'js/editor/EditorChordImportService.js',
   'js/editor/EditorKeyboardRuntimeService.js',
+  'js/editor/EditorKeyboardControllerService.js',
   'js/editor/EditorAutoImportStateService.js',
   'js/editor/EditorAutoImportRuntimeService.js',
   'js/editor/EditorAutoImportFileSaveService.js',

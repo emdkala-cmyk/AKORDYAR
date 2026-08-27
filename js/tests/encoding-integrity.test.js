@@ -62,6 +62,7 @@ const files = [
   'js/editor/EditorMidiInputService.js',
   'js/editor/EditorTimelineChordEditorService.js',
   'js/editor/EditorPublicApi.js',
+  'js/editor/EditorKeyboardControllerService.js',
   'js/app/core.js',
   'js/app/editor.js',
   'js/app/search.js',

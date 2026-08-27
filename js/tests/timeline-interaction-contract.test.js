@@ -28,6 +28,9 @@ const keyboardService = read('js/editor/EditorKeyboardService.js');
 const keyboardRuntimeService = read(
   'js/editor/EditorKeyboardRuntimeService.js'
 );
+const keyboardControllerService = read(
+  'js/editor/EditorKeyboardControllerService.js'
+);
 const colorToolService = read('js/editor/EditorColorToolService.js');
 const timelineRenderer = read('js/core/TimelineTrackRendererService.js');
 const sectionRenderer = read('js/core/TimelineSectionRendererService.js');
@@ -76,13 +79,14 @@ assert.doesNotMatch(playbackTimelineController, /\.style\.left/);
 assert.match(core, /function renderAll\(options = \{\}\)/);
 assert.match(core, /function renderClips\(options = \{\}\)/);
 assert.match(coreTimelineGrid, /preserveWaveforms/);
-assert.match(editor, /EditorKeyboardService/);
 assert.match(editor, /EditorKeyboardRuntimeService/);
+assert.match(editor, /EditorKeyboardControllerService/);
 assert.doesNotMatch(
   editor,
   /window\.EditorKeyboardService\.create\(\{/
 );
 assert.match(keyboardRuntimeService, /keyboardService\.create\(\{/);
+assert.match(keyboardControllerService, /runtimeService\.create\(\{/);
 assert.match(keyboardService, /event\.code === 'KeyZ'/);
 assert.match(html, /id="timelineHorizontalScrollbar"/);
 assert.match(html, /id="timelineVerticalScrollbar"/);

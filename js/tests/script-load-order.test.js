@@ -637,6 +637,10 @@ assert.ok(
     scriptIndex('js/app/editor.js')
 );
 assert.ok(
+  scriptIndex('js/editor/EditorKeyboardControllerService.js') <
+    scriptIndex('js/app/editor.js')
+);
+assert.ok(
   scriptIndex('js/editor/EditorColorToolService.js') <
     scriptIndex('js/app/editor.js')
 );

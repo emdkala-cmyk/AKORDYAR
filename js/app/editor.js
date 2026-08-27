@@ -1100,23 +1100,23 @@ function getMidiScoreController() {
     // Global shortcut capture for editing.
     // EventBindings is responsible for registering this handler.
     function handleGlobalKeydownCapture(e) {
-      return getEditorKeyboardService()?.handleGlobalKeydownCapture?.(e);
+      return getEditorKeyboardRuntime()?.handleGlobalKeydownCapture?.(e);
     }
 
     // Main global shortcuts handler.
     // EventBindings is responsible for registering this handler.
     function handleGlobalKeydown(e) {
-      const keyboardService = getEditorKeyboardService();
+      const keyboardService = getEditorKeyboardRuntime();
       if (keyboardService?.handleKeydown?.(e)) return true;
       return keyboardService?.handleGlobalKeydown?.(e);
     }
 
     function handleGlobalKeyup(e) {
-      return getEditorKeyboardService()?.handleGlobalKeyup?.(e);
+      return getEditorKeyboardRuntime()?.handleGlobalKeyup?.(e);
     }
 
     function handleGlobalDocumentKeydown(e) {
-      return getEditorKeyboardService()?.handleAuxiliaryKeydown?.(e);
+      return getEditorKeyboardRuntime()?.handleAuxiliaryKeydown?.(e);
     }
 
     /* ===================== INIT & INTERACTIONS ===================== */
@@ -2545,163 +2545,133 @@ if ($('edDoBoth')) {
       );
     }
 
-    // -- Keyboard Shortcuts for Editor (chord modal + chord movement) --
-    let edKeyboardService = null;
-    function getEditorKeyboardService() {
-      if (
-        !edKeyboardService &&
-        typeof window.EditorKeyboardRuntimeService?.create === 'function'
-      ) {
-        edKeyboardService = window.EditorKeyboardRuntimeService.create({
-          windowRef: window,
-          state: {
-            isChordModalOpen: () =>
-              $('chord-modal')?.classList.contains('show'),
-            isEditorChordModal: () => edChordModalMode === 'editor',
-            getChordIndex: () => edChordIdx,
-            isEditorLocked: () => Boolean(getCurrentEditorSong()?.editorLocked),
-            hasSelectedChords: () => edSelectedChords.length > 0,
-            hasSelectedChordLineClip,
-            isSequentialChordingActive: () => edSeqChordingActive,
-            isShortcutEditing: () => Boolean(_editingShortcutId),
-            isFocusMode: () =>
-              window.AkordyarCoreApi?.getFocusMode?.() || false,
-            isSyncActive: () => syncActive,
-            isPerfModeActive: () => perfModeActive,
-            isColorToolActive: () => isColorToolActive(),
-            getMappingTarget: () =>
-              getKeyboardMappingService()?.getTarget?.() || null
+    // Keyboard composition belongs to its dedicated controller service.
+    let editorKeyboardRuntime = null;
+    const editorKeyboardController =
+      window.EditorKeyboardControllerService?.create({
+        runtimeService: window.EditorKeyboardRuntimeService,
+        windowRef: window,
+        state: {
+          isChordModalOpen: () =>
+            $('chord-modal')?.classList.contains('show'),
+          isEditorChordModal: () => edChordModalMode === 'editor',
+          getChordIndex: () => edChordIdx,
+          isEditorLocked: () => Boolean(getCurrentEditorSong()?.editorLocked),
+          hasSelectedChords: () => edSelectedChords.length > 0,
+          hasSelectedChordLineClip,
+          isSequentialChordingActive: () => edSeqChordingActive,
+          isShortcutEditing: () => Boolean(_editingShortcutId),
+          isFocusMode: () =>
+            editorCoreApi.getFocusMode?.() || false,
+          isSyncActive: () => syncActive,
+          isPerfModeActive: () => perfModeActive,
+          isColorToolActive: () => isColorToolActive(),
+          getMappingTarget: () =>
+            getKeyboardMappingService()?.getTarget?.(),
+          getSelectedChords: () => edSelectedChords,
+          getSequencePoints: () => edSeqPoints,
+          getSequenceCursor: () => edSeqCursor,
+          getCurrentSong: getCurrentEditorSong
+        },
+        shortcuts: {
+          getShortcutMatch: (event, id) => matchShortcut(event, id),
+          onCancelShortcutEdit: () => {
+            _editingShortcutId = null;
+            openShortcutModal();
           },
-          shortcuts: {
-            getShortcutMatch: (event, id) => matchShortcut(event, id),
-            onCancelShortcutEdit: () => {
-              _editingShortcutId = null;
-              openShortcutModal();
-            },
-            onFinishShortcutEdit: (code, ctrl, shift) =>
-              finishEditShortcut(code, ctrl, shift)
+          onFinishShortcutEdit: (code, ctrl, shift) =>
+            finishEditShortcut(code, ctrl, shift)
+        },
+        actions: {
+          getDAW: () => editorGetRuntimeDAW(),
+          getGridConfig: () =>
+            getTimeSignatureGridConfig(
+              $('edTimeSig')?.value || '4/4',
+              parseInt($('edTempo')?.value, 10) || 120
+            ),
+          setLoopFromSelectionAndPlay: () => setLoopFromSelectionAndPlay(),
+          perfTogglePlay: () => perfTogglePlay(),
+          togglePlay: () => togglePlay(),
+          undo: () => undo(),
+          redo: () => redo(),
+          ensureAudioCtx: () => ensureAudioCtx(),
+          startTransport: () => startTransport(),
+          openLyricOnlyPopup: () => editorOpenLyricOnlyPopup(),
+          openLyricPopup: () => editorOpenLyricPopup(),
+          toggleFocusMode: () => editorToggleFocusMode(),
+          seekTransport: (time, snap, noSnap) =>
+            seekTransport(time, snap, noSnap),
+          deleteSelectedClips: () => deleteSelected(),
+          splitSelectedAtPlayhead: () => splitSelectedAtPlayhead(),
+          copySelected: () => copySelected(),
+          cutSelected: () => cutSelected(),
+          pasteClipboard: () => pasteClipboard(),
+          setSelection: ids => setSelection(ids),
+          duplicateSelected: () => duplicateSelected(),
+          transportToStart: () => transportToStart(),
+          setLoopFromSelection: () => setLoopFromSelection(),
+          toggleLoop: () => toggleLoop(),
+          setLoopA: () => setLoopA(),
+          setLoopB: () => setLoopB(),
+          togglePlayheadMode: () => togglePlayheadMode(),
+          toggleMetronome: () => toggleMetronome(),
+          toggleRecording: () => toggleRec(),
+          toggleSelectedTrackHeight: () => toggleSelectedTrackHeight(),
+          zoomHorizontal: direction => zoomTimelineHorizontal(direction),
+          zoomVertical: direction => zoomTimelineVertical(direction),
+          zoomToSelection: () => zoomTimelineToSelection(),
+          zoomFull: () => zoomTimelineFull(),
+          syncTap: () => syncTap(),
+          exitSyncMode: () => exitSyncMode(),
+          clearSelection: () => clearSelection()
+        },
+        ui: {
+          hideCutGuide: () => {
+            const guide = $('cut-guide');
+            if (guide) guide.style.display = 'none';
           },
-          transport: {
-            getDAW: () => editorGetRuntimeDAW(),
-            getGridConfig: () =>
-              getTimeSignatureGridConfig(
-                $('edTimeSig')?.value || '4/4',
-                parseInt($('edTempo')?.value, 10) || 120
-              ),
-            onSetLoopFromSelectionAndPlay: () =>
-              setLoopFromSelectionAndPlay(),
-            onPerfTogglePlay: () => perfTogglePlay(),
-            onTogglePlay: () => togglePlay(),
-            onUndo: () => undo(),
-            onRedo: () => redo(),
-            onFullscreen: () => {
-              if (!editorGetRuntimeDAW().isPlaying) {
-                ensureAudioCtx();
-                if (editorGetRuntimeDAW().playhead <= 0) seekTransport(0, false);
-                startTransport();
-              }
-              editorOpenLyricOnlyPopup();
-              setTimeout(editorOpenLyricPopup, 300);
-            },
-            onFocusMode: () => editorToggleFocusMode(),
-            onSeek: (time, snap, noSnap) => seekTransport(time, snap, noSnap),
-            onDeleteSelectedClips: () => deleteSelected(),
-            onSplitSelected: () => splitSelectedAtPlayhead(),
-            onCopySelected: () => copySelected(),
-            onCutSelected: () => cutSelected(),
-            onPasteClipboard: () => pasteClipboard(),
-            onSelectAllClips: () =>
-              setSelection(editorGetRuntimeDAW().clips.map(clip => clip.id)),
-            onDuplicateSelected: () => duplicateSelected(),
-            onGoStart: () => transportToStart(),
-            onSetLoopFromSelection: () => setLoopFromSelection(),
-            onToggleLoop: () => toggleLoop(),
-            onSetLoopA: () => setLoopA(),
-            onSetLoopB: () => setLoopB(),
-            onTogglePlayheadMode: () => togglePlayheadMode(),
-            onToggleMetronome: () => toggleMetronome(),
-            onToggleRecording: () => toggleRec(),
-            onToggleSelectedTrackHeight: () => toggleSelectedTrackHeight(),
-            onZoomHorizontal: zoomIn =>
-              zoomTimelineHorizontal(zoomIn ? 1 : -1),
-            onZoomVertical: zoomIn =>
-              zoomTimelineVertical(zoomIn ? 1 : -1),
-            onZoomToSelection: () => zoomTimelineToSelection(),
-            onZoomFull: () => zoomTimelineFull(),
-            onSyncTap: () => syncTap(),
-            onExitSyncMode: () => {
-              exitSyncMode();
-              const tab = $('tab-sync');
-              if (tab) tab.classList.remove('active-teal');
-            },
-            onClearSelection: () => clearSelection()
-          },
-          ui: {
-            onHideCutGuide: () => {
-              const guide = $('cut-guide');
-              if (guide) guide.style.display = 'none';
-            },
-            onCancelMapping: () => getKeyboardMappingService()?.cancel?.(),
-            onTogglePanel: panel => togglePanel(panel)
-          },
-          color: {
-            onToggleColorBrush: () => toggleColorTool('brush'),
-            onToggleColorEyedropper: () => toggleColorTool('eyedropper'),
-            onDeactivateColorTool: () => deactivateColorTool()
-          },
-          performance: {
-            onPerfStop: () => perfStop(),
-            onPerfNextSong: () => perfNextSong(),
-            onPerfPrevSong: () => perfPrevSong(),
-            onPerfRestartSong: () => perfRestartSong(),
-            onPerfToggleStageMode: () => perfToggleStageMode(),
-            onPerfTranspose: delta => perfTranspose(delta),
-            onPerfTogglePauseMode: () => perfTogglePauseMode()
-          },
-          chord: {
-            onCloseChordModal: () => edCloseChordModal(),
-            onConfirmChord: () => edConfirmChord(),
-            onTapTempo: () => editorSyncAnalysisRuntime.tapTempo(),
-            onQuantizeSelectedChords: () => quantizeSelectedChords(),
-            onChordLineTap: () => edClTap(),
-            onSequentialEnter: () => {
-              const chords = getEditorSongStateService()?.getChords?.() || [];
-              const seqIdx = chords.length - edSeqPoints.length + edSeqCursor;
-              edOpenChordModal(seqIdx);
-            },
-            onNavigateChord: direction => edNavigateChord(direction),
-            onMoveSelectedChords: direction => {
-              const mutation = getEditorMutationService();
-              const song = getCurrentEditorSong();
-              const changed = mutation?.moveChords(
-                song,
-                edSelectedChords,
-                direction,
-                lineIndex => $('editor')?.children[lineIndex]?.textContent
-                  ?.replace(/\u200B/g, '').length || 0,
-                isEditorVisualRTL()
-              )?.changed;
-              if (changed) {
-                edRenderChords();
-                edCommit();
-              }
-            },
-            onDeleteSelectedChords: () => {
-              const song = getCurrentEditorSong();
-              const deleted = getEditorMutationService()?.deleteChords(
-                song,
-                edSelectedChords
-              )?.changed;
-              if (deleted) {
-                edClearChordSelection();
-                edRenderChords();
-                edCommit();
-              }
-            }
-          }
-        });
+          cancelMapping: () => getKeyboardMappingService()?.cancel?.(),
+          togglePanel: panel => togglePanel(panel)
+        },
+        color: {
+          toggleBrush: () => toggleColorTool('brush'),
+          toggleEyedropper: () => toggleColorTool('eyedropper'),
+          deactivate: () => deactivateColorTool()
+        },
+        performance: {
+          stop: () => perfStop(),
+          nextSong: () => perfNextSong(),
+          previousSong: () => perfPrevSong(),
+          restartSong: () => perfRestartSong(),
+          toggleStageMode: () => perfToggleStageMode(),
+          transpose: delta => perfTranspose(delta),
+          togglePauseMode: () => perfTogglePauseMode()
+        },
+        chord: {
+          closeModal: () => edCloseChordModal(),
+          confirm: () => edConfirmChord(),
+          tapTempo: () => editorSyncAnalysisRuntime.tapTempo(),
+          quantize: () => quantizeSelectedChords(),
+          lineTap: () => edClTap(),
+          navigate: direction => edNavigateChord(direction)
+        },
+        services: {
+          getElement: id => $(id),
+          getMutationService: () => getEditorMutationService(),
+          getSongStateService: () => getEditorSongStateService(),
+          renderChords: () => edRenderChords(),
+          commit: () => edCommit(),
+          clearChordSelection: () => edClearChordSelection(),
+          openChordModal: index => edOpenChordModal(index),
+          isEditorVisualRTL
+        }
+      });
+
+    function getEditorKeyboardRuntime() {
+      if (!editorKeyboardRuntime) {
+        editorKeyboardRuntime = editorKeyboardController?.get?.() || null;
       }
-      return edKeyboardService;
+      return editorKeyboardRuntime;
     }
 
     // Navigate between chords in modal
