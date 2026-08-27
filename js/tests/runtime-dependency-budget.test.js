@@ -58,6 +58,9 @@ const editorArrangerRuntimeService = read(
 const editorArrangerControllerService = read(
   'js/editor/EditorArrangerControllerService.js'
 );
+const editorKeyCommandControllerService = read(
+  'js/editor/EditorKeyCommandControllerService.js'
+);
 const editorSongInitializationControllerService = read(
   'js/editor/EditorSongInitializationControllerService.js'
 );
@@ -347,6 +350,31 @@ assert.doesNotMatch(
 assert.match(
   editorSongInitializationControllerService,
   /EditorSongInitializationService/
+);
+assert.match(
+  editorKeyCommandControllerService,
+  /EditorKeyCommandService/
+);
+assert.match(
+  editorKeyCommandControllerService,
+  /function initAccidentalSelector\(\)/
+);
+assert.match(
+  editorKeyCommandControllerService,
+  /function applyTranspose\(newTranspose\)/
+);
+assert.doesNotMatch(editor, /EditorKeyCommandService\.create/);
+assert.doesNotMatch(
+  editor,
+  /const ED_(?:NOTES|FLAT_NOTES|ALL_NOTE_NAMES|SEMITONE|FLAT_MAP)/
+);
+assert.doesNotMatch(
+  editor,
+  /function initAccidentalSelector\(\)\s*\{\s*try/
+);
+assert.doesNotMatch(
+  editor,
+  /function toggleAccidental\(\)\s*\{\s*const song =/
 );
 assert.doesNotMatch(
   editor,

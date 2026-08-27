@@ -658,6 +658,10 @@ assert.ok(
 );
 assert.ok(
   scriptIndex('js/editor/EditorKeyCommandService.js') <
+    scriptIndex('js/editor/EditorKeyCommandControllerService.js')
+);
+assert.ok(
+  scriptIndex('js/editor/EditorKeyCommandControllerService.js') <
     scriptIndex('js/app/core.js')
 );
 assert.ok(

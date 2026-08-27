@@ -178,6 +178,40 @@ if (!editorSyncAnalysisRuntime) {
 }
 let edSelectedChords = [];
 let editorColorToolService = null;
+let editorKeyCommandController = null;
+
+function getEditorKeyCommandController() {
+  if (
+    !editorKeyCommandController &&
+    typeof window.EditorKeyCommandControllerService?.create === 'function'
+  ) {
+    editorKeyCommandController =
+      window.EditorKeyCommandControllerService.create({
+        getSong: getCurrentEditorSong,
+        documentRef: document,
+        storage: localStorage,
+        notationService: window.EditorNotationService,
+        transposeService: window.TransposeService,
+        commandServiceFactory: window.EditorKeyCommandService,
+        ensureBaseChordNamesAligned: song =>
+          getEditorChordStateService()?.ensureBaseChordNamesAligned(song),
+        renderChords: immediate => edRenderChords(immediate),
+        renderEditor: rebuild => edRenderEditor(rebuild),
+        syncTransposeToTimelineChords: () =>
+          syncTransposeToTimelineChords(),
+        saveSong: () => edSaveSong(),
+        saveCurrentVersion: () => saveCurrentVersion(),
+        rebuildPerformanceSongDocument: () => {
+          if (typeof rebuildPerformanceSongDocument === 'function') {
+            rebuildPerformanceSongDocument();
+          }
+        },
+        toast,
+        customPrompt: (...args) => customPrompt(...args)
+      });
+  }
+  return editorKeyCommandController;
+}
 
 function getEditorColorToolService() {
   if (
@@ -1224,24 +1258,10 @@ function getMidiScoreController() {
        =================================================================== */
 
     // -- Song Data --
-    const ED_NOTES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
-    const ED_FLAT_NOTES = ['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'];
-    const ED_ALL_NOTE_NAMES = ['C','C#','Db','D','D#','Eb','E','F','F#','Gb','G','G#','Ab','A','A#','Bb','B'];
-    const ED_SEMITONE = {'C':0,'C#':1,'Db':1,'D':2,'D#':3,'Eb':3,'E':4,'F':5,'F#':6,'Gb':6,'G':7,'G#':8,'Ab':8,'A':9,'A#':10,'Bb':10,'B':11};
-    const ED_NOTE_TO_SHARP = { 'Db':'C#', 'Eb':'D#', 'Gb':'F#', 'Ab':'G#', 'Bb':'A#' };
-    const ED_NOTE_TO_FLAT = { 'C#':'Db', 'D#':'Eb', 'F#':'Gb', 'G#':'Ab', 'A#':'Bb' };
-    const ED_FLAT_MAP = { 1:'Db', 3:'Eb', 6:'Gb', 8:'Ab', 10:'Bb' };
-    
-    // Accidental preference: 'sharp' | 'flat' | 'auto'
-    let ED_ACCIDENTAL_PREF = 'auto';
-
     // Validate a note/key root accepts BOTH sharps and flats (e.g. 'Bb','Eb','F#','Db').
     function etIsValidNote(n) {
-      if (!n) return false;
-      return ED_ALL_NOTE_NAMES.includes(n) || ED_SEMITONE[n] != null;
+      return Boolean(getEditorKeyCommandController()?.isValidNote?.(n));
     }
-    const ED_TYPES = ['','m','7','maj7','m7','dim','aug','sus2','sus4','6','m6','m7b5'];
-    const ED_TENS = ['','add9','9','11','13','b9','#9','#11','b13'];
 
     // EditorRuntimeAdapter is the single owner of the current song reference.
     function getCurrentEditorSong() {
@@ -1519,25 +1539,14 @@ function edBlankSong() {
     function anchorRect(ch) { return anchorRectIn($('editor'), ch); }
 
     function resolveAccidentalPreference() {
-      if (typeof ED_ACCIDENTAL_PREF !== 'undefined') {
-        if (ED_ACCIDENTAL_PREF === 'sharp') return true;
-        if (ED_ACCIDENTAL_PREF === 'flat') return false;
-      }
-      if (typeof window.TransposeService === 'object' && window.TransposeService && typeof window.TransposeService.keySignaturePreference === 'function') {
-        const song = getCurrentEditorSong();
-        const key = song?.originalKey || song?.key;
-        const fromKey = key ? (key.endsWith('m') ? key.slice(0, -1) : key) : null;
-        if (fromKey) {
-          const preference = window.TransposeService.keySignaturePreference(fromKey);
-          if (preference === true || preference === false) return preference;
-        }
-      }
-      return null; // auto
+      return getEditorKeyCommandController()?.resolveAccidentalPreference?.() ?? null;
     }
 
-    function edBaseNameFromDisplayed(name) {
-      const transpose = Number(getCurrentEditorSong()?.transpose) || 0;
-      return transpose && name ? edTransposeChord(name, -transpose) : (name || '');
+    function edBaseNameFromDisplayed(name, song = getCurrentEditorSong()) {
+      return getEditorKeyCommandController()?.baseNameFromDisplayed?.(
+        name,
+        song
+      ) || (name || '');
     }
 
     function getEditorSongStateService() {
@@ -1608,50 +1617,13 @@ function edBlankSong() {
       return getEditorChordStateService()?.ensureBaseChordNamesAligned(getCurrentEditorSong()) || [];
     }
 
-    // ===== دیز/بمل/خودکار selector =====
-    // Persist accidental preference and inject a small dropdown into the header.
     function initAccidentalSelector() {
-      try {
-        const saved = localStorage.getItem('ed_accidental_pref');
-        if (saved === 'sharp' || saved === 'flat' || saved === 'auto') ED_ACCIDENTAL_PREF = saved;
-      } catch(_) {}
-      const host = document.getElementById('headerCenterControls');
-      if (!host || document.getElementById('edAccidentalSel')) return;
-      const wrap = document.createElement('div');
-      wrap.className = 'ed-grp';
-      wrap.style.cssText = 'display:inline-flex;align-items:center;gap:4px;';
-      const label = document.createElement('span');
-      label.textContent = 'نت:';
-      label.style.cssText = 'font-size:0.7rem;color:var(--text-secondary);';
-      const sel = document.createElement('select');
-      sel.id = 'edAccidentalSel';
-      sel.style.cssText = 'background:#0D1117;color:#E2E8F0;border:1px solid #30363D;border-radius:6px;padding:2px 6px;font-size:0.75rem;cursor:pointer;';
-      const opts = [['auto','خودکار'],['sharp','دیز ♯'],['flat','بمل ♭']];
-      opts.forEach(([v, t]) => { const o = document.createElement('option'); o.value = v; o.textContent = t; sel.appendChild(o); });
-      sel.value = ED_ACCIDENTAL_PREF;
-      sel.addEventListener('change', () => {
-        ED_ACCIDENTAL_PREF = sel.value;
-        try { localStorage.setItem('ed_accidental_pref', ED_ACCIDENTAL_PREF); } catch(_) {}
-        // Re-apply current transpose/key so display updates immediately
-        const song = getCurrentEditorSong();
-        if (song) {
-          if (song.transpose) applyTranspose(song.transpose);
-          else { refreshKeyUI(); renderAllChordsAndText(); }
-        }
-        toast('نمایش نت: ' + (ED_ACCIDENTAL_PREF === 'sharp' ? 'دیز ♯' : ED_ACCIDENTAL_PREF === 'flat' ? 'بمل ♭' : 'خودکار'));
-      });
-      wrap.appendChild(label);
-      wrap.appendChild(sel);
-      host.appendChild(wrap);
+      return getEditorKeyCommandController()?.initAccidentalSelector?.();
     }
 
     function edTransposeChord(name, semi) {
-      if (!semi || !name) return name;
-      return window.EditorNotationService?.transposeChord(
-        name,
-        semi,
-        resolveAccidentalPreference()
-      ) || name;
+      return getEditorKeyCommandController()?.transposeChord?.(name, semi) ||
+        name;
     }
 
     let edChordRenderer = null;
@@ -2134,83 +2106,27 @@ if ($('edDoBoth')) {
     }
 
     // -- Transposition --
-    let _edSyncingKey = false; // flag to prevent onchange during programmatic key update
-    let edKeyCommandService = null;
-    function getEditorKeyCommandService() {
-      if (
-        !edKeyCommandService &&
-        typeof window.EditorKeyCommandService?.create === 'function'
-      ) {
-        edKeyCommandService = window.EditorKeyCommandService.create({
-          transposeChord: (name, semitones) => edTransposeChord(name, semitones),
-          transposeKey: (key, semitones, preferSharp) =>
-            window.EditorNotationService?.transposeKey(
-              key,
-              semitones,
-              preferSharp
-            ) || key,
-          keyDelta: (fromKey, toKey) =>
-            window.EditorNotationService?.keyDelta(fromKey, toKey),
-          ensureBaseChordNamesAligned: song =>
-            getEditorChordStateService()?.ensureBaseChordNamesAligned(song)
-        });
-      }
-      return edKeyCommandService;
-    }
 
     function edTransposeKeyName(key, semitones) {
-      return getEditorKeyCommandService()?.transposeKeyName(
+      return getEditorKeyCommandController()?.transposeKeyName?.(
         key,
-        semitones,
-        resolveAccidentalPreference()
+        semitones
       ) || key;
     }
 
-    // ===== Convert Accidental Spelling (دیز/بمل toggle) =====
-    // Toggles the accidental spelling of ALL current chords WITHOUT changing the key.
-    // If chords currently use sharps → convert to flats; if flats → convert to sharps.
     function edToggleAccidental() {
-      const song = getCurrentEditorSong();
-      if (!song || song.editorLocked) { toast('🔒 ویرایشگر قفل است'); return; }
-      const cc = typeof window.TransposeService === 'object' && window.TransposeService &&
-        typeof window.TransposeService.convertAccidentals === 'function'
-        ? window.TransposeService.convertAccidentals
-        : null;
-      if (!cc) { toast('موتور آکورد در دسترس نیست'); return; }
-
-      // Determine current dominant spelling by looking at first accidental chord
-      let toFlat = true; // default: convert sharps → flats
-      const withAcc = (song.chords || []).map(c => c.name || '').filter(n => /[#♯]|[b♭]/.test(n));
-      if (withAcc.length && withAcc.every(n => /[b♭]/.test(n))) toFlat = false; // currently flats → to sharp
-
-      let converted = 0;
-      (song.chords || []).forEach(ch => {
-        if (!ch.name) return;
-        const newName = cc(ch.name, toFlat);
-        if (newName !== ch.name) { ch.name = newName; converted++; }
-      });
-      // Also convert baseChordNames so future transpose stays consistent
-      if (song.baseChordNames && song.baseChordNames.length) {
-        song.baseChordNames = song.baseChordNames.map(n => n ? cc(n, toFlat) : n);
-      }
-      if (converted === 0) { toast('آکوردی برای تبدیل یافت نشد'); return; }
-      edRenderChords(true);
-      edRenderEditor(false);
-      syncTransposeToTimelineChords();
-      edSaveSong();
-      if (typeof rebuildPerformanceSongDocument === 'function') rebuildPerformanceSongDocument();
-      toast(toFlat ? 'آکوردها به بمل ♭ تبدیل شدند (' + converted + ')' : 'آکوردها به دیز ♯ تبدیل شدند (' + converted + ')');
+      return getEditorKeyCommandController()?.toggleAccidental?.() || false;
     }
 
     // ===== CENTRAL KEY/TRANSPOSE FUNCTIONS =====
     function keyToSemi(key) {
-      return getEditorKeyCommandService()?.keyToSemi(key) ?? -1;
+      return getEditorKeyCommandController()?.keyToSemi?.(key) ?? -1;
     }
     function keyDelta(fromKey, toKey) {
-      return getEditorKeyCommandService()?.keyDelta(fromKey, toKey) ?? 0;
+      return getEditorKeyCommandController()?.keyDelta?.(fromKey, toKey) ?? 0;
     }
     function transposeChordNamesInPlace(chords, semitones) {
-      return getEditorKeyCommandService()?.transposeChordNamesInPlace(
+      return getEditorKeyCommandController()?.transposeChordNamesInPlace?.(
         chords,
         semitones
       ) || 0;
@@ -2218,165 +2134,48 @@ if ($('edDoBoth')) {
 
     // Central refresh: update all UI from state
     function refreshKeyUI() {
-      const song = getCurrentEditorSong();
-      _edSyncingKey = true;
-      if (song) {
-        if ($('edKey')) $('edKey').value = song.key || 'C';
-        if ($('edKeyMode')) $('edKeyMode').value = song.keyMode || 'maj';
-      }
-      _edSyncingKey = false;
-      // Original key label
-      const origLabel = $('edOrigKeyLabel');
-      if (origLabel && song) {
-        const origKey = song.originalKey || song.key;
-        const origMode = song.originalKeyMode || song.keyMode;
-        origLabel.textContent = '🎵 ' + origKey + (origMode === 'min' ? 'm' : '');
-        origLabel.title = 'گام اورجینال: ' + origKey + (origMode === 'min' ? 'm' : '') + ' | کلیک=تغییر | Alt+کلیک=انتقال به گام پروژه';
-      }
-      // Transpose display
-      const v = song?.transpose || 0;
-      if ($('edTransVal')) $('edTransVal').textContent = (v > 0 ? '+' : '') + v;
+      return getEditorKeyCommandController()?.refreshKeyUI?.();
     }
 
     function renderAllChordsAndText() {
-      edRenderChords(true);
-      edRenderEditor(false);
-      syncTransposeToTimelineChords();
+      return getEditorKeyCommandController()?.renderAllChordsAndText?.();
     }
 
     // TRANSPOSE: always compute from baseChordNames (never from already-transposed chords)
     function applyTranspose(newTranspose) {
-      const song = getCurrentEditorSong();
-      const result = getEditorKeyCommandService()?.applyTranspose(
-        song,
-        newTranspose,
-        resolveAccidentalPreference()
-      );
-      if (!result?.changed) return;
+      return getEditorKeyCommandController()?.applyTranspose?.(
+        newTranspose
+      ) || false;
       // همگام‌سازی ترنسپز با ورژن فعال فعلی
-      if (typeof saveCurrentVersion === 'function') saveCurrentVersion();
-      refreshKeyUI();
-      renderAllChordsAndText();
-      edSaveSong();
-      // === Performance Architecture v2: sync transpose immediately ===
-      if (typeof rebuildPerformanceSongDocument === 'function') rebuildPerformanceSongDocument();
     }
 
     // KEY CHANGE: only modify chord names in current state (from baseChordNames)
     function applyKeyChange(newKey, newMode) {
-      const song = getCurrentEditorSong();
-      const result = getEditorKeyCommandService()?.applyKeyChange(
-        song,
+      return getEditorKeyCommandController()?.applyKeyChange?.(
         newKey,
         newMode
-      );
-      if (!result?.changed) return;
-      refreshKeyUI();
-      renderAllChordsAndText();
-      edSaveSong();
-      // === Performance Architecture v2: sync key change ===
-      if (typeof rebuildPerformanceSongDocument === 'function') rebuildPerformanceSongDocument();
+      ) || false;
     }
 
     // ORIGINAL KEY CHANGE: edit the base-key reference without moving the project
     function applyOriginalKeyChange(newKey, newMode) {
-      const song = getCurrentEditorSong();
-      const result = getEditorKeyCommandService()?.applyOriginalKeyChange(
-        song,
+      return getEditorKeyCommandController()?.applyOriginalKeyChange?.(
         newKey,
         newMode
-      );
-      if (!result?.changed) return;
-      if (typeof saveCurrentVersion === 'function') saveCurrentVersion();
-      refreshKeyUI();
-      renderAllChordsAndText();
-      edSaveSong();
-      if (typeof rebuildPerformanceSongDocument === 'function') rebuildPerformanceSongDocument();
+      ) || false;
     }
 
     // ALT+CLICK: make the project key equal to the independent original key.
     function syncProjectKeyToOriginal() {
-      const result = getEditorKeyCommandService()?.syncProjectKeyToOriginal(
-        getCurrentEditorSong()
-      );
-      if (!result?.changed) return;
-      if (typeof saveCurrentVersion === 'function') saveCurrentVersion();
-      refreshKeyUI();
-      renderAllChordsAndText();
-      edSaveSong();
-      if (typeof rebuildPerformanceSongDocument === 'function') rebuildPerformanceSongDocument();
+      return getEditorKeyCommandController()?.syncProjectKeyToOriginal?.() ||
+        false;
     }
 
     // RESET TO ORIGINAL: restore chord names from baseChordNames, preserve positions
     function resetToOriginalKey() {
-      const result = getEditorKeyCommandService()?.resetToOriginalKey(
-        getCurrentEditorSong()
-      );
-      if (!result?.changed) return;
-      refreshKeyUI();
-      renderAllChordsAndText();
-      edSaveSong();
+      return getEditorKeyCommandController()?.resetToOriginalKey?.() || false;
     }
-    if ($('edTransUp')) $('edTransUp').onclick = () => {
-      const song = getCurrentEditorSong();
-      if (song?.editorLocked) { toast('🔒 ویرایشگر قفل است'); return; }
-      if (song) applyTranspose((song.transpose || 0) + 1);
-    };
-    if ($('edTransDown')) $('edTransDown').onclick = () => {
-      const song = getCurrentEditorSong();
-      if (song?.editorLocked) { toast('🔒 ویرایشگر قفل است'); return; }
-      if (song) applyTranspose((song.transpose || 0) - 1);
-    };
-    if ($('edTransVal')) $('edTransVal').addEventListener('dblclick', () => {
-      if (getCurrentEditorSong()) applyTranspose(0);
-    });
-    // Toggle دیز/بمل برای همه آکوردها (بدون تغییر گام)
-    if ($('edToggleAccidental')) $('edToggleAccidental').onclick = () => edToggleAccidental();
-
-    // Click on original key label → edit, Alt+Click → project key = original key
-    if ($('edOrigKeyLabel')) $('edOrigKeyLabel').addEventListener('click', (e) => {
-      const song = getCurrentEditorSong();
-      if (!song) return;
-      if (song.editorLocked) {
-        toast('🔒 ویرایشگر قفل است');
-        return;
-      }
-
-      // Alt+Click → set the project key to the independent original key.
-      if (e.altKey) {
-        const originalKey = song.originalKey || song.key || 'C';
-        const originalMode = song.originalKeyMode || song.keyMode || 'maj';
-        syncProjectKeyToOriginal();
-        toast('گام پروژه با گام اورجینال یکی شد: ' + originalKey + (originalMode === 'min' ? 'm' : ''));
-        return;
-      }
-
-      // Normal click → change original key
-      const curOrigKey = song.originalKey || song.key;
-      const curOrigMode = song.originalKeyMode || song.keyMode || 'maj';
-      const curOrigStr = curOrigKey + (curOrigMode === 'min' ? 'm' : '');
-    const promptFn = typeof customPrompt === 'function'
-      ? customPrompt
-      : (message, defaultValue) => Promise.resolve(window.prompt(message, defaultValue));
-      promptFn('گام اورجینال آهنگ رو مشخص کنید:', curOrigStr).then((newOrig) => {
-        if (!newOrig || newOrig.trim() === '' || newOrig.trim() === curOrigStr) return;
-        const val = newOrig.trim();
-        let newKey, newMode;
-        if (val.endsWith('m') && val.length > 1) {
-          newKey = val.replace(/m$/, '');
-          newMode = 'min';
-        } else {
-          newKey = val;
-          newMode = 'maj';
-        }
-        if (typeof etIsValidNote === 'function' && !etIsValidNote(newKey)) {
-          toast('گام نامعتبر: ' + newKey);
-          return;
-        }
-        applyOriginalKeyChange(newKey, newMode);
-        toast('گام اورجینال ذخیره شد: ' + newKey + (newMode === 'min' ? 'm' : ''));
-      });
-    });
+    getEditorKeyCommandController()?.bind?.();
 
     // -- Toolbar bindings --
     let _sizeLocked = false;
@@ -2391,7 +2190,8 @@ if ($('edDoBoth')) {
           documentRef: document,
           getSong: getCurrentEditorSong,
           getElement: id => $(id),
-          isKeySyncing: () => _edSyncingKey,
+          isKeySyncing: () =>
+            getEditorKeyCommandController()?.isKeySyncing?.() || false,
           artistKey: editorArchiveArtistKey,
           render: rebuild => edRenderEditor(rebuild),
           renderChords: immediate => edRenderChords(immediate),
@@ -2403,9 +2203,7 @@ if ($('edDoBoth')) {
           renderClips: () => renderClips(),
           onTimingChange: () => handleTimingChange(),
           toast: message => toast(message),
-          noteNames: typeof ED_ALL_NOTE_NAMES !== 'undefined'
-            ? ED_ALL_NOTE_NAMES
-            : []
+          noteNames: getEditorKeyCommandController()?.noteNames || []
         });
       }
       return edToolbarService;
