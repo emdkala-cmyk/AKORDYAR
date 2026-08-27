@@ -358,6 +358,10 @@ assert.ok(
 );
 assert.ok(
   scriptIndex('js/editor/EditorSongInitializationService.js') <
+    scriptIndex('js/editor/EditorSongInitializationControllerService.js')
+);
+assert.ok(
+  scriptIndex('js/editor/EditorSongInitializationControllerService.js') <
     scriptIndex('js/app/core.js')
 );
 assert.ok(

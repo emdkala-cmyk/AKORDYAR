@@ -1288,8 +1288,8 @@ function edBlankSong() {
     let edSongInitializationOptions = null;
     function getEditorSongInitializationService() {
     if (!edSongInitializationService) {
-      const service = window.EditorSongInitializationService;
-      const defaults = {
+      const configured =
+        window.EditorSongInitializationControllerService?.create?.({
         storage: localStorage,
         getSong: getCurrentEditorSong,
         setSong: song => editorAppRuntime.setSong(song),
@@ -1336,15 +1336,15 @@ function edBlankSong() {
           }
         },
         toast
-      };
-      edSongInitializationOptions = defaults;
+      });
+      edSongInitializationOptions = configured?.options || null;
 
-      if (typeof service?.create !== 'function') {
+      if (!configured) {
         throw new Error(
           'EditorSongInitializationService باید قبل از app/editor.js بارگذاری شود.'
         );
       }
-      edSongInitializationService = service.create(defaults);
+      edSongInitializationService = configured.runtime;
     }
     return edSongInitializationService;
   }

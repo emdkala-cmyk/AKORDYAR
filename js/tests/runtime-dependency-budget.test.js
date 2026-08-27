@@ -58,6 +58,9 @@ const editorArrangerRuntimeService = read(
 const editorArrangerControllerService = read(
   'js/editor/EditorArrangerControllerService.js'
 );
+const editorSongInitializationControllerService = read(
+  'js/editor/EditorSongInitializationControllerService.js'
+);
 const editorProjectExportWorkflowService = read(
   'js/editor/EditorProjectExportWorkflowService.js'
 );
@@ -340,6 +343,14 @@ assert.doesNotMatch(
 assert.doesNotMatch(
   editor,
   /EditorArrangerRuntimeService\.create/
+);
+assert.match(
+  editorSongInitializationControllerService,
+  /EditorSongInitializationService/
+);
+assert.doesNotMatch(
+  editor,
+  /EditorSongInitializationService\.create/
 );
 assert.doesNotMatch(
   editor,
