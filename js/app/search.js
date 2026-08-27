@@ -175,9 +175,9 @@ function renderQuickSearchList(songs, container) {
   }
   
   container.innerHTML = songs.map(s => `
-    <button class="qsp-item" data-command="quickSearchLoadSong" data-song-id="${escapeHtml(String(s.id))}">
-      <div class="qsp-item-title">${escapeHtml(s.title || 'بدون نام')}</div>
-      <div class="qsp-item-artist">${escapeHtml(s.artist || '')}</div>
+    <button class="qsp-item" data-command="quickSearchLoadSong" data-song-id="${searchEscapeHtml(String(s.id))}">
+      <div class="qsp-item-title">${searchEscapeHtml(s.title || 'بدون نام')}</div>
+      <div class="qsp-item-artist">${searchEscapeHtml(s.artist || '')}</div>
     </button>
   `).join('');
 }
@@ -195,7 +195,7 @@ function quickSearchLoadSong(id) {
   quickSearchArchiveCall('loadSong', id);
 }
 
-function escapeHtml(text) {
+function searchEscapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;

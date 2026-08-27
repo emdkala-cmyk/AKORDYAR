@@ -23,6 +23,11 @@ const editorSource = fs.readFileSync(
   'utf8'
 );
 
+const searchSource = fs.readFileSync(
+  path.resolve(__dirname, '..', 'app', 'search.js'),
+  'utf8'
+);
+
 assert.equal(
   fs.existsSync(path.resolve(__dirname, '..', 'app.js')),
   false,
@@ -33,8 +38,8 @@ assert.doesNotMatch(
   /<script[^>]+src=["']js\/app\.js["']/
 );
 assert.doesNotThrow(
-  () => new vm.Script(`${coreSource}\n${editorSource}`),
-  'core.js and editor.js must not redeclare classic-script lexical bindings'
+  () => new vm.Script(`${coreSource}\n${editorSource}\n${searchSource}`),
+  'classic app scripts must not redeclare lexical bindings'
 );
 
 function scriptIndex(sourceName) {

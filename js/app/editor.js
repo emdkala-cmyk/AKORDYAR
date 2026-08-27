@@ -62,6 +62,8 @@ const editorOpenLyricOnlyPopup = (...args) =>
   editorCoreApi.openLyricOnlyPopup?.(...args);
 const editorToggleFocusMode = (...args) =>
   editorCoreApi.toggleFocusMode?.(...args);
+const editorClearSelection = (...args) =>
+  window.AkordyarCoreApi?.clearSelection?.(...args);
 // bindingهای core.js در scope سراسری مشترکِ اسکریپت‌های classic حاضرند؛
 // destructure کردن دوبارهٔ آن‌ها خطای redeclare در مرورگر ایجاد می‌کند.
 const {
@@ -907,7 +909,7 @@ function getMidiScoreController() {
     }
     const autoImportStateService = editorAutoImportRuntime.getState();
     const {
-      escapeHtml,
+      escapeHtml: editorEscapeHtml,
       songUniqueId,
       normalizeRawText,
       hasPersian,
@@ -971,8 +973,8 @@ function getMidiScoreController() {
         if (cur.shift) keyParts.push('Shift');
         keyParts.push(formatKeyName(cur.code));
         const midiLabel = midiNote ? '🎹N' + midiNote[0].replace('n','') : '';
-        const midiRemoveBtn = midiNote ? `<button class="ed-btn" data-action="removeMidiMap" data-value="${escapeHtml(midiNote[0].replace('n',''))}" title="حذف MIDI" style="font-size:0.6rem;min-width:18px;height:24px;padding:0 3px;background:#e24f5b;color:#fff;border-color:#e24f5b;">✕</button>` : '';
-        div.innerHTML = `<span class="shortcut-label">${escapeHtml(sk.label)}</span><div style="display:flex;gap:4px;align-items:center;"><div class="shortcut-key" data-sid="${escapeHtml(sk.id)}"><kbd>${escapeHtml(keyParts.join(' + '))}</kbd></div><button class="ed-btn" data-action="startMidiLearn" data-value="${escapeHtml(sk.id)}" title="MIDI Learn" style="font-size:0.7rem;min-width:28px;height:24px;padding:0 4px;${midiNote ? 'background:#9F7AEA;color:#fff;border-color:#9F7AEA;' : ''}">🎹${midiLabel}</button>${midiRemoveBtn}</div>`;
+        const midiRemoveBtn = midiNote ? `<button class="ed-btn" data-action="removeMidiMap" data-value="${editorEscapeHtml(midiNote[0].replace('n',''))}" title="حذف MIDI" style="font-size:0.6rem;min-width:18px;height:24px;padding:0 3px;background:#e24f5b;color:#fff;border-color:#e24f5b;">✕</button>` : '';
+        div.innerHTML = `<span class="shortcut-label">${editorEscapeHtml(sk.label)}</span><div style="display:flex;gap:4px;align-items:center;"><div class="shortcut-key" data-sid="${editorEscapeHtml(sk.id)}"><kbd>${editorEscapeHtml(keyParts.join(' + '))}</kbd></div><button class="ed-btn" data-action="startMidiLearn" data-value="${editorEscapeHtml(sk.id)}" title="MIDI Learn" style="font-size:0.7rem;min-width:28px;height:24px;padding:0 4px;${midiNote ? 'background:#9F7AEA;color:#fff;border-color:#9F7AEA;' : ''}">🎹${midiLabel}</button>${midiRemoveBtn}</div>`;
         div.querySelector('.shortcut-key').addEventListener('click', () => startEditShortcut(sk.id));
         list.appendChild(div);
       });
@@ -1130,7 +1132,7 @@ function getMidiScoreController() {
         translate: t,
         clearEditorTextSelection,
         clearChordSelection: () => edClearChordSelection(),
-        clearSelection,
+        clearSelection: editorClearSelection,
         seekTransport,
         xToTime,
         clientToTime,
@@ -1151,7 +1153,7 @@ function getMidiScoreController() {
         }
         if (e.target.closest('.chord') || e.target.closest('.clip') || e.target.closest('.section-tag') || e.target.closest('#editorWrap') || e.target.closest('.tl-toolbar') || e.target.closest('.tl-zoom')) return;
         edClearChordSelection();
-        clearSelection();
+        editorClearSelection();
       });
 
       // Update loop toggle button state
@@ -1165,7 +1167,7 @@ function getMidiScoreController() {
       const audioDropService = window.AudioDropImportService?.create?.({
         getDAW: () => editorGetRuntimeDAW(),
         getSong: getCurrentEditorSong,
-        clearSelection,
+        clearSelection: editorClearSelection,
         ensureAudioCtx,
         addNewTrack,
         askAudioCopyMode,
@@ -1210,7 +1212,6 @@ function getMidiScoreController() {
     let edTransposing = 0;
     let edChordDragActive = false;
     let edChordsVisible = true;
-    let edSeqModeActive = false, edSeqPoints = [], edSeqChordingActive = false, edSeqCursor = 0;
     let edChordModalMode = null;
 
     let edInputRenderTimer = null;
@@ -1745,7 +1746,7 @@ function edBlankSong() {
             edCommitTimer = setTimeout(() => edCommit(), 300);
           },
           scheduleSave: () => edScheduleSave(),
-          clearSelection,
+          clearSelection: editorClearSelection,
           clearChordSelection: () => edClearChordSelection(),
           isAltDown: () => edAltDown,
           anchorFromPoint,
@@ -2322,7 +2323,7 @@ if ($('edDoBoth')) {
           zoomFull: () => zoomTimelineFull(),
           syncTap: () => syncTap(),
           exitSyncMode: () => exitSyncMode(),
-          clearSelection: () => clearSelection()
+          clearSelection: () => editorClearSelection()
         },
         ui: {
           hideCutGuide: () => {

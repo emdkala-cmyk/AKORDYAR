@@ -58,6 +58,11 @@ let coreWavEncoderRuntime = null;
 let coreTimelineRuntime = null;
 let coreClipInteractionRuntime = null;
 let corePopupRuntime = null;
+// Sequential-chord state is shared by core.js and editor.js.
+let edSeqModeActive = false,
+  edSeqPoints = [],
+  edSeqChordingActive = false,
+  edSeqCursor = 0;
 
 const corePublicApiFactory = globalScope.CorePublicApi;
 if (!corePublicApiFactory?.create) {

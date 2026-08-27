@@ -377,6 +377,18 @@ assert.doesNotMatch(
   editor,
   /\b(?:const|let|var)\s+edRemapSeqPoints\b/
 );
+assert.match(
+  appCore,
+  /let edSeqModeActive = false,\s*edSeqPoints = \[\],\s*edSeqChordingActive = false,\s*edSeqCursor = 0/
+);
+assert.doesNotMatch(editor, /^\s*let edSeqModeActive\b/m);
+assert.match(editor, /const editorClearSelection =/);
+assert.match(editor, /clearSelection:\s*editorClearSelection/);
+assert.match(editor, /editorClearSelection\(\)/);
+assert.match(editor, /escapeHtml:\s*editorEscapeHtml/);
+assert.doesNotMatch(editor, /^\s*escapeHtml,\s*$/m);
+assert.match(search, /function searchEscapeHtml\(/);
+assert.doesNotMatch(search, /function escapeHtml\(/);
 assert.doesNotMatch(
   editor,
   /function initAccidentalSelector\(\)\s*\{\s*try/
