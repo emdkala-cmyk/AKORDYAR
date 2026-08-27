@@ -558,6 +558,10 @@ assert.ok(
 );
 assert.ok(
   scriptIndex('js/editor/EditorArrangerRuntimeService.js') <
+    scriptIndex('js/editor/EditorArrangerControllerService.js')
+);
+assert.ok(
+  scriptIndex('js/editor/EditorArrangerControllerService.js') <
     scriptIndex('js/app/editor.js')
 );
 assert.ok(

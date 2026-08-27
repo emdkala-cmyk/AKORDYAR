@@ -55,6 +55,9 @@ const editorArrangerHotSwapService = read(
 const editorArrangerRuntimeService = read(
   'js/editor/EditorArrangerRuntimeService.js'
 );
+const editorArrangerControllerService = read(
+  'js/editor/EditorArrangerControllerService.js'
+);
 const editorProjectExportWorkflowService = read(
   'js/editor/EditorProjectExportWorkflowService.js'
 );
@@ -322,9 +325,25 @@ assert.match(
   editorArrangerRuntimeService,
   /songLoadService\.create/
 );
+assert.match(
+  editorArrangerControllerService,
+  /getSongLoadPerformanceState/
+);
+assert.match(
+  editorArrangerControllerService,
+  /EditorArrangerRuntimeService/
+);
 assert.doesNotMatch(
   editor,
   /EditorArranger(?:SongLoad|HotSwap)Service\.create/
+);
+assert.doesNotMatch(
+  editor,
+  /EditorArrangerRuntimeService\.create/
+);
+assert.doesNotMatch(
+  editor,
+  /\b(?:arrPerformActive|arrPerformIdx|arrPerformData|arrPreparePending|_arrNextState|_arrHasLoggedNoNextSong|_arrPrepStartedForIndex|perfModeActive|perfPauseMode|_arrWaitPollActive)\b/
 );
 assert.doesNotMatch(editor, /if \(!_arrNextState\) return false;/);
 assert.doesNotMatch(

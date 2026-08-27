@@ -97,6 +97,7 @@ for (const activeScript of [
   'js/editor/EditorArrangerSongLoadService.js',
   'js/editor/EditorArrangerHotSwapService.js',
   'js/editor/EditorArrangerRuntimeService.js',
+  'js/editor/EditorArrangerControllerService.js',
   'js/editor/EditorPlaylistBackupService.js',
   'js/editor/EditorToolbarDockService.js',
   'js/editor/EditorMidiInputService.js',

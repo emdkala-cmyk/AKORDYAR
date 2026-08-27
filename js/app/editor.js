@@ -459,40 +459,19 @@ function getMidiScoreController() {
     }
 
     // Arranger runtime: load and hot-swap wiring stays outside editor.js.
-    let editorArrangerRuntime = null;
+    let editorArrangerController = null;
     function getEditorArrangerRuntime() {
       if (
-        !editorArrangerRuntime &&
-        typeof window.EditorArrangerRuntimeService?.create === 'function'
+        !editorArrangerController &&
+        typeof window.EditorArrangerControllerService?.create === 'function'
       ) {
-        editorArrangerRuntime =
-          window.EditorArrangerRuntimeService.create({
-            state: {
-              getHotSwapPerformanceState: () => ({
-                active: getPerformanceState?.()?.active || false,
-                pauseMode: getPerformanceState?.()?.pauseMode || false,
-                nextState: getPerformanceState?.()?.nextState || null
-              }),
-              updateHotSwapPerformanceState: patch =>
-                updatePerformanceState?.(patch),
-              getSongLoadPerformanceState: () => {
-                const state = getPerformanceState?.() || {};
-                return {
-                  active: state.active || false,
-                  index: state.index ?? -1,
-                  pauseMode: state.pauseMode || false,
-                  perfModeActive: state.modeActive || false,
-                  nextState: state.nextState || null,
-                  preparePending: state.preparePending || false,
-                  waitPollActive: state.waitPollActive || false,
-                  hasLoggedNoNextSong:
-                    state.hasLoggedNoNextSong || false,
-                  prepStartedForIndex:
-                    state.prepStartedForIndex ?? -1
-                };
-              },
-              updateSongLoadPerformanceState: patch =>
-                updatePerformanceState?.(patch),
+        editorArrangerController =
+          window.EditorArrangerControllerService.create({
+            performanceState: {
+              get: () => getPerformanceState?.() || {},
+              update: patch => updatePerformanceState?.(patch)
+            },
+            arrangement: {
               getArrangement: () =>
                 getPerformanceState?.()?.data ||
                 window.AkordyarCoreApi?.getEditingArr?.() ||
@@ -543,7 +522,7 @@ function getMidiScoreController() {
             logger: console
           });
       }
-      return editorArrangerRuntime;
+      return editorArrangerController?.runtime || null;
     }
 
     function hotSwapToNextSong(...args) {

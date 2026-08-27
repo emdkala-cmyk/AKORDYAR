@@ -69,6 +69,15 @@ const markerBridge = fs.readFileSync(
   ),
   'utf8'
 );
+const arrangerController = fs.readFileSync(
+  path.join(
+    projectRoot,
+    'js',
+    'editor',
+    'EditorArrangerControllerService.js'
+  ),
+  'utf8'
+);
 const html = fs.readFileSync(
   path.join(projectRoot, 'Akordyar.html'),
   'utf8'
@@ -123,6 +132,11 @@ assert.match(
   /seekTransport\(\s*stateAfterLoad\.active \? playbackBoundary\.start : 0,\s*false,\s*true\s*\)/
 );
 assert.match(editor, /getPlaybackPolicy:\s*\(\) => arrangerPlaybackPolicy/);
+assert.match(
+  arrangerController,
+  /getSongLoadPerformanceState/
+);
+assert.doesNotMatch(editor, /EditorArrangerRuntimeService\.create/);
 assert.match(hotSwapService, /arrangerMarkers:\s*nextState\.arrangerMarkers/);
 assert.match(hotSwapService, /seekTransport\(active \? nextStart : 0, true, true\)/);
 assert.doesNotMatch(editor, /var _ori2 = PlayheadMath\.createOrigin/);
