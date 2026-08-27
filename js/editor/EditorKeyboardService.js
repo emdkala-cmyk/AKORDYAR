@@ -8,11 +8,16 @@
 (function attachEditorKeyboardService(globalScope) {
   function isEditableTarget(target) {
     const tagName = target?.tagName || '';
+    const editableAncestor = target?.closest?.('[contenteditable="true"]');
     return (
       tagName === 'INPUT' ||
       tagName === 'TEXTAREA' ||
       tagName === 'SELECT' ||
-      Boolean(target?.isContentEditable || target?.contentEditable === 'true')
+      Boolean(
+        target?.isContentEditable ||
+          target?.contentEditable === 'true' ||
+          editableAncestor
+      )
     );
   }
 

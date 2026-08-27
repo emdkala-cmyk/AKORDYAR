@@ -71,6 +71,19 @@ const inputRight = keyEvent('ArrowRight', {
 windowRef.dispatch(inputRight);
 assert.deepEqual(calls, ['quantize', 'move:right']);
 
+const editorTextChild = keyEvent('Space', {
+  target: {
+    tagName: 'SPAN',
+    closest: selector =>
+      selector === '[contenteditable="true"]'
+        ? { tagName: 'DIV', contentEditable: 'true' }
+        : null
+  }
+});
+assert.equal(service.handleGlobalKeydownCapture(editorTextChild), false);
+assert.equal(editorTextChild.prevented, false);
+assert.deepEqual(calls, ['quantize', 'move:right']);
+
 const del = keyEvent('Delete');
 windowRef.dispatch(del);
 assert.equal(del.prevented, true);
