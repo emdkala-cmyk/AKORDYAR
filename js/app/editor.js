@@ -64,6 +64,20 @@ const editorToggleFocusMode = (...args) =>
   editorCoreApi.toggleFocusMode?.(...args);
 const editorClearSelection = (...args) =>
   window.AkordyarCoreApi?.clearSelection?.(...args);
+const editorSplitSelectedAtPlayhead = (...args) =>
+  editorCoreApi.splitSelectedAtPlayhead?.(...args);
+const editorDeleteSelected = (...args) =>
+  editorCoreApi.deleteSelected?.(...args);
+const editorCopySelected = (...args) =>
+  editorCoreApi.copySelected?.(...args);
+const editorCutSelected = (...args) =>
+  editorCoreApi.cutSelected?.(...args);
+const editorPasteClipboard = (...args) =>
+  editorCoreApi.pasteClipboard?.(...args);
+const editorSetSelection = (...args) =>
+  editorCoreApi.setSelection?.(...args);
+const editorDuplicateSelected = (...args) =>
+  editorCoreApi.duplicateSelected?.(...args);
 // bindingهای core.js در scope سراسری مشترکِ اسکریپت‌های classic حاضرند؛
 // destructure کردن دوبارهٔ آن‌ها خطای redeclare در مرورگر ایجاد می‌کند.
 const {
@@ -2301,13 +2315,13 @@ if ($('edDoBoth')) {
           toggleFocusMode: () => editorToggleFocusMode(),
           seekTransport: (time, snap, noSnap) =>
             seekTransport(time, snap, noSnap),
-          deleteSelectedClips: () => deleteSelected(),
-          splitSelectedAtPlayhead: () => splitSelectedAtPlayhead(),
-          copySelected: () => copySelected(),
-          cutSelected: () => cutSelected(),
-          pasteClipboard: () => pasteClipboard(),
-          setSelection: ids => setSelection(ids),
-          duplicateSelected: () => duplicateSelected(),
+          deleteSelectedClips: () => editorDeleteSelected(),
+          splitSelectedAtPlayhead: () => editorSplitSelectedAtPlayhead(),
+          copySelected: () => editorCopySelected(),
+          cutSelected: () => editorCutSelected(),
+          pasteClipboard: () => editorPasteClipboard(),
+          setSelection: ids => editorSetSelection(ids),
+          duplicateSelected: () => editorDuplicateSelected(),
           transportToStart: () => transportToStart(),
           setLoopFromSelection: () => setLoopFromSelection(),
           toggleLoop: () => toggleLoop(),
@@ -2409,7 +2423,7 @@ if ($('edDoBoth')) {
       'fullscreen': () => { if (!editorGetRuntimeDAW().isPlaying) { ensureAudioCtx(); if (editorGetRuntimeDAW().playhead <= 0) seekTransport(0, false); startTransport(); } editorOpenLyricOnlyPopup(); setTimeout(editorOpenLyricPopup, 300); },
       'singerView': editorOpenLyricOnlyPopup,
       'playerView': (typeof openPlayerView === 'function') ? openPlayerView : editorOpenLyricPopup,
-      'split': splitSelectedAtPlayhead, 'copy': copySelected, 'cut': cutSelected, 'paste': pasteClipboard,
+      'split': editorSplitSelectedAtPlayhead, 'copy': editorCopySelected, 'cut': editorCutSelected, 'paste': editorPasteClipboard,
       'projectHubOpen': () => window.ProjectHub?.open(),
       'archiveOpen': () => editorArchiveCall('open'),
       'quickSearchOpen': () => window.openQuickSearchPanel(),
@@ -2457,8 +2471,8 @@ if ($('edDoBoth')) {
       toggleMidiMonitor: () => toggleMidiMonitor(),
       setHighlightEffect: (_, element) => setHighlightEffect(element.dataset.value),
       toggleRec: () => toggleRec(),
-      split: () => splitSelectedAtPlayhead(),
-      delete: () => deleteSelected(),
+      split: () => editorSplitSelectedAtPlayhead(),
+      delete: () => editorDeleteSelected(),
       toggleLoop: () => toggleLoop(),
       setLoopA: () => setLoopA(),
       setLoopB: () => setLoopB(),
