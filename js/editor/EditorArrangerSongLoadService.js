@@ -177,6 +177,17 @@
         }
       }
 
+      const stateAfterLoad = readPerformanceState();
+      const requestedStart = Number(options.startAt);
+      const transportStart = Number.isFinite(requestedStart)
+        ? Math.max(0, requestedStart)
+        : (stateAfterLoad.active ? playbackBoundary.start : 0);
+
+      // Set the new song's visual position before any popup/editor render.
+      // Otherwise Player View can paint the previous song's playhead on its
+      // first frame and only correct itself after Stop/Play.
+      daw.playhead = transportStart;
+
       resetHistory();
       syncToolbar();
       renderEditor(true);
@@ -185,15 +196,10 @@
       initHighlightEffect();
       syncUIAfterSongChange();
 
-      const stateAfterLoad = readPerformanceState();
       toast(
         `${translate('songN')} ${index + 1}/${items.length}: ` +
         `${song.title || translate('untitled')}`
       );
-      const requestedStart = Number(options.startAt);
-      const transportStart = Number.isFinite(requestedStart)
-        ? Math.max(0, requestedStart)
-        : (stateAfterLoad.active ? playbackBoundary.start : 0);
       seekTransport(transportStart, false, true);
       ensureAudioCtx();
 
