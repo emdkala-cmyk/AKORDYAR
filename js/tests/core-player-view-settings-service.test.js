@@ -116,6 +116,7 @@ assert.equal(loopInstalled, 1);
 assert.equal(bridgeValues.get('_pCfg').cSize, 21);
 
 runtime.syncHighlight();
+runtime.syncHighlight();
 assert.ok(toggles.some(([name, value]) => name === 'active' && value === false));
 assert.ok(toggles.some(([name, value]) => name === 'active' && value === true));
 assert.deepEqual(body.lastScroll, {
@@ -136,6 +137,21 @@ assert.equal(
   null,
   'خط فعال داخل محدوده امن نباید اسکرول جدید ایجاد کند'
 );
+
+// Regression: Electron can expose the popup before its first layout pass.
+// The same active line must be retried once its dimensions are available.
+body.lastScroll = null;
+body.scrollTop = 0;
+body.clientHeight = 0;
+runtime.apply(doc);
+assert.equal(body.lastScroll, null);
+body.clientHeight = 100;
+runtime.syncHighlight();
+runtime.syncHighlight();
+assert.deepEqual(body.lastScroll, {
+  top: 80,
+  behavior: 'smooth'
+});
 
 controls['pv-tSize'].value = 35;
 controls['pv-tSize'].oninput();

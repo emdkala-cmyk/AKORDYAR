@@ -22,6 +22,8 @@
     let messageCleanup = null;
     let lastScrolledIndex = -999;
     let lastHighlightKey = null;
+    let currentSyncHighlight = () => {};
+    let initialLayoutPasses = 2;
 
     function getActiveIndex(times, time, lyricLines = []) {
       if (
@@ -63,7 +65,7 @@
       return activeIndex;
     }
 
-    function applyActiveIndex(body, activeIndex) {
+    function applyActiveIndex(body, activeIndex, allowScroll = true) {
       if (!body) return;
       [...(body.children || [])].forEach(element => {
         if (!element.dataset.li) return;
@@ -76,17 +78,24 @@
         lastScrolledIndex = -999;
         return;
       }
+      if (!allowScroll) return;
       if (activeIndex === lastScrolledIndex) return;
       const activeElement = body.querySelector(
         '[data-li="' + activeIndex + '"]'
       );
       if (!activeElement) return;
+      const bodyHeight = Number(body.clientHeight) || 0;
+      const elementTop = Number(activeElement.offsetTop);
+      const elementHeight = Math.max(
+        1,
+        Number(activeElement.offsetHeight) || 0
+      );
+      if (!bodyHeight || !Number.isFinite(elementTop)) return;
       lastScrolledIndex = activeIndex;
-      const bodyHeight = body.clientHeight;
       body.scrollTo({
-        top: activeElement.offsetTop -
+        top: elementTop -
           bodyHeight / 2 +
-          activeElement.offsetHeight / 2,
+          elementHeight / 2,
         behavior: 'smooth'
       });
     }
@@ -159,6 +168,7 @@
       html += '</div>';
       lastScrolledIndex = -999;
       lastHighlightKey = null;
+      initialLayoutPasses = 2;
       doc.body.innerHTML = html;
       doc.body.setAttribute('data-popup-role', 'singer');
       doc.body.classList?.remove?.(
@@ -206,9 +216,16 @@
           : (Number.isFinite(daw.playhead) ? daw.playhead : 0);
         const activeIndex = getActiveIndex(times, time, lines);
         const highlightKey = `${activeIndex}:${daw.isPlaying ? 1 : 0}`;
-        if (highlightKey === lastHighlightKey) return;
+        if (
+          highlightKey === lastHighlightKey &&
+          activeIndex === lastScrolledIndex
+        ) {
+          return;
+        }
         lastHighlightKey = highlightKey;
-        applyActiveIndex(body, activeIndex);
+        const allowScroll = initialLayoutPasses <= 0;
+        if (initialLayoutPasses > 0) initialLayoutPasses--;
+        applyActiveIndex(body, activeIndex, allowScroll);
       }
 
       popupWindowBridge?.set?.(
@@ -216,10 +233,17 @@
         '_syncHighlight',
         syncSingerHighlight
       );
+      currentSyncHighlight = syncSingerHighlight;
+      // Render the initial state immediately; the popup rAF retries after
+      // Electron completes the first layout pass.
+      syncSingerHighlight();
       installPopupHighlightLoop?.(popup, doc);
     }
 
-    return Object.freeze({ sync });
+    return Object.freeze({
+      sync,
+      syncHighlight: () => currentSyncHighlight()
+    });
   }
 
   const service = Object.freeze({ create });

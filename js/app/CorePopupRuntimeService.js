@@ -115,7 +115,7 @@
       if (!popup || !doc?.body) return;
       const script = doc.createElement('script');
       script.textContent =
-        '(function(){if(window.__akordHighlightLoopStarted)return;window.__akordHighlightLoopStarted=true;function frame(){try{window._syncHighlight?.()}catch(_){}if(!window.closed)window.requestAnimationFrame(frame)}frame()})();';
+        '(function(){if(window.__akordHighlightLoopStarted)return;window.__akordHighlightLoopStarted=true;function frame(){try{window._syncHighlight?.()}catch(_){}if(!window.closed)window.requestAnimationFrame(frame)}window.requestAnimationFrame(frame)})();';
       doc.body.appendChild(script);
     }
 
@@ -232,11 +232,15 @@
     });
 
     function syncLyricPopup(...args) {
-      return playerPopupRuntime?.sync?.(...args);
+      const result = playerPopupRuntime?.sync?.(...args);
+      settingsRuntime?.syncHighlight?.();
+      return result;
     }
 
     function syncLyricOnlyPopup(...args) {
-      return lyricOnlyRuntime?.sync?.(...args);
+      const result = lyricOnlyRuntime?.sync?.(...args);
+      lyricOnlyRuntime?.syncHighlight?.();
+      return result;
     }
 
     function openLyricPopup() {

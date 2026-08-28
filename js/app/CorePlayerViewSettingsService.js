@@ -72,6 +72,7 @@
     let settings = { ...DEFAULTS };
     let lastScrolledIndex = -999;
     let lastHighlightKey = null;
+    let initialLayoutPasses = 2;
     let scrollAnimationFrame = null;
     let scrollAnimationToken = 0;
     try {
@@ -175,6 +176,7 @@
       if (!doc?.body) return;
       lastScrolledIndex = -999;
       lastHighlightKey = null;
+      initialLayoutPasses = 2;
       cancelScrollAnimation();
       doc.body.style.background = settings.bgColor;
       doc.querySelectorAll?.('.eline').forEach(element => {
@@ -321,37 +323,49 @@
               return index;
             })();
       const highlightKey = `${activeIndex}:${daw.isPlaying ? 1 : 0}`;
-      if (highlightKey === lastHighlightKey) return;
-      lastHighlightKey = highlightKey;
-      [...(body.children || [])].forEach(element => {
-        if (!element.dataset?.li) return;
-        const index = +element.dataset.li;
-        const isActive = index === activeIndex;
-        const isDone =
-          times[index] != null && times[index] < playhead && !isActive;
-        element.classList.toggle('active', isActive);
-        element.classList.toggle('done', isDone);
-        // The popup builder uses inline styles for the user's base color.
-        // Clear those properties on the active row so the effect stylesheet
-        // can actually render the highlight above the inline declaration.
-        element.style.color = isActive ? '' : settings.tColor;
-        element.style.textShadow = '';
-        element.style.opacity = '';
-      });
+      const highlightChanged = highlightKey !== lastHighlightKey;
+      if (!highlightChanged && activeIndex === lastScrolledIndex) return;
+      if (highlightChanged) {
+        lastHighlightKey = highlightKey;
+        [...(body.children || [])].forEach(element => {
+          if (!element.dataset?.li) return;
+          const index = +element.dataset.li;
+          const isActive = index === activeIndex;
+          const isDone =
+            times[index] != null && times[index] < playhead && !isActive;
+          element.classList.toggle('active', isActive);
+          element.classList.toggle('done', isDone);
+          // The popup builder uses inline styles for the user's base color.
+          // Clear those properties on the active row so the effect stylesheet
+          // can actually render the highlight above the inline declaration.
+          element.style.color = isActive ? '' : settings.tColor;
+          element.style.textShadow = '';
+          element.style.opacity = '';
+        });
+      }
       if (activeIndex < 0) {
         lastScrolledIndex = -999;
         cancelScrollAnimation();
         return;
       }
+      if (initialLayoutPasses > 0) {
+        // The first popup call can run before Chromium/Electron paints the
+        // document. Keep the classes now and defer geometry/scrolling to the
+        // first asynchronous popup frame.
+        initialLayoutPasses--;
+        return;
+      }
       if (activeIndex === lastScrolledIndex) return;
       const active = body.querySelector?.('[data-li="' + activeIndex + '"]');
       if (!active) return;
-      lastScrolledIndex = activeIndex;
       const targetTop = getScrollTarget(body, active);
       if (targetTop === null) {
         cancelScrollAnimation();
         return;
       }
+      // Electron may expose the popup DOM before its first layout pass.
+      // Only mark the line as handled after its position is measurable.
+      lastScrolledIndex = activeIndex;
       animateScroll(body, targetTop);
     }
 
@@ -361,6 +375,7 @@
       if (!doc) return;
       lastScrolledIndex = -999;
       lastHighlightKey = null;
+      initialLayoutPasses = 2;
       cancelScrollAnimation();
       const config = popupWindowBridge?.get?.(popup, '_pCfg');
       if (config && typeof config === 'object') {

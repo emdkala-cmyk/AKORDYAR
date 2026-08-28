@@ -121,6 +121,10 @@ assert.match(popupDocument.head.innerHTML, /Vazirmatn/);
 assert.equal(messageConfig.windowRef.name, 'main-window');
 assert.equal(messageConfig.type, 'syncUpdate');
 assert.deepEqual(loopCall, [popup, popupDocument]);
+assert.equal(
+  singerBody.children[1].classList.contains('lop-active'),
+  true
+);
 
 messageConfig.handler({ data: { activeIdx: 1 } });
 assert.equal(singerBody.children[0].classList.contains('lop-active'), false);
