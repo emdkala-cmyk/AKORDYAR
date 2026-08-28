@@ -304,7 +304,7 @@ assert.match(editorAutoImportRetryService, /song => !song\.error && song\.rawTex
 assert.match(editorAutoImportRuntimeService, /function autoRetryFailed\(\)/);
 assert.doesNotMatch(editor, /function autoRetryFailed\(\)/);
 assert.doesNotMatch(editor, /━━━ خلاصه شناسایی ━━━/);
-assert.match(editorArrangerSongLoadService, /async function load\(index\)/);
+assert.match(editorArrangerSongLoadService, /async function load\(index, options = \{\}\)/);
 assert.match(
   editorArrangerSongLoadService,
   /function resetPreparationState\(\)/
@@ -319,7 +319,7 @@ assert.doesNotMatch(
 );
 assert.match(
   editor,
-  /async function loadArrSong\(idx\)\s*\{\s*return getEditorArrangerRuntime\(\)\?\.loadArrSong\?\.\(idx\);\s*\}/
+  /async function loadArrSong\(idx, options\)\s*\{\s*return getEditorArrangerRuntime\(\)\?\.loadArrSong\?\.\(idx, options\);\s*\}/
 );
 assert.match(editorArrangerHotSwapService, /function hotSwapToNextSong\(\)/);
 assert.match(editorArrangerHotSwapService, /function applyPlaybackBoundary/);

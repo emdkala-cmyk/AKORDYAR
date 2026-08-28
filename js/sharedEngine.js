@@ -631,22 +631,105 @@ const SharedEngine = (() => {
      8) Highlight Engine
      ═══════════════════════════════════════════════ */
 
+  function lyricLineText(line) {
+    return typeof line === 'string'
+      ? line
+      : String(line?.text || '');
+  }
+
+  /**
+   * Resolve the visible lyric line for a playhead position.
+   *
+   * Empty lines can inherit a sync time from the editor. Highlighting that
+   * line makes the first visible lyric appear to start later than it really
+   * does, so only non-empty lines are candidates for the active highlight.
+   * The scan also deliberately does not stop at the first future cue: older
+   * songs can contain sparse or out-of-order syncTimes.
+   */
+  function resolveActiveLineIndex(syncTimes, time, lyricLines = []) {
+    const times = Array.isArray(syncTimes) ? syncTimes : [];
+    const lines = Array.isArray(lyricLines)
+      ? lyricLines
+      : String(lyricLines || '').split('\n');
+    const rawTime = Number(time);
+    const playhead = Number.isFinite(rawTime) ? Math.max(0, rawTime) : 0;
+    const hasLineData = lines.length > 0;
+    const hasVisibleLyric = lines.some(
+      line => lyricLineText(line).trim().length > 0
+    );
+    const isVisibleLine = index =>
+      !hasLineData ||
+      !hasVisibleLyric ||
+      (
+        index < lines.length &&
+        lyricLineText(lines[index]).trim().length > 0
+      );
+
+    let firstTimedLineIndex = -1;
+    let activeLineIndex = -1;
+    let activeTime = Number.NEGATIVE_INFINITY;
+
+    // At the exact transport start, always show the first visible lyric.
+    // A cue attached to an empty/misaligned line must not make a new song
+    // open several lines into the text.
+    if (playhead <= 0 && hasVisibleLyric) {
+      const firstLyricLineIndex = lines.findIndex(
+        line => lyricLineText(line).trim().length > 0
+      );
+      if (firstLyricLineIndex >= 0) return firstLyricLineIndex;
+    }
+
+    times.forEach((value, index) => {
+      const cueTime = Number(value);
+      if (!Number.isFinite(cueTime)) return;
+      if (firstTimedLineIndex < 0) firstTimedLineIndex = index;
+      if (
+        cueTime <= playhead &&
+        isVisibleLine(index) &&
+        (
+          cueTime > activeTime ||
+          (cueTime === activeTime && index > activeLineIndex)
+        )
+      ) {
+        activeLineIndex = index;
+        activeTime = cueTime;
+      }
+    });
+
+    if (activeLineIndex >= 0) return activeLineIndex;
+
+    if (firstTimedLineIndex < 0) return -1;
+    const firstLyricLineIndex = lines.findIndex(
+      line => lyricLineText(line).trim().length > 0
+    );
+    return firstLyricLineIndex >= 0
+      ? firstLyricLineIndex
+      : firstTimedLineIndex;
+  }
+
   function computeHighlight(playbackState, doc) {
-    const time = (playbackState && playbackState.time) || 0;
+    const rawTime = Number(playbackState && playbackState.time);
+    const time = Number.isFinite(rawTime) ? Math.max(0, rawTime) : 0;
     const cues = Array.isArray(doc && doc.cues) ? doc.cues : [];
+    const lyricLines = Array.isArray(doc?.lines) ? doc.lines : [];
+    const hasVisibleLyric = lyricLines.some(
+      line => String(line?.text || '').trim().length > 0
+    );
+    const isVisibleLine = index =>
+      lyricLines.length === 0 ||
+      !hasVisibleLyric ||
+      (
+        index < lyricLines.length &&
+        String(lyricLines[index]?.text || '').trim().length > 0
+      );
 
     let activeLineIndex = -1;
     const doneLines = new Set();
-
-    for (let i = 0; i < cues.length; i++) {
-      const c = cues[i];
-      if (!c || !Number.isFinite(c.time)) continue;
-      if (c.time <= time && Number.isInteger(c.lineIndex)) {
-        activeLineIndex = c.lineIndex;
-      } else if (c.time > time) {
-        break;
-      }
-    }
+    activeLineIndex = resolveActiveLineIndex(
+      cues.map(cue => cue?.time),
+      time,
+      lyricLines.map(line => line?.text || '')
+    );
 
     for (const c of cues) {
       if (
@@ -654,7 +737,9 @@ const SharedEngine = (() => {
         Number.isFinite(c.time) &&
         c.time < time &&
         Number.isInteger(c.lineIndex) &&
-        c.lineIndex < activeLineIndex
+        c.lineIndex !== activeLineIndex &&
+        c.lineIndex < activeLineIndex &&
+        isVisibleLine(c.lineIndex)
       ) {
         doneLines.add(c.lineIndex);
       }
@@ -687,7 +772,7 @@ const SharedEngine = (() => {
      10) Public API
      ═══════════════════════════════════════════════ */
 
-  return {
+    return {
     // Note/chord utilities
     NOTE_SEMITONE,
     SHARP_NOTES,
@@ -711,6 +796,7 @@ const SharedEngine = (() => {
     parseSongDocument,
     alignChords,
     applyKeyTransform,
+    resolveActiveLineIndex,
     computeHighlight,
     processSong,
     findTokenIndexForChar

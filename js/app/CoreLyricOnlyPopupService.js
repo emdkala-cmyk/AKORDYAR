@@ -19,6 +19,75 @@
     installPopupHighlightLoop = () => {}
   } = {}) {
     let messageCleanup = null;
+    let lastScrolledIndex = -999;
+
+    function getActiveIndex(times, time, lyricLines = []) {
+      if (
+        typeof globalScope.SharedEngine?.resolveActiveLineIndex ===
+        'function'
+      ) {
+        return globalScope.SharedEngine.resolveActiveLineIndex(
+          times,
+          time,
+          lyricLines
+        );
+      }
+
+      let activeIndex = -1;
+      let activeTime = Number.NEGATIVE_INFINITY;
+      for (let index = 0; index < times.length; index++) {
+        const cueTime = Number(times[index]);
+        if (
+          Number.isFinite(cueTime) &&
+          cueTime <= time &&
+          lyricLines[index]?.trim?.() &&
+          cueTime >= activeTime
+        ) {
+          activeIndex = index;
+          activeTime = cueTime;
+        }
+      }
+      if (
+        activeIndex < 0 &&
+        time >= 0 &&
+        times.some(value => Number.isFinite(value))
+      ) {
+        const firstLyricIndex = lyricLines.findIndex(line => line.trim());
+        activeIndex =
+          firstLyricIndex >= 0
+            ? firstLyricIndex
+            : times.findIndex(value => Number.isFinite(value));
+      }
+      return activeIndex;
+    }
+
+    function applyActiveIndex(body, activeIndex) {
+      if (!body) return;
+      [...(body.children || [])].forEach(element => {
+        if (!element.dataset.li) return;
+        const lineIndex = +element.dataset.li;
+        const isActive = lineIndex === activeIndex;
+        element.classList.toggle('lop-active', isActive);
+        element.classList.toggle('lop-active-bg', isActive);
+      });
+      if (activeIndex < 0) {
+        lastScrolledIndex = -999;
+        return;
+      }
+      if (activeIndex === lastScrolledIndex) return;
+      const activeElement = body.querySelector(
+        '[data-li="' + activeIndex + '"]'
+      );
+      if (!activeElement) return;
+      lastScrolledIndex = activeIndex;
+      const bodyHeight = body.clientHeight;
+      body.scrollTo({
+        top: activeElement.offsetTop -
+          bodyHeight / 2 +
+          activeElement.offsetHeight / 2,
+        behavior: 'smooth'
+      });
+    }
 
     function sync() {
       const popup = getPopup?.();
@@ -29,6 +98,7 @@
       if (!doc) return;
       const { title, artist, lyrics, styles } = snapshot;
       const { tSize, tColor, tFont, tBold, align } = styles;
+      const highlightEffect = styles.highlightEffect || 'depth';
       const lines = lyrics.split('\n');
 
       doc.title = title + ' — ' + artist + ' | خواننده';
@@ -58,8 +128,23 @@
           .lop-body { flex: 1; overflow: auto; padding: 16px 20px; position: relative; line-height: 2.4; }
           .lop-body { flex: 1; overflow-y: auto; padding: 16px; }
           .eline { min-height: 1.2em; white-space: pre-wrap; }
-          .lop-active { color: #FF2E93 !important; text-shadow: 0 0 8px rgba(255,46,147,0.5); }
-          .lop-active-bg { background: rgba(255,46,147,0.08); border-radius: 6px; }
+          .lop-body .eline { position: relative; border-radius: 8px; transition: color 1.2s cubic-bezier(0.22, 0.61, 0.36, 1), opacity 1.2s cubic-bezier(0.22, 0.61, 0.36, 1), background 1.2s cubic-bezier(0.22, 0.61, 0.36, 1), text-shadow 1.2s cubic-bezier(0.22, 0.61, 0.36, 1); }
+          .lop-body .eline::before { content: ''; position: absolute; left: 0; right: 0; top: -0.4em; bottom: 0.8em; opacity: 0; border-radius: 8px; pointer-events: none; z-index: -1; transition: opacity 1.2s cubic-bezier(0.22, 0.61, 0.36, 1), background 1.2s cubic-bezier(0.22, 0.61, 0.36, 1), box-shadow 1.2s cubic-bezier(0.22, 0.61, 0.36, 1); }
+          .lop-active { color: #fff !important; border-radius: 8px; z-index: 10; }
+          .lop-active::before { opacity: 1; }
+          body.hl-neon .lop-body .lop-active { color: #00F2FE !important; text-shadow: 0 0 8px rgba(0,242,254,0.8), 0 0 20px rgba(0,242,254,0.4); }
+          body.hl-neon .lop-body .lop-active::before { background: linear-gradient(180deg, rgba(0,242,254,0.2), rgba(0,242,254,0.04) 55%, transparent); border: 1px solid rgba(0,242,254,0.3); box-shadow: 0 0 15px rgba(0,242,254,0.3), 0 0 30px rgba(0,242,254,0.1); }
+          body.hl-frost .lop-body .lop-active { color: #fff !important; }
+          body.hl-frost .lop-body .lop-active::before { background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.03) 50%, rgba(200,220,255,0.08) 100%); border: 1px solid rgba(255,255,255,0.15); border-radius: 12px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.15), 0 4px 16px rgba(0,0,0,0.3); }
+          body.hl-shift .lop-body .lop-active { background: linear-gradient(135deg, #ff2e93, #7b2fff, #00F2FE, #3FB8AF, #ff2e93); background-size: 400% 400%; animation: hl-gradient-sweep 4s ease infinite; -webkit-background-clip: text; -webkit-text-fill-color: transparent !important; background-clip: text; }
+          body.hl-shift .lop-body .lop-active::before { background: linear-gradient(135deg, rgba(255,46,147,0.15), rgba(123,47,255,0.15), rgba(0,242,254,0.15)); background-size: 400% 400%; animation: hl-gradient-sweep 4s ease infinite; }
+          body.hl-depth .lop-body .lop-active { color: #E2E8F0 !important; text-shadow: 0 1px 0 rgba(0,0,0,0.8), 0 2px 0 rgba(0,0,0,0.7), 0 3px 0 rgba(0,0,0,0.6), 0 4px 8px rgba(0,0,0,0.5), 0 0 15px rgba(255,46,147,0.3); }
+          body.hl-depth .lop-body .lop-active::before { background: linear-gradient(180deg, rgba(255,46,147,0.15), rgba(255,46,147,0.02) 60%, transparent); border: 1px solid rgba(255,46,147,0.2); box-shadow: 0 6px 20px rgba(0,0,0,0.4), 0 2px 6px rgba(255,46,147,0.2); }
+          body.hl-pulse .lop-body .lop-active { color: #22D364 !important; animation: hl-text-pulse 2s ease-in-out infinite; }
+          body.hl-pulse .lop-body .lop-active::before { background: linear-gradient(180deg, rgba(34,211,100,0.12), rgba(34,211,100,0.02) 55%, transparent); border: 1px solid rgba(34,211,100,0.25); border-radius: 10px; animation: hl-pulse-glow 2s ease-in-out infinite; }
+          @keyframes hl-gradient-sweep { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+          @keyframes hl-pulse-glow { 0%,100% { box-shadow: 0 0 8px rgba(34,211,100,0.3), inset 0 0 12px rgba(34,211,100,0.05); } 50% { box-shadow: 0 0 20px rgba(34,211,100,0.6), inset 0 0 20px rgba(34,211,100,0.1); } }
+          @keyframes hl-text-pulse { 0%,100% { text-shadow: 0 0 6px rgba(34,211,100,0.5), 0 0 12px rgba(34,211,100,0.3); } 50% { text-shadow: 0 0 12px rgba(34,211,100,0.8), 0 0 30px rgba(34,211,100,0.5), 0 0 50px rgba(34,211,100,0.2); } }
           ::-webkit-scrollbar { width: 8px; height: 8px; }
           ::-webkit-scrollbar-track { background: #1A202C; }
           ::-webkit-scrollbar-thumb { background: #4A5568; border-radius: 4px; }
@@ -70,8 +155,19 @@
         html += `<div class="eline" data-li="${index}" style="font-size:${tSize}px;color:${tColor};font-family:'${tFont}';font-weight:${tBold};text-align:${align};">${line || '\u200B'}</div>`;
       });
       html += '</div>';
+      lastScrolledIndex = -999;
       doc.body.innerHTML = html;
       doc.body.setAttribute('data-popup-role', 'singer');
+      doc.body.classList?.remove?.(
+        'hl-neon',
+        'hl-frost',
+        'hl-shift',
+        'hl-depth',
+        'hl-pulse'
+      );
+      doc.body.classList?.add?.('hl-' + highlightEffect);
+      const lyricBody = doc.getElementById?.('lopBody');
+      if (lyricBody) lyricBody.scrollTop = 0;
 
       messageCleanup?.();
       messageCleanup = popupWindowBridge?.onMessage?.({
@@ -87,27 +183,7 @@
           }
           const body = popupDocument?.(currentPopup)?.getElementById('lopBody');
           if (!body) return;
-          const activeIndex = event.data.activeIdx;
-          [...body.children].forEach(element => {
-            if (!element.dataset.li) return;
-            const lineIndex = +element.dataset.li;
-            element.classList.toggle('lop-active', lineIndex === activeIndex);
-            element.classList.toggle('lop-active-bg', lineIndex === activeIndex);
-          });
-          if (activeIndex >= 0) {
-            const activeElement = body.querySelector(
-              '[data-li="' + activeIndex + '"]'
-            );
-            if (activeElement) {
-              const bodyHeight = body.clientHeight;
-              const elementTop = activeElement.offsetTop;
-              const elementHeight = activeElement.offsetHeight;
-              body.scrollTo({
-                top: elementTop - bodyHeight / 2 + elementHeight / 2,
-                behavior: 'smooth'
-              });
-            }
-          }
+          applyActiveIndex(body, Number(event.data.activeIdx));
         }
       }) || null;
 
@@ -121,34 +197,7 @@
         const time = daw.isPlaying
           ? getTransportPlayhead?.()
           : (Number.isFinite(daw.playhead) ? daw.playhead : 0);
-        let activeIndex = -1;
-        for (let index = 0; index < times.length; index++) {
-          if (Number.isFinite(times[index]) && times[index] <= time) {
-            activeIndex = index;
-          } else if (Number.isFinite(times[index]) && times[index] > time) {
-            break;
-          }
-        }
-        [...body.children].forEach(element => {
-          if (!element.dataset.li) return;
-          const lineIndex = +element.dataset.li;
-          element.classList.toggle('lop-active', lineIndex === activeIndex);
-          element.classList.toggle('lop-active-bg', lineIndex === activeIndex);
-        });
-        if (activeIndex >= 0) {
-          const activeElement = body.querySelector(
-            '[data-li="' + activeIndex + '"]'
-          );
-          if (activeElement) {
-            const bodyHeight = body.clientHeight;
-            body.scrollTo({
-              top: activeElement.offsetTop -
-                bodyHeight / 2 +
-                activeElement.offsetHeight / 2,
-              behavior: 'smooth'
-            });
-          }
-        }
+        applyActiveIndex(body, getActiveIndex(times, time, lines));
       }
 
       popupWindowBridge?.set?.(

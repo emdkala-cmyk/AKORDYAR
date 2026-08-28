@@ -42,6 +42,7 @@ class SyncModeController {
     formatTime,
     openChordLinePopup,
     getPerformanceStore,
+    applyHighlightClassToEditor,
     windowRef,
     windowBridge,
     logger = console
@@ -97,6 +98,10 @@ class SyncModeController {
               ? window.RuntimeStateAdapter?.getPerformanceStore?.() || null
               : null
           );
+    this.applyHighlightClassToEditor =
+      typeof applyHighlightClassToEditor === 'function'
+        ? applyHighlightClassToEditor
+        : () => {};
     this.window =
       windowRef ||
       (typeof window !== 'undefined' ? window : null);
@@ -273,20 +278,42 @@ class SyncModeController {
   updateSyncHighlight() {
     const t = this.getDAW().playhead;
     const times = this.songState.getSyncTimes();
-    let activeLi = -1;
+    const lyricLines = this.songState.getLyrics().split('\n');
+    const sharedEngine =
+      typeof window !== 'undefined' ? window.SharedEngine : null;
+    let activeLi =
+      typeof sharedEngine?.resolveActiveLineIndex === 'function'
+        ? sharedEngine.resolveActiveLineIndex(times, t, lyricLines)
+        : -1;
 
-    for (let i = 0; i < times.length; i++) {
-      const tm = times[i];
-      if (Number.isFinite(tm) && tm <= t) {
-        activeLi = i;
-      } else if (Number.isFinite(tm) && tm > t) {
-        break;
+    if (activeLi < 0 && typeof sharedEngine?.resolveActiveLineIndex !== 'function') {
+      let activeTime = Number.NEGATIVE_INFINITY;
+      times.forEach((value, index) => {
+        const cueTime = Number(value);
+        const lyricLine = lyricLines[index];
+        const visibleLine =
+          index >= lyricLines.length ||
+          (typeof lyricLine === 'string' && lyricLine.trim().length > 0);
+        if (
+          Number.isFinite(cueTime) &&
+          cueTime <= t &&
+          visibleLine &&
+          cueTime >= activeTime
+        ) {
+          activeLi = index;
+          activeTime = cueTime;
+        }
+      });
+      if (activeLi < 0 && times.some(time => Number.isFinite(time))) {
+        activeLi = lyricLines.findIndex(line => line.trim());
+        if (activeLi < 0) {
+          activeLi = times.findIndex(time => Number.isFinite(time));
+        }
       }
     }
 
     // === Performance Architecture v2: sync playback + highlight to Store ===
     const store = this.getPerformanceStore();
-    const sharedEngine = typeof window !== 'undefined' ? window.SharedEngine : null;
     const songDocument = store?.getState?.().songDocument || null;
     if (
       store &&
@@ -309,6 +336,10 @@ class SyncModeController {
     // Highlight lines in main editor
     const editorEl = this.$('editor');
     if (editorEl) {
+      // Song reloads/renderers may replace the editor root. Re-apply the
+      // selected effect, but the service is idempotent so this is safe per
+      // transport tick and does not restart CSS animations.
+      this.applyHighlightClassToEditor();
       [...editorEl.children].forEach((el, li) => {
         if (!el.classList.contains('eline')) return;
 

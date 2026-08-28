@@ -64,6 +64,7 @@ let timerCallback = null;
 let timerToken = 0;
 let clock = 0;
 let scheduledPopup = null;
+let firstLoadOptions = null;
 
 const runtime = CorePerformanceModeService.create({
   getElement: id => elements[id],
@@ -79,8 +80,9 @@ const runtime = CorePerformanceModeService.create({
     arr.settings[index] ||= { transpose: 0 };
     return arr.settings[index];
   },
-  loadArrSong: index => {
+  loadArrSong: (index, options) => {
     calls.push(['load', index]);
+    firstLoadOptions = options;
     return Promise.resolve();
   },
   renderPerfUI: () => calls.push('render'),

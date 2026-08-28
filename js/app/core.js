@@ -1600,6 +1600,8 @@ let syncTapKeyHandler = null;
         openChordLinePopup: () => openChordLinePopup(),
         getPerformanceStore: () =>
           window.RuntimeStateAdapter?.getPerformanceStore?.() || null,
+        applyHighlightClassToEditor: () =>
+          coreHighlightRuntime.applyHighlightClassToEditor?.(),
         windowRef: window,
         windowBridge: popupWindowBridge,
         logger: console

@@ -240,6 +240,7 @@
       const popup = getLyricPopup();
       if (isPopupOpen(popup)) {
         focusPopupWindow(popup);
+        syncLyricPopup();
         return;
       }
       const nextPopup = openPopupWindow(
@@ -260,6 +261,7 @@
       const popup = getLyricOnlyPopup();
       if (isPopupOpen(popup)) {
         focusPopupWindow(popup);
+        syncLyricOnlyPopup();
         return;
       }
       const nextPopup = openPopupWindow(

@@ -18,6 +18,7 @@ const SingerViewRenderer = (() => {
   function renderSingerView(doc, highlight, viewState, container) {
     if (!doc || !container) return;
     container.innerHTML = '';
+    container.scrollTop = 0;
     _lastScrolledLineId = null;
 
     const vs = viewState || {};

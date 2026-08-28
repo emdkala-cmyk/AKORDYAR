@@ -1059,8 +1059,9 @@
       }
       if (globalScope.PlayerViewRenderer) {
         try {
+          const initialHighlight = getRenderedHighlight();
           globalScope.PlayerViewRenderer.renderPlayerView(
-            currentDoc, highlight, mergedView(), container
+            currentDoc, initialHighlight, mergedView(), container
           );
           if (typeof dbg === 'function') dbg('renderFull OK lines=' + (currentDoc.lines || []).length);
         } catch (e) {

@@ -531,8 +531,8 @@ function getMidiScoreController() {
       });
     }
 
-    async function loadArrSong(idx) {
-      return getEditorArrangerRuntime()?.loadArrSong?.(idx);
+    async function loadArrSong(idx, options) {
+      return getEditorArrangerRuntime()?.loadArrSong?.(idx, options);
     }
 
     function setZoom(pps, anchorClientX) {

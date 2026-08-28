@@ -121,9 +121,21 @@ assert.equal(runtime.getLyricPopup(), popup);
 assert.ok(calls.includes('player-sync'));
 assert.ok(calls.includes('mirror'));
 
+runtime.openLyricPopup();
+assert.ok(
+  calls.some(entry => Array.isArray(entry) && entry[0] === 'focus' && entry[1] === 'player')
+);
+assert.equal(calls.filter(entry => entry === 'player-sync').length, 2);
+
 runtime.openLyricOnlyPopup();
 assert.equal(runtime.getLyricOnlyPopup(), lyricOnlyPopup);
 assert.ok(calls.includes('lyric-sync'));
+
+runtime.openLyricOnlyPopup();
+assert.ok(
+  calls.some(entry => Array.isArray(entry) && entry[0] === 'focus' && entry[1] === 'singer')
+);
+assert.equal(calls.filter(entry => entry === 'lyric-sync').length, 2);
 
 runtime.openChordLinePopup();
 runtime.syncChordLinePopup();

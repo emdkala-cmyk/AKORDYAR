@@ -119,7 +119,7 @@ runtime.syncHighlight();
 assert.ok(toggles.some(([name, value]) => name === 'active' && value === false));
 assert.ok(toggles.some(([name, value]) => name === 'active' && value === true));
 assert.deepEqual(body.lastScroll, {
-  top: 75,
+  top: 80,
   behavior: 'smooth'
 });
 assert.equal(lines[1].style.color, '');

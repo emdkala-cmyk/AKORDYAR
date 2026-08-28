@@ -42,10 +42,16 @@
     function applyHighlightClassToEditor() {
       const editor = getElement('editor');
       if (!editor) return;
+      const nextClass = `hl-${getHighlightEffect()}`;
       EFFECTS.forEach(effect => {
-        editor.classList.remove(`hl-${effect}`);
+        const effectClass = `hl-${effect}`;
+        if (effectClass !== nextClass) {
+          editor.classList.remove(effectClass);
+        }
       });
-      editor.classList.add(`hl-${getHighlightEffect()}`);
+      if (!editor.classList.contains?.(nextClass)) {
+        editor.classList.add(nextClass);
+      }
     }
 
     function applyHighlightClassToPopup() {
@@ -54,10 +60,16 @@
       const popupDoc = popupDocument?.(popup);
       const body = popupDoc?.body;
       if (!body) return;
+      const nextClass = `hl-${getHighlightEffect()}`;
       EFFECTS.forEach(effect => {
-        body.classList.remove(`hl-${effect}`);
+        const effectClass = `hl-${effect}`;
+        if (effectClass !== nextClass) {
+          body.classList.remove(effectClass);
+        }
       });
-      body.classList.add(`hl-${getHighlightEffect()}`);
+      if (!body.classList.contains?.(nextClass)) {
+        body.classList.add(nextClass);
+      }
     }
 
     function setHighlightEffect(effect) {

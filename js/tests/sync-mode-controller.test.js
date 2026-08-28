@@ -202,6 +202,17 @@ test('updateSyncHighlight: lastActiveLi از playhead و syncTimes محاسبه 
   assert.strictEqual(state.lastActiveLi, -1);
 });
 
+test('updateSyncHighlight: قبل از اولین تایم‌کد خط اول زمان‌گذاری‌شده فعال می‌ماند', () => {
+  const { controller, state, DAW, edCur } = createController();
+
+  DAW.playhead = 0;
+  edCur.lyrics = 'خط اول\nخط دوم';
+  edCur.syncTimes = [1, 3];
+
+  controller.updateSyncHighlight();
+  assert.strictEqual(state.lastActiveLi, 0);
+});
+
 test('updateSyncHighlight: فراخوانی popup از مسیر WindowBridge انجام می‌شود', () => {
   const popup = { closed: false, _syncHighlight() {} };
   const calls = [];

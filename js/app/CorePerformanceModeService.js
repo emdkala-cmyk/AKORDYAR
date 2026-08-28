@@ -92,13 +92,23 @@
       setupPerformancePanelDrag(panel);
       closeArrangerModal();
       renderPerfUI();
-      await loadArrSong(0);
+      // Build and render the first song while transport is paused. Starting
+      // before opening Player View made the popup appear several lines late.
+      const shouldStartPlayback = !Boolean(editingArr.pauseBetween);
+      await loadArrSong(0, { startAt: 0, startPlayback: false });
       renderPerfUI();
       startPerfTimer();
       startBackgroundPreload();
 
       openLyricOnlyPopup();
-      schedule(() => openLyricPopup(), 300);
+      schedule(() => {
+        if (!state().perfModeActive) return;
+        openLyricPopup();
+        if (shouldStartPlayback && !getDAW?.()?.isPlaying) {
+          ensureAudioCtx();
+          startTransport();
+        }
+      }, 300);
       return true;
     }
 

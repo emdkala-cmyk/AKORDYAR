@@ -129,7 +129,7 @@ assert.match(
 );
 assert.match(
   songLoadService,
-  /seekTransport\(\s*stateAfterLoad\.active \? playbackBoundary\.start : 0,\s*false,\s*true\s*\)/
+  /seekTransport\(\s*transportStart,\s*false,\s*true\s*\)/
 );
 assert.match(editor, /getPlaybackPolicy:\s*\(\) => arrangerPlaybackPolicy/);
 assert.match(

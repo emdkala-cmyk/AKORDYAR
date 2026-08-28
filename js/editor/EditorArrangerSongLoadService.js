@@ -82,7 +82,7 @@
       };
     }
 
-    async function load(index) {
+    async function load(index, options = {}) {
       const arrangement = getArrangement?.();
       const items = Array.isArray(arrangement?.items)
         ? arrangement.items
@@ -190,17 +190,18 @@
         `${translate('songN')} ${index + 1}/${items.length}: ` +
         `${song.title || translate('untitled')}`
       );
-      seekTransport(
-        stateAfterLoad.active ? playbackBoundary.start : 0,
-        false,
-        true
-      );
+      const requestedStart = Number(options.startAt);
+      const transportStart = Number.isFinite(requestedStart)
+        ? Math.max(0, requestedStart)
+        : (stateAfterLoad.active ? playbackBoundary.start : 0);
+      seekTransport(transportStart, false, true);
       ensureAudioCtx();
 
       if (
         stateAfterLoad.active &&
         !daw.isPlaying &&
-        !stateAfterLoad.pauseMode
+        !stateAfterLoad.pauseMode &&
+        options.startPlayback !== false
       ) {
         startTransport();
       }

@@ -11,7 +11,8 @@ const PlayerViewRenderer = (() => {
     top: 0.35,
     bottom: 0.65
   });
-  const AUTO_SCROLL_DURATION_MS = 360;
+  const AUTO_SCROLL_DURATION_MS = 1200;
+  const HIGHLIGHT_STYLE_ID = 'pv-highlight-effect-styles';
   let _lastScrolledLineId = null;
   let _scrollAnimationFrame = null;
   let _scrollAnimationToken = 0;
@@ -22,6 +23,30 @@ const PlayerViewRenderer = (() => {
       container?.ownerDocument?.defaultView ||
       (typeof window !== 'undefined' ? window : globalThis)
     );
+  }
+
+  function ensureHighlightStyles(documentRef) {
+    if (!documentRef?.head || !documentRef?.createElement) return;
+    if (documentRef.getElementById?.(HIGHLIGHT_STYLE_ID)) return;
+
+    const style = documentRef.createElement('style');
+    style.id = HIGHLIGHT_STYLE_ID;
+    style.textContent = `
+      @keyframes hl-gradient-sweep {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+      }
+      @keyframes hl-pulse-glow {
+        0%, 100% { box-shadow: 0 0 8px rgba(34,211,100,0.3), inset 0 0 12px rgba(34,211,100,0.05); }
+        50% { box-shadow: 0 0 20px rgba(34,211,100,0.6), inset 0 0 20px rgba(34,211,100,0.1); }
+      }
+      @keyframes hl-text-pulse {
+        0%, 100% { text-shadow: 0 0 6px rgba(34,211,100,0.5), 0 0 12px rgba(34,211,100,0.3); }
+        50% { text-shadow: 0 0 12px rgba(34,211,100,0.8), 0 0 30px rgba(34,211,100,0.5), 0 0 50px rgba(34,211,100,0.2); }
+      }
+    `;
+    documentRef.head.appendChild(style);
   }
 
   function cancelScrollAnimation() {
@@ -56,17 +81,8 @@ const PlayerViewRenderer = (() => {
     if (!containerHeight || !Number.isFinite(elementTop)) return null;
 
     const scrollTop = Number(container.scrollTop) || 0;
-    const activeTop = elementTop - scrollTop;
-    const activeBottom = activeTop + elementHeight;
-    const safeTop = containerHeight * AUTO_SCROLL_SAFE_ZONE.top;
-    const safeBottom = containerHeight * AUTO_SCROLL_SAFE_ZONE.bottom;
-
-    if (activeTop >= safeTop && activeBottom <= safeBottom) return null;
-
     const targetTop =
-      activeTop < safeTop
-        ? elementTop - safeTop
-        : elementTop + elementHeight - safeBottom;
+      elementTop - containerHeight / 2 + elementHeight / 2;
     const scrollHeight = Number(container.scrollHeight);
     const maxScrollTop =
       Number.isFinite(scrollHeight) && scrollHeight > containerHeight
@@ -228,9 +244,26 @@ const PlayerViewRenderer = (() => {
      ═══════════════════════════════════════════════ */
   function renderPlayerView(doc, highlight, viewState, container) {
     if (!doc || !container) return;
+    const documentSignature = [
+      String(doc.id || ''),
+      String(
+        doc.rawLyrics ??
+        (doc.lines || [])
+          .map(line => `${line?.id || ''}:${line?.text || ''}`)
+          .join('\u001f')
+      )
+    ].join('\u0000');
+    const isNewDocument =
+      container.dataset?.playerDocumentSignature !== documentSignature;
+
     cancelScrollAnimation();
     container.innerHTML = '';
+    container.scrollTop = 0;
     _lastScrolledLineId = null;
+    if (container.dataset) {
+      container.dataset.playerDocumentSignature = documentSignature;
+    }
+    ensureHighlightStyles(container.ownerDocument);
 
     const vs = viewState || {};
     const hlColor      = vs.highlightColor || '#FF2E93';
@@ -363,7 +396,7 @@ const PlayerViewRenderer = (() => {
       lineEl.style.lineHeight   = String(lineHeight);
       lineEl.style.padding      = '4px 12px';
       lineEl.style.borderRadius = '8px';
-      lineEl.style.transition   = 'opacity 0.36s cubic-bezier(0.22, 0.61, 0.36, 1), color 0.36s cubic-bezier(0.22, 0.61, 0.36, 1), background 0.36s cubic-bezier(0.22, 0.61, 0.36, 1), text-shadow 0.36s cubic-bezier(0.22, 0.61, 0.36, 1), box-shadow 0.36s cubic-bezier(0.22, 0.61, 0.36, 1)';
+      lineEl.style.transition   = 'opacity 1.2s cubic-bezier(0.22, 0.61, 0.36, 1), color 1.2s cubic-bezier(0.22, 0.61, 0.36, 1), background 1.2s cubic-bezier(0.22, 0.61, 0.36, 1), text-shadow 1.2s cubic-bezier(0.22, 0.61, 0.36, 1), box-shadow 1.2s cubic-bezier(0.22, 0.61, 0.36, 1)';
       lineEl.style.position     = 'relative';
       lineEl.style.marginTop    = mobileLineMargin + 'em';
       lineEl.style.color        = textColor;
@@ -391,9 +424,9 @@ const PlayerViewRenderer = (() => {
         frame.style.display = 'block';
         frame.style.opacity = '0';
         frame.style.transition = [
-          'opacity 320ms cubic-bezier(0.22, 0.61, 0.36, 1)',
-          'background 320ms cubic-bezier(0.22, 0.61, 0.36, 1)',
-          'box-shadow 320ms cubic-bezier(0.22, 0.61, 0.36, 1)'
+          'opacity 1200ms cubic-bezier(0.22, 0.61, 0.36, 1)',
+          'background 1200ms cubic-bezier(0.22, 0.61, 0.36, 1)',
+          'box-shadow 1200ms cubic-bezier(0.22, 0.61, 0.36, 1)'
         ].join(', ');
         frame.style.pointerEvents = 'none';
         frame.style.zIndex = '8';
@@ -530,7 +563,11 @@ const PlayerViewRenderer = (() => {
     }
 
     // اعمال هایلایت اولیه
-    _applyHighlight(highlight, viewState, container);
+    // Line ids are intentionally stable per document (ln0, ln1, ...). Do
+    // not paint a previous song's highlight during the first frame of a
+    // rebuild; the playback clock will provide the current line immediately
+    // afterwards.
+    _applyHighlight(isNewDocument ? null : highlight, viewState, container);
   }
 
   /* ═══════════════════════════════════════════════
@@ -629,6 +666,8 @@ const PlayerViewRenderer = (() => {
       // Inactive frames stay mounted at their previous geometry and fade out
       // naturally while the next active frame fades in.
       frame.style.opacity = isActive ? '1' : '0';
+      frame.style.animation = '';
+      frame.style.backgroundSize = '';
       if (!isActive) return;
 
       const zone = Math.max(
@@ -648,20 +687,16 @@ const PlayerViewRenderer = (() => {
       frame.style.width = lineEl.offsetWidth + 'px';
       frame.style.height = (lineEl.offsetHeight + zone) + 'px';
       frame.style.background = isNeon
-        ? 'linear-gradient(180deg, rgba(0,242,254,0.14), rgba(0,242,254,0.025) 55%, transparent)'
+        ? 'linear-gradient(180deg, rgba(0,242,254,0.2), rgba(0,242,254,0.04) 55%, transparent)'
         : isFrost
-          ? 'linear-gradient(135deg, rgba(255,255,255,0.07), rgba(200,220,255,0.05))'
+          ? 'linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.03) 50%, rgba(200,220,255,0.08) 100%)'
           : isShift
-            ? 'linear-gradient(135deg, rgba(255,46,147,0.1), rgba(123,47,255,0.1), rgba(0,242,254,0.1))'
+            ? 'linear-gradient(135deg, rgba(255,46,147,0.15), rgba(123,47,255,0.15), rgba(0,242,254,0.15))'
             : isPulse
-              ? 'linear-gradient(180deg, rgba(34,211,100,0.08), rgba(34,211,100,0.015) 55%, transparent)'
-              : isMobileLayout
-                ? 'linear-gradient(180deg, rgba(255,46,147,0.16), rgba(255,46,147,0.04) 60%, transparent)'
-                : 'linear-gradient(180deg, rgba(255,46,147,0.1), rgba(255,46,147,0.015) 60%, transparent)';
+              ? 'linear-gradient(180deg, rgba(34,211,100,0.12), rgba(34,211,100,0.02) 55%, transparent)'
+              : 'linear-gradient(180deg, rgba(255,46,147,0.15), rgba(255,46,147,0.02) 60%, transparent)';
       frame.style.border = isDepth
-        ? (isMobileLayout
-          ? '1px solid rgba(255,46,147,0.42)'
-          : '1px solid rgba(255,46,147,0.2)')
+        ? '1px solid rgba(255,46,147,0.2)'
         : isNeon
           ? '1px solid rgba(0,242,254,0.3)'
           : isFrost
@@ -671,16 +706,20 @@ const PlayerViewRenderer = (() => {
               : '1px solid transparent';
       frame.style.borderRadius = isFrost ? '12px' : '8px';
       frame.style.boxShadow = isNeon
-        ? '0 0 10px rgba(0,242,254,0.22), 0 0 20px rgba(0,242,254,0.07)'
+        ? '0 0 15px rgba(0,242,254,0.3), 0 0 30px rgba(0,242,254,0.1)'
         : isFrost
-          ? 'inset 0 1px 0 rgba(255,255,255,0.1), 0 2px 10px rgba(0,0,0,0.22)'
-            : isPulse
-              ? '0 0 12px rgba(34,211,100,0.3), inset 0 0 12px rgba(34,211,100,0.06)'
-              : isDepth
-                ? (isMobileLayout
-                ? '0 4px 12px rgba(0,0,0,0.24), 0 1px 6px rgba(255,46,147,0.14)'
-                : '0 4px 12px rgba(0,0,0,0.28), 0 1px 5px rgba(255,46,147,0.12)')
+          ? 'inset 0 1px 0 rgba(255,255,255,0.15), 0 4px 16px rgba(0,0,0,0.3)'
+          : isPulse
+            ? '0 0 8px rgba(34,211,100,0.3), inset 0 0 12px rgba(34,211,100,0.05)'
+            : isDepth
+              ? '0 6px 20px rgba(0,0,0,0.4), 0 2px 6px rgba(255,46,147,0.2)'
               : '';
+      frame.style.backgroundSize = isShift ? '400% 400%' : '';
+      frame.style.animation = isShift
+        ? 'hl-gradient-sweep 4s ease infinite'
+        : isPulse
+          ? 'hl-pulse-glow 2s ease-in-out infinite'
+          : '';
     });
 
     [...container.children].forEach(el => {
@@ -695,6 +734,11 @@ const PlayerViewRenderer = (() => {
       el.classList.toggle('pv-active', !!lineActive);
       el.classList.toggle('pv-done', !!isDone);
       el.classList.toggle('pv-hl-' + highlightEffect, !!lineActive);
+      el.style.animation = '';
+      el.style.backgroundSize = '';
+      el.style.backgroundClip = '';
+      el.style.webkitBackgroundClip = '';
+      el.style.webkitTextFillColor = '';
 
       if (isConnector) {
         // Player View keeps the chord palette while the active row is
@@ -716,45 +760,35 @@ const PlayerViewRenderer = (() => {
         const isPulse = effect === 'pulse';
         const isDepth = !isNeon && !isFrost && !isShift && !isPulse;
 
-        if (isMobileLayout) {
-          // Mobile uses the same visual contract as the Player View:
-          // highlight the row/frame, but preserve the configured lyric and
-          // chord colors.  In particular, do not force either element to
-          // white when the active line changes.
-          el.style.color = isChord ? chordColor : textColor;
-          el.style.textShadow = isChord
-            ? '0 1px 0 rgba(0,0,0,0.75)'
-            : '0 1px 0 rgba(0,0,0,0.65), 0 2px 0 rgba(0,0,0,0.4), 0 3px 6px rgba(0,0,0,0.28)';
-        } else {
-          el.style.color = isChord
-            ? (isShift ? '#00F2FE' : '#fff')
-            : (isNeon ? '#00F2FE' : isPulse ? '#22D364' : '#E2E8F0');
-          el.style.textShadow = isNeon
-            ? '0 0 4px rgba(0,242,254,0.55), 0 0 10px rgba(0,242,254,0.22)'
-            : isFrost
-              ? '0 0 7px rgba(255,255,255,0.3)'
-              : isShift
-                ? '0 0 7px rgba(255,46,147,0.35), 0 0 14px rgba(0,242,254,0.2)'
-                : isPulse
-                  ? '0 0 7px rgba(34,211,100,0.42), 0 0 15px rgba(34,211,100,0.22)'
-                  : '0 1px 0 rgba(0,0,0,0.7), 0 2px 0 rgba(0,0,0,0.45), 0 3px 6px rgba(0,0,0,0.28), 0 0 8px rgba(255,46,147,0.16)';
+        el.style.color = isChord
+          ? (isShift ? '#00F2FE' : '#fff')
+          : (isNeon ? '#00F2FE' : isPulse ? '#22D364' : '#E2E8F0');
+        el.style.textShadow = isNeon
+          ? '0 0 8px rgba(0,242,254,0.8), 0 0 20px rgba(0,242,254,0.4)'
+          : isFrost || isShift
+            ? ''
+            : isPulse
+              ? '0 0 6px rgba(34,211,100,0.5), 0 0 12px rgba(34,211,100,0.3)'
+              : '0 1px 0 rgba(0,0,0,0.8), 0 2px 0 rgba(0,0,0,0.7), 0 3px 0 rgba(0,0,0,0.6), 0 4px 8px rgba(0,0,0,0.5), 0 0 15px rgba(255,46,147,0.3)';
+        if (!isChord && isShift) {
+          el.style.backgroundSize = '400% 400%';
+          el.style.animation = 'hl-gradient-sweep 4s ease infinite';
+          el.style.backgroundClip = 'text';
+          el.style.webkitBackgroundClip = 'text';
+          el.style.webkitTextFillColor = 'transparent';
+        } else if (!isChord && isPulse) {
+          el.style.animation = 'hl-text-pulse 2s ease-in-out infinite';
         }
         if (!isChord) {
           el.style.background = isNeon
-            ? 'linear-gradient(180deg, rgba(0,242,254,0.14), rgba(0,242,254,0.025) 55%, transparent)'
+            ? 'linear-gradient(180deg, rgba(0,242,254,0.2), rgba(0,242,254,0.04) 55%, transparent)'
             : isFrost
-              ? 'linear-gradient(135deg, rgba(255,255,255,0.07), rgba(200,220,255,0.05))'
+              ? 'linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.03) 50%, rgba(200,220,255,0.08) 100%)'
               : isShift
-                ? 'linear-gradient(135deg, rgba(255,46,147,0.1), rgba(123,47,255,0.1), rgba(0,242,254,0.1))'
+                ? 'linear-gradient(135deg, rgba(255,46,147,0.15), rgba(123,47,255,0.15), rgba(0,242,254,0.15))'
                 : isPulse
-                  ? 'linear-gradient(180deg, rgba(34,211,100,0.08), rgba(34,211,100,0.015) 55%, transparent)'
-              : 'linear-gradient(180deg, rgba(255,46,147,0.1), rgba(255,46,147,0.015) 60%, transparent)';
-          if (
-            container.dataset.mobileLayout === 'true' &&
-            el.classList.contains('pv-line')
-          ) {
-            el.style.background = 'transparent';
-          }
+                  ? 'linear-gradient(180deg, rgba(34,211,100,0.12), rgba(34,211,100,0.02) 55%, transparent)'
+                  : 'linear-gradient(180deg, rgba(255,46,147,0.15), rgba(255,46,147,0.02) 60%, transparent)';
           el.style.border = isDepth
             ? '1px solid rgba(255,46,147,0.2)'
             : isNeon
@@ -763,35 +797,33 @@ const PlayerViewRenderer = (() => {
                 ? '1px solid rgba(255,255,255,0.15)'
                 : isPulse
                   ? '1px solid rgba(34,211,100,0.25)'
-              : '1px solid transparent';
-          if (
-            container.dataset.mobileLayout === 'true' &&
-            el.classList.contains('pv-line')
-          ) {
-            el.style.border = '1px solid transparent';
-            el.style.boxShadow = 'none';
-          }
+                  : '1px solid transparent';
           el.style.borderRadius = isFrost ? '12px' : '8px';
           el.style.boxShadow = isNeon
-            ? '0 0 10px rgba(0,242,254,0.22), 0 0 20px rgba(0,242,254,0.07)'
+            ? '0 0 15px rgba(0,242,254,0.3), 0 0 30px rgba(0,242,254,0.1)'
             : isFrost
-              ? 'inset 0 1px 0 rgba(255,255,255,0.1), 0 2px 10px rgba(0,0,0,0.22)'
-              : isPulse
-                ? '0 0 12px rgba(34,211,100,0.3), inset 0 0 12px rgba(34,211,100,0.06)'
+              ? 'inset 0 1px 0 rgba(255,255,255,0.15), 0 4px 16px rgba(0,0,0,0.3)'
+            : isPulse
+                ? '0 0 8px rgba(34,211,100,0.3), inset 0 0 12px rgba(34,211,100,0.05)'
                 : isDepth
-                  ? '0 4px 12px rgba(0,0,0,0.28), 0 1px 5px rgba(255,46,147,0.12)'
+                  ? '0 6px 20px rgba(0,0,0,0.4), 0 2px 6px rgba(255,46,147,0.2)'
                   : '';
-          if (
-            container.dataset.mobileLayout === 'true' &&
-            el.classList.contains('pv-line')
-          ) {
-            el.style.background = 'transparent';
+          if (isMobileLayout && el.classList.contains('pv-line')) {
+            // Mobile has a dedicated frame for the row background. Keeping
+            // the same box effect on the text element doubles the glow and
+            // makes every line change look like a vibration.
+            if (!isShift) el.style.background = 'transparent';
             el.style.border = '1px solid transparent';
             el.style.boxShadow = 'none';
           }
+        } else {
+          el.style.background = '';
+          el.style.border = '';
+          el.style.borderRadius = '';
+          el.style.boxShadow = '';
         }
         el.style.zIndex     = isChord ? '11' : '10';
-        el.style.opacity    = isMobileLayout ? '1' : '';
+        el.style.opacity    = '';
       } else if (isDone) {
         el.style.opacity    = '0.52';
         if (isChord) el.style.color = chordColor;

@@ -79,6 +79,7 @@
               `<div class="eline popup-sync-line" data-li="${index}">${line || '\u200B'}</div>`
           )
           .join('');
+        body.scrollTop = 0;
       }
 
       const lineElements = body.querySelectorAll('.popup-sync-line');

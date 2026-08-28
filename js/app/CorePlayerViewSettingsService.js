@@ -36,7 +36,7 @@
     top: 0.35,
     bottom: 0.65
   });
-  const AUTO_SCROLL_DURATION_MS = 360;
+  const AUTO_SCROLL_DURATION_MS = 1200;
 
   function create({
     storage = globalScope.localStorage,
@@ -109,18 +109,8 @@
       const elementHeight = Math.max(1, Number(active?.offsetHeight) || 0);
       if (!bodyHeight || !Number.isFinite(elementTop)) return null;
 
-      const scrollTop = Number(body.scrollTop) || 0;
-      const activeTop = elementTop - scrollTop;
-      const activeBottom = activeTop + elementHeight;
-      const safeTop = bodyHeight * AUTO_SCROLL_SAFE_ZONE.top;
-      const safeBottom = bodyHeight * AUTO_SCROLL_SAFE_ZONE.bottom;
-
-      if (activeTop >= safeTop && activeBottom <= safeBottom) return null;
-
       const targetTop =
-        activeTop < safeTop
-          ? elementTop - safeTop
-          : elementTop + elementHeight - safeBottom;
+        elementTop - bodyHeight / 2 + elementHeight / 2;
       const scrollHeight = Number(body.scrollHeight);
       const maxScrollTop =
         Number.isFinite(scrollHeight) && scrollHeight > bodyHeight
@@ -271,47 +261,64 @@
       const doc = popupDocument(popup);
       const body = doc?.getElementById?.('popupBody');
       if (!body) return;
-      const times = getSongState()?.getSyncTimes?.() || [];
+      const songState = getSongState?.();
+      const times = songState?.getSyncTimes?.() || [];
+      const lyricLines =
+        typeof songState?.getLyrics === 'function'
+          ? String(songState.getLyrics() || '').split('\n')
+          : [];
       const daw = getDAW() || {};
       const playhead = daw.isPlaying
         ? getTransportPlayhead()
         : Number.isFinite(daw.playhead)
           ? daw.playhead
           : 0;
-      let activeIndex = -1;
-      for (let i = 0; i < times.length; i++) {
-        if (Number.isFinite(times[i]) && times[i] <= playhead) activeIndex = i;
-        else if (Number.isFinite(times[i]) && times[i] > playhead) break;
-      }
-      const performanceHighlight = getHighlightState?.();
-      const storeLineMatch = String(
-        performanceHighlight?.activeLineId || ''
-      ).match(/^ln(\d+)$/i);
-      const storeActiveIndex = storeLineMatch
-        ? Number(storeLineMatch[1])
-        : -1;
-      const storeDoneLines =
-        performanceHighlight?.doneLines instanceof Set
-          ? performanceHighlight.doneLines
-          : Array.isArray(performanceHighlight?.doneLines)
-            ? new Set(performanceHighlight.doneLines)
-            : null;
-      const hasStoreLine =
-        Number.isInteger(storeActiveIndex) &&
-        storeActiveIndex >= 0 &&
-        [...(body.children || [])].some(
-          element => Number(element.dataset?.li) === storeActiveIndex
-        );
-      if (hasStoreLine) {
-        activeIndex = storeActiveIndex;
-      }
+      const activeIndex =
+        typeof globalScope.SharedEngine?.resolveActiveLineIndex ===
+        'function'
+          ? globalScope.SharedEngine.resolveActiveLineIndex(
+              times,
+              playhead,
+              lyricLines
+            )
+          : (() => {
+              let index = -1;
+              let activeTime = Number.NEGATIVE_INFINITY;
+              times.forEach((value, lineIndex) => {
+                const cueTime = Number(value);
+                const lyricLine = lyricLines[lineIndex];
+                const visibleLine =
+                  lyricLines.length === 0 ||
+                  !lyricLines.some(line => line.trim().length > 0) ||
+                  (
+                    lineIndex < lyricLines.length &&
+                    typeof lyricLine === 'string' &&
+                    lyricLine.trim().length > 0
+                  );
+                if (
+                  Number.isFinite(cueTime) &&
+                  cueTime <= playhead &&
+                  visibleLine &&
+                  cueTime >= activeTime
+                ) {
+                  index = lineIndex;
+                  activeTime = cueTime;
+                }
+              });
+              if (index < 0 && times.some(time => Number.isFinite(time))) {
+                index = lyricLines.findIndex(line => line.trim());
+                if (index < 0) {
+                  index = times.findIndex(time => Number.isFinite(time));
+                }
+              }
+              return index;
+            })();
       [...(body.children || [])].forEach(element => {
         if (!element.dataset?.li) return;
         const index = +element.dataset.li;
         const isActive = index === activeIndex;
-        const isDone = storeDoneLines
-          ? storeDoneLines.has(index) && !isActive
-          : times[index] != null && times[index] < playhead && !isActive;
+        const isDone =
+          times[index] != null && times[index] < playhead && !isActive;
         element.classList.toggle('active', isActive);
         element.classList.toggle('done', isDone);
         // The popup builder uses inline styles for the user's base color.

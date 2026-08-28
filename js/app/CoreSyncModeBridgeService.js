@@ -57,6 +57,7 @@
     formatTime,
     openChordLinePopup,
     getPerformanceStore,
+    applyHighlightClassToEditor,
     windowRef = globalScope,
     windowBridge = globalScope.WindowBridge,
     logger = console
@@ -94,6 +95,7 @@
         formatTime,
         openChordLinePopup,
         getPerformanceStore,
+        applyHighlightClassToEditor,
         windowRef,
         windowBridge,
         logger
