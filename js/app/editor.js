@@ -1746,6 +1746,7 @@ function edBlankSong() {
     if (typeof window.EditorLyricsChordInteractionService?.create === 'function') {
       edLyricsChordInteractionService =
         window.EditorLyricsChordInteractionService.create({
+          documentRef: document,
           getSongState: () => getEditorSongStateService(),
           getEditor: () => $('editor'),
           getEditorWrap: () => $('editorWrap'),
@@ -1760,6 +1761,7 @@ function edBlankSong() {
             edCommitTimer = setTimeout(() => edCommit(), 300);
           },
           scheduleSave: () => edScheduleSave(),
+          clearEditorTextSelection,
           clearSelection: editorClearSelection,
           clearChordSelection: () => edClearChordSelection(),
           isAltDown: () => edAltDown,

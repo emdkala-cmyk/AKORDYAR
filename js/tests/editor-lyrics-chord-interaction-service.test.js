@@ -40,6 +40,11 @@ function element() {
 
 const editor = element();
 const wrap = element();
+const documentRef = element();
+let clearedEditorTextSelection = 0;
+documentRef.getSelection = () => ({
+  removeAllRanges: () => {}
+});
 let song = { lyrics: 'old', editorLocked: false };
 let lyrics = 'old';
 const state = {
@@ -65,6 +70,7 @@ const openedModals = [];
 let altDown = false;
 
 const service = InteractionService.create({
+  documentRef,
   getSongState: () => state,
   getEditor: () => editor,
   getEditorWrap: () => wrap,
@@ -75,6 +81,7 @@ const service = InteractionService.create({
   scheduleEditorRefresh: () => refreshes.push(true),
   scheduleCommit: () => commits.push(true),
   scheduleSave: () => saves.push(true),
+  clearEditorTextSelection: () => { clearedEditorTextSelection++; },
   clearSelection: () => clearSelections.push(true),
   clearChordSelection: () => clearChordSelections.push(true),
   isAltDown: () => altDown,
@@ -89,6 +96,7 @@ const service = InteractionService.create({
 assert.equal(service.bind(), true);
 assert.equal(service.bind(), true);
 assert.equal(editor.listenerCount('input'), 1);
+assert.equal(documentRef.listenerCount('pointerdown'), 1);
 assert.equal(wrap.listenerCount('mousedown'), 2);
 
 editor.innerText = 'new\ntext';
@@ -106,6 +114,11 @@ editor.dispatch('paste', {
   }
 });
 assert.deepEqual(commands, [['insertText', false, 'line one\n line two']]);
+
+documentRef.dispatch('pointerdown', { target: editor });
+assert.equal(clearedEditorTextSelection, 0);
+documentRef.dispatch('pointerdown', { target: { tagName: 'DIV' } });
+assert.equal(clearedEditorTextSelection, 1);
 
 const normalEvent = {};
 wrap.dispatch('mousedown', normalEvent);
@@ -135,5 +148,6 @@ assert.equal(service.destroy(), true);
 assert.equal(service.destroy(), false);
 assert.equal(editor.listenerCount('input'), 0);
 assert.equal(wrap.listenerCount('mousedown'), 0);
+assert.equal(documentRef.listenerCount('pointerdown'), 0);
 
 console.log('EditorLyricsChordInteractionService tests passed');

@@ -8,6 +8,7 @@
   'use strict';
 
   function create({
+    documentRef = globalScope.document,
     getSongState = () => null,
     getEditorText = () => '',
     getEditor = () => null,
@@ -18,6 +19,7 @@
     scheduleEditorRefresh = () => {},
     scheduleCommit = () => {},
     scheduleSave = () => {},
+    clearEditorTextSelection = () => {},
     clearSelection = () => {},
     clearChordSelection = () => {},
     isAltDown = () => false,
@@ -31,6 +33,31 @@
     let editorElement = null;
     let wrapElement = null;
     let bound = false;
+
+    function normalizeElement(target) {
+      if (target?.nodeType === 3) {
+        return target.parentElement || target.parentNode;
+      }
+      return target;
+    }
+
+    function isInsideEditor(target) {
+      const element = normalizeElement(target);
+      if (!element || !editorElement) return false;
+      return (
+        element === editorElement ||
+        editorElement.contains?.(element) === true
+      );
+    }
+
+    function handleOutsidePointerDown(event) {
+      if (isInsideEditor(event.target)) return;
+
+      // A click on a non-focusable surface does not blur contenteditable by
+      // itself. Clear the lyric selection explicitly so Space belongs to the
+      // global transport again after leaving the lyric editor.
+      clearEditorTextSelection();
+    }
 
     function handleInput() {
       const songState = getSongState();
@@ -125,6 +152,11 @@
       editorElement.addEventListener('input', handleInput);
       editorElement.addEventListener('paste', handlePaste);
       editorElement.addEventListener('mousedown', handleEditorMouseDown);
+      documentRef?.addEventListener?.(
+        'pointerdown',
+        handleOutsidePointerDown,
+        true
+      );
       wrapElement.addEventListener('mousedown', handleSelectionSurface, true);
       wrapElement.addEventListener('mousedown', handleChordSurface);
       bound = true;
@@ -136,6 +168,11 @@
       editorElement?.removeEventListener('input', handleInput);
       editorElement?.removeEventListener('paste', handlePaste);
       editorElement?.removeEventListener('mousedown', handleEditorMouseDown);
+      documentRef?.removeEventListener?.(
+        'pointerdown',
+        handleOutsidePointerDown,
+        true
+      );
       wrapElement?.removeEventListener(
         'mousedown',
         handleSelectionSurface,
@@ -154,6 +191,7 @@
       handleInput,
       handlePaste,
       handleEditorMouseDown,
+      handleOutsidePointerDown,
       handleSelectionSurface,
       handleChordSurface
     });
