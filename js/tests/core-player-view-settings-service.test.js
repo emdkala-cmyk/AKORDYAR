@@ -48,6 +48,7 @@ const controls = {
 };
 const toggles = [];
 let playhead = 2.5;
+let isPlaying = false;
 const lines = [
   makeElement('line-0', {
     dataset: { li: '0' },
@@ -96,8 +97,10 @@ const runtime = CorePlayerViewSettingsService.create({
     call: () => true,
     dispatch: () => true
   },
-  getSongState: () => ({ getSyncTimes: () => [0, 2] }),
-  getDAW: () => ({ isPlaying: false, playhead }),
+  getSongState: () => ({ getSyncTimes: () => [0, 1] }),
+  getDAW: () => ({ isPlaying, playhead }),
+  getTransportPlayhead: () => playhead,
+  getTransportVisualPlayhead: () => playhead,
   installPopupHighlightLoop: () => {
     loopInstalled++;
   },
@@ -152,6 +155,21 @@ assert.deepEqual(body.lastScroll, {
   top: 80,
   behavior: 'smooth'
 });
+
+// Regression: the soft CSS transition needs a small visual lead during
+// playback, while a paused playhead must remain exact.
+body.lastScroll = null;
+body.scrollTop = 0;
+isPlaying = true;
+playhead = 0.95;
+runtime.syncHighlight();
+assert.deepEqual(toggles.slice(-4), [
+  ['active', false],
+  ['done', true],
+  ['active', true],
+  ['done', false]
+]);
+isPlaying = false;
 
 controls['pv-tSize'].value = 35;
 controls['pv-tSize'].oninput();

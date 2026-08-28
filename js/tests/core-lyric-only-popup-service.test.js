@@ -103,7 +103,8 @@ const runtime = CoreLyricOnlyPopupService.create({
   },
   windowRef: { name: 'main-window' },
   getDAW: () => daw,
-  getTransportPlayhead: () => 2.5,
+  getTransportPlayhead: () => daw.playhead,
+  getTransportVisualPlayhead: () => daw.playhead,
   getSyncTimes: () => [0, 1],
   installPopupHighlightLoop: (...args) => {
     loopCall = args;
@@ -135,6 +136,19 @@ const highlightSetter = bridgeSetCalls.find(call => call[1] === '_syncHighlight'
 assert.equal(typeof highlightSetter[2], 'function');
 highlightSetter[2]();
 assert.equal(singerBody.children[1].classList.contains('lop-active'), true);
+
+daw.isPlaying = true;
+daw.playhead = 0.95;
+highlightSetter[2]();
+assert.equal(
+  singerBody.children[0].classList.contains('lop-active'),
+  false
+);
+assert.equal(
+  singerBody.children[1].classList.contains('lop-active'),
+  true,
+  'هایلایت در زمان پخش باید کمی پیش از نقطه سینک شروع شود'
+);
 
 runtime.sync();
 assert.equal(cleanupCount, 1);

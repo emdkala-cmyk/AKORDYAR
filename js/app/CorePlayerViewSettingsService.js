@@ -37,6 +37,9 @@
     bottom: 0.65
   });
   const AUTO_SCROLL_DURATION_MS = 1200;
+  // Start the visual emphasis slightly before the cue so the 1.2s CSS
+  // transition reaches the beat without changing the stored sync point.
+  const HIGHLIGHT_LEAD_SECONDS = 0.12;
 
   function create({
     storage = globalScope.localStorage,
@@ -275,13 +278,16 @@
       const daw = getDAW() || {};
       const visualTime = Number(getTransportVisualPlayhead?.());
       const rawTime = Number(getTransportPlayhead?.());
-      const playhead = daw.isPlaying
+      const transportTime = daw.isPlaying
         ? Number.isFinite(visualTime)
           ? visualTime
           : (Number.isFinite(rawTime) ? rawTime : 0)
         : Number.isFinite(daw.playhead)
           ? daw.playhead
           : 0;
+      const playhead = daw.isPlaying
+        ? Math.max(0, transportTime + HIGHLIGHT_LEAD_SECONDS)
+        : transportTime;
       const activeIndex =
         typeof globalScope.SharedEngine?.resolveActiveLineIndex ===
         'function'

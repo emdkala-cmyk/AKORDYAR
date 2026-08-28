@@ -6,6 +6,10 @@
 (function attachCoreLyricOnlyPopupService(globalScope) {
   'use strict';
 
+  // Match the Player View's visual lead so both performance windows land on
+  // the cue while the soft highlight transition is still settling.
+  const HIGHLIGHT_LEAD_SECONDS = 0.12;
+
   function create({
     getPopup = () => null,
     isPopupOpen = () => false,
@@ -209,11 +213,14 @@
         const daw = getDAW?.() || {};
         const visualTime = Number(getTransportVisualPlayhead?.());
         const rawTime = Number(getTransportPlayhead?.());
-        const time = daw.isPlaying
+        const transportTime = daw.isPlaying
           ? Number.isFinite(visualTime)
             ? visualTime
             : (Number.isFinite(rawTime) ? rawTime : 0)
           : (Number.isFinite(daw.playhead) ? daw.playhead : 0);
+        const time = daw.isPlaying
+          ? Math.max(0, transportTime + HIGHLIGHT_LEAD_SECONDS)
+          : transportTime;
         const activeIndex = getActiveIndex(times, time, lines);
         const highlightKey = `${activeIndex}:${daw.isPlaying ? 1 : 0}`;
         if (
