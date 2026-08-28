@@ -17,6 +17,10 @@ const popupDom = new JSDOM(`
   <!doctype html>
   <html><body><div id="playerChordMirror"></div></body></html>
 `);
+Object.defineProperty(popupDom.window, 'devicePixelRatio', {
+  configurable: true,
+  value: 2
+});
 
 const sourceTimeline = parentDom.window.document.querySelector(
   '.track-lane.chord-lane'
@@ -90,11 +94,11 @@ assert.ok(targetDiv.querySelector('canvas.lane-grid'));
 assert.equal(popupDom.window.document.body.querySelectorAll('script').length, 1);
 
 daw.isPlaying = true;
-transportPlayhead = 2;
+transportPlayhead = 2.01;
 popup._syncMirrorTimeline();
 assert.match(
   targetDiv.querySelector('.track-lane').style.transform,
-  /translate3d\(60px,0,0\)/
+  /translateX\(59.5px\)/
 );
 
 daw.pxPerSecond = 100;

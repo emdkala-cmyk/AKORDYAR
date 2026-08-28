@@ -31,6 +31,28 @@
     const popupIsOpen = () => isOpen(getPopup());
     const popupDocument = () => getDocument(getPopup());
 
+    function getDevicePixelRatio(doc) {
+      return Math.max(
+        1,
+        Number(doc?.defaultView?.devicePixelRatio) ||
+          Number(windowRef?.devicePixelRatio) ||
+          1
+      );
+    }
+
+    function snapToDevicePixel(value, devicePixelRatio) {
+      const numeric = Number(value);
+      if (!Number.isFinite(numeric)) return 0;
+      return Math.round(numeric * devicePixelRatio) / devicePixelRatio;
+    }
+
+    function snapCssLength(value, devicePixelRatio) {
+      const numeric = Number.parseFloat(value);
+      return Number.isFinite(numeric)
+        ? snapToDevicePixel(numeric, devicePixelRatio) + 'px'
+        : value;
+    }
+
     function installMirrorSyncLoop(doc) {
       if (!doc?.body) return;
       const script = doc.createElement('script');
@@ -66,6 +88,7 @@
 
         const mirrorHeight = targetDiv.clientHeight || 90;
         const rulerHeight = 18;
+        const devicePixelRatio = getDevicePixelRatio(doc);
         clone.style.direction = 'ltr';
         clone.style.position = 'absolute';
         clone.style.top = rulerHeight + 'px';
@@ -74,6 +97,9 @@
         clone.style.height = mirrorHeight - rulerHeight + 'px';
         clone.style.display = 'block';
         clone.style.backgroundColor = 'transparent';
+        clone.style.willChange = 'transform';
+        clone.style.backfaceVisibility = 'hidden';
+        clone.style.transform = 'translateX(0px)';
 
         let ruler = targetDiv.querySelector('.mirror-ruler');
         if (!ruler) {
@@ -93,7 +119,8 @@
           rulerInner.style.cssText =
             'position:absolute;top:0;height:100%;white-space:nowrap;font-size:8px;' +
             'color:rgba(255,255,255,0.5);font-family:JetBrains Mono,monospace;' +
-            'line-height:' + rulerHeight + 'px;';
+            'line-height:' + rulerHeight + 'px;will-change:transform;' +
+            'backface-visibility:hidden;';
           ruler.appendChild(rulerInner);
         }
         rulerInner.innerHTML = '';
@@ -122,7 +149,11 @@
           const label = doc.createElement('span');
           label.className = 'mirror-ruler-label';
           label.style.cssText =
-            'position:absolute;left:' + timeToX((bar - 1) * barDuration) +
+            'position:absolute;left:' +
+            snapToDevicePixel(
+              timeToX((bar - 1) * barDuration),
+              devicePixelRatio
+            ) +
             'px;top:0;padding-left:2px;';
           label.textContent = bar;
           rulerInner.appendChild(label);
@@ -232,10 +263,14 @@
 
           if (sourceClip) {
             const styles = windowRef.getComputedStyle?.(sourceClip) || {};
-            clip.style.left = styles.left !== 'auto' ? styles.left : '0px';
+            clip.style.left = styles.left !== 'auto'
+              ? snapCssLength(styles.left, devicePixelRatio)
+              : '0px';
             clip.style.right = styles.right !== 'auto' ? styles.right : 'auto';
-            clip.style.width = styles.width;
-            clip.style.transform = styles.transform;
+            clip.style.width = snapCssLength(styles.width, devicePixelRatio);
+            // The mirror owns the horizontal motion. Nested transforms from
+            // the source lane make text shimmer while the clone is moving.
+            clip.style.transform = 'none';
           }
 
           clip.style.position = 'absolute';
@@ -257,7 +292,9 @@
           clip.style.height = Math.max(28, mirrorHeight - 24) + 'px';
           clip.style.top =
             Math.max(6, (mirrorHeight - parseInt(clip.style.height)) / 2) + 'px';
-          clip.style.boxShadow = '0 2px 8px rgba(0,0,0,0.35)';
+          clip.style.boxShadow = '0 1px 3px rgba(0,0,0,0.45)';
+          clip.style.textRendering = 'geometricPrecision';
+          clip.style.webkitFontSmoothing = 'antialiased';
           clip.style.pointerEvents = 'none';
           clip.style.overflow = 'hidden';
 
@@ -269,6 +306,8 @@
             inner.style.fontWeight = '800';
             inner.style.fontFamily = "'JetBrains Mono', monospace";
             inner.style.display = 'inline';
+            inner.style.textRendering = 'geometricPrecision';
+            inner.style.webkitFontSmoothing = 'antialiased';
           }
         }
 
@@ -303,12 +342,22 @@
         const clone = targetDiv.querySelector('.track-lane, [class*="chord"]');
         if (!playhead || !clone) return;
 
-        const offset =
+        const rawOffset =
           targetDiv.clientWidth / 2 - Math.max(0, time) * pxPerSecond;
-        clone.style.transform = 'translate3d(' + offset + 'px,0,0)';
+        const offset = snapToDevicePixel(
+          rawOffset,
+          getDevicePixelRatio(doc)
+        );
+        const cloneTransform = 'translateX(' + offset + 'px)';
+        if (clone.style.transform !== cloneTransform) {
+          clone.style.transform = cloneTransform;
+        }
         const rulerInner = targetDiv.querySelector('.mirror-ruler-inner');
         if (rulerInner) {
-          rulerInner.style.transform = 'translate3d(' + offset + 'px,0,0)';
+          const rulerTransform = 'translateX(' + offset + 'px)';
+          if (rulerInner.style.transform !== rulerTransform) {
+            rulerInner.style.transform = rulerTransform;
+          }
         }
       } catch (_) {}
     }
