@@ -135,97 +135,103 @@
     }
 
     async function saveAudioBlobsForProject(projectId) {
-      const db = await openAudioDB();
-      return new Promise(async (resolve, reject) => {
+      const daw = getDAW();
+      const embeddedClips = (daw?.clips || []).filter(clip =>
+        clip.type !== 'chord' && clip.bufferKey && clip._embedded
+      );
+      const allBlobs = [];
+
+      // Encode/compress before opening the transaction. IndexedDB transactions
+      // may auto-commit while an async compression operation is in flight.
+      for (const clip of embeddedClips) {
+        const key = clip.bufferKey;
+        const buffer = daw?.bufferCache?.get?.(key);
+        if (!buffer) continue;
+
+        if (clip._originalBlob) {
+          const blob = clip._originalBlob;
+          allBlobs.push({
+            key,
+            format: 'blob',
+            mimeType: blob.type || 'audio/mpeg',
+            fileName: clip.fileName || clip.name || `${key}.mp3`,
+            size: blob.size,
+            duration: buffer.duration,
+            sampleRate: buffer.sampleRate,
+            channels: buffer.numberOfChannels,
+            blob
+          });
+          logger?.log?.(
+            `[Audio Save] Saved original blob: ${clip.fileName} ` +
+            `(${(blob.size / 1024 / 1024).toFixed(2)} MB)`
+          );
+          continue;
+        }
+
+        try {
+          const wavEncoder = getWavEncoder();
+          if (typeof wavEncoder !== 'function') {
+            throw new Error('Audio WAV encoder is unavailable');
+          }
+          const wavBytes = wavEncoder(buffer);
+          const compressed =
+            await getAudioCompressionService()?.compressBytes(wavBytes);
+          if (!compressed?.blob || !compressed.format) {
+            throw new Error('Audio compression service is unavailable');
+          }
+          const compressedFormat = compressed.format;
+          allBlobs.push({
+            key,
+            format: compressedFormat,
+            mimeType: compressedFormat === 'wav-deflate'
+              ? 'application/octet-stream'
+              : 'audio/wav',
+            fileName:
+              (clip.fileName || clip.name || key).replace(/\.[^.]+$/, '') +
+              (compressedFormat === 'wav-deflate' ? '.wav.deflate' : '.wav'),
+            size: compressed.blob.size,
+            duration: buffer.duration,
+            sampleRate: buffer.sampleRate,
+            channels: buffer.numberOfChannels,
+            blob: compressed.blob
+          });
+          logger?.log?.(
+            `[Audio Save] Saved ${compressedFormat}: ${clip.fileName} ` +
+            `(raw=${(wavBytes.length / 1024 / 1024).toFixed(2)}MB ` +
+            `→ stored=${(compressed.blob.size / 1024 / 1024).toFixed(2)}MB)`
+          );
+        } catch (error) {
+          logger?.warn?.(
+            `[Audio Save] Failed to encode ${clip.fileName}:`,
+            error
+          );
+        }
+      }
+
+      let db;
+      try {
+        db = await openAudioDB();
+      } catch (error) {
+        // A project without embedded audio has nothing to persist. IndexedDB
+        // can be unavailable in Electron before its quota database is ready.
+        if (embeddedClips.length === 0) return undefined;
+        throw error;
+      }
+
+      return new Promise((resolve, reject) => {
         const transaction = db.transaction('audioBlobs', 'readwrite');
-        const store = transaction.objectStore('audioBlobs');
-        const embeddedClips = (getDAW()?.clips || []).filter(clip =>
-          clip.type !== 'chord' && clip.bufferKey && clip._embedded
-        );
-
-        store.delete(projectId);
-        if (embeddedClips.length === 0) {
-          resolve();
-          return;
-        }
-
-        const allBlobs = [];
-        for (const clip of embeddedClips) {
-          const key = clip.bufferKey;
-          const buffer = getDAW()?.bufferCache?.get?.(key);
-          if (!buffer) continue;
-
-          if (clip._originalBlob) {
-            const blob = clip._originalBlob;
-            allBlobs.push({
-              key,
-              format: 'blob',
-              mimeType: blob.type || 'audio/mpeg',
-              fileName: clip.fileName || clip.name || `${key}.mp3`,
-              size: blob.size,
-              duration: buffer.duration,
-              sampleRate: buffer.sampleRate,
-              channels: buffer.numberOfChannels,
-              blob
-            });
-            logger?.log?.(
-              `[Audio Save] Saved original blob: ${clip.fileName} ` +
-              `(${(blob.size / 1024 / 1024).toFixed(2)} MB)`
-            );
-            continue;
-          }
-
-          try {
-            const wavEncoder = getWavEncoder();
-            if (typeof wavEncoder !== 'function') {
-              throw new Error('Audio WAV encoder is unavailable');
-            }
-            const wavBytes = wavEncoder(buffer);
-            const compressed =
-              await getAudioCompressionService()?.compressBytes(wavBytes);
-            if (!compressed?.blob || !compressed.format) {
-              throw new Error('Audio compression service is unavailable');
-            }
-            const compressedFormat = compressed.format;
-            allBlobs.push({
-              key,
-              format: compressedFormat,
-              mimeType: compressedFormat === 'wav-deflate'
-                ? 'application/octet-stream'
-                : 'audio/wav',
-              fileName:
-                (clip.fileName || clip.name || key).replace(/\.[^.]+$/, '') +
-                (compressedFormat === 'wav-deflate' ? '.wav.deflate' : '.wav'),
-              size: compressed.blob.size,
-              duration: buffer.duration,
-              sampleRate: buffer.sampleRate,
-              channels: buffer.numberOfChannels,
-              blob: compressed.blob
-            });
-            logger?.log?.(
-              `[Audio Save] Saved ${compressedFormat}: ${clip.fileName} ` +
-              `(raw=${(wavBytes.length / 1024 / 1024).toFixed(2)}MB ` +
-              `→ stored=${(compressed.blob.size / 1024 / 1024).toFixed(2)}MB)`
-            );
-          } catch (error) {
-            logger?.warn?.(
-              `[Audio Save] Failed to encode ${clip.fileName}:`,
-              error
-            );
-          }
-        }
-
-        if (allBlobs.length === 0) {
-          resolve();
-          return;
-        }
-        store.put(allBlobs, projectId);
         transaction.oncomplete = () => resolve();
         transaction.onerror = () => reject(transaction.error);
+        transaction.onabort = () => reject(transaction.error);
+
+        const store = transaction.objectStore('audioBlobs');
+        store.delete(projectId);
+        if (allBlobs.length > 0) store.put(allBlobs, projectId);
       });
     }
 
     async function loadAudioBlobsForProject(projectId) {
+      const daw = getDAW();
       const db = await openAudioDB();
       return new Promise((resolve, reject) => {
         const transaction = db.transaction('audioBlobs', 'readonly');
@@ -237,7 +243,6 @@
             return;
           }
           ensureAudioCtx();
-          const daw = getDAW();
           for (const entry of entries) {
             try {
               let buffer = null;
@@ -371,9 +376,14 @@
         let usageBytes = 0;
         let quotaBytes = 0;
         if (typeof getStorageEstimate === 'function') {
-          const estimate = await getStorageEstimate();
-          usageBytes = estimate?.usage || 0;
-          quotaBytes = estimate?.quota || 0;
+          try {
+            const estimate = await getStorageEstimate();
+            usageBytes = estimate?.usage || 0;
+            quotaBytes = estimate?.quota || 0;
+          } catch (_) {
+            // Storage estimation is optional and may reject in Electron when
+            // Chromium's quota database is unavailable.
+          }
         }
 
         let audioCount = 0;
@@ -382,18 +392,13 @@
           const db = await openAudioDB();
           const transaction = db.transaction('audioBlobs', 'readonly');
           const store = transaction.objectStore('audioBlobs');
-          const allKeys = await new Promise(resolve => {
-            const request = store.getAllKeys();
+          const allData = await new Promise(resolve => {
+            const request = store.getAll();
             request.onsuccess = () => resolve(request.result);
             request.onerror = () => resolve([]);
           });
-          audioCount = allKeys.length;
-          for (const key of allKeys) {
-            const data = await new Promise(resolve => {
-              const request = store.get(key);
-              request.onsuccess = () => resolve(request.result);
-              request.onerror = () => resolve(null);
-            });
+          audioCount = allData.length;
+          for (const data of allData) {
             if (!data) continue;
             for (const entry of Array.isArray(data) ? data : []) {
               for (const channel of entry.data || []) {

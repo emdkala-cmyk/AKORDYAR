@@ -137,6 +137,24 @@ function makeBuffer(duration = 3) {
   assert.equal(handleResult.missing, 0);
   assert.equal(handleDaw.bufferCache.get('handle-key').duration, 6);
 
+  let emptySongLoadAttempts = 0;
+  const emptySongService = recoveryModule.create({
+    getDAW: () => ({ clips: [], bufferCache: new Map() }),
+    loadAudioBlobsForProject: async () => {
+      emptySongLoadAttempts += 1;
+      throw new Error('IndexedDB should not be opened for an empty song');
+    }
+  });
+  const emptySongResult = await emptySongService.restoreSongAudio({
+    id: 'empty-song'
+  });
+  assert.deepEqual(emptySongResult, {
+    loaded: 0,
+    missing: 0,
+    missingNames: []
+  });
+  assert.equal(emptySongLoadAttempts, 0);
+
   console.log('AudioRecoveryService tests passed');
 })().catch(error => {
   console.error(error);

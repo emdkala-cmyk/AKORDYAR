@@ -319,6 +319,7 @@
       const { daw } = context;
       const result = { loaded: 0, missing: 0, missingNames: [] };
       if (!song || !daw) return result;
+      if (!audioClips(daw).length) return result;
 
       try {
         await context.loadAudioBlobsForProject?.(song.id);
@@ -423,6 +424,7 @@
       const song = overrides.song || getSong?.();
       const result = { loaded: 0, missing: 0, missingNames: [] };
       if (!song || !daw) return result;
+      if (!audioClips(daw).length) return result;
 
       try {
         await context.loadAudioBlobsForProject?.(projectId);

@@ -165,6 +165,23 @@ const service = AudioStorageService.create({
   assert.equal(indexedDBRef.db.stores.get('audioBlobs').has('project-1'), false);
   assert.equal(toasts.length, 0);
 
+  const unavailableStorage = AudioStorageService.create({
+    indexedDBRef: {
+      open() {
+        throw new DOMException('quota database unavailable', 'UnknownError');
+      }
+    },
+    getDAW: () => ({ clips: [], bufferCache: new Map() }),
+    getElement: id => elements.get(id),
+    getStorageEstimate: async () => {
+      throw new DOMException('storage estimate unavailable', 'UnknownError');
+    },
+    logger: { log() {}, warn() {} }
+  });
+  await unavailableStorage.saveAudioBlobsForProject('empty-project');
+  await unavailableStorage.refreshStorageInfo();
+  assert.equal(elements.get('storageBarInner').style.width, '0.0%');
+
   console.log('EditorAudioStorageService tests passed');
 })().catch(error => {
   console.error(error);
