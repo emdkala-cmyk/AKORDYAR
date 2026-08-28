@@ -129,6 +129,17 @@ class EventBindings {
       }
       return target;
     };
+    const isEditorTarget =
+      keyboardService?.isEditorTarget ||
+      (target => {
+        const element = normalizeElement(target);
+        const editor = this.document?.getElementById?.('editor');
+        if (!element || !editor) return false;
+        return (
+          element === editor ||
+          editor.contains?.(element) === true
+        );
+      });
     const isTextEditingTarget =
       keyboardService?.isTextEditingTarget ||
       (target => {
@@ -202,25 +213,44 @@ class EventBindings {
         const composedPath = event.composedPath?.();
         if (
           Array.isArray(composedPath) &&
-          composedPath.some(target => isTextEditingTarget(target))
+          composedPath.some(
+            target =>
+              isEditorTarget(target) ||
+              isTextEditingTarget(target)
+          )
         ) {
           return true;
         }
-        if (isTextEditingTarget(event.target)) return true;
+        if (
+          isEditorTarget(event.target) ||
+          isTextEditingTarget(event.target)
+        ) {
+          return true;
+        }
         if (!isDocumentLikeTarget(event.target)) return false;
-        if (isTextEditingTarget(this.document?.activeElement)) return true;
+        if (
+          isEditorTarget(this.document?.activeElement) ||
+          isTextEditingTarget(this.document?.activeElement)
+        ) {
+          return true;
+        }
 
         const selection =
           this.document?.getSelection?.() ||
           this.window?.getSelection?.();
-        return isTextEditingTarget(selection?.anchorNode);
+        return (
+          isEditorTarget(selection?.anchorNode) ||
+          isTextEditingTarget(selection?.anchorNode)
+        );
       });
     const isSpaceEvent =
       keyboardService?.isSpaceEvent ||
       (event =>
         event?.code === 'Space' ||
         event?.key === ' ' ||
-        event?.key === 'Spacebar');
+        event?.key === 'Spacebar' ||
+        Number(event?.keyCode) === 32 ||
+        Number(event?.which) === 32);
 
     const shouldBypassEditableSpace = event =>
       isSpaceEvent(event) &&

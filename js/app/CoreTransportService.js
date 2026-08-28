@@ -16,6 +16,16 @@
     return target;
   }
 
+  function isEditorTarget(
+    target,
+    documentRef = globalScope.document
+  ) {
+    const element = normalizeElement(target);
+    const editor = documentRef?.getElementById?.('editor');
+    if (!element || !editor) return false;
+    return element === editor || editor.contains?.(element) === true;
+  }
+
   function isTextEditingTarget(target) {
     let element = normalizeElement(target);
     const tagName = String(element?.tagName || '').toUpperCase();
@@ -88,25 +98,44 @@
     const composedPath = event.composedPath?.();
     if (
       Array.isArray(composedPath) &&
-      composedPath.some(target => isTextEditingTarget(target))
+      composedPath.some(
+        target =>
+          isEditorTarget(target, documentRef) ||
+          isTextEditingTarget(target)
+      )
     ) {
       return true;
     }
 
-    if (isTextEditingTarget(event.target)) return true;
+    if (
+      isEditorTarget(event.target, documentRef) ||
+      isTextEditingTarget(event.target)
+    ) {
+      return true;
+    }
     if (!isDocumentLikeTarget(event.target, documentRef)) return false;
-    if (isTextEditingTarget(documentRef?.activeElement)) return true;
+    if (
+      isEditorTarget(documentRef?.activeElement, documentRef) ||
+      isTextEditingTarget(documentRef?.activeElement)
+    ) {
+      return true;
+    }
 
     const selection = documentRef?.getSelection?.() ||
       globalScope.getSelection?.();
-    return isTextEditingTarget(selection?.anchorNode);
+    return (
+      isEditorTarget(selection?.anchorNode, documentRef) ||
+      isTextEditingTarget(selection?.anchorNode)
+    );
   }
 
   function isSpaceEvent(event) {
     return (
       event?.code === 'Space' ||
       event?.key === ' ' ||
-      event?.key === 'Spacebar'
+      event?.key === 'Spacebar' ||
+      Number(event?.keyCode) === 32 ||
+      Number(event?.which) === 32
     );
   }
 

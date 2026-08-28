@@ -59,6 +59,22 @@
       executeCommand('insertText', false, text);
     }
 
+    function handleEditorMouseDown(event) {
+      if (
+        !editorElement ||
+        (event.button != null && event.button !== 0) ||
+        event.altKey ||
+        isAltDown() ||
+        event.target?.closest?.('.chord')
+      ) {
+        return;
+      }
+
+      // Make lyric text the active keyboard owner before the browser runs
+      // the native mousedown selection/focus behavior.
+      editorElement.focus?.({ preventScroll: true });
+    }
+
     function handleSelectionSurface(event) {
       const song = getSongState()?.currentSong?.();
       if (!song) return;
@@ -108,6 +124,7 @@
 
       editorElement.addEventListener('input', handleInput);
       editorElement.addEventListener('paste', handlePaste);
+      editorElement.addEventListener('mousedown', handleEditorMouseDown);
       wrapElement.addEventListener('mousedown', handleSelectionSurface, true);
       wrapElement.addEventListener('mousedown', handleChordSurface);
       bound = true;
@@ -118,6 +135,7 @@
       if (!bound) return false;
       editorElement?.removeEventListener('input', handleInput);
       editorElement?.removeEventListener('paste', handlePaste);
+      editorElement?.removeEventListener('mousedown', handleEditorMouseDown);
       wrapElement?.removeEventListener(
         'mousedown',
         handleSelectionSurface,
@@ -135,6 +153,7 @@
       destroy,
       handleInput,
       handlePaste,
+      handleEditorMouseDown,
       handleSelectionSurface,
       handleChordSurface
     });
