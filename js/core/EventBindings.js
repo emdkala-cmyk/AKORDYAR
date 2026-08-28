@@ -129,16 +129,17 @@ class EventBindings {
       }
       return target;
     };
+    const isNodeLike = target =>
+      Boolean(target && typeof target.nodeType === 'number');
     const isEditorTarget =
       keyboardService?.isEditorTarget ||
       (target => {
         const element = normalizeElement(target);
         const editor = this.document?.getElementById?.('editor');
         if (!element || !editor) return false;
-        return (
-          element === editor ||
-          editor.contains?.(element) === true
-        );
+        if (element === editor) return true;
+        if (!isNodeLike(element)) return false;
+        return editor.contains?.(element) === true;
       });
     const isTextEditingTarget =
       keyboardService?.isTextEditingTarget ||

@@ -661,10 +661,10 @@ assert.ok(
 );
 assert.ok(
   scriptIndex('js/editor/KeyboardMappingService.js') <
-    scriptIndex('js/editor/EditorKeyboardService.js?v=20260828-14')
+    scriptIndex('js/editor/EditorKeyboardService.js?v=20260828-15')
 );
 assert.ok(
-  scriptIndex('js/editor/EditorKeyboardService.js?v=20260828-14') <
+  scriptIndex('js/editor/EditorKeyboardService.js?v=20260828-15') <
     scriptIndex('js/editor/EditorKeyboardRuntimeService.js')
 );
 assert.ok(

@@ -13,6 +13,10 @@
     return target;
   }
 
+  function isNodeLike(target) {
+    return Boolean(target && typeof target.nodeType === 'number');
+  }
+
   function isEditorTarget(
     target,
     documentRef = globalScope.document
@@ -20,7 +24,9 @@
     const element = normalizeElement(target);
     const editor = documentRef?.getElementById?.('editor');
     if (!element || !editor) return false;
-    return element === editor || editor.contains?.(element) === true;
+    if (element === editor) return true;
+    if (!isNodeLike(element)) return false;
+    return editor.contains?.(element) === true;
   }
 
   function isTextEditingTarget(target) {

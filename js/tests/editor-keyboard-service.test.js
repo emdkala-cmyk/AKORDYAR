@@ -62,22 +62,48 @@ const service = KeyboardService.create({
 service.bind();
 assert.equal(service.isBound(), true);
 
+const lyricEditor = {
+  nodeType: 1,
+  tagName: 'DIV',
+  contains(target) {
+    if (!target || typeof target.nodeType !== 'number') {
+      throw new TypeError('contains expects a Node');
+    }
+    return false;
+  }
+};
+windowRef.document.getElementById = () => lyricEditor;
+const bodySpaceWithComposedPath = keyEvent('', {
+  key: ' ',
+  target: windowRef.document.body,
+  composedPath: () => [
+    windowRef.document.body,
+    windowRef.document,
+    windowRef
+  ]
+});
+assert.doesNotThrow(() =>
+  service.handleGlobalKeydownCapture(bodySpaceWithComposedPath)
+);
+assert.equal(bodySpaceWithComposedPath.prevented, true);
+assert.deepEqual(calls, ['play']);
+
 const q = keyEvent('KeyQ');
 windowRef.dispatch(q);
 assert.equal(q.prevented, true);
 assert.equal(q.stopped, true);
-assert.deepEqual(calls, ['quantize']);
+assert.deepEqual(calls, ['play', 'quantize']);
 
 const right = keyEvent('ArrowRight');
 windowRef.dispatch(right);
 assert.equal(right.prevented, true);
-assert.deepEqual(calls, ['quantize', 'move:right']);
+assert.deepEqual(calls, ['play', 'quantize', 'move:right']);
 
 const inputRight = keyEvent('ArrowRight', {
   target: { tagName: 'INPUT' }
 });
 windowRef.dispatch(inputRight);
-assert.deepEqual(calls, ['quantize', 'move:right']);
+assert.deepEqual(calls, ['play', 'quantize', 'move:right']);
 
 const editorTextChild = keyEvent('Space', {
   target: {
@@ -90,7 +116,7 @@ const editorTextChild = keyEvent('Space', {
 });
 assert.equal(service.handleGlobalKeydownCapture(editorTextChild), false);
 assert.equal(editorTextChild.prevented, false);
-assert.deepEqual(calls, ['quantize', 'move:right']);
+assert.deepEqual(calls, ['play', 'quantize', 'move:right']);
 
 const editorTextKeyOnly = keyEvent('', {
   key: ' ',
@@ -104,7 +130,7 @@ const editorTextKeyOnly = keyEvent('', {
 });
 assert.equal(service.handleGlobalKeydownCapture(editorTextKeyOnly), false);
 assert.equal(editorTextKeyOnly.prevented, false);
-assert.deepEqual(calls, ['quantize', 'move:right']);
+assert.deepEqual(calls, ['play', 'quantize', 'move:right']);
 
 const activeEditor = {
   tagName: 'DIV',
@@ -117,20 +143,20 @@ const bodySpace = keyEvent('', {
 });
 assert.equal(service.handleGlobalKeydownCapture(bodySpace), false);
 assert.equal(bodySpace.prevented, false);
-assert.deepEqual(calls, ['quantize', 'move:right']);
+assert.deepEqual(calls, ['play', 'quantize', 'move:right']);
 windowRef.document.activeElement = null;
 
 const del = keyEvent('Delete');
 windowRef.dispatch(del);
 assert.equal(del.prevented, true);
-assert.deepEqual(calls, ['quantize', 'move:right', 'delete']);
+assert.deepEqual(calls, ['play', 'quantize', 'move:right', 'delete']);
 
 const selectSpace = keyEvent('Space', {
   target: { tagName: 'SELECT' }
 });
 assert.equal(service.handleGlobalKeydownCapture(selectSpace), true);
 assert.equal(selectSpace.prevented, true);
-assert.deepEqual(calls, ['quantize', 'move:right', 'delete', 'play']);
+assert.deepEqual(calls, ['play', 'quantize', 'move:right', 'delete', 'play']);
 
 service.destroy();
 assert.equal(service.isBound(), false);
