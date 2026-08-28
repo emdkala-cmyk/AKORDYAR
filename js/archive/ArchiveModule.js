@@ -1394,6 +1394,7 @@ archiveSaveState();
       bulkExport: archBulkExport,
       refresh: archRefresh,
       artistKey: archArtistKey,
+      ensureSongParsed,
       pushUndo: archPushUndo,
       confirm: archConfirm,
       resolveConfirm: archConfirmResolve,

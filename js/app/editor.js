@@ -260,7 +260,8 @@ function getEditorSongTransitionService() {
       getDAW: () => editorGetRuntimeDAW(),
       setSong: song => editorAppRuntime.setSong(song),
       repairSong: song => window.TextEncodingService?.repairSong?.(song) || song,
-      ensureSongParsed,
+      ensureSongParsed: (...args) =>
+        editorArchiveCall('ensureSongParsed', ...args),
       hydrationService: window.EditorHydrationService,
       updateNextIdFromClips,
       ensureAudioCtx,
