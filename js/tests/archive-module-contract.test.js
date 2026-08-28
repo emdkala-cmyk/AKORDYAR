@@ -204,6 +204,8 @@ for (const methodName of publicArchiveMethods) {
 assert.match(archive, /archivePublicApi\.publish\(\{/);
 assert.match(archive, /namespace:\s*['"]AkordyarArchiveApi['"]/);
 assert.match(archive, /\(function attachArchiveModule\(globalScope\)/);
+assert.match(archive, /edSyncToolbar:\s*archiveEditorSyncToolbar/);
+assert.match(archive, /edRenderEditor:\s*archiveEditorRenderEditor/);
 assert.doesNotMatch(projectHub, /typeof\s+(?:arch|ed)[A-Z]\w*\s*===\s*['"]function['"]/);
 assert.match(projectHub, /window\.AkordyarArchiveApi/);
 assert.match(editor, /editorArchiveCall\(['"]open['"]\)/);
