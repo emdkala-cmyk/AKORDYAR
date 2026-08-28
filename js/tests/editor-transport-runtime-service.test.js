@@ -7,7 +7,8 @@ const calls = [];
 const clock = {
   setOrigin: (...args) => calls.push(['origin', args]),
   getSnapshot: (...args) => ({ args, timelineZeroAudioTime: 0 }),
-  getPlayhead: (...args) => ({ args, value: 3 })
+  getPlayhead: (...args) => ({ args, value: 3 }),
+  getVisualPlayhead: (...args) => ({ args, value: 2 })
 };
 const audio = { setContext: () => {} };
 const countIn = { start: () => {}, cancel: () => {} };
@@ -60,6 +61,10 @@ assert.deepEqual(service.getClockSnapshot('visual'), {
 assert.deepEqual(service.getPlayhead(), {
   args: [],
   value: 3
+});
+assert.deepEqual(service.getVisualPlayhead(), {
+  args: [],
+  value: 2
 });
 service.setOrigin(4);
 assert.deepEqual(calls, [['origin', [4]]]);

@@ -87,6 +87,7 @@
       getSongState = () => null,
       getDAW = () => ({}),
       getTransportPlayhead = () => 0,
+      getTransportVisualPlayhead = getTransportPlayhead,
       getHighlightState = () =>
         globalScope.RuntimeStateAdapter?.getPerformanceStore?.()
           ?.getState?.().highlightState || null,
@@ -145,6 +146,7 @@
       windowRef,
       getDAW,
       getTransportPlayhead,
+      getTransportVisualPlayhead,
       getSyncTimes,
       installPopupHighlightLoop
     });
@@ -181,6 +183,7 @@
       getSongState,
       getDAW,
       getTransportPlayhead,
+      getTransportVisualPlayhead,
       getHighlightState,
       installPopupHighlightLoop,
       schedule,

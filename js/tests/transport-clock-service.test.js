@@ -43,6 +43,7 @@ assert.equal(running.timelineTime, 6);
 assert.ok(Math.abs(running.visualTimelineTime - 5.6) < 1e-9);
 assert.equal(running.transportStartAudioTime, 18);
 assert.equal(service.getPlayhead(), 6);
+assert.ok(Math.abs(service.getVisualPlayhead(performanceTime) - 5.6) < 1e-9);
 
 // Regression: a song hot-swap must re-anchor the AudioContext clock together
 // with the new song's A marker. Reusing the old audio origin makes scheduling

@@ -15,6 +15,7 @@
     windowRef = globalScope,
     getDAW = () => ({}),
     getTransportPlayhead = () => 0,
+    getTransportVisualPlayhead = getTransportPlayhead,
     getSyncTimes = () => [],
     installPopupHighlightLoop = () => {}
   } = {}) {
@@ -194,8 +195,12 @@
         if (!body) return;
         const times = getSyncTimes?.() || [];
         const daw = getDAW?.() || {};
+        const visualTime = Number(getTransportVisualPlayhead?.());
+        const rawTime = Number(getTransportPlayhead?.());
         const time = daw.isPlaying
-          ? getTransportPlayhead?.()
+          ? Number.isFinite(visualTime)
+            ? visualTime
+            : (Number.isFinite(rawTime) ? rawTime : 0)
           : (Number.isFinite(daw.playhead) ? daw.playhead : 0);
         applyActiveIndex(body, getActiveIndex(times, time, lines));
       }

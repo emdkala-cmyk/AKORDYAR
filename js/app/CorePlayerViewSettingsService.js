@@ -49,6 +49,7 @@
     getSongState = () => null,
     getDAW = () => null,
     getTransportPlayhead = () => 0,
+    getTransportVisualPlayhead = getTransportPlayhead,
     getHighlightState = () =>
       globalScope.RuntimeStateAdapter?.getPerformanceStore?.()
         ?.getState?.().highlightState || null,
@@ -268,8 +269,12 @@
           ? String(songState.getLyrics() || '').split('\n')
           : [];
       const daw = getDAW() || {};
+      const visualTime = Number(getTransportVisualPlayhead?.());
+      const rawTime = Number(getTransportPlayhead?.());
       const playhead = daw.isPlaying
-        ? getTransportPlayhead()
+        ? Number.isFinite(visualTime)
+          ? visualTime
+          : (Number.isFinite(rawTime) ? rawTime : 0)
         : Number.isFinite(daw.playhead)
           ? daw.playhead
           : 0;

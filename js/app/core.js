@@ -531,6 +531,8 @@ const requestRenderSyncLyrics = debounce(() => { renderSyncLyrics(); }, 120);
       editorTransportRuntimeService.getClockSnapshot(...args);
     const getTransportPlayhead = (...args) =>
       editorTransportRuntimeService.getPlayhead(...args);
+    const getTransportVisualPlayhead = (...args) =>
+      editorTransportRuntimeService.getVisualPlayhead(...args);
     transportSchedulingService = editorTransportRuntimeService.schedulingService;
     audioContextServiceBridge = editorTransportRuntimeService.audioContextService;
     countInSchedulerBridge = editorTransportRuntimeService.countInScheduler;
@@ -1413,6 +1415,7 @@ function applyState(stateStr) {
           getSongState: () => requireEditorSongStateService(),
           getDAW: () => coreGetRuntimeDAW(),
           getTransportPlayhead: () => getTransportPlayhead(),
+          getTransportVisualPlayhead: () => getTransportVisualPlayhead(),
           getSyncTimes: () => requireEditorSongStateService().getSyncTimes(),
           transposeChord: (...args) => edTransposeChord(...args),
           renderChords: () => edRenderChords(),

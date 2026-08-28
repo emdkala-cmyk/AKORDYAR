@@ -46,7 +46,8 @@
       countInScheduler: schedulingService.getCountInScheduler?.() || null,
       setOrigin: (...args) => clockService.setOrigin(...args),
       getClockSnapshot: (...args) => clockService.getSnapshot(...args),
-      getPlayhead: (...args) => clockService.getPlayhead(...args)
+      getPlayhead: (...args) => clockService.getPlayhead(...args),
+      getVisualPlayhead: (...args) => clockService.getVisualPlayhead(...args)
     });
   }
 

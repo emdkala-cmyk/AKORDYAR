@@ -107,10 +107,21 @@
       };
     }
 
+    function getVisualPlayhead(performanceTime = now()) {
+      const snapshot = getSnapshot({
+        visual: true,
+        performanceTime
+      });
+      return Number.isFinite(snapshot.visualTimelineTime)
+        ? snapshot.visualTimelineTime
+        : snapshot.timelineTime;
+    }
+
     return Object.freeze({
       setOrigin,
       getSnapshot,
-      getPlayhead: () => getSnapshot().timelineTime
+      getPlayhead: () => getSnapshot().timelineTime,
+      getVisualPlayhead
     });
   }
 
