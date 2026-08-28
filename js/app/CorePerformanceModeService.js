@@ -105,6 +105,8 @@
         if (!state().perfModeActive) return;
         openLyricPopup();
         if (shouldStartPlayback && !getDAW?.()?.isPlaying) {
+          // The first Player View frame must always start from the song head.
+          seekTransport(0, false, true);
           ensureAudioCtx();
           startTransport();
         }

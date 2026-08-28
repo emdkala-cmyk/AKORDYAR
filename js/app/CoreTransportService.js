@@ -448,9 +448,14 @@
       const beginPlayback = (transportStartAudioTime = null) => {
         const daw = readDAW();
         if (!daw) return;
-        daw.isPlaying = true;
         daw.isScrubbing = false;
-        setTransportOrigin(daw.playhead, transportStartAudioTime);
+        const startTime = Number.isFinite(Number(daw.playhead))
+          ? Math.max(0, Number(daw.playhead))
+          : 0;
+        // Anchor the clock before popup rAF loops can observe isPlaying.
+        setTransportOrigin(startTime, transportStartAudioTime);
+        daw.playhead = startTime;
+        daw.isPlaying = true;
         publishPlaybackSync();
         setPlayButtonColor('var(--accent-neon-pink)');
         scheduleAllFromPlayhead();
