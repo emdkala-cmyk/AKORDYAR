@@ -7,7 +7,127 @@
  */
 const PlayerViewRenderer = (() => {
 
+  const AUTO_SCROLL_SAFE_ZONE = Object.freeze({
+    top: 0.35,
+    bottom: 0.65
+  });
+  const AUTO_SCROLL_DURATION_MS = 360;
   let _lastScrolledLineId = null;
+  let _scrollAnimationFrame = null;
+  let _scrollAnimationToken = 0;
+  let _scrollAnimationContainer = null;
+
+  function getAnimationWindow(container) {
+    return (
+      container?.ownerDocument?.defaultView ||
+      (typeof window !== 'undefined' ? window : globalThis)
+    );
+  }
+
+  function cancelScrollAnimation() {
+    _scrollAnimationToken++;
+    const win = getAnimationWindow(_scrollAnimationContainer);
+    if (_scrollAnimationFrame !== null) {
+      win?.cancelAnimationFrame?.(_scrollAnimationFrame);
+      _scrollAnimationFrame = null;
+    }
+    _scrollAnimationContainer = null;
+  }
+
+  function setScrollPosition(container, top, behavior = 'auto') {
+    try {
+      if (typeof container.scrollTo === 'function') {
+        container.scrollTo({ top, behavior });
+      } else {
+        container.scrollTop = top;
+      }
+    } catch (_) {
+      container.scrollTop = top;
+    }
+  }
+
+  function getScrollTarget(container, activeElement) {
+    const containerHeight = Number(container?.clientHeight) || 0;
+    const elementTop = Number(activeElement?.offsetTop);
+    const elementHeight = Math.max(
+      1,
+      Number(activeElement?.offsetHeight) || 0
+    );
+    if (!containerHeight || !Number.isFinite(elementTop)) return null;
+
+    const scrollTop = Number(container.scrollTop) || 0;
+    const activeTop = elementTop - scrollTop;
+    const activeBottom = activeTop + elementHeight;
+    const safeTop = containerHeight * AUTO_SCROLL_SAFE_ZONE.top;
+    const safeBottom = containerHeight * AUTO_SCROLL_SAFE_ZONE.bottom;
+
+    if (activeTop >= safeTop && activeBottom <= safeBottom) return null;
+
+    const targetTop =
+      activeTop < safeTop
+        ? elementTop - safeTop
+        : elementTop + elementHeight - safeBottom;
+    const scrollHeight = Number(container.scrollHeight);
+    const maxScrollTop =
+      Number.isFinite(scrollHeight) && scrollHeight > containerHeight
+        ? Math.max(0, scrollHeight - containerHeight)
+        : Number.POSITIVE_INFINITY;
+
+    return Math.max(
+      0,
+      Math.min(maxScrollTop, Math.round(targetTop))
+    );
+  }
+
+  function animateScroll(container, targetTop) {
+    cancelScrollAnimation();
+    const currentTop = Number(container.scrollTop) || 0;
+    if (Math.abs(currentTop - targetTop) < 1) {
+      container.scrollTop = targetTop;
+      return;
+    }
+
+    const win = getAnimationWindow(container);
+    const requestFrame =
+      typeof win?.requestAnimationFrame === 'function'
+        ? callback => win.requestAnimationFrame(callback)
+        : null;
+    if (!requestFrame) {
+      setScrollPosition(container, targetTop, 'smooth');
+      return;
+    }
+
+    _scrollAnimationContainer = container;
+    const token = ++_scrollAnimationToken;
+    const performanceNow = () => {
+      const value = Number(win?.performance?.now?.());
+      return Number.isFinite(value) ? value : Date.now();
+    };
+    const startedAt = performanceNow();
+    const step = timestamp => {
+      if (token !== _scrollAnimationToken) return;
+      const currentTime = Number.isFinite(Number(timestamp))
+        ? Number(timestamp)
+        : performanceNow();
+      const progress = Math.min(
+        1,
+        Math.max(0, (currentTime - startedAt) / AUTO_SCROLL_DURATION_MS)
+      );
+      const eased =
+        progress < 0.5
+          ? 4 * progress * progress * progress
+          : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+      container.scrollTop = currentTop + (targetTop - currentTop) * eased;
+      if (progress >= 1) {
+        container.scrollTop = targetTop;
+        _scrollAnimationFrame = null;
+        _scrollAnimationContainer = null;
+        return;
+      }
+      _scrollAnimationFrame = requestFrame(step);
+    };
+    _scrollAnimationFrame = requestFrame(step);
+  }
 
   /**
    * پیدا کردن موقعیت پیکسلی یک کاراکتر در یک خط متن
@@ -108,6 +228,7 @@ const PlayerViewRenderer = (() => {
      ═══════════════════════════════════════════════ */
   function renderPlayerView(doc, highlight, viewState, container) {
     if (!doc || !container) return;
+    cancelScrollAnimation();
     container.innerHTML = '';
     _lastScrolledLineId = null;
 
@@ -242,7 +363,7 @@ const PlayerViewRenderer = (() => {
       lineEl.style.lineHeight   = String(lineHeight);
       lineEl.style.padding      = '4px 12px';
       lineEl.style.borderRadius = '8px';
-      lineEl.style.transition   = 'opacity 0.2s ease, color 0.2s ease, background 0.2s ease';
+      lineEl.style.transition   = 'opacity 0.36s cubic-bezier(0.22, 0.61, 0.36, 1), color 0.36s cubic-bezier(0.22, 0.61, 0.36, 1), background 0.36s cubic-bezier(0.22, 0.61, 0.36, 1), text-shadow 0.36s cubic-bezier(0.22, 0.61, 0.36, 1), box-shadow 0.36s cubic-bezier(0.22, 0.61, 0.36, 1)';
       lineEl.style.position     = 'relative';
       lineEl.style.marginTop    = mobileLineMargin + 'em';
       lineEl.style.color        = textColor;
@@ -270,9 +391,9 @@ const PlayerViewRenderer = (() => {
         frame.style.display = 'block';
         frame.style.opacity = '0';
         frame.style.transition = [
-          'opacity 180ms ease',
-          'background 180ms ease',
-          'box-shadow 180ms ease'
+          'opacity 320ms cubic-bezier(0.22, 0.61, 0.36, 1)',
+          'background 320ms cubic-bezier(0.22, 0.61, 0.36, 1)',
+          'box-shadow 320ms cubic-bezier(0.22, 0.61, 0.36, 1)'
         ].join(', ');
         frame.style.pointerEvents = 'none';
         frame.style.zIndex = '8';
@@ -527,16 +648,16 @@ const PlayerViewRenderer = (() => {
       frame.style.width = lineEl.offsetWidth + 'px';
       frame.style.height = (lineEl.offsetHeight + zone) + 'px';
       frame.style.background = isNeon
-        ? 'linear-gradient(180deg, rgba(0,242,254,0.2), rgba(0,242,254,0.04) 55%, transparent)'
+        ? 'linear-gradient(180deg, rgba(0,242,254,0.14), rgba(0,242,254,0.025) 55%, transparent)'
         : isFrost
-          ? 'linear-gradient(135deg, rgba(255,255,255,0.1), rgba(200,220,255,0.08))'
+          ? 'linear-gradient(135deg, rgba(255,255,255,0.07), rgba(200,220,255,0.05))'
           : isShift
-            ? 'linear-gradient(135deg, rgba(255,46,147,0.15), rgba(123,47,255,0.15), rgba(0,242,254,0.15))'
+            ? 'linear-gradient(135deg, rgba(255,46,147,0.1), rgba(123,47,255,0.1), rgba(0,242,254,0.1))'
             : isPulse
-              ? 'linear-gradient(180deg, rgba(34,211,100,0.12), rgba(34,211,100,0.02) 55%, transparent)'
+              ? 'linear-gradient(180deg, rgba(34,211,100,0.08), rgba(34,211,100,0.015) 55%, transparent)'
               : isMobileLayout
-                ? 'linear-gradient(180deg, rgba(255,46,147,0.22), rgba(255,46,147,0.06) 60%, transparent)'
-                : 'linear-gradient(180deg, rgba(255,46,147,0.15), rgba(255,46,147,0.02) 60%, transparent)';
+                ? 'linear-gradient(180deg, rgba(255,46,147,0.16), rgba(255,46,147,0.04) 60%, transparent)'
+                : 'linear-gradient(180deg, rgba(255,46,147,0.1), rgba(255,46,147,0.015) 60%, transparent)';
       frame.style.border = isDepth
         ? (isMobileLayout
           ? '1px solid rgba(255,46,147,0.42)'
@@ -550,15 +671,15 @@ const PlayerViewRenderer = (() => {
               : '1px solid transparent';
       frame.style.borderRadius = isFrost ? '12px' : '8px';
       frame.style.boxShadow = isNeon
-        ? '0 0 15px rgba(0,242,254,0.3), 0 0 30px rgba(0,242,254,0.1)'
+        ? '0 0 10px rgba(0,242,254,0.22), 0 0 20px rgba(0,242,254,0.07)'
         : isFrost
-          ? 'inset 0 1px 0 rgba(255,255,255,0.15), 0 4px 16px rgba(0,0,0,0.3)'
-          : isPulse
-            ? '0 0 20px rgba(34,211,100,0.6), inset 0 0 20px rgba(34,211,100,0.1)'
-            : isDepth
-              ? (isMobileLayout
-                ? '0 8px 24px rgba(0,0,0,0.35), 0 2px 12px rgba(255,46,147,0.28)'
-                : '0 6px 20px rgba(0,0,0,0.4), 0 2px 6px rgba(255,46,147,0.2)')
+          ? 'inset 0 1px 0 rgba(255,255,255,0.1), 0 2px 10px rgba(0,0,0,0.22)'
+            : isPulse
+              ? '0 0 12px rgba(34,211,100,0.3), inset 0 0 12px rgba(34,211,100,0.06)'
+              : isDepth
+                ? (isMobileLayout
+                ? '0 4px 12px rgba(0,0,0,0.24), 0 1px 6px rgba(255,46,147,0.14)'
+                : '0 4px 12px rgba(0,0,0,0.28), 0 1px 5px rgba(255,46,147,0.12)')
               : '';
     });
 
@@ -603,31 +724,31 @@ const PlayerViewRenderer = (() => {
           el.style.color = isChord ? chordColor : textColor;
           el.style.textShadow = isChord
             ? '0 1px 0 rgba(0,0,0,0.75)'
-            : '0 1px 0 rgba(0,0,0,0.8), 0 2px 0 rgba(0,0,0,0.7), 0 4px 8px rgba(0,0,0,0.5)';
+            : '0 1px 0 rgba(0,0,0,0.65), 0 2px 0 rgba(0,0,0,0.4), 0 3px 6px rgba(0,0,0,0.28)';
         } else {
           el.style.color = isChord
             ? (isShift ? '#00F2FE' : '#fff')
             : (isNeon ? '#00F2FE' : isPulse ? '#22D364' : '#E2E8F0');
           el.style.textShadow = isNeon
-            ? '0 0 8px rgba(0,242,254,0.8), 0 0 20px rgba(0,242,254,0.4)'
+            ? '0 0 4px rgba(0,242,254,0.55), 0 0 10px rgba(0,242,254,0.22)'
             : isFrost
-              ? '0 0 12px rgba(255,255,255,0.45)'
+              ? '0 0 7px rgba(255,255,255,0.3)'
               : isShift
-                ? '0 0 12px rgba(255,46,147,0.55), 0 0 24px rgba(0,242,254,0.35)'
+                ? '0 0 7px rgba(255,46,147,0.35), 0 0 14px rgba(0,242,254,0.2)'
                 : isPulse
-                  ? '0 0 12px rgba(34,211,100,0.8), 0 0 28px rgba(34,211,100,0.35)'
-                  : '0 1px 0 rgba(0,0,0,0.8), 0 2px 0 rgba(0,0,0,0.7), 0 4px 8px rgba(0,0,0,0.5), 0 0 15px rgba(255,46,147,0.3)';
+                  ? '0 0 7px rgba(34,211,100,0.42), 0 0 15px rgba(34,211,100,0.22)'
+                  : '0 1px 0 rgba(0,0,0,0.7), 0 2px 0 rgba(0,0,0,0.45), 0 3px 6px rgba(0,0,0,0.28), 0 0 8px rgba(255,46,147,0.16)';
         }
         if (!isChord) {
           el.style.background = isNeon
-            ? 'linear-gradient(180deg, rgba(0,242,254,0.2), rgba(0,242,254,0.04) 55%, transparent)'
+            ? 'linear-gradient(180deg, rgba(0,242,254,0.14), rgba(0,242,254,0.025) 55%, transparent)'
             : isFrost
-              ? 'linear-gradient(135deg, rgba(255,255,255,0.1), rgba(200,220,255,0.08))'
+              ? 'linear-gradient(135deg, rgba(255,255,255,0.07), rgba(200,220,255,0.05))'
               : isShift
-                ? 'linear-gradient(135deg, rgba(255,46,147,0.15), rgba(123,47,255,0.15), rgba(0,242,254,0.15))'
+                ? 'linear-gradient(135deg, rgba(255,46,147,0.1), rgba(123,47,255,0.1), rgba(0,242,254,0.1))'
                 : isPulse
-                  ? 'linear-gradient(180deg, rgba(34,211,100,0.12), rgba(34,211,100,0.02) 55%, transparent)'
-              : 'linear-gradient(180deg, rgba(255,46,147,0.15), rgba(255,46,147,0.02) 60%, transparent)';
+                  ? 'linear-gradient(180deg, rgba(34,211,100,0.08), rgba(34,211,100,0.015) 55%, transparent)'
+              : 'linear-gradient(180deg, rgba(255,46,147,0.1), rgba(255,46,147,0.015) 60%, transparent)';
           if (
             container.dataset.mobileLayout === 'true' &&
             el.classList.contains('pv-line')
@@ -652,13 +773,13 @@ const PlayerViewRenderer = (() => {
           }
           el.style.borderRadius = isFrost ? '12px' : '8px';
           el.style.boxShadow = isNeon
-            ? '0 0 15px rgba(0,242,254,0.3), 0 0 30px rgba(0,242,254,0.1)'
+            ? '0 0 10px rgba(0,242,254,0.22), 0 0 20px rgba(0,242,254,0.07)'
             : isFrost
-              ? 'inset 0 1px 0 rgba(255,255,255,0.15), 0 4px 16px rgba(0,0,0,0.3)'
+              ? 'inset 0 1px 0 rgba(255,255,255,0.1), 0 2px 10px rgba(0,0,0,0.22)'
               : isPulse
-                ? '0 0 20px rgba(34,211,100,0.6), inset 0 0 20px rgba(34,211,100,0.1)'
+                ? '0 0 12px rgba(34,211,100,0.3), inset 0 0 12px rgba(34,211,100,0.06)'
                 : isDepth
-                  ? '0 6px 20px rgba(0,0,0,0.4), 0 2px 6px rgba(255,46,147,0.2)'
+                  ? '0 4px 12px rgba(0,0,0,0.28), 0 1px 5px rgba(255,46,147,0.12)'
                   : '';
           if (
             container.dataset.mobileLayout === 'true' &&
@@ -672,7 +793,7 @@ const PlayerViewRenderer = (() => {
         el.style.zIndex     = isChord ? '11' : '10';
         el.style.opacity    = isMobileLayout ? '1' : '';
       } else if (isDone) {
-        el.style.opacity    = '0.35';
+        el.style.opacity    = '0.52';
         if (isChord) el.style.color = chordColor;
         else el.style.color = '';
         el.style.textShadow = '';
@@ -700,27 +821,20 @@ const PlayerViewRenderer = (() => {
       }
     });
 
-    // ═══ اسکرول فقط وقتی خط فعال عوض شده ═══
+    if (!activeLineId) {
+      _lastScrolledLineId = null;
+      cancelScrollAnimation();
+      return;
+    }
+
+    // ═══ اسکرول کنترل‌شده فقط وقتی خط فعال از محدوده امن خارج شد ═══
     if (activeLineId && activeLineId !== _lastScrolledLineId) {
-      _lastScrolledLineId = activeLineId;
       const activeEl = container.querySelector('[data-line-id="' + activeLineId + '"]');
       if (activeEl) {
-        const boxH = container.clientHeight;
-        const elTop = activeEl.offsetTop;
-        const elH = activeEl.offsetHeight;
-        const targetTop = Math.max(
-          0,
-          Math.round(elTop - boxH / 2 + elH / 2)
-        );
-        try {
-          if (typeof container.scrollTo === 'function') {
-            container.scrollTo({ top: targetTop, behavior: 'auto' });
-          } else {
-            container.scrollTop = targetTop;
-          }
-        } catch (_) {
-          container.scrollTop = targetTop;
-        }
+        _lastScrolledLineId = activeLineId;
+        const targetTop = getScrollTarget(container, activeEl);
+        if (targetTop !== null) animateScroll(container, targetTop);
+        else cancelScrollAnimation();
       }
     }
   }

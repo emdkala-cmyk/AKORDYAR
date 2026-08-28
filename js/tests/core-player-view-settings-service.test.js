@@ -47,6 +47,7 @@ const controls = {
   playerChordMirror: makeElement('playerChordMirror')
 };
 const toggles = [];
+let playhead = 2.5;
 const lines = [
   makeElement('line-0', {
     dataset: { li: '0' },
@@ -66,6 +67,7 @@ const lines = [
 const body = {
   style: {},
   children: lines,
+  scrollTop: 0,
   addEventListener() {},
   querySelectorAll: selector => selector === '.eline' ? lines : [],
   querySelector: () => lines[1],
@@ -95,7 +97,7 @@ const runtime = CorePlayerViewSettingsService.create({
     dispatch: () => true
   },
   getSongState: () => ({ getSyncTimes: () => [0, 2] }),
-  getDAW: () => ({ isPlaying: false, playhead: 2.5 }),
+  getDAW: () => ({ isPlaying: false, playhead }),
   installPopupHighlightLoop: () => {
     loopInstalled++;
   },
@@ -117,11 +119,23 @@ runtime.syncHighlight();
 assert.ok(toggles.some(([name, value]) => name === 'active' && value === false));
 assert.ok(toggles.some(([name, value]) => name === 'active' && value === true));
 assert.deepEqual(body.lastScroll, {
-  top: lines[1].offsetTop - 50 + lines[1].offsetHeight / 2,
-  behavior: 'auto'
+  top: 75,
+  behavior: 'smooth'
 });
 assert.equal(lines[1].style.color, '');
 assert.equal(lines[0].style.color, '#0fa966');
+
+body.lastScroll = null;
+body.scrollTop = 80;
+playhead = -1;
+runtime.syncHighlight();
+playhead = 2.5;
+runtime.syncHighlight();
+assert.equal(
+  body.lastScroll,
+  null,
+  'خط فعال داخل محدوده امن نباید اسکرول جدید ایجاد کند'
+);
 
 controls['pv-tSize'].value = 35;
 controls['pv-tSize'].oninput();

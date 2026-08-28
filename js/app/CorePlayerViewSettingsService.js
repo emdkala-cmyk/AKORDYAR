@@ -32,6 +32,12 @@
     bold: true
   });
 
+  const AUTO_SCROLL_SAFE_ZONE = Object.freeze({
+    top: 0.35,
+    bottom: 0.65
+  });
+  const AUTO_SCROLL_DURATION_MS = 360;
+
   function create({
     storage = globalScope.localStorage,
     storageKey = 'achord_player_view_settings',
@@ -48,10 +54,24 @@
         ?.getState?.().highlightState || null,
     installPopupHighlightLoop = () => {},
     schedule = (...args) => globalScope.setTimeout?.(...args),
+    requestAnimationFrameRef =
+      typeof windowRef?.requestAnimationFrame === 'function'
+        ? callback => windowRef.requestAnimationFrame(callback)
+        : null,
+    cancelAnimationFrameRef =
+      typeof windowRef?.cancelAnimationFrame === 'function'
+        ? handle => windowRef.cancelAnimationFrame(handle)
+        : null,
+    nowRef = () => {
+      const value = Number(windowRef?.performance?.now?.());
+      return Number.isFinite(value) ? value : Date.now();
+    },
     EventCtor = globalScope.Event
   } = {}) {
     let settings = { ...DEFAULTS };
     let lastScrolledIndex = -999;
+    let scrollAnimationFrame = null;
+    let scrollAnimationToken = 0;
     try {
       const saved = JSON.parse(storage?.getItem?.(storageKey) || 'null');
       if (saved && typeof saved === 'object') settings = { ...settings, ...saved };
@@ -63,12 +83,106 @@
       } catch (_) {}
     }
 
+    function cancelScrollAnimation() {
+      scrollAnimationToken++;
+      if (scrollAnimationFrame !== null) {
+        cancelAnimationFrameRef?.(scrollAnimationFrame);
+        scrollAnimationFrame = null;
+      }
+    }
+
+    function setScrollPosition(body, top, behavior = 'auto') {
+      try {
+        if (typeof body.scrollTo === 'function') {
+          body.scrollTo({ top, behavior });
+        } else {
+          body.scrollTop = top;
+        }
+      } catch (_) {
+        body.scrollTop = top;
+      }
+    }
+
+    function getScrollTarget(body, active) {
+      const bodyHeight = Number(body?.clientHeight) || 0;
+      const elementTop = Number(active?.offsetTop);
+      const elementHeight = Math.max(1, Number(active?.offsetHeight) || 0);
+      if (!bodyHeight || !Number.isFinite(elementTop)) return null;
+
+      const scrollTop = Number(body.scrollTop) || 0;
+      const activeTop = elementTop - scrollTop;
+      const activeBottom = activeTop + elementHeight;
+      const safeTop = bodyHeight * AUTO_SCROLL_SAFE_ZONE.top;
+      const safeBottom = bodyHeight * AUTO_SCROLL_SAFE_ZONE.bottom;
+
+      if (activeTop >= safeTop && activeBottom <= safeBottom) return null;
+
+      const targetTop =
+        activeTop < safeTop
+          ? elementTop - safeTop
+          : elementTop + elementHeight - safeBottom;
+      const scrollHeight = Number(body.scrollHeight);
+      const maxScrollTop =
+        Number.isFinite(scrollHeight) && scrollHeight > bodyHeight
+          ? Math.max(0, scrollHeight - bodyHeight)
+          : Number.POSITIVE_INFINITY;
+
+      return Math.max(
+        0,
+        Math.min(maxScrollTop, Math.round(targetTop))
+      );
+    }
+
+    function animateScroll(body, targetTop) {
+      cancelScrollAnimation();
+      const currentTop = Number(body.scrollTop) || 0;
+      if (Math.abs(currentTop - targetTop) < 1) {
+        body.scrollTop = targetTop;
+        return;
+      }
+
+      // Player View lives in a separate window. Keep the transition under
+      // our control when rAF is available and use the browser's smooth
+      // scrolling as a safe fallback for lightweight hosts.
+      if (typeof requestAnimationFrameRef !== 'function') {
+        setScrollPosition(body, targetTop, 'smooth');
+        return;
+      }
+
+      const token = ++scrollAnimationToken;
+      const startedAt = nowRef();
+      const step = timestamp => {
+        if (token !== scrollAnimationToken) return;
+        const currentTime = Number.isFinite(Number(timestamp))
+          ? Number(timestamp)
+          : nowRef();
+        const progress = Math.min(
+          1,
+          Math.max(0, (currentTime - startedAt) / AUTO_SCROLL_DURATION_MS)
+        );
+        const eased =
+          progress < 0.5
+            ? 4 * progress * progress * progress
+            : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+        body.scrollTop = currentTop + (targetTop - currentTop) * eased;
+        if (progress >= 1) {
+          body.scrollTop = targetTop;
+          scrollAnimationFrame = null;
+          return;
+        }
+        scrollAnimationFrame = requestAnimationFrameRef(step);
+      };
+      scrollAnimationFrame = requestAnimationFrameRef(step);
+    }
+
     function fontFamily(font) {
       return `'${font}', sans-serif`;
     }
 
     function apply(doc) {
       if (!doc?.body) return;
+      lastScrolledIndex = -999;
+      cancelScrollAnimation();
       doc.body.style.background = settings.bgColor;
       doc.querySelectorAll?.('.eline').forEach(element => {
         element.style.color = settings.tColor;
@@ -209,36 +323,27 @@
       });
       if (activeIndex < 0) {
         lastScrolledIndex = -999;
+        cancelScrollAnimation();
         return;
       }
       if (activeIndex === lastScrolledIndex) return;
-      lastScrolledIndex = activeIndex;
       const active = body.querySelector?.('[data-li="' + activeIndex + '"]');
-      if (active) {
-        const top = Math.max(
-          0,
-          Math.round(
-            active.offsetTop -
-              body.clientHeight / 2 +
-              active.offsetHeight / 2
-          )
-        );
-        try {
-          if (typeof body.scrollTo === 'function') {
-            body.scrollTo({ top, behavior: 'auto' });
-          } else {
-            body.scrollTop = top;
-          }
-        } catch (_) {
-          body.scrollTop = top;
-        }
+      if (!active) return;
+      lastScrolledIndex = activeIndex;
+      const targetTop = getScrollTarget(body, active);
+      if (targetTop === null) {
+        cancelScrollAnimation();
+        return;
       }
+      animateScroll(body, targetTop);
     }
 
     function initialize() {
       const popup = getPopup();
       const doc = popupDocument(popup);
       if (!doc) return;
+      lastScrolledIndex = -999;
+      cancelScrollAnimation();
       const config = popupWindowBridge?.get?.(popup, '_pCfg');
       if (config && typeof config === 'object') {
         config.cSize = settings.cSize;
