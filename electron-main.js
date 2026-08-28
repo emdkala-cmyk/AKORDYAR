@@ -206,7 +206,8 @@ function createMenu() {
       submenu: [
         {
           label: 'Play/Pause',
-          accelerator: 'Space',
+          // Space is handled by the renderer so contenteditable lyrics keep
+          // ownership of it and can insert a normal whitespace character.
           click: () => mainWindow.webContents.send('menu-play-pause')
         },
         {

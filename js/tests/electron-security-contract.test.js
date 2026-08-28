@@ -22,6 +22,9 @@ assert.match(main, /const IPC_CHANNELS = Object\.freeze\(\[/);
 assert.match(main, /function registerIpcHandler\(/);
 assert.match(main, /isTrustedIpcSender\(event\)/);
 assert.doesNotMatch(main, /ipcMain\.handle\(\s*['"]/);
+// A native Electron Space accelerator bypasses DOM editing guards and makes
+// lyric whitespace trigger transport playback.
+assert.doesNotMatch(main, /accelerator:\s*['"]Space['"]/);
 assert.match(preload, /const INVOKE_CHANNELS = Object\.freeze\(\[/);
 assert.match(preload, /function invoke\(channel, \.\.\.args\)/);
 assert.doesNotMatch(
