@@ -442,7 +442,7 @@
     }
 
     function startTransport() {
-      ensureAudioCtx();
+      const audioContext = ensureAudioCtx();
       cancelCountIn();
 
       const beginPlayback = (transportStartAudioTime = null) => {
@@ -536,7 +536,8 @@
         daw.rafId = requestAnimationFrameRef(tick);
       };
 
-      const transportState = readTransportState();
+      const beginTransport = () => {
+        const transportState = readTransportState();
       const countInScheduler = getCountInScheduler();
       if (transportState.countInBars > 0 && countInScheduler) {
         const bpm = parseInt(getElement('edTempo')?.value, 10) || 120;
@@ -578,7 +579,21 @@
       beginPlayback();
       const daw = readDAW();
       if (daw?.rafId) cancelAnimationFrameRef(daw.rafId);
-      if (daw) daw.rafId = requestAnimationFrameRef(tick);
+        if (daw) daw.rafId = requestAnimationFrameRef(tick);
+      };
+
+      if (
+        audioContext?.state === 'suspended' &&
+        typeof audioContext.resume === 'function'
+      ) {
+        const resumeResult = audioContext.resume();
+        if (resumeResult && typeof resumeResult.then === 'function') {
+          resumeResult.then(beginTransport, beginTransport);
+          return;
+        }
+      }
+
+      beginTransport();
     }
 
     function pauseTransport() {
