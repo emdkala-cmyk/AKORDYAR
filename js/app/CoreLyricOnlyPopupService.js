@@ -21,6 +21,7 @@
   } = {}) {
     let messageCleanup = null;
     let lastScrolledIndex = -999;
+    let lastHighlightKey = null;
 
     function getActiveIndex(times, time, lyricLines = []) {
       if (
@@ -157,6 +158,7 @@
       });
       html += '</div>';
       lastScrolledIndex = -999;
+      lastHighlightKey = null;
       doc.body.innerHTML = html;
       doc.body.setAttribute('data-popup-role', 'singer');
       doc.body.classList?.remove?.(
@@ -202,7 +204,11 @@
             ? visualTime
             : (Number.isFinite(rawTime) ? rawTime : 0)
           : (Number.isFinite(daw.playhead) ? daw.playhead : 0);
-        applyActiveIndex(body, getActiveIndex(times, time, lines));
+        const activeIndex = getActiveIndex(times, time, lines);
+        const highlightKey = `${activeIndex}:${daw.isPlaying ? 1 : 0}`;
+        if (highlightKey === lastHighlightKey) return;
+        lastHighlightKey = highlightKey;
+        applyActiveIndex(body, activeIndex);
       }
 
       popupWindowBridge?.set?.(

@@ -71,6 +71,7 @@
   } = {}) {
     let settings = { ...DEFAULTS };
     let lastScrolledIndex = -999;
+    let lastHighlightKey = null;
     let scrollAnimationFrame = null;
     let scrollAnimationToken = 0;
     try {
@@ -173,6 +174,7 @@
     function apply(doc) {
       if (!doc?.body) return;
       lastScrolledIndex = -999;
+      lastHighlightKey = null;
       cancelScrollAnimation();
       doc.body.style.background = settings.bgColor;
       doc.querySelectorAll?.('.eline').forEach(element => {
@@ -318,6 +320,9 @@
               }
               return index;
             })();
+      const highlightKey = `${activeIndex}:${daw.isPlaying ? 1 : 0}`;
+      if (highlightKey === lastHighlightKey) return;
+      lastHighlightKey = highlightKey;
       [...(body.children || [])].forEach(element => {
         if (!element.dataset?.li) return;
         const index = +element.dataset.li;
@@ -355,6 +360,7 @@
       const doc = popupDocument(popup);
       if (!doc) return;
       lastScrolledIndex = -999;
+      lastHighlightKey = null;
       cancelScrollAnimation();
       const config = popupWindowBridge?.get?.(popup, '_pCfg');
       if (config && typeof config === 'object') {

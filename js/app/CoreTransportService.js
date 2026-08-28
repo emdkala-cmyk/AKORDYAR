@@ -537,7 +537,10 @@
           }
         }
 
-        if (isSyncActive() || isLyricPopupOpen()) updateSyncHighlight();
+        // Player View owns its own popup-side highlight loop. Calling the
+        // cross-window sync controller on every transport frame duplicates
+        // all DOM work and is especially expensive in Electron.
+        if (isSyncActive()) updateSyncHighlight();
         daw.rafId = requestAnimationFrameRef(tick);
       };
 

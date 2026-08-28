@@ -776,6 +776,7 @@ function createWindow() {
       contextIsolation: true,
       sandbox: false,
       webSecurity: false,
+      backgroundThrottling: false,
       preload: path.join(__dirname, 'preload.js')
     }
 
@@ -788,6 +789,11 @@ function createWindow() {
       return { action: 'deny' };
     }
     return { action: 'allow' };
+  });
+  mainWindow.webContents.on('did-create-window', childWindow => {
+    try {
+      childWindow.webContents.setBackgroundThrottling(false);
+    } catch (_) {}
   });
 
   log('Window', `Loading URL: ${SERVER_URL}`);

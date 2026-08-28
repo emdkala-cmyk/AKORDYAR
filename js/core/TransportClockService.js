@@ -112,9 +112,15 @@
         visual: true,
         performanceTime
       });
-      return Number.isFinite(snapshot.visualTimelineTime)
-        ? snapshot.visualTimelineTime
-        : snapshot.timelineTime;
+      const rawTime = Number(snapshot.timelineTime);
+      const visualTime = Number(snapshot.visualTimelineTime);
+      if (Number.isFinite(rawTime) && Number.isFinite(visualTime)) {
+        // Electron can report an output timestamp slightly ahead of the
+        // scheduling clock. Never let that stale projection skip lyric lines.
+        return Math.max(0, Math.min(rawTime, visualTime));
+      }
+      if (Number.isFinite(visualTime)) return Math.max(0, visualTime);
+      return Number.isFinite(rawTime) ? Math.max(0, rawTime) : 0;
     }
 
     return Object.freeze({

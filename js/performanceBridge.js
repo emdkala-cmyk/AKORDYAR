@@ -86,10 +86,27 @@ function getRuntimePlaybackTime(daw) {
     Number.isFinite(daw.playOriginTime) &&
     Number.isFinite(audioNow)
   ) {
-    return Math.max(
+    const rawTime = Math.max(
       0,
       daw.playOriginTime + Math.max(0, audioNow - daw.playOriginAudio)
     );
+    const alignedAudioTime =
+      window.PlayheadMath?.getOutputAlignedAudioTime?.(
+        daw.audioCtx,
+        performance.now(),
+        audioNow
+      );
+    if (Number.isFinite(alignedAudioTime)) {
+      const alignedTime = Math.max(
+        0,
+        daw.playOriginTime +
+          Math.max(0, alignedAudioTime - daw.playOriginAudio)
+      );
+      // A stale Electron output timestamp must never move the highlight
+      // ahead of the scheduling clock during the first frames of playback.
+      return Math.min(rawTime, alignedTime);
+    }
+    return rawTime;
   }
   return Number.isFinite(Number(daw.playhead))
     ? Math.max(0, Number(daw.playhead))

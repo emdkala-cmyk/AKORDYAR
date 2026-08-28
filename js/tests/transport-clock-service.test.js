@@ -45,6 +45,14 @@ assert.equal(running.transportStartAudioTime, 18);
 assert.equal(service.getPlayhead(), 6);
 assert.ok(Math.abs(service.getVisualPlayhead(performanceTime) - 5.6) < 1e-9);
 
+// Regression: an Electron output timestamp must not project the lyric
+// highlight into a later line than the scheduling clock.
+daw.audioCtx.getOutputTimestamp = () => ({
+  contextTime: 25,
+  performanceTime: 900
+});
+assert.equal(service.getVisualPlayhead(performanceTime), 6);
+
 // Regression: a song hot-swap must re-anchor the AudioContext clock together
 // with the new song's A marker. Reusing the old audio origin makes scheduling
 // begin near the previous song's B point.
