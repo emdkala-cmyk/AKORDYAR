@@ -2423,7 +2423,18 @@ if ($('edDoBoth')) {
       'toggleArrangerMarkers': () => toggleArrangerMarkers(),
       'undo': () => getHistoryService().undo(),
       'redo': () => getHistoryService().redo(),
-      'fullscreen': () => { if (!editorGetRuntimeDAW().isPlaying) { ensureAudioCtx(); if (editorGetRuntimeDAW().playhead <= 0) seekTransport(0, false); startTransport(); } editorOpenLyricOnlyPopup(); setTimeout(editorOpenLyricPopup, 300); },
+      'fullscreen': () => {
+        const daw = editorGetRuntimeDAW();
+        editorOpenLyricOnlyPopup();
+        // Player View must be rendered before transport starts; otherwise
+        // its first highlight is already several hundred milliseconds late.
+        editorOpenLyricPopup();
+        if (!daw.isPlaying) {
+          ensureAudioCtx();
+          if (daw.playhead <= 0) seekTransport(0, false);
+          startTransport();
+        }
+      },
       'singerView': editorOpenLyricOnlyPopup,
       'playerView': (typeof openPlayerView === 'function') ? openPlayerView : editorOpenLyricPopup,
       'split': editorSplitSelectedAtPlayhead, 'copy': editorCopySelected, 'cut': editorCutSelected, 'paste': editorPasteClipboard,

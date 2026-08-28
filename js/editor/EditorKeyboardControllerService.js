@@ -61,18 +61,15 @@
 
       const onFullscreen = () => {
         const daw = getDAW() || {};
+        action('openLyricOnlyPopup')();
+        // Build Player View before starting transport. Waiting 300 ms here
+        // made the first popup frame inherit a later playhead position.
+        action('openLyricPopup')();
         if (!daw.isPlaying) {
           action('ensureAudioCtx')();
           if (daw.playhead <= 0) action('seekTransport')(0, false);
           action('startTransport')();
         }
-        action('openLyricOnlyPopup')();
-        const schedule = typeof windowRef.setTimeout === 'function'
-          ? windowRef.setTimeout.bind(windowRef)
-          : typeof globalScope.setTimeout === 'function'
-            ? globalScope.setTimeout.bind(globalScope)
-            : noop;
-        schedule(action('openLyricPopup'), 300);
       };
 
       const onSelectAllClips = () => {

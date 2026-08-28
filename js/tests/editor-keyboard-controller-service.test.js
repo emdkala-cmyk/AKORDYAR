@@ -52,11 +52,11 @@ assert.deepEqual(selected, ['clip-1']);
 
 capturedOptions.transport.onFullscreen();
 assert.deepEqual(calls, [
+  'lyric-only',
+  'lyric',
   'audio',
   'seek',
-  'start',
-  'lyric-only',
-  'lyric'
+  'start'
 ]);
 assert.equal(
   ControllerService.create({ runtimeService: {} }),
