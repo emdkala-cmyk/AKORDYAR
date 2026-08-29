@@ -99,7 +99,11 @@ assert.ok(targetDiv.querySelector('.mirror-ruler'));
 assert.ok(targetDiv.querySelector('.mirror-ruler-inner'));
 assert.ok(targetDiv.querySelector('.mirror-ruler-label'));
 assert.ok(targetDiv.querySelector('.mirror-playhead'));
-assert.ok(targetDiv.querySelector('canvas.lane-grid'));
+assert.ok(targetDiv.querySelector('.mirror-scene'));
+assert.ok(targetDiv.querySelector('.mirror-grid'));
+assert.ok(targetDiv.querySelector('.mirror-chord'));
+assert.equal(targetDiv.querySelector('canvas.lane-grid'), null);
+assert.equal(targetDiv.dataset.mirrorRenderer, 'lightweight-v1');
 assert.equal(popupDom.window.document.body.querySelectorAll('script').length, 1);
 
 daw.isPlaying = true;
@@ -107,8 +111,8 @@ transportPlayhead = 2.01;
 popup._syncMirrorTimeline();
 assert.equal(snapshotOptions.visual, false);
 assert.match(
-  targetDiv.querySelector('.track-lane').style.transform,
-  /translateX\(59.5px\)/
+  targetDiv.querySelector('.mirror-scene').style.transform,
+  /translate3d\(59.3px,0,0\)/
 );
 
 daw.isPlaying = false;

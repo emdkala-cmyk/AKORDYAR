@@ -50,6 +50,13 @@
         : numericTime * fallbackPxPerSecond;
     }
 
+    function formatCssPixel(value) {
+      const numeric = Number(value);
+      return Number.isFinite(numeric)
+        ? String(Number(numeric.toFixed(4)))
+        : '0';
+    }
+
     function getTransportTime(daw) {
       if (!daw?.isPlaying) {
         return Number.isFinite(daw?.playhead) ? Math.max(0, daw.playhead) : 0;
@@ -67,6 +74,71 @@
       }
 
       return Number.isFinite(daw?.playhead) ? Math.max(0, daw.playhead) : 0;
+    }
+
+    function getMirrorClipModels(sourceTimeline, daw, pxPerSecond) {
+      const sourceElements = Array.from(
+        sourceTimeline?.querySelectorAll?.('.chord-clip') || []
+      );
+      const sourceClips = Array.isArray(daw?.clips)
+        ? daw.clips.filter(clip => clip?.type === 'chord')
+        : [];
+      const clipsById = new Map(
+        sourceClips
+          .filter(clip => clip?.id != null)
+          .map(clip => [String(clip.id), clip])
+      );
+
+      const toModel = (sourceElement, clip, index) => {
+        const styles = sourceElement
+          ? windowRef.getComputedStyle?.(sourceElement) || {}
+          : {};
+        const domLeft = Number.parseFloat(styles.left);
+        const domWidth = Number.parseFloat(styles.width);
+        const dataStart = Number(clip?.start);
+        const dataDuration = Number(clip?.duration);
+        const start = Number.isFinite(dataStart)
+          ? Math.max(0, dataStart)
+          : Number.isFinite(domLeft)
+            ? Math.max(0, domLeft / pxPerSecond)
+            : 0;
+        const duration = Number.isFinite(dataDuration)
+          ? Math.max(0.05, dataDuration)
+          : Number.isFinite(domWidth)
+            ? Math.max(0.05, domWidth / pxPerSecond)
+            : 1;
+        const sourceName =
+          sourceElement?.querySelector?.('span')?.textContent ||
+          sourceElement?.textContent ||
+          '';
+        const name = String(clip?.name || sourceName).trim();
+        if (!name) return null;
+
+        return {
+          id: String(clip?.id || sourceElement?.dataset?.clipId || index),
+          name,
+          start,
+          duration,
+          color: clip?.color || styles.borderColor || '#9F7AEA'
+        };
+      };
+
+      if (sourceElements.length > 0) {
+        return sourceElements
+          .map((element, index) =>
+            toModel(
+              element,
+              clipsById.get(String(element.dataset?.clipId)) ||
+                sourceClips[index],
+              index
+            )
+          )
+          .filter(Boolean);
+      }
+
+      return sourceClips
+        .map((clip, index) => toModel(null, clip, index))
+        .filter(Boolean);
     }
 
     function getDevicePixelRatio(doc) {
@@ -366,6 +438,210 @@
       }
     }
 
+    function renderLightweight() {
+      try {
+        if (!popupIsOpen()) return;
+        const doc = popupDocument();
+        const targetDiv = doc?.getElementById?.('playerChordMirror');
+        const sourceTimeline = documentRef?.querySelector?.(
+          '.track-lane.chord-lane'
+        );
+        if (!doc || !targetDiv || !sourceTimeline) return;
+
+        const daw = getDAW() || {};
+        const mirrorWidth = Number(targetDiv.clientWidth) || 0;
+        const mirrorHeight = Math.max(
+          40,
+          Number(targetDiv.clientHeight) || 90
+        );
+        const rulerHeight = 18;
+        const sceneHeight = Math.max(1, mirrorHeight - rulerHeight);
+        const pxPerSecond = Math.max(
+          1,
+          Number(daw.pxPerSecond) || 70
+        );
+        const length = Math.max(0, Number(getProjectEnd()) || 0);
+        const song = getSong() || {};
+        const bpm = Number(song.tempo) || 120;
+        const signature = String(song.timeSignature || '4/4');
+        const grid = getTimeSignatureGridConfig(signature, bpm) || {};
+        const beatsPerBar = Math.max(
+          1,
+          Number(grid.beatsPerMeasure) || 4
+        );
+        const beatDuration = Math.max(
+          0.001,
+          Number(grid.beatDuration) || 0.5
+        );
+        const barDuration = Math.max(
+          beatDuration,
+          Number(grid.measureDuration) || beatsPerBar * beatDuration
+        );
+        const sceneWidth = Math.max(
+          1,
+          mirrorWidth * 2,
+          Number(sourceTimeline.scrollWidth) || 0,
+          Math.ceil(timeToPixels(length, pxPerSecond))
+        );
+        const clips = getMirrorClipModels(
+          sourceTimeline,
+          daw,
+          pxPerSecond
+        );
+
+        targetDiv.innerHTML = '';
+        targetDiv.style.direction = 'ltr';
+        targetDiv.style.position = 'relative';
+        targetDiv.style.overflow = 'hidden';
+        targetDiv.style.backgroundColor = '#0D1017';
+        targetDiv.style.contain = 'layout paint';
+        targetDiv.dataset.mirrorPps = String(pxPerSecond);
+        targetDiv.dataset.mirrorTiming = getTimingKey();
+        targetDiv.dataset.mirrorGeometry =
+          String(mirrorWidth) + ':' + String(Number(targetDiv.clientHeight) || 0);
+        targetDiv.dataset.mirrorRenderer = 'lightweight-v1';
+
+        const ruler = doc.createElement('div');
+        ruler.className = 'mirror-ruler';
+        ruler.style.cssText =
+          'position:absolute;top:0;left:0;height:' + rulerHeight +
+          'px;width:100%;overflow:hidden;z-index:5;pointer-events:none;' +
+          'background:rgba(13,16,23,0.95);border-bottom:1px solid rgba(255,255,255,0.1);';
+
+        const rulerInner = doc.createElement('div');
+        rulerInner.className = 'mirror-ruler-inner';
+        rulerInner.style.cssText =
+          'position:absolute;top:0;left:0;height:100%;width:' +
+          sceneWidth +
+          'px;white-space:nowrap;font-size:8px;color:rgba(255,255,255,0.5);' +
+          "font-family:'JetBrains Mono',monospace;line-height:" +
+          rulerHeight +
+          'px;will-change:transform;backface-visibility:hidden;contain:layout paint;';
+        ruler.appendChild(rulerInner);
+
+        const scene = doc.createElement('div');
+        scene.className = 'mirror-scene';
+        scene.style.cssText =
+          'position:absolute;top:' + rulerHeight +
+          'px;left:0;width:' + sceneWidth +
+          'px;height:' + sceneHeight +
+          'px;overflow:hidden;will-change:transform;backface-visibility:hidden;' +
+          'transform:translate3d(0,0,0);contain:layout paint;';
+
+        const gridLayer = doc.createElement('div');
+        gridLayer.className = 'mirror-grid';
+        gridLayer.style.cssText =
+          'position:absolute;top:0;left:0;width:' + sceneWidth +
+          'px;height:100%;pointer-events:none;contain:strict;';
+
+        const clipsLayer = doc.createElement('div');
+        clipsLayer.className = 'mirror-clips';
+        clipsLayer.style.cssText =
+          'position:absolute;top:0;left:0;width:' + sceneWidth +
+          'px;height:100%;pointer-events:none;';
+
+        const appendGridLine = (className, time, color) => {
+          const line = doc.createElement('div');
+          line.className = className;
+          line.style.cssText =
+            'position:absolute;top:0;bottom:0;width:1px;left:' +
+            formatCssPixel(timeToPixels(time, pxPerSecond)) +
+            'px;background:' + color + ';pointer-events:none;';
+          gridLayer.appendChild(line);
+        };
+
+        const pxPerBar = barDuration * pxPerSecond;
+        const barStep =
+          pxPerBar > 120 ? 1 :
+          pxPerBar > 60 ? 2 :
+          pxPerBar > 30 ? 4 :
+          pxPerBar > 15 ? 8 :
+          pxPerBar > 8 ? 16 : 32;
+        const barCount = Math.min(
+          500,
+          Math.floor(length / barDuration + 1e-9) + 1
+        );
+
+        for (let bar = 0; bar < barCount; bar += 1) {
+          const barTime = bar * barDuration;
+          appendGridLine(
+            'mirror-bar-line',
+            barTime,
+            'rgba(255,255,255,0.13)'
+          );
+          if (bar % barStep === 0) {
+            const label = doc.createElement('span');
+            label.className = 'mirror-ruler-label';
+            label.style.cssText =
+              'position:absolute;left:' +
+              formatCssPixel(timeToPixels(barTime, pxPerSecond)) +
+              'px;top:0;padding-left:3px;color:rgba(255,255,255,0.55);' +
+              "font:8px/18px 'JetBrains Mono',monospace;";
+            label.textContent = String(bar + 1);
+            rulerInner.appendChild(label);
+          }
+
+          for (let beat = 1; beat < beatsPerBar; beat += 1) {
+            const beatTime = barTime + beat * beatDuration;
+            if (beatTime > length + 1e-9) break;
+            appendGridLine(
+              'mirror-beat-line',
+              beatTime,
+              'rgba(255,255,255,0.045)'
+            );
+          }
+        }
+
+        const clipHeight = Math.max(28, sceneHeight - 12);
+        const clipTop = Math.max(6, (sceneHeight - clipHeight) / 2);
+        clips.forEach(clip => {
+          const clipElement = doc.createElement('div');
+          const color = /^#[0-9a-f]{6}$/i.test(clip.color)
+            ? clip.color
+            : '#9F7AEA';
+          clipElement.className = 'mirror-chord';
+          clipElement.dataset.clipId = clip.id;
+          clipElement.style.cssText =
+            'position:absolute;left:' +
+            formatCssPixel(timeToPixels(clip.start, pxPerSecond)) +
+            'px;top:' + clipTop +
+            'px;width:' +
+            formatCssPixel(
+              Math.max(30, timeToPixels(clip.duration, pxPerSecond))
+            ) +
+            'px;height:' + clipHeight +
+            'px;display:flex;align-items:center;justify-content:center;' +
+            'box-sizing:border-box;padding:0 9px;overflow:hidden;' +
+            'white-space:nowrap;text-overflow:ellipsis;pointer-events:none;' +
+            'border:1px solid ' + color + ';border-radius:7px;color:#fff;' +
+            'background:linear-gradient(180deg,' + color + 'cc,' +
+            color + '66);font:800 18px/1 "JetBrains Mono",monospace;' +
+            'text-rendering:geometricPrecision;contain:layout paint;';
+          clipElement.textContent = clip.name;
+          clipsLayer.appendChild(clipElement);
+        });
+
+        scene.appendChild(gridLayer);
+        scene.appendChild(clipsLayer);
+
+        const playhead = doc.createElement('div');
+        playhead.className = 'mirror-playhead';
+        playhead.style.cssText =
+          'position:absolute;top:' + rulerHeight +
+          'px;bottom:0;left:50%;width:2px;transform:translateX(-1px);' +
+          'background:#00F2FE;z-index:100;box-shadow:0 0 10px rgba(0,242,254,0.8);' +
+          'pointer-events:none;';
+
+        targetDiv.appendChild(ruler);
+        targetDiv.appendChild(scene);
+        targetDiv.appendChild(playhead);
+        targetDiv.scrollLeft = 0;
+        start();
+      } catch (error) {
+        logger?.error?.('Lightweight mirror error:', error);
+      }
+    }
+
     function syncFrame() {
       try {
         if (!popupIsOpen()) return;
@@ -378,30 +654,32 @@
         const pxPerSecond = Math.max(1, Number(daw.pxPerSecond) || 70);
         if (
           targetDiv.dataset.mirrorPps !== String(pxPerSecond) ||
-          targetDiv.dataset.mirrorTiming !== getTimingKey()
+          targetDiv.dataset.mirrorTiming !== getTimingKey() ||
+          targetDiv.dataset.mirrorRenderer !== 'lightweight-v1' ||
+          targetDiv.dataset.mirrorGeometry !==
+            String(Number(targetDiv.clientWidth) || 0) +
+              ':' +
+              String(Number(targetDiv.clientHeight) || 0)
         ) {
-          render();
+          renderLightweight();
           return;
         }
 
-        const playhead = targetDiv.querySelector('.mirror-playhead');
-        const clone = targetDiv.querySelector('.track-lane, [class*="chord"]');
-        if (!playhead || !clone) return;
+        const scene = targetDiv.querySelector('.mirror-scene');
+        if (!scene) return;
 
         const rawOffset =
           targetDiv.clientWidth / 2 -
           timeToPixels(Math.max(0, time), pxPerSecond);
-        const offset = snapToDevicePixel(
-          rawOffset,
-          getDevicePixelRatio(doc)
-        );
-        const cloneTransform = 'translateX(' + offset + 'px)';
-        if (clone.style.transform !== cloneTransform) {
-          clone.style.transform = cloneTransform;
+        const sceneTransform =
+          'translate3d(' + formatCssPixel(rawOffset) + 'px,0,0)';
+        if (scene.style.transform !== sceneTransform) {
+          scene.style.transform = sceneTransform;
         }
         const rulerInner = targetDiv.querySelector('.mirror-ruler-inner');
         if (rulerInner) {
-          const rulerTransform = 'translateX(' + offset + 'px)';
+          const rulerTransform =
+            'translate3d(' + formatCssPixel(rawOffset) + 'px,0,0)';
           if (rulerInner.style.transform !== rulerTransform) {
             rulerInner.style.transform = rulerTransform;
           }
@@ -420,7 +698,7 @@
     }
 
     return Object.freeze({
-      render,
+      render: renderLightweight,
       start,
       syncFrame,
       installMirrorSyncLoop
