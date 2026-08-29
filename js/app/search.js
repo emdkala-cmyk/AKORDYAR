@@ -5,6 +5,31 @@ const quickSearchArchiveCall = (name, ...args) => {
   return typeof fn === 'function' ? fn(...args) : undefined;
 };
 
+function normalizeQuickSearchSignature(value) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/[()[\]]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function getQuickSearchSignatureValues(value) {
+  const normalized = normalizeQuickSearchSignature(value);
+  if (!/^\d+\s*\/\s*\d+(?:\s+.+)?$/.test(normalized)) return [];
+  const numericParts = normalized.match(/\d+\s*\/\s*\d+/g) || [];
+  return [...new Set([
+    normalized,
+    numericParts.join(' ')
+  ].filter(Boolean))];
+}
+
+function matchesQuickSearchSignature(song, query) {
+  const queryValues = getQuickSearchSignatureValues(query);
+  if (!queryValues.length) return null;
+  const songValues = getQuickSearchSignatureValues(song?.timeSignature);
+  return queryValues.some(value => songValues.includes(value));
+}
+
 let _quickSearchDragging = false;
 let _quickSearchDragOffset = { x: 0, y: 0 };
 let _quickSearchPointerId = null;
@@ -129,22 +154,26 @@ function quickSearchFilter() {
   const filtered = songs.filter(s => {
     // Text search
     if (query) {
-      const title = (s.title || '').toLowerCase();
-      const artist = (s.artist || '').toLowerCase();
-      const rawText = (s.rawText || '').toLowerCase();
-      const timeSignature = String(s.timeSignature || '').toLowerCase();
-      const signatureParts = timeSignature.match(/\d+\s*\/\s*\d+/g) || [];
-      const signatureSearch = [
-        timeSignature,
-        ...signatureParts,
-        signatureParts.join(' ')
-      ].join(' ');
-      if (
-        !title.includes(query) &&
-        !artist.includes(query) &&
-        !rawText.includes(query) &&
-        !signatureSearch.includes(query)
-      ) return false;
+      const signatureQueryMatch = matchesQuickSearchSignature(s, query);
+      if (signatureQueryMatch === false) return false;
+      if (signatureQueryMatch !== true) {
+        const title = (s.title || '').toLowerCase();
+        const artist = (s.artist || '').toLowerCase();
+        const rawText = (s.rawText || '').toLowerCase();
+        const timeSignature = String(s.timeSignature || '').toLowerCase();
+        const signatureParts = timeSignature.match(/\d+\s*\/\s*\d+/g) || [];
+        const signatureSearch = [
+          timeSignature,
+          ...signatureParts,
+          signatureParts.join(' ')
+        ].join(' ');
+        if (
+          !title.includes(query) &&
+          !artist.includes(query) &&
+          !rawText.includes(query) &&
+          !signatureSearch.includes(query)
+        ) return false;
+      }
     }
     // Signature filter
     if (sig && s.timeSignature !== sig) return false;

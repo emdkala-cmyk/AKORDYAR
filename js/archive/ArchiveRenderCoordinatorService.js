@@ -24,6 +24,30 @@
       renderEmpty = () => {}
     } = context;
 
+    function normalizeSignature(value) {
+      return normalizeText(String(value ?? ''))
+        .replace(/[()[\]]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
+
+    function getSignatureSearchValues(value) {
+      const normalized = normalizeSignature(value);
+      if (!/^\d+\s*\/\s*\d+(?:\s+.+)?$/.test(normalized)) return [];
+      const numericParts = normalized.match(/\d+\s*\/\s*\d+/g) || [];
+      return [...new Set([
+        normalized,
+        numericParts.join(' ')
+      ].filter(Boolean))];
+    }
+
+    function matchesSignatureQuery(song, query) {
+      const queryValues = getSignatureSearchValues(query);
+      if (!queryValues.length) return null;
+      const songValues = getSignatureSearchValues(song?.timeSignature);
+      return queryValues.some(value => songValues.includes(value));
+    }
+
     function filterByTab(songs, currentTab) {
       if (currentTab === 'fav') return songs.filter(song => !song.deletedAt && song.favorite);
       if (currentTab === 'trash') return songs.filter(song => song.deletedAt);
@@ -39,7 +63,13 @@
         keyFilter,
         tempoRange
       } = filters;
-      if (query && !extractSearchText(song).includes(query)) return false;
+      const signatureQueryMatch = matchesSignatureQuery(song, query);
+      if (signatureQueryMatch === false) return false;
+      if (
+        signatureQueryMatch === null &&
+        query &&
+        !extractSearchText(song).includes(query)
+      ) return false;
       if (artistFilter) {
         const rawArtist = song.artist || song.artistName || song.singer || '';
         const matched = matchDefaultArtist(rawArtist);

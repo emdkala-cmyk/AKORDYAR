@@ -72,7 +72,7 @@ const service = ArchiveRenderCoordinatorService.create({
   getAllSongs: () => songs,
   normalizeText: value => String(value ?? '').trim().toLowerCase(),
   extractSearchText: song =>
-    `${song.title} ${song.artist}`.trim().toLowerCase(),
+    `${song.title} ${song.artist} ${song.timeSignature || ''}`.trim().toLowerCase(),
   getCurrentTab: () => currentTab,
   getArtistFilter: () => artistFilter,
   matchDefaultArtist: artist => (
@@ -118,5 +118,44 @@ elements.get('archiveSearch').value = 'بدون نتیجه';
 service.render();
 assert.equal(emptyRenders.at(-1).options.query, 'بدون نتیجه');
 assert.equal(emptyRenders.at(-1).options.isTrash, false);
+
+const feelSignature = `2/4 (\u062d\u0633 6/8)`;
+artistFilter = null;
+elements.get('filterTempo').value = '';
+elements.get('filterKey').value = '';
+songs.push(
+  {
+    id: 'song-4',
+    title: '2/4 normal',
+    artist: 'Ø®ÙˆØ§Ù†Ù†Ø¯Ù‡ Ø§ÙˆÙ„',
+    favorite: false,
+    createdAt: '2026-08-04',
+    tempo: 100,
+    key: 'C',
+    keyMode: 'maj',
+    timeSignature: '2/4',
+    genre: 'Ù¾Ø§Ù¾'
+  },
+  {
+    id: 'song-5',
+    title: '2/4 feel 6/8',
+    artist: 'Ø®ÙˆØ§Ù†Ù†Ø¯Ù‡ Ø§ÙˆÙ„',
+    favorite: false,
+    createdAt: '2026-08-05',
+    tempo: 100,
+    key: 'C',
+    keyMode: 'maj',
+    timeSignature: feelSignature,
+    genre: 'Ù¾Ø§Ù¾'
+  }
+);
+
+elements.get('archiveSearch').value = '2/4';
+service.render();
+assert.deepEqual(renders.at(-1).ids, ['song-4']);
+
+elements.get('archiveSearch').value = feelSignature;
+service.render();
+assert.deepEqual(renders.at(-1).ids, ['song-5']);
 
 console.log('ArchiveRenderCoordinatorService tests passed');
