@@ -169,8 +169,38 @@
       script.textContent =
         '(function(){if(window.__akordMirrorLoopStarted)return;' +
         'window.__akordMirrorLoopStarted=true;' +
-        'function frame(){try{window._syncMirrorTimeline?.()}catch(_){}' +
-        'if(!window.closed)window.requestAnimationFrame(frame)}frame()})();';
+        'let nextSyncAt=0;' +
+        'let host=null,scene=null,ruler=null;' +
+        'function refreshNodes(){' +
+        'host=document.getElementById("playerChordMirror");' +
+        'scene=host?.querySelector(".mirror-scene")||null;' +
+        'ruler=host?.querySelector(".mirror-ruler-inner")||null;' +
+        '}' +
+        'function paint(now){' +
+        'const state=window.__akordMirrorState;' +
+        'if(!state)return;' +
+        'if(!host||!host.isConnected||!scene||!scene.isConnected||' +
+        '(ruler&& !ruler.isConnected))refreshNodes();' +
+        'if(!scene)return;' +
+        'const elapsed=state.isPlaying?Math.max(0,(now-state.receivedAt)/1000):0;' +
+        'const time=Math.max(0,Math.min(Number(state.duration)||Infinity,' +
+        '((Number(state.time)||0)+elapsed)));' +
+        'const width=Number(state.width)||Number(host.clientWidth)||0;' +
+        'const pps=Math.max(1,Number(state.pxPerSecond)||70);' +
+        'const offset=width/2-time*pps;' +
+        'const transform="translate3d("+String(Math.round(offset*10000)/10000)+"px,0,0)";' +
+        'if(scene.style.transform!==transform)scene.style.transform=transform;' +
+        'if(ruler&&ruler.style.transform!==transform)ruler.style.transform=transform;' +
+        '}' +
+        'function frame(now){' +
+        'if(now>=nextSyncAt){' +
+        'try{window._syncMirrorTimeline?.()}catch(_){}' +
+        'nextSyncAt=now+100;' +
+        '}' +
+        'paint(now);' +
+        'if(!window.closed)window.requestAnimationFrame(frame)' +
+        '}' +
+        'refreshNodes();window.requestAnimationFrame(frame)})();';
       doc.body.appendChild(script);
     }
 
@@ -667,6 +697,25 @@
 
         const scene = targetDiv.querySelector('.mirror-scene');
         if (!scene) return;
+
+        const popup = getPopup();
+        const popupNow = Number(
+          doc.defaultView?.performance?.now?.()
+        );
+        const receivedAt = Number.isFinite(popupNow)
+          ? popupNow
+          : Number(globalScope.performance?.now?.()) || Date.now();
+        const mirrorState = {
+          time: Math.max(0, Number(time) || 0),
+          isPlaying: Boolean(daw.isPlaying),
+          receivedAt,
+          duration: Math.max(0, Number(getProjectEnd()) || 0),
+          pxPerSecond,
+          width: Number(targetDiv.clientWidth) || 0
+        };
+        try {
+          if (popup) popup.__akordMirrorState = mirrorState;
+        } catch (_) {}
 
         const rawOffset =
           targetDiv.clientWidth / 2 -
