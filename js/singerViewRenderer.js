@@ -7,6 +7,7 @@
  */
 const SingerViewRenderer = (() => {
 
+  const AUTO_SCROLL_FOCUS_RATIO = 0.36;
   let _lastScrolledLineId = null;
 
   /**
@@ -106,8 +107,9 @@ const SingerViewRenderer = (() => {
         const boxH = container.clientHeight;
         const elTop = activeEl.offsetTop;
         const elH = activeEl.offsetHeight;
+        if (!boxH) return;
         container.scrollTo({
-          top:      elTop - boxH / 2 + elH / 2,
+          top:      elTop - boxH * AUTO_SCROLL_FOCUS_RATIO + elH / 2,
           behavior: 'smooth'
         });
       }

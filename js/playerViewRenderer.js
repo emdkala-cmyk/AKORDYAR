@@ -11,6 +11,7 @@ const PlayerViewRenderer = (() => {
     top: 0.35,
     bottom: 0.65
   });
+  const AUTO_SCROLL_FOCUS_RATIO = 0.36;
   const AUTO_SCROLL_DURATION_MS = 1200;
   const HIGHLIGHT_STYLE_ID = 'pv-highlight-effect-styles';
   let _lastScrolledLineId = null;
@@ -82,7 +83,8 @@ const PlayerViewRenderer = (() => {
 
     const scrollTop = Number(container.scrollTop) || 0;
     const targetTop =
-      elementTop - containerHeight / 2 + elementHeight / 2;
+      elementTop - containerHeight * AUTO_SCROLL_FOCUS_RATIO +
+      elementHeight / 2;
     const scrollHeight = Number(container.scrollHeight);
     const maxScrollTop =
       Number.isFinite(scrollHeight) && scrollHeight > containerHeight

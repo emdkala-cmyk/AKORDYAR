@@ -8,7 +8,8 @@
 
   // Match the Player View's visual lead so both performance windows land on
   // the cue while the soft highlight transition is still settling.
-  const HIGHLIGHT_LEAD_SECONDS = 0.18;
+  const HIGHLIGHT_LEAD_SECONDS = 0.22;
+  const AUTO_SCROLL_FOCUS_RATIO = 0.36;
 
   function create({
     getPopup = () => null,
@@ -96,10 +97,24 @@
       );
       if (!bodyHeight || !Number.isFinite(elementTop)) return;
       lastScrolledIndex = activeIndex;
+      const scrollHeight = Number(body.scrollHeight);
+      const maxScrollTop =
+        Number.isFinite(scrollHeight) && scrollHeight > bodyHeight
+          ? Math.max(0, scrollHeight - bodyHeight)
+          : Number.POSITIVE_INFINITY;
+      const targetTop = Math.max(
+        0,
+        Math.min(
+          maxScrollTop,
+          Math.round(
+            elementTop -
+              bodyHeight * AUTO_SCROLL_FOCUS_RATIO +
+              elementHeight / 2
+          )
+        )
+      );
       body.scrollTo({
-        top: elementTop -
-          bodyHeight / 2 +
-          elementHeight / 2,
+        top: targetTop,
         behavior: 'smooth'
       });
     }

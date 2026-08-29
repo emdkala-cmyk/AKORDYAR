@@ -37,9 +37,11 @@
     bottom: 0.65
   });
   const AUTO_SCROLL_DURATION_MS = 1200;
+  const AUTO_SCROLL_FOCUS_RATIO = 0.36;
+  const AUTO_SCROLL_FIRST_PHASE_RATIO = 0.55;
   // Start the visual emphasis slightly before the cue so the 1.2s CSS
   // transition reaches the beat without changing the stored sync point.
-  const HIGHLIGHT_LEAD_SECONDS = 0.18;
+  const HIGHLIGHT_LEAD_SECONDS = 0.22;
 
   function create({
     storage = globalScope.localStorage,
@@ -115,54 +117,90 @@
       const elementHeight = Math.max(1, Number(active?.offsetHeight) || 0);
       if (!bodyHeight || !Number.isFinite(elementTop)) return null;
 
-      const targetTop =
+      const centeredTop =
         elementTop - bodyHeight / 2 + elementHeight / 2;
+      const focusedTop =
+        elementTop - bodyHeight * AUTO_SCROLL_FOCUS_RATIO +
+        elementHeight / 2;
       const scrollHeight = Number(body.scrollHeight);
       const maxScrollTop =
         Number.isFinite(scrollHeight) && scrollHeight > bodyHeight
           ? Math.max(0, scrollHeight - bodyHeight)
           : Number.POSITIVE_INFINITY;
 
-      return Math.max(
-        0,
-        Math.min(maxScrollTop, Math.round(targetTop))
-      );
+      const clamp = value =>
+        Math.max(0, Math.min(maxScrollTop, Math.round(value)));
+      return {
+        primaryTop: clamp(centeredTop),
+        finalTop: clamp(focusedTop)
+      };
     }
 
-    function animateScroll(body, targetTop) {
+    function animateScroll(body, scrollPlan) {
       cancelScrollAnimation();
       const currentTop = Number(body.scrollTop) || 0;
-      if (Math.abs(currentTop - targetTop) < 1) {
-        body.scrollTop = targetTop;
-        return;
-      }
-
-      // Player View lives in a separate window. Keep the transition under
-      // our control when rAF is available and use the browser's smooth
-      // scrolling as a safe fallback for lightweight hosts.
-      if (typeof requestAnimationFrameRef !== 'function') {
-        setScrollPosition(body, targetTop, 'smooth');
+      const primaryTop = Number(scrollPlan?.primaryTop);
+      const finalTop = Number(scrollPlan?.finalTop);
+      if (!Number.isFinite(primaryTop) || !Number.isFinite(finalTop)) return;
+      if (Math.abs(currentTop - finalTop) < 1) {
+        body.scrollTop = finalTop;
         return;
       }
 
       const token = ++scrollAnimationToken;
+      // Player View lives in a separate window. Keep the transition under
+      // our control when rAF is available and use two native smooth passes
+      // as a safe fallback for lightweight hosts.
+      if (typeof requestAnimationFrameRef !== 'function') {
+        if (Math.abs(currentTop - primaryTop) > 1) {
+          setScrollPosition(body, primaryTop, 'smooth');
+        }
+        if (Math.abs(finalTop - primaryTop) > 1) {
+          schedule?.(() => {
+            if (token !== scrollAnimationToken) return;
+            setScrollPosition(body, finalTop, 'smooth');
+          }, AUTO_SCROLL_DURATION_MS * AUTO_SCROLL_FIRST_PHASE_RATIO);
+        }
+        return;
+      }
+
       const startedAt = nowRef();
+      const totalDuration = AUTO_SCROLL_DURATION_MS;
+      const firstPhaseDuration =
+        Math.abs(primaryTop - currentTop) > 1 &&
+        Math.abs(finalTop - primaryTop) > 1
+          ? totalDuration * AUTO_SCROLL_FIRST_PHASE_RATIO
+          : 0;
+      const ease = progress =>
+        progress < 0.5
+          ? 4 * progress * progress * progress
+          : 1 - Math.pow(-2 * progress + 2, 3) / 2;
       const step = timestamp => {
         if (token !== scrollAnimationToken) return;
         const currentTime = Number.isFinite(Number(timestamp))
           ? Number(timestamp)
           : nowRef();
-        const progress = Math.min(
-          1,
-          Math.max(0, (currentTime - startedAt) / AUTO_SCROLL_DURATION_MS)
+        const elapsed = Math.max(0, currentTime - startedAt);
+        const progress = Math.min(1, elapsed / totalDuration);
+        let from = currentTop;
+        let to = finalTop;
+        let phaseProgress = progress;
+        if (firstPhaseDuration > 0 && elapsed < firstPhaseDuration) {
+          from = currentTop;
+          to = primaryTop;
+          phaseProgress = elapsed / firstPhaseDuration;
+        } else if (firstPhaseDuration > 0) {
+          from = primaryTop;
+          to = finalTop;
+          phaseProgress =
+            (elapsed - firstPhaseDuration) /
+            (totalDuration - firstPhaseDuration);
+        }
+        body.scrollTop = from + (to - from) * ease(
+          Math.min(1, Math.max(0, phaseProgress))
         );
-        const eased =
-          progress < 0.5
-            ? 4 * progress * progress * progress
-            : 1 - Math.pow(-2 * progress + 2, 3) / 2;
-        body.scrollTop = currentTop + (targetTop - currentTop) * eased;
         if (progress >= 1) {
-          body.scrollTop = targetTop;
+          body.scrollTop = finalTop;
           scrollAnimationFrame = null;
           return;
         }
@@ -364,15 +402,15 @@
       if (activeIndex === lastScrolledIndex) return;
       const active = body.querySelector?.('[data-li="' + activeIndex + '"]');
       if (!active) return;
-      const targetTop = getScrollTarget(body, active);
-      if (targetTop === null) {
+      const scrollPlan = getScrollTarget(body, active);
+      if (scrollPlan === null) {
         cancelScrollAnimation();
         return;
       }
       // Electron may expose the popup DOM before its first layout pass.
       // Only mark the line as handled after its position is measurable.
       lastScrolledIndex = activeIndex;
-      animateScroll(body, targetTop);
+      animateScroll(body, scrollPlan);
     }
 
     function initialize() {
