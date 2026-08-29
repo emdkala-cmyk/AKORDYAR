@@ -48,15 +48,19 @@
     function getDisplayPlayheadTime(performanceTime = performance.now()) {
       const daw = getDAW();
       if (!daw.isPlaying) return Number.isFinite(daw.playhead) ? daw.playhead : 0;
+      // The editor timeline grid and metronome are both anchored to the raw
+      // AudioContext transport clock. Electron's output timestamp is a
+      // presentation projection intended for popup highlights; using it for
+      // this playhead introduces a small phase offset against the grid.
       const snapshot = getTransportClockSnapshot({
-        visual: true,
+        visual: false,
         performanceTime
       });
       return Math.max(
         0,
-        Number.isFinite(snapshot.visualTimelineTime)
-          ? snapshot.visualTimelineTime
-          : snapshot.timelineTime
+        Number.isFinite(snapshot.timelineTime)
+          ? snapshot.timelineTime
+          : snapshot.visualTimelineTime
       );
     }
 
