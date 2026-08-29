@@ -161,7 +161,7 @@ assert.deepEqual(body.lastScroll, {
 body.lastScroll = null;
 body.scrollTop = 0;
 isPlaying = true;
-playhead = 0.95;
+playhead = 0.85;
 runtime.syncHighlight();
 assert.deepEqual(toggles.slice(-4), [
   ['active', false],

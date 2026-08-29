@@ -138,7 +138,7 @@ highlightSetter[2]();
 assert.equal(singerBody.children[1].classList.contains('lop-active'), true);
 
 daw.isPlaying = true;
-daw.playhead = 0.95;
+daw.playhead = 0.85;
 highlightSetter[2]();
 assert.equal(
   singerBody.children[0].classList.contains('lop-active'),

@@ -39,7 +39,7 @@
   const AUTO_SCROLL_DURATION_MS = 1200;
   // Start the visual emphasis slightly before the cue so the 1.2s CSS
   // transition reaches the beat without changing the stored sync point.
-  const HIGHLIGHT_LEAD_SECONDS = 0.12;
+  const HIGHLIGHT_LEAD_SECONDS = 0.18;
 
   function create({
     storage = globalScope.localStorage,

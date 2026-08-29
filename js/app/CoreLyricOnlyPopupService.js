@@ -8,7 +8,7 @@
 
   // Match the Player View's visual lead so both performance windows land on
   // the cue while the soft highlight transition is still settling.
-  const HIGHLIGHT_LEAD_SECONDS = 0.12;
+  const HIGHLIGHT_LEAD_SECONDS = 0.18;
 
   function create({
     getPopup = () => null,
