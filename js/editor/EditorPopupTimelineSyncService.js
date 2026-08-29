@@ -163,21 +163,50 @@
         : value;
     }
 
+    let mirrorSyncTimer = null;
+    let mirrorSyncPopup = null;
+
+    function stopMirrorSyncTimer() {
+      if (mirrorSyncTimer !== null) {
+        globalScope.clearInterval?.(mirrorSyncTimer);
+      }
+      mirrorSyncTimer = null;
+      mirrorSyncPopup = null;
+    }
+
     function installMirrorSyncLoop(doc) {
       if (!doc?.body) return;
       const script = doc.createElement('script');
       script.textContent =
         '(function(){if(window.__akordMirrorLoopStarted)return;' +
         'window.__akordMirrorLoopStarted=true;' +
-        'let nextSyncAt=0;' +
+        'let state=null;' +
         'let host=null,scene=null,ruler=null;' +
         'function refreshNodes(){' +
         'host=document.getElementById("playerChordMirror");' +
         'scene=host?.querySelector(".mirror-scene")||null;' +
         'ruler=host?.querySelector(".mirror-ruler-inner")||null;' +
         '}' +
+        'window.addEventListener("message",function(event){' +
+        'const data=event?.data;' +
+        'if(!data||data.type!=="akord-mirror-sync")return;' +
+        'const now=performance.now();' +
+        'const incomingTime=Math.max(0,Number(data.time)||0);' +
+        'const previousTime=state&&state.isPlaying' +
+        '?Math.max(0,(Number(state.time)||0)+' +
+        'Math.max(0,(now-state.receivedAt)/1000)):incomingTime;' +
+        'const discontinuity=!state||!state.isPlaying||!data.isPlaying||' +
+        'Math.abs(incomingTime-previousTime)>0.75;' +
+        'state={' +
+        'time:discontinuity?incomingTime:Math.max(incomingTime,previousTime),' +
+        'isPlaying:Boolean(data.isPlaying),' +
+        'receivedAt:now,' +
+        'duration:Number(data.duration)||0,' +
+        'pxPerSecond:Number(data.pxPerSecond)||70,' +
+        'width:Number(data.width)||0' +
+        '};' +
+        '});' +
         'function paint(now){' +
-        'const state=window.__akordMirrorState;' +
         'if(!state)return;' +
         'if(!host||!host.isConnected||!scene||!scene.isConnected||' +
         '(ruler&& !ruler.isConnected))refreshNodes();' +
@@ -193,10 +222,6 @@
         'if(ruler&&ruler.style.transform!==transform)ruler.style.transform=transform;' +
         '}' +
         'function frame(now){' +
-        'if(now>=nextSyncAt){' +
-        'try{window._syncMirrorTimeline?.()}catch(_){}' +
-        'nextSyncAt=now+100;' +
-        '}' +
         'paint(now);' +
         'if(!window.closed)window.requestAnimationFrame(frame)' +
         '}' +
@@ -674,7 +699,10 @@
 
     function syncFrame() {
       try {
-        if (!popupIsOpen()) return;
+        if (!popupIsOpen()) {
+          stopMirrorSyncTimer();
+          return;
+        }
         const doc = popupDocument();
         const targetDiv = doc?.getElementById?.('playerChordMirror');
         if (!targetDiv) return;
@@ -695,54 +723,75 @@
           return;
         }
 
-        const scene = targetDiv.querySelector('.mirror-scene');
-        if (!scene) return;
-
         const popup = getPopup();
-        const popupNow = Number(
-          doc.defaultView?.performance?.now?.()
-        );
-        const receivedAt = Number.isFinite(popupNow)
-          ? popupNow
-          : Number(globalScope.performance?.now?.()) || Date.now();
         const mirrorState = {
           time: Math.max(0, Number(time) || 0),
           isPlaying: Boolean(daw.isPlaying),
-          receivedAt,
           duration: Math.max(0, Number(getProjectEnd()) || 0),
           pxPerSecond,
           width: Number(targetDiv.clientWidth) || 0
         };
-        try {
-          if (popup) popup.__akordMirrorState = mirrorState;
-        } catch (_) {}
 
-        const rawOffset =
-          targetDiv.clientWidth / 2 -
-          timeToPixels(Math.max(0, time), pxPerSecond);
-        const sceneTransform =
-          'translate3d(' + formatCssPixel(rawOffset) + 'px,0,0)';
-        if (scene.style.transform !== sceneTransform) {
-          scene.style.transform = sceneTransform;
-        }
-        const rulerInner = targetDiv.querySelector('.mirror-ruler-inner');
-        if (rulerInner) {
-          const rulerTransform =
+        const sent = Boolean(
+          bridge?.postMessage?.(
+            popup,
+            Object.assign({ type: 'akord-mirror-sync' }, mirrorState),
+            '*'
+          )
+        );
+        if (!sent) {
+          const scene = targetDiv.querySelector('.mirror-scene');
+          if (!scene) return;
+          const rawOffset =
+            targetDiv.clientWidth / 2 -
+            timeToPixels(Math.max(0, time), pxPerSecond);
+          const sceneTransform =
             'translate3d(' + formatCssPixel(rawOffset) + 'px,0,0)';
-          if (rulerInner.style.transform !== rulerTransform) {
-            rulerInner.style.transform = rulerTransform;
+          if (scene.style.transform !== sceneTransform) {
+            scene.style.transform = sceneTransform;
+          }
+          const rulerInner = targetDiv.querySelector('.mirror-ruler-inner');
+          if (rulerInner) {
+            const rulerTransform =
+              'translate3d(' + formatCssPixel(rawOffset) + 'px,0,0)';
+            if (rulerInner.style.transform !== rulerTransform) {
+              rulerInner.style.transform = rulerTransform;
+            }
           }
         }
       } catch (_) {}
+    }
+
+    function startMirrorSyncTimer(popup) {
+      if (
+        typeof globalScope.setInterval !== 'function' ||
+        typeof bridge?.postMessage !== 'function' ||
+        typeof popup?.postMessage !== 'function'
+      ) {
+        return;
+      }
+      if (mirrorSyncTimer !== null && mirrorSyncPopup === popup) return;
+      stopMirrorSyncTimer();
+      mirrorSyncPopup = popup;
+      mirrorSyncTimer = globalScope.setInterval(() => {
+        if (!popupIsOpen() || getPopup() !== popup) {
+          stopMirrorSyncTimer();
+          return;
+        }
+        syncFrame();
+      }, 50);
+      mirrorSyncTimer?.unref?.();
     }
 
     function start() {
       if (!popupIsOpen()) return false;
       const doc = popupDocument();
       if (!doc) return false;
-      bridge?.set?.(getPopup(), '_syncMirrorTimeline', syncFrame);
-      syncFrame();
       installMirrorSyncLoop(doc);
+      const popup = getPopup();
+      bridge?.set?.(popup, '_syncMirrorTimeline', syncFrame);
+      syncFrame();
+      startMirrorSyncTimer(popup);
       return true;
     }
 
