@@ -43,12 +43,14 @@ const popup = {
   closed: false,
   document: popupDom.window.document
 };
+let songTiming = { tempo: 120, timeSignature: '4/4' };
 const daw = {
   pxPerSecond: 70,
   playhead: 0,
   isPlaying: false
 };
 let transportPlayhead = 0;
+let snapshotOptions = null;
 const bridgeCalls = [];
 
 const service = PopupTimelineSyncService.create({
@@ -64,7 +66,7 @@ const service = PopupTimelineSyncService.create({
   getPopup: () => popup,
   isOpen: value => value === popup && !value.closed,
   getDocument: value => value.document,
-  getSong: () => ({ tempo: 120, timeSignature: '4/4' }),
+  getSong: () => songTiming,
   getDAW: () => daw,
   getProjectEnd: () => 8,
   getTimeSignatureGridConfig: () => ({
@@ -75,6 +77,13 @@ const service = PopupTimelineSyncService.create({
   }),
   timeToX: value => value * daw.pxPerSecond,
   getTransportPlayhead: () => transportPlayhead,
+  getTransportClockSnapshot: options => {
+    snapshotOptions = options;
+    return {
+      timelineTime: transportPlayhead,
+      visualTimelineTime: transportPlayhead - 0.4
+    };
+  },
   logger: {
     error: (...args) => {
       throw new Error(args.join(' '));
@@ -96,10 +105,16 @@ assert.equal(popupDom.window.document.body.querySelectorAll('script').length, 1)
 daw.isPlaying = true;
 transportPlayhead = 2.01;
 popup._syncMirrorTimeline();
+assert.equal(snapshotOptions.visual, false);
 assert.match(
   targetDiv.querySelector('.track-lane').style.transform,
   /translateX\(59.5px\)/
 );
+
+daw.isPlaying = false;
+songTiming = { tempo: 120, timeSignature: '3/4' };
+popup._syncMirrorTimeline();
+assert.equal(targetDiv.dataset.mirrorTiming, '3/4:120');
 
 daw.pxPerSecond = 100;
 popup._syncMirrorTimeline();

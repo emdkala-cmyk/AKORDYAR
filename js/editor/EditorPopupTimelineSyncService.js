@@ -26,10 +26,48 @@
     }),
     timeToX = time => time * (Number(getDAW()?.pxPerSecond) || 70),
     getTransportPlayhead = () => 0,
+    getTransportClockSnapshot = null,
     logger = console
   } = {}) {
     const popupIsOpen = () => isOpen(getPopup());
     const popupDocument = () => getDocument(getPopup());
+
+    function getTimingKey() {
+      const song = getSong() || {};
+      const bpm = Number(song.tempo) || 120;
+      const signature = String(song.timeSignature || '4/4');
+      return signature + ':' + bpm;
+    }
+
+    function timeToPixels(time, fallbackPxPerSecond) {
+      const numericTime = Number(time);
+      if (!Number.isFinite(numericTime)) return 0;
+      const projected = Number(
+        typeof timeToX === 'function' ? timeToX(numericTime) : NaN
+      );
+      return Number.isFinite(projected)
+        ? projected
+        : numericTime * fallbackPxPerSecond;
+    }
+
+    function getTransportTime(daw) {
+      if (!daw?.isPlaying) {
+        return Number.isFinite(daw?.playhead) ? Math.max(0, daw.playhead) : 0;
+      }
+
+      if (typeof getTransportClockSnapshot === 'function') {
+        const snapshot = getTransportClockSnapshot({ visual: false });
+        const rawTime = Number(snapshot?.timelineTime);
+        if (Number.isFinite(rawTime)) return Math.max(0, rawTime);
+      }
+
+      if (typeof getTransportPlayhead === 'function') {
+        const rawTime = Number(getTransportPlayhead());
+        if (Number.isFinite(rawTime)) return Math.max(0, rawTime);
+      }
+
+      return Number.isFinite(daw?.playhead) ? Math.max(0, daw.playhead) : 0;
+    }
 
     function getDevicePixelRatio(doc) {
       return Math.max(
@@ -128,14 +166,15 @@
 
         const song = getSong() || {};
         const length = getProjectEnd();
-        const bpm = song.tempo || 120;
-        const signature = song.timeSignature || '4/4';
+        const bpm = Number(song.tempo) || 120;
+        const signature = String(song.timeSignature || '4/4');
         const grid = getTimeSignatureGridConfig(signature, bpm);
         const beatsPerBar = grid.beatsPerMeasure;
         const beatDuration = grid.beatDuration;
         const barDuration = grid.measureDuration;
         const pxPerSecond = Number(getDAW()?.pxPerSecond) || 70;
         targetDiv.dataset.mirrorPps = String(pxPerSecond);
+        targetDiv.dataset.mirrorTiming = getTimingKey();
         const pxPerBar = barDuration * pxPerSecond;
         const barStep =
           pxPerBar > 120 ? 1 :
@@ -151,7 +190,7 @@
           label.style.cssText =
             'position:absolute;left:' +
             snapToDevicePixel(
-              timeToX((bar - 1) * barDuration),
+              timeToPixels((bar - 1) * barDuration, pxPerSecond),
               devicePixelRatio
             ) +
             'px;top:0;padding-left:2px;';
@@ -182,7 +221,10 @@
           bar * barDuration <= length && barCount < 500;
           bar += 1
         ) {
-          const x = Math.round(bar * barDuration * pxPerSecond) + 0.5;
+          const x =
+            Math.round(
+              timeToPixels(bar * barDuration, pxPerSecond)
+            ) + 0.5;
           if (x > gridCanvas.width) break;
           context.beginPath();
           context.moveTo(x, 0);
@@ -200,7 +242,10 @@
             beat += 1
           ) {
             if (beat % beatsPerBar === 0) continue;
-            const x = Math.round(beat * beatDuration * pxPerSecond) + 0.5;
+            const x =
+              Math.round(
+                timeToPixels(beat * beatDuration, pxPerSecond)
+              ) + 0.5;
             if (x > gridCanvas.width) break;
             context.beginPath();
             context.moveTo(x, 0);
@@ -220,7 +265,10 @@
             subBeat += 1
           ) {
             if (subBeat % grid.subdivisionsPerBeat === 0) continue;
-            const x = Math.round(subBeat * subBeatDuration * pxPerSecond) + 0.5;
+            const x =
+              Math.round(
+                timeToPixels(subBeat * subBeatDuration, pxPerSecond)
+              ) + 0.5;
             if (x > gridCanvas.width) break;
             context.beginPath();
             context.moveTo(x, 0);
@@ -326,14 +374,12 @@
         if (!targetDiv) return;
 
         const daw = getDAW() || {};
-        const time =
-          daw.isPlaying && typeof getTransportPlayhead === 'function'
-            ? getTransportPlayhead()
-            : Number.isFinite(daw.playhead)
-              ? daw.playhead
-              : 0;
+        const time = getTransportTime(daw);
         const pxPerSecond = Math.max(1, Number(daw.pxPerSecond) || 70);
-        if (targetDiv.dataset.mirrorPps !== String(pxPerSecond)) {
+        if (
+          targetDiv.dataset.mirrorPps !== String(pxPerSecond) ||
+          targetDiv.dataset.mirrorTiming !== getTimingKey()
+        ) {
           render();
           return;
         }
@@ -343,7 +389,8 @@
         if (!playhead || !clone) return;
 
         const rawOffset =
-          targetDiv.clientWidth / 2 - Math.max(0, time) * pxPerSecond;
+          targetDiv.clientWidth / 2 -
+          timeToPixels(Math.max(0, time), pxPerSecond);
         const offset = snapToDevicePixel(
           rawOffset,
           getDevicePixelRatio(doc)

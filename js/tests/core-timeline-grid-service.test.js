@@ -50,6 +50,7 @@ const service = TimelineGridService.create({
   renderTracks: () => calls.push(['tracks']),
   renderClips: options => calls.push(['clips', options]),
   updatePlayheadUI: () => calls.push(['playhead']),
+  refreshPopupTimeline: () => calls.push(['popup-timeline']),
   startMetronome: () => calls.push(['metronome'])
 });
 
@@ -93,6 +94,7 @@ assert.deepEqual(calls.slice(2).map(call => call[0]), [
   'ruler',
   'clips',
   'playhead',
+  'popup-timeline',
   'metronome'
 ]);
 assert.equal(calls[3][1].total, 12);

@@ -243,6 +243,8 @@ const editorPopupTimelineSyncService =
       getTimeSignatureGridConfig(signature, bpm),
     timeToX: time => timeToX(time),
     getTransportPlayhead: () => getTransportPlayhead(),
+    getTransportClockSnapshot: options =>
+      getTransportClockSnapshot(options),
     logger: console
   });
 

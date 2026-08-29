@@ -23,7 +23,8 @@
     renderTracks = () => {},
     renderClips = () => {},
     updatePlayheadUI = () => {},
-    startMetronome = () => {}
+    startMetronome = () => {},
+    refreshPopupTimeline = () => {}
   } = {}) {
     function drawLaneGrid(canvas) {
       if (!canvas || typeof timelineGrid?.drawLaneGrid !== 'function') {
@@ -73,6 +74,7 @@
       renderRuler();
       renderClips({ preserveWaveforms: true });
       updatePlayheadUI();
+      refreshPopupTimeline();
       if (transportState.metroActive && getDAW()?.isPlaying) {
         startMetronome();
       }

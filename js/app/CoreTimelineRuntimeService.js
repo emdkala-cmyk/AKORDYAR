@@ -47,6 +47,7 @@
     renderAll = () => {},
     scheduleAllFromPlayhead = () => {},
     ensureTimelineFits = () => {},
+    refreshPopupTimeline = () => {},
     toast = () => {},
     translate = value => value,
     customPrompt = (...args) =>
@@ -206,7 +207,8 @@
       renderTracks: () => renderer.renderTracks(),
       renderClips,
       updatePlayheadUI,
-      startMetronome
+      startMetronome,
+      refreshPopupTimeline
     });
 
     const sectionBridge = requireService(

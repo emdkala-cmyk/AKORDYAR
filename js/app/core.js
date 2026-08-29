@@ -817,6 +817,8 @@ function isHistoryApplying() {
           scheduleAllFromPlayhead(...args),
         ensureTimelineFits: (...args) =>
           ensureTimelineFits(...args),
+        refreshPopupTimeline: () =>
+          globalScope.safeMirrorTimeline?.(),
         toast: message => toast(message),
         translate: key => globalScope.t?.(key) ?? key,
         customPrompt,
