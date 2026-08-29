@@ -181,11 +181,10 @@
         '(function(){if(window.__akordMirrorLoopStarted)return;' +
         'window.__akordMirrorLoopStarted=true;' +
         'let state=null;' +
-        'let host=null,scene=null,ruler=null;' +
+        'let host=null,viewport=null;' +
         'function refreshNodes(){' +
         'host=document.getElementById("playerChordMirror");' +
-        'scene=host?.querySelector(".mirror-scene")||null;' +
-        'ruler=host?.querySelector(".mirror-ruler-inner")||null;' +
+        'viewport=host?.querySelector(".mirror-viewport")||null;' +
         '}' +
         'window.addEventListener("message",function(event){' +
         'const data=event?.data;' +
@@ -208,18 +207,18 @@
         '});' +
         'function paint(now){' +
         'if(!state)return;' +
-        'if(!host||!host.isConnected||!scene||!scene.isConnected||' +
-        '(ruler&& !ruler.isConnected))refreshNodes();' +
-        'if(!scene)return;' +
+        'if(!host||!host.isConnected||!viewport||!viewport.isConnected)' +
+        'refreshNodes();' +
+        'if(!viewport)return;' +
         'const elapsed=state.isPlaying?Math.max(0,(now-state.receivedAt)/1000):0;' +
         'const time=Math.max(0,Math.min(Number(state.duration)||Infinity,' +
         '((Number(state.time)||0)+elapsed)));' +
         'const width=Number(state.width)||Number(host.clientWidth)||0;' +
         'const pps=Math.max(1,Number(state.pxPerSecond)||70);' +
-        'const offset=width/2-time*pps;' +
-        'const transform="translate3d("+String(Math.round(offset*10000)/10000)+"px,0,0)";' +
-        'if(scene.style.transform!==transform)scene.style.transform=transform;' +
-        'if(ruler&&ruler.style.transform!==transform)ruler.style.transform=transform;' +
+        'const maxScroll=Math.max(0,Number(state.maxScroll)||0);' +
+        'const scrollLeft=Math.max(0,Math.min(maxScroll,time*pps));' +
+        'if(Math.abs(Number(viewport.scrollLeft)-scrollLeft)>0.01)' +
+        'viewport.scrollLeft=scrollLeft;' +
         '}' +
         'function frame(now){' +
         'paint(now);' +
@@ -532,12 +531,13 @@
           beatDuration,
           Number(grid.measureDuration) || beatsPerBar * beatDuration
         );
+        const originPx = Math.max(1, mirrorWidth / 2);
         const sceneWidth = Math.max(
           1,
           mirrorWidth * 2,
           Number(sourceTimeline.scrollWidth) || 0,
           Math.ceil(timeToPixels(length, pxPerSecond))
-        );
+        ) + mirrorWidth;
         const clips = getMirrorClipModels(
           sourceTimeline,
           daw,
@@ -549,18 +549,17 @@
         targetDiv.style.position = 'relative';
         targetDiv.style.overflow = 'hidden';
         targetDiv.style.backgroundColor = '#0D1017';
-        targetDiv.style.contain = 'layout paint';
         targetDiv.dataset.mirrorPps = String(pxPerSecond);
         targetDiv.dataset.mirrorTiming = getTimingKey();
         targetDiv.dataset.mirrorGeometry =
           String(mirrorWidth) + ':' + String(Number(targetDiv.clientHeight) || 0);
-        targetDiv.dataset.mirrorRenderer = 'lightweight-v1';
+        targetDiv.dataset.mirrorRenderer = 'native-scroll-v1';
 
         const ruler = doc.createElement('div');
         ruler.className = 'mirror-ruler';
         ruler.style.cssText =
           'position:absolute;top:0;left:0;height:' + rulerHeight +
-          'px;width:100%;overflow:hidden;z-index:5;pointer-events:none;' +
+          'px;width:' + sceneWidth + 'px;overflow:hidden;z-index:5;pointer-events:none;' +
           'background:rgba(13,16,23,0.95);border-bottom:1px solid rgba(255,255,255,0.1);';
 
         const rulerInner = doc.createElement('div');
@@ -570,24 +569,33 @@
           sceneWidth +
           'px;white-space:nowrap;font-size:8px;color:rgba(255,255,255,0.5);' +
           "font-family:'JetBrains Mono',monospace;line-height:" +
-          rulerHeight +
-          'px;will-change:transform;backface-visibility:hidden;contain:layout paint;';
+          rulerHeight + 'px;';
         ruler.appendChild(rulerInner);
+
+        const viewport = doc.createElement('div');
+        viewport.className = 'mirror-viewport';
+        viewport.style.cssText =
+          'position:absolute;top:0;left:0;width:100%;height:100%;' +
+          'overflow:hidden;overscroll-behavior:none;will-change:scroll-position;';
+
+        const content = doc.createElement('div');
+        content.className = 'mirror-content';
+        content.style.cssText =
+          'position:relative;width:' + sceneWidth + 'px;height:100%;';
+        viewport.appendChild(content);
 
         const scene = doc.createElement('div');
         scene.className = 'mirror-scene';
         scene.style.cssText =
           'position:absolute;top:' + rulerHeight +
           'px;left:0;width:' + sceneWidth +
-          'px;height:' + sceneHeight +
-          'px;overflow:hidden;will-change:transform;backface-visibility:hidden;' +
-          'transform:translate3d(0,0,0);contain:layout paint;';
+          'px;height:' + sceneHeight + 'px;overflow:hidden;';
 
         const gridLayer = doc.createElement('div');
         gridLayer.className = 'mirror-grid';
         gridLayer.style.cssText =
           'position:absolute;top:0;left:0;width:' + sceneWidth +
-          'px;height:100%;pointer-events:none;contain:strict;';
+          'px;height:100%;pointer-events:none;';
 
         const clipsLayer = doc.createElement('div');
         clipsLayer.className = 'mirror-clips';
@@ -600,7 +608,7 @@
           line.className = className;
           line.style.cssText =
             'position:absolute;top:0;bottom:0;width:1px;left:' +
-            formatCssPixel(timeToPixels(time, pxPerSecond)) +
+            formatCssPixel(originPx + timeToPixels(time, pxPerSecond)) +
             'px;background:' + color + ';pointer-events:none;';
           gridLayer.appendChild(line);
         };
@@ -629,7 +637,7 @@
             label.className = 'mirror-ruler-label';
             label.style.cssText =
               'position:absolute;left:' +
-              formatCssPixel(timeToPixels(barTime, pxPerSecond)) +
+              formatCssPixel(originPx + timeToPixels(barTime, pxPerSecond)) +
               'px;top:0;padding-left:3px;color:rgba(255,255,255,0.55);' +
               "font:8px/18px 'JetBrains Mono',monospace;";
             label.textContent = String(bar + 1);
@@ -658,7 +666,7 @@
           clipElement.dataset.clipId = clip.id;
           clipElement.style.cssText =
             'position:absolute;left:' +
-            formatCssPixel(timeToPixels(clip.start, pxPerSecond)) +
+            formatCssPixel(originPx + timeToPixels(clip.start, pxPerSecond)) +
             'px;top:' + clipTop +
             'px;width:' +
             formatCssPixel(
@@ -671,7 +679,7 @@
             'border:1px solid ' + color + ';border-radius:7px;color:#fff;' +
             'background:linear-gradient(180deg,' + color + 'cc,' +
             color + '66);font:800 18px/1 "JetBrains Mono",monospace;' +
-            'text-rendering:geometricPrecision;contain:layout paint;';
+            'text-rendering:geometricPrecision;';
           clipElement.textContent = clip.name;
           clipsLayer.appendChild(clipElement);
         });
@@ -687,10 +695,11 @@
           'background:#00F2FE;z-index:100;box-shadow:0 0 10px rgba(0,242,254,0.8);' +
           'pointer-events:none;';
 
-        targetDiv.appendChild(ruler);
-        targetDiv.appendChild(scene);
+        content.appendChild(ruler);
+        content.appendChild(scene);
+        targetDiv.appendChild(viewport);
         targetDiv.appendChild(playhead);
-        targetDiv.scrollLeft = 0;
+        viewport.scrollLeft = 0;
         start();
       } catch (error) {
         logger?.error?.('Lightweight mirror error:', error);
@@ -713,7 +722,7 @@
         if (
           targetDiv.dataset.mirrorPps !== String(pxPerSecond) ||
           targetDiv.dataset.mirrorTiming !== getTimingKey() ||
-          targetDiv.dataset.mirrorRenderer !== 'lightweight-v1' ||
+          targetDiv.dataset.mirrorRenderer !== 'native-scroll-v1' ||
           targetDiv.dataset.mirrorGeometry !==
             String(Number(targetDiv.clientWidth) || 0) +
               ':' +
@@ -724,12 +733,18 @@
         }
 
         const popup = getPopup();
+        const viewport = targetDiv.querySelector('.mirror-viewport');
+        const mirrorWidth = Number(targetDiv.clientWidth) || 0;
         const mirrorState = {
           time: Math.max(0, Number(time) || 0),
           isPlaying: Boolean(daw.isPlaying),
           duration: Math.max(0, Number(getProjectEnd()) || 0),
           pxPerSecond,
-          width: Number(targetDiv.clientWidth) || 0
+          width: mirrorWidth,
+          maxScroll: Math.max(
+            0,
+            Number(viewport?.scrollWidth) - mirrorWidth
+          )
         };
 
         const sent = Boolean(
@@ -740,6 +755,25 @@
           )
         );
         if (!sent) {
+          const viewport = targetDiv.querySelector('.mirror-viewport');
+          if (viewport) {
+            const scrollLeft = Math.max(
+              0,
+              Math.min(
+                Math.max(
+                  0,
+                  Number(viewport.scrollWidth) -
+                    Number(targetDiv.clientWidth)
+                ),
+                timeToPixels(Math.max(0, time), pxPerSecond)
+              )
+            );
+            if (Math.abs(Number(viewport.scrollLeft) - scrollLeft) > 0.01) {
+              viewport.scrollLeft = scrollLeft;
+            }
+            return;
+          }
+
           const scene = targetDiv.querySelector('.mirror-scene');
           if (!scene) return;
           const rawOffset =
@@ -765,8 +799,7 @@
     function startMirrorSyncTimer(popup) {
       if (
         typeof globalScope.setInterval !== 'function' ||
-        typeof bridge?.postMessage !== 'function' ||
-        typeof popup?.postMessage !== 'function'
+        !popup
       ) {
         return;
       }

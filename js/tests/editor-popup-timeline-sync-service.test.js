@@ -99,21 +99,26 @@ assert.ok(targetDiv.querySelector('.mirror-ruler'));
 assert.ok(targetDiv.querySelector('.mirror-ruler-inner'));
 assert.ok(targetDiv.querySelector('.mirror-ruler-label'));
 assert.ok(targetDiv.querySelector('.mirror-playhead'));
+assert.ok(targetDiv.querySelector('.mirror-viewport'));
+assert.ok(targetDiv.querySelector('.mirror-content'));
 assert.ok(targetDiv.querySelector('.mirror-scene'));
 assert.ok(targetDiv.querySelector('.mirror-grid'));
 assert.ok(targetDiv.querySelector('.mirror-chord'));
 assert.equal(targetDiv.querySelector('canvas.lane-grid'), null);
-assert.equal(targetDiv.dataset.mirrorRenderer, 'lightweight-v1');
+assert.equal(targetDiv.dataset.mirrorRenderer, 'native-scroll-v1');
 assert.equal(popupDom.window.document.body.querySelectorAll('script').length, 1);
+const mirrorViewport = targetDiv.querySelector('.mirror-viewport');
+Object.defineProperty(mirrorViewport, 'scrollWidth', {
+  configurable: true,
+  value: 1000
+});
 
 daw.isPlaying = true;
 transportPlayhead = 2.01;
 popup._syncMirrorTimeline();
 assert.equal(snapshotOptions.visual, false);
-assert.match(
-  targetDiv.querySelector('.mirror-scene').style.transform,
-  /translate3d\(59.3px,0,0\)/
-);
+assert.equal(targetDiv.querySelector('.mirror-scene').style.transform, '');
+assert.equal(mirrorViewport.scrollLeft, 140.7);
 
 daw.isPlaying = false;
 songTiming = { tempo: 120, timeSignature: '3/4' };
