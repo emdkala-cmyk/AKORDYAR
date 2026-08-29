@@ -170,7 +170,7 @@ function createMenu() {
         {
           label: 'Reload',
           accelerator: 'CmdOrCtrl+R',
-          click: () => mainWindow.webContents.reload()
+          click: () => loadMainWindowFresh()
         },
         {
           label: 'Toggle Developer Tools',
@@ -297,6 +297,26 @@ function createMenu() {
 
   const menu = Menu.buildFromTemplate(template);
   Menu.setApplicationMenu(menu);
+}
+
+function getFreshServerUrl() {
+  return `${SERVER_URL}?electronCacheBust=${Date.now()}`;
+}
+
+async function loadMainWindowFresh() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+
+  try {
+    await mainWindow.webContents.session.clearCache();
+  } catch (error) {
+    logError('Window', `Could not clear renderer cache: ${error.message}`);
+  }
+
+  try {
+    await mainWindow.loadURL(getFreshServerUrl());
+  } catch (error) {
+    logError('Window', `Fresh renderer load failed: ${error.message}`);
+  }
 }
 
 // ============================================
@@ -796,7 +816,7 @@ function createWindow() {
     } catch (_) {}
   });
 
-  log('Window', `Loading URL: ${SERVER_URL}`);
+  log('Window', `Loading fresh URL: ${SERVER_URL}`);
   mainWindow.webContents.on('did-start-loading', () => {
     log('Window', 'Renderer started loading');
   });
@@ -809,7 +829,7 @@ function createWindow() {
   mainWindow.webContents.on('render-process-gone', (event, details) => {
     logError('Renderer', `Process gone: ${details.reason || 'unknown'} exitCode=${details.exitCode}`);
   });
-  mainWindow.loadURL(SERVER_URL);
+  loadMainWindowFresh();
 
   if (isDev) {
     mainWindow.webContents.openDevTools({ mode: 'detach' });
