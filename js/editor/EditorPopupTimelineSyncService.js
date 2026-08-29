@@ -202,7 +202,8 @@
         'receivedAt:now,' +
         'duration:Number(data.duration)||0,' +
         'pxPerSecond:Number(data.pxPerSecond)||70,' +
-        'width:Number(data.width)||0' +
+        'width:Number(data.width)||0,' +
+        'maxScroll:Math.max(0,Number(data.maxScroll)||0)' +
         '};' +
         '});' +
         'function paint(now){' +
