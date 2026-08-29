@@ -48,4 +48,19 @@ assert.ok(feelSearchText.includes('2/4 (حس 6/8)'));
 assert.ok(feelSearchText.includes('2/4 6/8'));
 assert.ok(feelSearchText.includes('حس 6/8'));
 
+const normalizedFeel = service.normalizeSong({
+  ...source,
+  timeSignature: '2/4 (\u062d\u0633 6/8)'
+}, 'feel-song.json');
+assert.equal(normalizedFeel.timeSignature, '2/4');
+assert.equal(normalizedFeel.timeSignaturePreset, '2/4-feel-6/8');
+assert.equal(
+  service.getSignatureIdentity(normalizedFeel),
+  '2/4-feel-6/8'
+);
+assert.equal(
+  service.getSignatureIdentity({ timeSignature: '2/4' }),
+  '2/4'
+);
+
 console.log('ArchiveNormalizationService tests passed');

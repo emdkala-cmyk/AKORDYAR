@@ -43,4 +43,17 @@ const fallbackId = ArchiveMigrationService.generateId({
 });
 assert.equal(fallbackId, 'uuid-id');
 
+const legacyFeelSong = {
+  id: 'legacy-feel',
+  timeSignature: '2/4 (\u062d\u0633 6/8)'
+};
+savedSongs = null;
+const migratedLegacySongs = service.migrate([legacyFeelSong]);
+assert.equal(migratedLegacySongs[0].timeSignature, '2/4');
+assert.equal(
+  migratedLegacySongs[0].timeSignaturePreset,
+  '2/4-feel-6/8'
+);
+assert.equal(savedSongs, migratedLegacySongs);
+
 console.log('ArchiveMigrationService tests passed');

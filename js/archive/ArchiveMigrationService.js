@@ -6,6 +6,28 @@
  * asks the injected persistence callback to save only when a change occurred.
  */
 (function attachArchiveMigrationService(globalScope) {
+  const FEEL_6_8_LABEL = '2/4 (حس 6/8)';
+  const FEEL_6_8_ID = '2/4-feel-6/8';
+
+  function migrateTimeSignature(song) {
+    const raw = String(song.timeSignature || '').trim();
+    const preset = String(song.timeSignaturePreset || '').trim();
+    if (
+      raw === FEEL_6_8_LABEL ||
+      raw === FEEL_6_8_ID ||
+      preset === FEEL_6_8_LABEL ||
+      preset === FEEL_6_8_ID
+    ) {
+      const changed =
+        song.timeSignature !== '2/4' ||
+        song.timeSignaturePreset !== FEEL_6_8_ID;
+      song.timeSignature = '2/4';
+      song.timeSignaturePreset = FEEL_6_8_ID;
+      return changed;
+    }
+    return false;
+  }
+
   function generateId(cryptoRef = globalScope.crypto) {
     if (cryptoRef?.randomUUID) return cryptoRef.randomUUID();
     return Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 10);
@@ -29,6 +51,7 @@
       let changed = false;
       const seen = new Set();
       for (const song of songs) {
+        if (migrateTimeSignature(song)) changed = true;
         if (!song.id || seen.has(song.id)) {
           song.id = createId();
           changed = true;

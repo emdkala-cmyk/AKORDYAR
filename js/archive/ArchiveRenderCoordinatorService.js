@@ -23,6 +23,8 @@
       renderList = () => {},
       renderEmpty = () => {}
     } = context;
+    const FEEL_6_8_LABEL = '2/4 (حس 6/8)';
+    const FEEL_6_8_ID = '2/4-feel-6/8';
 
     function normalizeSignature(value) {
       return normalizeText(String(value ?? ''))
@@ -31,21 +33,44 @@
         .trim();
     }
 
-    function getSignatureSearchValues(value) {
+    function getSignatureIdentity(valueOrSong) {
+      const isSong = valueOrSong && typeof valueOrSong === 'object';
+      const raw = normalizeSignature(
+        isSong ? valueOrSong.timeSignature : valueOrSong
+      );
+      const preset = isSong
+        ? normalizeSignature(valueOrSong.timeSignaturePreset)
+        : '';
+      if (
+        preset === FEEL_6_8_ID ||
+        preset === normalizeSignature(FEEL_6_8_LABEL) ||
+        raw === FEEL_6_8_ID ||
+        raw === normalizeSignature(FEEL_6_8_LABEL) ||
+        raw === '2/4 6/8'
+      ) {
+        return FEEL_6_8_ID;
+      }
+      return raw || '4/4';
+    }
+
+    function getSignatureQueryIdentity(value) {
       const normalized = normalizeSignature(value);
-      if (!/^\d+\s*\/\s*\d+(?:\s+.+)?$/.test(normalized)) return [];
-      const numericParts = normalized.match(/\d+\s*\/\s*\d+/g) || [];
-      return [...new Set([
-        normalized,
-        numericParts.join(' ')
-      ].filter(Boolean))];
+      if (!normalized) return null;
+      if (
+        normalized === FEEL_6_8_ID ||
+        normalized === normalizeSignature(FEEL_6_8_LABEL) ||
+        normalized === '2/4 6/8'
+      ) {
+        return FEEL_6_8_ID;
+      }
+      if (/^\d+\s*\/\s*\d+$/.test(normalized)) return normalized;
+      return null;
     }
 
     function matchesSignatureQuery(song, query) {
-      const queryValues = getSignatureSearchValues(query);
-      if (!queryValues.length) return null;
-      const songValues = getSignatureSearchValues(song?.timeSignature);
-      return queryValues.some(value => songValues.includes(value));
+      const queryIdentity = getSignatureQueryIdentity(query);
+      if (!queryIdentity) return null;
+      return getSignatureIdentity(song) === queryIdentity;
     }
 
     function filterByTab(songs, currentTab) {
@@ -78,7 +103,10 @@
           : artistKey(rawArtist);
         if (songKey !== artistFilter) return false;
       }
-      if (signature && song.timeSignature !== signature) return false;
+      if (
+        signature &&
+        getSignatureIdentity(song) !== getSignatureQueryIdentity(signature)
+      ) return false;
       if (genre && song.genre !== genre) return false;
       if (keyFilter === '_maj' && song.keyMode !== 'maj') return false;
       if (keyFilter === '_min' && song.keyMode !== 'min') return false;

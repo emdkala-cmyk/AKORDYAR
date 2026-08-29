@@ -5,6 +5,33 @@
  * event delegation stay in ArchiveModule; this service only owns markup.
  */
 (function attachArchiveRenderService(globalScope) {
+  const FEEL_6_8_LABEL = '2/4 (حس 6/8)';
+  const FEEL_6_8_ID = '2/4-feel-6/8';
+
+  function normalizeSignature(value) {
+    return String(value ?? '')
+      .trim()
+      .toLowerCase()
+      .replace(/[()[\]]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  function getDisplayTimeSignature(song) {
+    const raw = normalizeSignature(song?.timeSignature);
+    const preset = normalizeSignature(song?.timeSignaturePreset);
+    if (
+      preset === FEEL_6_8_ID ||
+      preset === normalizeSignature(FEEL_6_8_LABEL) ||
+      raw === FEEL_6_8_ID ||
+      raw === normalizeSignature(FEEL_6_8_LABEL) ||
+      raw === '2/4 6/8'
+    ) {
+      return FEEL_6_8_LABEL;
+    }
+    return String(song?.timeSignature || '');
+  }
+
   const GENRE_LABELS = Object.freeze({
     sad: 'غمگین',
     happy: 'شاد',
@@ -68,7 +95,7 @@
             `<td style="width:36px;"><input type="checkbox" class="archive-card-check" data-action="archToggleSelect" data-song-id="${escapeHtml(song.id)}" ${selected ? 'checked' : ''} aria-label="انتخاب"></td>`;
         }
         bodyHtml +=
-          `<td style="font-weight:700;">${escapeHtml(song.title || 'بدون نام')}</td><td>${escapeHtml(song.artist || '—')}</td><td style="color:#FFA500;font-weight:700;font-family:JetBrains Mono,monospace;">${keyLabel}</td><td style="color:#FF6BA8;">${song.tempo || song.bpm || '—'}</td><td>${song.timeSignature || '—'}</td><td style="font-size:0.72rem;color:var(--text-secondary);">${dateLabel}</td>`;
+          `<td style="font-weight:700;">${escapeHtml(song.title || 'بدون نام')}</td><td>${escapeHtml(song.artist || '—')}</td><td style="color:#FFA500;font-weight:700;font-family:JetBrains Mono,monospace;">${keyLabel}</td><td style="color:#FF6BA8;">${song.tempo || song.bpm || '—'}</td><td>${escapeHtml(getDisplayTimeSignature(song) || '—')}</td><td style="font-size:0.72rem;color:var(--text-secondary);">${dateLabel}</td>`;
         bodyHtml +=
           `<td><div class="at-actions"><button data-arch-action="open" data-song-id="${song.id}" title="بازکردن" aria-label="بازکردن">▶</button> <button data-arch-action="menu" data-song-id="${song.id}" title="بیشتر" aria-label="بیشتر">⋯</button></div></td></tr>`;
       }
@@ -86,7 +113,7 @@
       for (const song of songs) {
         const tags = [];
         if (song.timeSignature) {
-          tags.push(`<span class="archive-tag archive-tag-sig">${song.timeSignature}</span>`);
+          tags.push(`<span class="archive-tag archive-tag-sig">${escapeHtml(getDisplayTimeSignature(song))}</span>`);
         }
         if (song.tempo || song.bpm) {
           tags.push(

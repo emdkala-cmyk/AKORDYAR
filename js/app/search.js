@@ -23,11 +23,43 @@ function getQuickSearchSignatureValues(value) {
   ].filter(Boolean))];
 }
 
+function getQuickSearchSignatureIdentity(valueOrSong) {
+  const isSong = valueOrSong && typeof valueOrSong === 'object';
+  const raw = normalizeQuickSearchSignature(
+    isSong ? valueOrSong.timeSignature : valueOrSong
+  );
+  const preset = isSong
+    ? normalizeQuickSearchSignature(valueOrSong.timeSignaturePreset)
+    : '';
+  if (
+    preset === '2/4-feel-6/8' ||
+    preset === normalizeQuickSearchSignature('2/4 (حس 6/8)') ||
+    raw === '2/4-feel-6/8' ||
+    raw === normalizeQuickSearchSignature('2/4 (حس 6/8)') ||
+    raw === '2/4 6/8'
+  ) {
+    return '2/4-feel-6/8';
+  }
+  return raw || '4/4';
+}
+
+function getQuickSearchSignatureQueryIdentity(value) {
+  const normalized = normalizeQuickSearchSignature(value);
+  if (!normalized) return null;
+  if (
+    normalized === '2/4-feel-6/8' ||
+    normalized === normalizeQuickSearchSignature('2/4 (حس 6/8)') ||
+    normalized === '2/4 6/8'
+  ) {
+    return '2/4-feel-6/8';
+  }
+  return /^\d+\s*\/\s*\d+$/.test(normalized) ? normalized : null;
+}
+
 function matchesQuickSearchSignature(song, query) {
-  const queryValues = getQuickSearchSignatureValues(query);
-  if (!queryValues.length) return null;
-  const songValues = getQuickSearchSignatureValues(song?.timeSignature);
-  return queryValues.some(value => songValues.includes(value));
+  const queryIdentity = getQuickSearchSignatureQueryIdentity(query);
+  if (!queryIdentity) return null;
+  return getQuickSearchSignatureIdentity(song) === queryIdentity;
 }
 
 let _quickSearchDragging = false;
@@ -176,7 +208,11 @@ function quickSearchFilter() {
       }
     }
     // Signature filter
-    if (sig && s.timeSignature !== sig) return false;
+    if (
+      sig &&
+      getQuickSearchSignatureIdentity(s) !==
+        getQuickSearchSignatureQueryIdentity(sig)
+    ) return false;
     // Genre filter
     if (genre && s.genre !== genre) return false;
     // Key filter

@@ -145,6 +145,19 @@ songs.push(
     tempo: 100,
     key: 'C',
     keyMode: 'maj',
+    timeSignature: '2/4',
+    timeSignaturePreset: '2/4-feel-6/8',
+    genre: 'Ù¾Ø§Ù¾'
+  },
+  {
+    id: 'song-6',
+    title: 'legacy 2/4 feel 6/8',
+    artist: 'Ø®ÙˆØ§Ù†Ù†Ø¯Ù‡ Ø§ÙˆÙ„',
+    favorite: false,
+    createdAt: '2026-08-06',
+    tempo: 100,
+    key: 'C',
+    keyMode: 'maj',
     timeSignature: feelSignature,
     genre: 'Ù¾Ø§Ù¾'
   }
@@ -156,6 +169,17 @@ assert.deepEqual(renders.at(-1).ids, ['song-4']);
 
 elements.get('archiveSearch').value = feelSignature;
 service.render();
-assert.deepEqual(renders.at(-1).ids, ['song-5']);
+assert.deepEqual(renders.at(-1).ids, ['song-6', 'song-5']);
+
+elements.get('archiveSearch').value = '';
+elements.get('filterSig').value = '2/4';
+service.render();
+assert.deepEqual(renders.at(-1).ids, ['song-4']);
+
+elements.get('filterSig').value = feelSignature;
+service.render();
+assert.deepEqual(renders.at(-1).ids, ['song-6', 'song-5']);
+
+elements.get('filterSig').value = '';
 
 console.log('ArchiveRenderCoordinatorService tests passed');

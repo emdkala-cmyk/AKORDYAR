@@ -31,6 +31,62 @@ const SongMetadata = (() => {
     genre: ''
   };
 
+  const TIME_SIGNATURE_PRESET = Object.freeze({
+    id: '2/4-feel-6/8',
+    label: '2/4 (حس 6/8)',
+    base: '2/4'
+  });
+
+  function getSignatureIdentity(valueOrSong) {
+    const isSong = valueOrSong && typeof valueOrSong === 'object';
+    const raw = String(
+      isSong ? valueOrSong.timeSignature : valueOrSong ?? ''
+    ).trim();
+    const preset = isSong
+      ? String(valueOrSong.timeSignaturePreset || '').trim()
+      : '';
+    if (
+      preset === TIME_SIGNATURE_PRESET.id ||
+      preset === TIME_SIGNATURE_PRESET.label ||
+      raw === TIME_SIGNATURE_PRESET.id ||
+      raw === TIME_SIGNATURE_PRESET.label
+    ) {
+      return TIME_SIGNATURE_PRESET.id;
+    }
+    return raw || DEFAULTS.timeSignature;
+  }
+
+  function resolveTimeSignature(value) {
+    const raw = String(value ?? '').trim();
+    if (raw === TIME_SIGNATURE_PRESET.id || raw === TIME_SIGNATURE_PRESET.label) {
+      return {
+        timeSignature: TIME_SIGNATURE_PRESET.base,
+        timeSignaturePreset: TIME_SIGNATURE_PRESET.id
+      };
+    }
+    return {
+      timeSignature: raw || DEFAULTS.timeSignature,
+      timeSignaturePreset: ''
+    };
+  }
+
+  function setTimeSignature(song, value) {
+    if (!song) return;
+    const resolved = resolveTimeSignature(value);
+    song.timeSignature = resolved.timeSignature;
+    if (resolved.timeSignaturePreset) {
+      song.timeSignaturePreset = resolved.timeSignaturePreset;
+    } else {
+      delete song.timeSignaturePreset;
+    }
+  }
+
+  function getDisplayTimeSignature(song) {
+    return getSignatureIdentity(song) === TIME_SIGNATURE_PRESET.id
+      ? TIME_SIGNATURE_PRESET.label
+      : String(song?.timeSignature || DEFAULTS.timeSignature);
+  }
+
   /**
    * خواندن metadata از DOM و نوشتن در song
    */
@@ -39,7 +95,9 @@ const SongMetadata = (() => {
     opts = opts || {};
     if (opts.includeTitle !== false)  song.title = getDomVal('title') || '';
     if (opts.includeArtist !== false) song.artist = getDomVal('artist') || '';
-    if (opts.includeTimeSig !== false) song.timeSignature = getDomVal('timeSignature') || DEFAULTS.timeSignature;
+    if (opts.includeTimeSig !== false) {
+      setTimeSignature(song, getDomVal('timeSignature'));
+    }
     if (opts.includeTempo !== false)  song.tempo = parseInt(getDomVal('tempo')) || DEFAULTS.tempo;
     if (opts.includeGenre !== false)  song.genre = getDomVal('genre') || '';
     if (opts.includeKey !== false) {
@@ -58,7 +116,7 @@ const SongMetadata = (() => {
 
     setDomVal('title', song.title || '');
     setDomVal('artist', song.artist || '');
-    setDomVal('timeSignature', song.timeSignature || DEFAULTS.timeSignature);
+    setDomVal('timeSignature', getDisplayTimeSignature(song));
     setDomVal('tempo', song.tempo || DEFAULTS.tempo);
     setDomVal('genre', song.genre || '');
     if (incKey) {
@@ -72,7 +130,12 @@ const SongMetadata = (() => {
    */
   function applyDefaults(song) {
     if (!song) return;
-    if (!song.timeSignature) song.timeSignature = DEFAULTS.timeSignature;
+    if (getSignatureIdentity(song) === TIME_SIGNATURE_PRESET.id) {
+      song.timeSignature = TIME_SIGNATURE_PRESET.base;
+      song.timeSignaturePreset = TIME_SIGNATURE_PRESET.id;
+    } else if (!song.timeSignature) {
+      song.timeSignature = DEFAULTS.timeSignature;
+    }
     if (!song.tempo) song.tempo = DEFAULTS.tempo;
     if (song.transpose == null) song.transpose = 0;
   }
@@ -134,8 +197,13 @@ const SongMetadata = (() => {
   return {
     DOM_IDS: DOM_IDS,
     DEFAULTS: DEFAULTS,
+    TIME_SIGNATURE_PRESET: TIME_SIGNATURE_PRESET,
     syncFromDom: syncFromDom,
     syncToDom: syncToDom,
+    resolveTimeSignature: resolveTimeSignature,
+    setTimeSignature: setTimeSignature,
+    getDisplayTimeSignature: getDisplayTimeSignature,
+    getSignatureIdentity: getSignatureIdentity,
     applyDefaults: applyDefaults,
     fixKeyFormat: fixKeyFormat,
     normalize: normalize,

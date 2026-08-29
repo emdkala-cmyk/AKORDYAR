@@ -15,6 +15,32 @@
     'stroke="currentColor" stroke-width="2" stroke-linecap="round" ' +
     'stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" ' +
     'rx="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>';
+  const FEEL_6_8_LABEL = '2/4 (حس 6/8)';
+  const FEEL_6_8_ID = '2/4-feel-6/8';
+
+  function getDisplayTimeSignature(song) {
+    if (typeof globalScope.SongMetadata?.getDisplayTimeSignature === 'function') {
+      return globalScope.SongMetadata.getDisplayTimeSignature(song);
+    }
+    return song?.timeSignaturePreset === FEEL_6_8_ID ||
+      song?.timeSignature === FEEL_6_8_LABEL
+      ? FEEL_6_8_LABEL
+      : song?.timeSignature || '4/4';
+  }
+
+  function setTimeSignature(song, value) {
+    if (typeof globalScope.SongMetadata?.setTimeSignature === 'function') {
+      globalScope.SongMetadata.setTimeSignature(song, value);
+      return;
+    }
+    if (value === FEEL_6_8_LABEL || value === FEEL_6_8_ID) {
+      song.timeSignature = '2/4';
+      song.timeSignaturePreset = FEEL_6_8_ID;
+    } else {
+      song.timeSignature = value || '4/4';
+      delete song.timeSignaturePreset;
+    }
+  }
 
   function create({
     documentRef = globalScope.document,
@@ -55,7 +81,7 @@
         edChordSize: styles.cSize,
         edChordColor: styles.cColor,
         edChordFont: styles.cFont,
-        edTimeSig: song.timeSignature || '4/4',
+        edTimeSig: getDisplayTimeSignature(song),
         edTempo: song.tempo || 120,
         edGenre: song.genre || ''
       };
@@ -241,7 +267,7 @@
       if (timeSignature) timeSignature.onchange = () => {
         const song = getSong();
         if (!song) return;
-        song.timeSignature = timeSignature.value;
+        setTimeSignature(song, timeSignature.value);
         save();
         if (typeof onTimingChange === 'function') onTimingChange();
         else {

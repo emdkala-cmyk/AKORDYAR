@@ -8,6 +8,32 @@
     'C', 'C#', 'D', 'D#', 'E', 'F',
     'F#', 'G', 'G#', 'A', 'A#', 'B'
   ]);
+  const FEEL_6_8_LABEL = '2/4 (حس 6/8)';
+  const FEEL_6_8_ID = '2/4-feel-6/8';
+
+  function getDisplayTimeSignature(song, metadata) {
+    if (typeof metadata?.getDisplayTimeSignature === 'function') {
+      return metadata.getDisplayTimeSignature(song);
+    }
+    return song?.timeSignaturePreset === FEEL_6_8_ID ||
+      song?.timeSignature === FEEL_6_8_LABEL
+      ? FEEL_6_8_LABEL
+      : song?.timeSignature || '4/4';
+  }
+
+  function setTimeSignature(song, value, metadata) {
+    if (typeof metadata?.setTimeSignature === 'function') {
+      metadata.setTimeSignature(song, value);
+      return;
+    }
+    if (value === FEEL_6_8_LABEL || value === FEEL_6_8_ID) {
+      song.timeSignature = '2/4';
+      song.timeSignaturePreset = FEEL_6_8_ID;
+    } else {
+      song.timeSignature = value || '4/4';
+      delete song.timeSignaturePreset;
+    }
+  }
 
   function create(context = {}) {
     const {
@@ -25,7 +51,8 @@
       updateActiveFilters = () => {},
       toast = () => {},
       now = () => new Date().toISOString(),
-      OptionCtor = globalScope.Option
+      OptionCtor = globalScope.Option,
+      metadata = globalScope.SongMetadata
     } = context;
 
     function open(id) {
@@ -38,7 +65,7 @@
       getElement('aeKey').value = song.key || 'C';
       getElement('aeKeyMode').value = song.keyMode || 'maj';
       getElement('aeBpm').value = song.tempo || song.bpm || 120;
-      getElement('aeTimeSig').value = song.timeSignature || '4/4';
+      getElement('aeTimeSig').value = getDisplayTimeSignature(song, metadata);
       getElement('aeGenre').value = song.genre || '';
       getElement('aeCategory').value = (song.categories || []).join(', ');
       getElement('aeNotes').value = song.notes || '';
@@ -72,7 +99,7 @@
       song.keyMode = getElement('aeKeyMode').value;
       song.tempo = parseInt(getElement('aeBpm').value, 10) || 120;
       song.bpm = song.tempo;
-      song.timeSignature = getElement('aeTimeSig').value;
+      setTimeSignature(song, getElement('aeTimeSig').value, metadata);
       song.genre = getElement('aeGenre').value;
       song.categories = getElement('aeCategory').value
         .split(',')

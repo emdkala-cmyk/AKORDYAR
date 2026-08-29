@@ -5,6 +5,54 @@
  * projection. Artist alias resolution remains outside this service.
  */
 (function attachArchiveNormalizationService(globalScope) {
+  const FEEL_6_8_LABEL = '2/4 (حس 6/8)';
+  const FEEL_6_8_ID = '2/4-feel-6/8';
+
+  function getSignatureIdentity(valueOrSong) {
+    const isSong = valueOrSong && typeof valueOrSong === 'object';
+    const raw = String(
+      isSong ? valueOrSong.timeSignature : valueOrSong ?? ''
+    ).trim();
+    const preset = isSong
+      ? String(valueOrSong.timeSignaturePreset || '').trim()
+      : '';
+    if (
+      preset === FEEL_6_8_ID ||
+      preset === FEEL_6_8_LABEL ||
+      raw === FEEL_6_8_ID ||
+      raw === FEEL_6_8_LABEL
+    ) {
+      return FEEL_6_8_ID;
+    }
+    return raw || '4/4';
+  }
+
+  function resolveTimeSignature(value, preset) {
+    const raw = String(value ?? '').trim();
+    const presetValue = String(preset ?? '').trim();
+    if (
+      presetValue === FEEL_6_8_ID ||
+      presetValue === FEEL_6_8_LABEL ||
+      raw === FEEL_6_8_ID ||
+      raw === FEEL_6_8_LABEL
+    ) {
+      return {
+        timeSignature: '2/4',
+        timeSignaturePreset: FEEL_6_8_ID
+      };
+    }
+    return {
+      timeSignature: raw || '4/4',
+      timeSignaturePreset: ''
+    };
+  }
+
+  function getDisplayTimeSignature(song) {
+    return getSignatureIdentity(song) === FEEL_6_8_ID
+      ? FEEL_6_8_LABEL
+      : String(song?.timeSignature || '4/4');
+  }
+
   function normalizeText(value) {
     if (!value) return '';
     return value
@@ -18,7 +66,7 @@
   }
 
   function extractSearchText(song) {
-    const timeSignature = String(song.timeSignature || '');
+    const timeSignature = getDisplayTimeSignature(song);
     const signatureParts = timeSignature.match(/\d+\s*\/\s*\d+/g) || [];
     const parts = [
       song.title,
@@ -75,7 +123,16 @@
       output.keyMode = data.keyMode || 'maj';
       output.tempo = data.tempo || parseInt(data.bpm) || 120;
       output.bpm = output.tempo;
-      output.timeSignature = data.timeSignature || '4/4';
+      const resolvedTimeSignature = resolveTimeSignature(
+        data.timeSignature,
+        data.timeSignaturePreset
+      );
+      output.timeSignature = resolvedTimeSignature.timeSignature;
+      if (resolvedTimeSignature.timeSignaturePreset) {
+        output.timeSignaturePreset = resolvedTimeSignature.timeSignaturePreset;
+      } else {
+        delete output.timeSignaturePreset;
+      }
       output.genre = data.genre || '';
       output.tags = Array.isArray(data.tags) ? data.tags : [];
       output.categories = Array.isArray(data.categories) ? data.categories : [];
@@ -94,7 +151,10 @@
     return Object.freeze({
       normalizeText,
       extractSearchText,
-      normalizeSong
+      normalizeSong,
+      getSignatureIdentity,
+      getDisplayTimeSignature,
+      resolveTimeSignature
     });
   }
 
