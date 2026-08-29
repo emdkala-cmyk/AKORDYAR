@@ -1207,7 +1207,7 @@ function getMidiScoreController() {
       });
       audioDropService?.bind?.(tlScroll);
       // Init sync UI
-      window.initSyncUI?.();
+      editorCoreApi.initSyncUI?.();
 
     /* ===================================================================
        LYRIC & CHORD EDITOR (integrated into workspace)

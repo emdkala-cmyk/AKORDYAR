@@ -55,4 +55,11 @@ const search = fs.readFileSync(
 assert.match(search, /data-command="quickSearchLoadSong"/);
 assert.doesNotMatch(search, /onclick\s*=/i);
 
+const editor = fs.readFileSync(
+  path.join(projectRoot, 'js/app/editor.js'),
+  'utf8'
+);
+assert.match(editor, /editorCoreApi\.initSyncUI\?\.\(\);/);
+assert.doesNotMatch(editor, /window\.initSyncUI\?\.\(\);/);
+
 console.log('Inline handler contract tests passed');
