@@ -74,6 +74,7 @@ const service = ArchiveProjectFileImportService.create({
   saveSong: () => calls.push(['save-song']),
   renderAll: () => calls.push(['render-all']),
   audioRecovery,
+  generateId: () => 'generated-song',
   toast: message => toasts.push(message),
   logError: error => calls.push(['error', error.message])
 });
@@ -91,6 +92,7 @@ const service = ArchiveProjectFileImportService.create({
   });
 
   assert.equal(result.ok, true);
+  assert.equal(currentSong.id, 'song-1');
   assert.equal(currentSong.title, 'ترانه');
   assert.equal(currentSong.lyrics, 'متن پردازش‌شده');
   assert.equal(currentSong.styles.tSize, 38);
@@ -139,6 +141,15 @@ const service = ArchiveProjectFileImportService.create({
   });
   assert.equal(audioResult.ok, true);
   assert.deepEqual(recoveryCalls, ['embedded', 'linked']);
+
+  const generatedIdResult = await service.importSingle({
+    name: 'NoIdSong.akordyar',
+    text: async () => JSON.stringify({
+      title: 'ترانه بدون شناسه'
+    })
+  });
+  assert.equal(generatedIdResult.ok, true);
+  assert.equal(generatedIdResult.song.id, 'generated-song');
 
   console.log('ArchiveProjectFileImportService tests passed');
 })().catch(error => {

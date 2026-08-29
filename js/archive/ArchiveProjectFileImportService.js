@@ -51,6 +51,8 @@
       loadDirHandle = async () => null,
       saveDirHandle = async () => {},
       loadAudioFromHardDrive = async () => null,
+      generateId = () =>
+        `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`,
       getIsElectron = () => false,
       resetHistory = () => {},
       resetPerformanceSerialization = () => {},
@@ -112,6 +114,7 @@
         daw.arrangerMarkers = { enabled: false, start: 0, end: 0 };
         setSong(data);
         const song = getSong();
+        if (song && !song.id) song.id = String(generateId());
         if (!song.styles) song.styles = {};
         Object.keys(DEFAULT_STYLES).forEach(key => {
           if (song.styles[key] === undefined) song.styles[key] = DEFAULT_STYLES[key];

@@ -100,6 +100,10 @@ assert.equal(indexed.getDatabase(), null);
 
 setImmediate(() => {
   assert.equal(indexed.getDatabase(), indexedDBFake.database);
+  const missingIdSong = { title: 'missing-id' };
+  indexed.setAllSongs([missingIdSong]);
+  assert.equal(typeof missingIdSong.id, 'string');
+  assert.ok(missingIdSong.id.length > 0);
   indexed.setAllSongs([{ id: 'indexed-song' }]);
   assert.deepEqual(indexed.getAllSongs(), [{ id: 'indexed-song' }]);
   console.log('ArchiveStorageService tests passed');

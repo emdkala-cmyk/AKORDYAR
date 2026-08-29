@@ -128,6 +128,9 @@ const service = AudioStorageService.create({
 
 (async () => {
   assert.equal((await service.openAudioDB()).objectStoreNames.contains('audioBlobs'), true);
+  assert.equal(await service.saveAudioBlobsForProject(), undefined);
+  assert.equal(await service.loadAudioBlobsForProject(), undefined);
+  assert.equal(await service.deleteAudioBlobsForProject(), undefined);
 
   const handle = { name: 'voice.mp3' };
   await service.saveFileHandle('clip-1', handle);

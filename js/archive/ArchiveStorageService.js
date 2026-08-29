@@ -30,9 +30,46 @@
     let cache = null;
     let database = null;
 
+    function createSongId() {
+      if (scope.crypto?.randomUUID) return scope.crypto.randomUUID();
+      return (
+        'song_' +
+        Date.now().toString(36) +
+        '_' +
+        Math.random().toString(36).slice(2, 10)
+      );
+    }
+
+    function normalizeSongs(songs) {
+      if (!Array.isArray(songs)) return [];
+      const seen = new Set();
+      const normalized = [];
+      songs.forEach(song => {
+        if (!song || typeof song !== 'object' || Array.isArray(song)) {
+          return;
+        }
+
+        let id = String(song.id ?? '').trim();
+        if (!id || seen.has(id)) {
+          do {
+            id = createSongId();
+          } while (seen.has(id));
+          song.id = id;
+        } else if (song.id !== id) {
+          song.id = id;
+        }
+        seen.add(id);
+        normalized.push(song);
+      });
+      if (normalized.length !== songs.length) {
+        songs.splice(0, songs.length, ...normalized);
+      }
+      return songs;
+    }
+
     const getFallbackSongs = () => {
       if (cache) return cache;
-      cache = fallback.read(storage);
+      cache = normalizeSongs(fallback.read(storage));
       return cache;
     };
 
@@ -54,14 +91,14 @@
         const readTransaction = database.transaction(STORE_NAME, 'readonly');
         const request = readTransaction.objectStore(STORE_NAME).getAll();
         request.onsuccess = () => {
-          cache = request.result || [];
+          cache = normalizeSongs(request.result || []);
         };
         request.onerror = () => {
           cache = [];
         };
 
         try {
-          const oldSongs = fallback.read(storage);
+          const oldSongs = normalizeSongs(fallback.read(storage));
           if (oldSongs.length) {
             const migrationTransaction = database.transaction(STORE_NAME, 'readwrite');
             oldSongs.forEach(song => {
@@ -87,7 +124,7 @@
     }
 
     function setAllSongs(songs) {
-      cache = Array.isArray(songs) ? songs : [];
+      cache = normalizeSongs(songs);
       if (!database) {
         fallback.write(storage, cache, notify);
         return cache;

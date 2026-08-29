@@ -423,6 +423,7 @@
           saveCurrentVersion: archiveEditorSaveCurrentVersion,
           getAllSongs: edGetAllSongs,
           setAllSongs: edSetAllSongs,
+          generateId: archGenId,
           getIsElectron: () => Boolean(window.electronAPI?.isElectron)
         });
       }
@@ -464,6 +465,7 @@
           loadDirHandle,
           saveDirHandle,
           loadAudioFromHardDrive: archiveLoadAudioFromHardDrive,
+          generateId: archGenId,
           getIsElectron: () => Boolean(window.electronAPI?.isElectron),
           resetHistory: archiveResetHistory,
           resetPerformanceSerialization,

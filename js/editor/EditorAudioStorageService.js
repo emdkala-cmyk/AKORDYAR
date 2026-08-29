@@ -25,6 +25,11 @@
     let audioDB = null;
     let audioCompressionService = null;
 
+    function hasStorageKey(value) {
+      if (value === undefined || value === null) return false;
+      return typeof value !== 'string' || value.trim().length > 0;
+    }
+
     function getAudioCompressionService() {
       if (!audioCompressionService && typeof compressionServiceFactory === 'function') {
         audioCompressionService = compressionServiceFactory();
@@ -57,6 +62,7 @@
     }
 
     async function saveFileHandle(bufferKey, handle) {
+      if (!hasStorageKey(bufferKey)) return undefined;
       try {
         const db = await openAudioDB();
         return new Promise((resolve, reject) => {
@@ -72,6 +78,7 @@
     }
 
     async function getFileHandle(bufferKey) {
+      if (!hasStorageKey(bufferKey)) return null;
       try {
         const db = await openAudioDB();
         return new Promise((resolve, reject) => {
@@ -86,6 +93,7 @@
     }
 
     async function saveAudioBlobToDB(bufferKey, file, fileName) {
+      if (!hasStorageKey(bufferKey)) return undefined;
       try {
         const db = await openAudioDB();
         return new Promise((resolve, reject) => {
@@ -114,6 +122,7 @@
     }
 
     async function getAudioBlobFromDB(bufferKey) {
+      if (!hasStorageKey(bufferKey)) return null;
       try {
         const db = await openAudioDB();
         return new Promise((resolve, reject) => {
@@ -135,6 +144,7 @@
     }
 
     async function saveAudioBlobsForProject(projectId) {
+      if (!hasStorageKey(projectId)) return undefined;
       const daw = getDAW();
       const embeddedClips = (daw?.clips || []).filter(clip =>
         clip.type !== 'chord' && clip.bufferKey && clip._embedded
@@ -231,6 +241,7 @@
     }
 
     async function loadAudioBlobsForProject(projectId) {
+      if (!hasStorageKey(projectId)) return undefined;
       const daw = getDAW();
       const db = await openAudioDB();
       return new Promise((resolve, reject) => {
@@ -303,6 +314,7 @@
     }
 
     async function deleteAudioBlobsForProject(projectId) {
+      if (!hasStorageKey(projectId)) return undefined;
       try {
         const db = await openAudioDB();
         return new Promise(resolve => {

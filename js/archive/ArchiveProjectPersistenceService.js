@@ -60,6 +60,8 @@
       getAllSongs,
       setAllSongs,
       getIsElectron = () => false,
+      generateId = () =>
+        `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`,
       global = globalScope
     } = context;
 
@@ -81,6 +83,7 @@
       resetRecordingState();
       setSong(clone(data));
       const song = getSong();
+      if (song && !song.id) song.id = String(generateId());
       if (!song.styles) song.styles = {};
       const defaults = {
         tSize: 38,
@@ -272,6 +275,7 @@
       const daw = getDAW();
       const song = getSongOrNull();
       if (!song) return;
+      if (!song.id) song.id = String(generateId());
       syncMetadata(song);
       song.artistKey = artistKey(song.artist);
       song._dawTracks = daw.tracks.map(track => ({
