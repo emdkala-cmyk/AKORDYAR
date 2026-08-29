@@ -81,6 +81,20 @@ assert.match(list.children[0].innerHTML, /data-arch-action="fav"/);
 assert.match(list.children[1].innerHTML, /permanent-delete/);
 assert.equal(syncCount, 2);
 
+list.innerHTML = '';
+list.children = [];
+service.render(list, [{
+  id: 'heavy-6-8',
+  title: 'Heavy 6/8',
+  genre: 'heavy-6-8'
+}], {
+  viewMode: 'card',
+  selectMode: false,
+  selectedIds: new Set(),
+  activeId: null
+});
+assert.match(list.children[0].innerHTML, /6\/8 سنگین/);
+
 service.renderEmpty(list, {
   query: 'missing',
   isTrash: false,

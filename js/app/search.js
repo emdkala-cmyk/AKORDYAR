@@ -4,6 +4,19 @@ const quickSearchArchiveCall = (name, ...args) => {
   const fn = quickSearchArchiveApi()[name];
   return typeof fn === 'function' ? fn(...args) : undefined;
 };
+const QUICK_SEARCH_GENRE_LABELS = Object.freeze({
+  'heavy-6-8': '6/8 سنگین'
+});
+
+function getQuickSearchGenreIdentity(value) {
+  const raw = String(value || '').trim().toLowerCase();
+  return raw === '6/8 سنگین' ? 'heavy-6-8' : raw;
+}
+
+function getQuickSearchGenreText(value) {
+  const raw = String(value || '').trim().toLowerCase();
+  return `${raw} ${QUICK_SEARCH_GENRE_LABELS[raw] || raw}`.trim();
+}
 
 function normalizeQuickSearchSignature(value) {
   return String(value || '')
@@ -192,6 +205,7 @@ function quickSearchFilter() {
         const title = (s.title || '').toLowerCase();
         const artist = (s.artist || '').toLowerCase();
         const rawText = (s.rawText || '').toLowerCase();
+        const genre = getQuickSearchGenreText(s.genre);
         const timeSignature = String(s.timeSignature || '').toLowerCase();
         const signatureParts = timeSignature.match(/\d+\s*\/\s*\d+/g) || [];
         const signatureSearch = [
@@ -203,6 +217,7 @@ function quickSearchFilter() {
           !title.includes(query) &&
           !artist.includes(query) &&
           !rawText.includes(query) &&
+          !genre.includes(query) &&
           !signatureSearch.includes(query)
         ) return false;
       }
@@ -214,7 +229,10 @@ function quickSearchFilter() {
         getQuickSearchSignatureQueryIdentity(sig)
     ) return false;
     // Genre filter
-    if (genre && s.genre !== genre) return false;
+    if (
+      genre &&
+      getQuickSearchGenreIdentity(s.genre) !== getQuickSearchGenreIdentity(genre)
+    ) return false;
     // Key filter
     if (keyFilter === '_maj' && s.keyMode !== 'maj') return false;
     else if (keyFilter === '_min' && s.keyMode !== 'min') return false;

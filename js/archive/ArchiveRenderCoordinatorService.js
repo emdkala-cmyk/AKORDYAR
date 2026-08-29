@@ -25,6 +25,8 @@
     } = context;
     const FEEL_6_8_LABEL = '2/4 (حس 6/8)';
     const FEEL_6_8_ID = '2/4-feel-6/8';
+    const HEAVY_6_8_LABEL = '6/8 سنگین';
+    const HEAVY_6_8_ID = 'heavy-6-8';
 
     function normalizeSignature(value) {
       return normalizeText(String(value ?? ''))
@@ -73,6 +75,13 @@
       return getSignatureIdentity(song) === queryIdentity;
     }
 
+    function getGenreIdentity(value) {
+      const normalized = normalizeText(String(value ?? '')).trim();
+      return normalized === normalizeText(HEAVY_6_8_LABEL)
+        ? HEAVY_6_8_ID
+        : normalized;
+    }
+
     function filterByTab(songs, currentTab) {
       if (currentTab === 'fav') return songs.filter(song => !song.deletedAt && song.favorite);
       if (currentTab === 'trash') return songs.filter(song => song.deletedAt);
@@ -107,7 +116,7 @@
         signature &&
         getSignatureIdentity(song) !== getSignatureQueryIdentity(signature)
       ) return false;
-      if (genre && song.genre !== genre) return false;
+      if (genre && getGenreIdentity(song.genre) !== getGenreIdentity(genre)) return false;
       if (keyFilter === '_maj' && song.keyMode !== 'maj') return false;
       if (keyFilter === '_min' && song.keyMode !== 'min') return false;
       if (

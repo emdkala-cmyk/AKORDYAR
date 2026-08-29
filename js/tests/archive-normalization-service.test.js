@@ -63,4 +63,11 @@ assert.equal(
   '2/4'
 );
 
+const heavy68Label = `6/8 \u0633\u0646\u06af\u06cc\u0646`;
+const heavy68SearchText = service.extractSearchText({
+  ...source,
+  genre: 'heavy-6-8'
+});
+assert.ok(heavy68SearchText.includes(heavy68Label));
+
 console.log('ArchiveNormalizationService tests passed');

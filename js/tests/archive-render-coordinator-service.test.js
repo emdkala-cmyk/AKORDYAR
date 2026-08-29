@@ -181,5 +181,37 @@ service.render();
 assert.deepEqual(renders.at(-1).ids, ['song-6', 'song-5']);
 
 elements.get('filterSig').value = '';
+const heavy68Label = `6/8 \u0633\u0646\u06af\u06cc\u0646`;
+songs.push(
+  {
+    id: 'song-7',
+    title: 'heavy normal',
+    artist: 'artist',
+    createdAt: '2026-08-07',
+    timeSignature: '4/4',
+    genre: 'heavy'
+  },
+  {
+    id: 'song-8',
+    title: 'heavy 6/8',
+    artist: 'artist',
+    createdAt: '2026-08-08',
+    timeSignature: '4/4',
+    genre: 'heavy-6-8'
+  }
+);
+elements.get('filterGenre').value = 'heavy';
+service.render();
+assert.deepEqual(renders.at(-1).ids, ['song-7']);
+
+elements.get('filterGenre').value = 'heavy-6-8';
+service.render();
+assert.deepEqual(renders.at(-1).ids, ['song-8']);
+
+elements.get('filterGenre').value = heavy68Label;
+service.render();
+assert.deepEqual(renders.at(-1).ids, ['song-8']);
+
+elements.get('filterGenre').value = '';
 
 console.log('ArchiveRenderCoordinatorService tests passed');

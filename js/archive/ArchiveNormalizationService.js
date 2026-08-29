@@ -7,6 +7,14 @@
 (function attachArchiveNormalizationService(globalScope) {
   const FEEL_6_8_LABEL = '2/4 (حس 6/8)';
   const FEEL_6_8_ID = '2/4-feel-6/8';
+  const GENRE_LABELS = Object.freeze({
+    'heavy-6-8': '6/8 سنگین'
+  });
+
+  function getDisplayGenre(value) {
+    const raw = String(value ?? '').trim();
+    return GENRE_LABELS[raw] || raw;
+  }
 
   function getSignatureIdentity(valueOrSong) {
     const isSong = valueOrSong && typeof valueOrSong === 'object';
@@ -74,6 +82,7 @@
       song.album,
       song.key,
       song.genre,
+      getDisplayGenre(song.genre),
       timeSignature,
       ...signatureParts,
       signatureParts.join(' '),
@@ -154,6 +163,7 @@
       normalizeSong,
       getSignatureIdentity,
       getDisplayTimeSignature,
+      getDisplayGenre,
       resolveTimeSignature
     });
   }
