@@ -126,7 +126,7 @@ assert.deepEqual(body.lastScroll, {
   top: 80,
   behavior: 'smooth'
 });
-assert.equal(lines[1].style.color, '');
+assert.equal(lines[1].style.color, '#0fa966');
 assert.equal(lines[0].style.color, '#0fa966');
 
 body.lastScroll = null;

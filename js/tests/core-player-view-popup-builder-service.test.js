@@ -67,6 +67,14 @@ assert.match(doc.head.innerHTML, /transition: opacity 1\.2s/);
 assert.match(doc.head.innerHTML, /\.popup-sync-line\.done \{ opacity: 0\.58; \}/);
 assert.match(doc.head.innerHTML, /\.popup-sync-line\.active::before/);
 assert.match(doc.head.innerHTML, /hl-gradient-sweep 4s/);
+assert.doesNotMatch(
+  doc.head.innerHTML,
+  /\.popup-sync-line\.active \{ color: #fff !important;/
+);
+assert.doesNotMatch(
+  doc.head.innerHTML,
+  /body\.hl-depth \.popup-sync-line\.active \{ color: #E2E8F0 !important;/
+);
 assert.equal(doc.body['data-popup-role'], 'player');
 assert.equal(highlighted, 1);
 assert.equal(initialized, 1);

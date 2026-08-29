@@ -764,7 +764,7 @@ const PlayerViewRenderer = (() => {
 
         el.style.color = isChord
           ? (isShift ? '#00F2FE' : '#fff')
-          : (isNeon ? '#00F2FE' : isPulse ? '#22D364' : '#E2E8F0');
+          : (isNeon ? '#00F2FE' : isPulse ? '#22D364' : textColor);
         el.style.textShadow = isNeon
           ? '0 0 8px rgba(0,242,254,0.8), 0 0 20px rgba(0,242,254,0.4)'
           : isFrost || isShift

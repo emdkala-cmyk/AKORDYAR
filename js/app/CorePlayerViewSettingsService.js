@@ -379,10 +379,10 @@
             times[index] != null && times[index] < playhead && !isActive;
           element.classList.toggle('active', isActive);
           element.classList.toggle('done', isDone);
-          // The popup builder uses inline styles for the user's base color.
-          // Clear those properties on the active row so the effect stylesheet
-          // can actually render the highlight above the inline declaration.
-          element.style.color = isActive ? '' : settings.tColor;
+          // Keep the user's text color on every line. Colorized effects use
+          // their own !important rule, while depth/frost only add the visual
+          // frame and shadow without turning the lyric white.
+          element.style.color = settings.tColor;
           element.style.textShadow = '';
           element.style.opacity = '';
         });

@@ -51,7 +51,7 @@
           .eline { min-height: 1.4em; line-height: 2.6; white-space: pre-wrap; }
           .popup-sync-line { position: relative; margin-top: 1.8em; padding: 4px 12px; border-bottom: none !important; transition: opacity 1.2s cubic-bezier(0.22, 0.61, 0.36, 1), color 1.2s cubic-bezier(0.22, 0.61, 0.36, 1), background 1.2s cubic-bezier(0.22, 0.61, 0.36, 1), text-shadow 1.2s cubic-bezier(0.22, 0.61, 0.36, 1); }
           .popup-sync-line::before { content: ''; position: absolute; left: 0; right: 0; top: -0.4em; bottom: 0.8em; opacity: 0; border-radius: 8px; pointer-events: none; z-index: -1; transition: opacity 1.2s cubic-bezier(0.22, 0.61, 0.36, 1), background 1.2s cubic-bezier(0.22, 0.61, 0.36, 1), box-shadow 1.2s cubic-bezier(0.22, 0.61, 0.36, 1); }
-          .popup-sync-line.active { color: #fff !important; border-radius: 8px; z-index: 10; }
+          .popup-sync-line.active { border-radius: 8px; z-index: 10; }
           .popup-sync-line.active::before { opacity: 1; }
           .popup-sync-line.done { opacity: 0.58; }
           @keyframes hl-gradient-sweep { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
@@ -59,13 +59,13 @@
           @keyframes hl-text-pulse { 0%,100% { text-shadow: 0 0 6px rgba(34,211,100,0.5), 0 0 12px rgba(34,211,100,0.3); } 50% { text-shadow: 0 0 12px rgba(34,211,100,0.8), 0 0 30px rgba(34,211,100,0.5), 0 0 50px rgba(34,211,100,0.2); } }
           body.hl-neon .popup-sync-line.active { color: #00F2FE !important; text-shadow: 0 0 8px rgba(0,242,254,0.8), 0 0 20px rgba(0,242,254,0.4); }
           body.hl-neon .popup-sync-line.active::before { background: linear-gradient(180deg, rgba(0, 242, 254, 0.2), rgba(0, 242, 254, 0.04) 55%, transparent); border: 1px solid rgba(0, 242, 254, 0.3); box-shadow: 0 0 15px rgba(0, 242, 254, 0.3), 0 0 30px rgba(0, 242, 254, 0.1); }
-          body.hl-frost .popup-sync-line.active { color: #fff !important; }
+          body.hl-frost .popup-sync-line.active { }
           body.hl-frost .popup-sync-line.active::before { background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.03) 50%, rgba(200,220,255,0.08) 100%); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 12px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.15), 0 4px 16px rgba(0,0,0,0.3); }
           .popup-sync-line::after { content: ''; position: absolute; left: 0; right: 0; top: -0.4em; bottom: 0.8em; opacity: 0; border-radius: 12px; pointer-events: none; z-index: -1; transition: opacity 1.2s cubic-bezier(0.22, 0.61, 0.36, 1); }
           body.hl-frost .popup-sync-line.active::after { opacity: 1; background: rgba(255,255,255,0.06); backdrop-filter: blur(8px); }
           body.hl-shift .popup-sync-line.active { background: linear-gradient(135deg, #ff2e93, #7b2fff, #00F2FE, #3FB8AF, #ff2e93); background-size: 400% 400%; animation: hl-gradient-sweep 4s ease infinite; -webkit-background-clip: text; -webkit-text-fill-color: transparent !important; background-clip: text; }
           body.hl-shift .popup-sync-line.active::before { background: linear-gradient(135deg, rgba(255,46,147,0.15), rgba(123,47,255,0.15), rgba(0,242,254,0.15)); background-size: 400% 400%; animation: hl-gradient-sweep 4s ease infinite; border-radius: 8px; }
-          body.hl-depth .popup-sync-line.active { color: #E2E8F0 !important; text-shadow: 0 1px 0 rgba(0,0,0,0.8), 0 2px 0 rgba(0,0,0,0.7), 0 3px 0 rgba(0,0,0,0.6), 0 4px 8px rgba(0,0,0,0.5), 0 0 15px rgba(255,46,147,0.3); }
+          body.hl-depth .popup-sync-line.active { text-shadow: 0 1px 0 rgba(0,0,0,0.8), 0 2px 0 rgba(0,0,0,0.7), 0 3px 0 rgba(0,0,0,0.6), 0 4px 8px rgba(0,0,0,0.5), 0 0 15px rgba(255,46,147,0.3); }
           body.hl-depth .popup-sync-line.active::before { background: linear-gradient(180deg, rgba(255, 46, 147, 0.15), rgba(255, 46, 147, 0.02) 60%, transparent); border: 1px solid rgba(255, 46, 147, 0.2); box-shadow: 0 6px 20px rgba(0,0,0,0.4), 0 2px 6px rgba(255,46,147,0.2); }
           body.hl-pulse .popup-sync-line.active { color: #22D364 !important; animation: hl-text-pulse 2s ease-in-out infinite; }
           body.hl-pulse .popup-sync-line.active::before { background: linear-gradient(180deg, rgba(34, 211, 100, 0.12), rgba(34, 211, 100, 0.02) 55%, transparent); border: 1px solid rgba(34, 211, 100, 0.25); border-radius: 10px; animation: hl-pulse-glow 2s ease-in-out infinite; }
