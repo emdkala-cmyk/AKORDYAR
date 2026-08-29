@@ -40,4 +40,12 @@ assert.match(
   /عنوان.*خواننده.*متن ترانه.*am.*متن بخش بند/s
 );
 
+const feelSearchText = service.extractSearchText({
+  ...source,
+  timeSignature: '2/4 (حس 6/8)'
+});
+assert.ok(feelSearchText.includes('2/4 (حس 6/8)'));
+assert.ok(feelSearchText.includes('2/4 6/8'));
+assert.ok(feelSearchText.includes('حس 6/8'));
+
 console.log('ArchiveNormalizationService tests passed');

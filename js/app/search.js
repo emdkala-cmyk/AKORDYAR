@@ -132,7 +132,19 @@ function quickSearchFilter() {
       const title = (s.title || '').toLowerCase();
       const artist = (s.artist || '').toLowerCase();
       const rawText = (s.rawText || '').toLowerCase();
-      if (!title.includes(query) && !artist.includes(query) && !rawText.includes(query)) return false;
+      const timeSignature = String(s.timeSignature || '').toLowerCase();
+      const signatureParts = timeSignature.match(/\d+\s*\/\s*\d+/g) || [];
+      const signatureSearch = [
+        timeSignature,
+        ...signatureParts,
+        signatureParts.join(' ')
+      ].join(' ');
+      if (
+        !title.includes(query) &&
+        !artist.includes(query) &&
+        !rawText.includes(query) &&
+        !signatureSearch.includes(query)
+      ) return false;
     }
     // Signature filter
     if (sig && s.timeSignature !== sig) return false;

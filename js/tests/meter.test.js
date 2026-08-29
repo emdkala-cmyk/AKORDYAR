@@ -12,12 +12,18 @@ vm.runInNewContext(source, context);
 
 const meter = context.window.Meter;
 const cfg44 = meter.getMeterConfig('4/4', 120);
+const cfg24Feel68 = meter.getMeterConfig('2/4 (حس 6/8)', 120);
 const cfg68 = meter.getMeterConfig('6/8', 120);
 const cfg78 = meter.getMeterConfig('7/8', 120);
 const cfg98 = meter.getMeterConfig('9/8', 120);
 const cfg128 = meter.getMeterConfig('12/8', 120);
 
 assert.equal(cfg44.beatDuration, 0.5);
+assert.equal(cfg24Feel68.numerator, 2);
+assert.equal(cfg24Feel68.denominator, 4);
+assert.equal(cfg24Feel68.beatDuration, cfg44.beatDuration);
+assert.equal(cfg24Feel68.measureDuration, 1);
+assert.equal(cfg24Feel68.isValid, true);
 assert.equal(cfg68.beatDuration, 0.25);
 assert.equal(cfg68.beatDuration, cfg44.beatDuration / 2);
 assert.equal(cfg78.measureDuration, 1.75);
@@ -45,9 +51,11 @@ assert.equal(meter.beatIndexAtTime(longBeatTime, cfg78), longBeat);
 assert.equal(meter.nextBeatIndexAtOrAfter(longBeatTime, cfg78), longBeat);
 
 assert.equal(meter.getMeterConfig('BadSig', 120).isValid, false);
+assert.equal(meter.getMeterConfig('2/4x', 120).isValid, false);
 assert.equal(meter.getMeterConfig(null, null).isValid, true);
 
 assert.equal(meter.isStrongBeat(0, '6/8'), true);
+assert.equal(meter.isStrongBeat(1, '2/4 (حس 6/8)'), false);
 for (const beat of [1, 2, 3, 4, 5]) {
   assert.equal(
     meter.isStrongBeat(beat, '6/8'),

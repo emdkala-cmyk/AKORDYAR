@@ -18,12 +18,17 @@
   }
 
   function extractSearchText(song) {
+    const timeSignature = String(song.timeSignature || '');
+    const signatureParts = timeSignature.match(/\d+\s*\/\s*\d+/g) || [];
     const parts = [
       song.title,
       song.artist,
       song.album,
       song.key,
       song.genre,
+      timeSignature,
+      ...signatureParts,
+      signatureParts.join(' '),
       song.sourceFileName,
       song.notes,
       (song.tags || []).join(' '),

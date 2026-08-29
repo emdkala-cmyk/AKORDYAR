@@ -13,7 +13,9 @@ var Meter = (function() {
   function parseTimeSignature(timeSignature) {
     var isDefault = timeSignature == null || String(timeSignature).trim() === '';
     var source = isDefault ? DEFAULT_TIME_SIGNATURE : String(timeSignature).trim();
-    var match = /^(\d+)\s*\/\s*(\d+)$/.exec(source);
+    // Accept a descriptive suffix after the numeric signature, e.g.
+    // "2/4 (حس 6/8)". The engine still receives the canonical 2/4 values.
+    var match = /^(\d+)\s*\/\s*(\d+)(?=\s|$|\()/.exec(source);
     var numerator = match ? Number(match[1]) : 4;
     var denominator = match ? Number(match[2]) : 4;
     var validDenominator =
@@ -205,9 +207,9 @@ var Meter = (function() {
    */
   function isStrongBeat(beatIndex, timeSignature) {
     if (beatIndex === 0) return true;
-    var parts = (timeSignature || '4/4').split('/');
-    var num = parseInt(parts[0]) || 4;
-    var den = parseInt(parts[1]) || 4;
+    var parsed = parseTimeSignature(timeSignature);
+    var num = parsed.numerator;
+    var den = parsed.denominator;
     if (den === 8 && num === 6) return false;
     if (den === 8 && num % 3 === 0) {
       return beatIndex % 3 === 0;
