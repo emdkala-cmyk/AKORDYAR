@@ -25,6 +25,7 @@ function createElement(tagName = 'div') {
     style: {},
     className: '',
     classList: createClassList(),
+    dataset: {},
     textContent: '',
     draggable: false,
     children: [],
@@ -105,7 +106,12 @@ const songs = [
 const calls = [];
 const daw = {
   isPlaying: false,
-  sections: [{ start: 10 }]
+  sections: [
+    { id: 'section-verse', label: 'ورس ۱', start: 18 },
+    { id: 'section-passage', label: 'پاساژ', start: 6 },
+    { id: 'section-metronome', label: 'مترونم', start: 0 },
+    { id: 'section-outro', label: 'آورتور', start: 12 }
+  ]
 };
 
 const runtime = CorePerformanceUiService.create({
@@ -133,7 +139,15 @@ assert.match(elements.perfSongKey.innerHTML, /C ماژور/);
 assert.equal(elements.perfTransVal.textContent, '+1');
 assert.equal(elements.perfTempoVal.textContent, 120);
 assert.equal(elements.perfSetlist.children.length, 2);
-assert.equal(elements.perfSectionNav.children.length, 2);
+assert.equal(elements.perfSectionNav.children.length, 4);
+assert.deepEqual(
+  elements.perfSectionNav.children.map(child => child.textContent),
+  ['مترونم', 'پاساژ', 'آورتور', 'ورس ۱']
+);
+assert.deepEqual(
+  elements.perfSectionNav.children.map(child => child.dataset.sectionStart),
+  ['0', '6', '12', '18']
+);
 assert.equal(elements.perfNoteText.textContent, 'ورود با مکث');
 assert.equal(elements.perfNoteBadge.classList.contains('show'), true);
 assert.ok(elements.perfSetlist.querySelector('.pf-current').scrollOptions);
@@ -164,9 +178,16 @@ elements.perfSectionNav.children[0].onclick();
 assert.deepEqual(calls.find(call => Array.isArray(call) && call[0] === 'seek'), [
   'seek',
   0,
-  false
+  false,
+  true
 ]);
 assert.ok(calls.includes('audio'));
 assert.ok(calls.includes('start'));
+
+elements.perfSectionNav.children[1].onclick();
+assert.deepEqual(
+  calls.find(call => Array.isArray(call) && call[0] === 'seek' && call[1] === 6),
+  ['seek', 6, false, true]
+);
 
 console.log('CorePerformanceUiService tests passed');

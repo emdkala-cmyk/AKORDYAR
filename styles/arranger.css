@@ -147,8 +147,8 @@
 .arr-perf-setlist-item.pf-current .pf-name { color: var(--accent-cyan-glow); }
 .arr-perf-setlist-item .pf-key { font-size: 0.65rem; color: var(--text-secondary); font-family: 'JetBrains Mono', monospace; }
 
-.arr-perf-panel .arr-perf-section-nav { display: flex; gap: 4px; padding: 6px 8px; flex-wrap: wrap; justify-content: center; }
-.arr-perf-panel .arr-perf-section-nav button { padding: 4px 10px; border-radius: 6px; border: 1px solid var(--ctrl-border); background: #1F2736; color: var(--text-primary); font-size: 0.75rem; font-weight: 700; cursor: pointer; transition: 0.15s; }
+.arr-perf-panel .arr-perf-section-nav { display: flex; direction: ltr; flex-direction: row; gap: 4px; padding: 6px 8px; flex-wrap: nowrap; overflow-x: auto; justify-content: flex-start; }
+.arr-perf-panel .arr-perf-section-nav button { direction: rtl; flex: 0 0 auto; padding: 4px 10px; border-radius: 6px; border: 1px solid var(--ctrl-border); background: #1F2736; color: var(--text-primary); font-size: 0.75rem; font-weight: 700; cursor: pointer; transition: 0.15s; }
 .arr-perf-panel .arr-perf-section-nav button:hover { background: var(--accent-teal); color: #000; border-color: var(--accent-teal); }
 .arr-perf-panel .arr-perf-section-nav button.active-sec { background: var(--accent-teal); color: #000; border-color: var(--accent-teal); }
 

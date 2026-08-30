@@ -143,20 +143,30 @@
       const sectionNavigation = getElement('perfSectionNav');
       if (sectionNavigation) {
         sectionNavigation.innerHTML = '';
-        const sectionNames = ['مقدمه', 'ورس', 'کورس', 'بریج', 'آوترو'];
-        const sectionTimes = [0];
         const daw = getDAW?.() || {};
-        (daw.sections || []).forEach(section => {
-          sectionTimes.push(section.start);
-        });
-        sectionTimes.push(getArrangerEnd());
-        sectionNames.forEach((name, index) => {
-          if (index >= sectionTimes.length - 1 && index !== 0) return;
+        const sections = (Array.isArray(daw.sections) ? daw.sections : [])
+          .map((section, sourceIndex) => ({ section, sourceIndex }))
+          .sort((left, right) => {
+            const leftStart = Number(left.section?.start);
+            const rightStart = Number(right.section?.start);
+            const safeLeftStart = Number.isFinite(leftStart) ? leftStart : 0;
+            const safeRightStart = Number.isFinite(rightStart) ? rightStart : 0;
+            return safeLeftStart - safeRightStart ||
+              left.sourceIndex - right.sourceIndex;
+          })
+          .map(({ section }) => section);
+
+        sections.forEach(section => {
+          const sectionStart = Number(section?.start);
+          const start = Number.isFinite(sectionStart)
+            ? Math.max(0, sectionStart)
+            : 0;
           const button = documentRef.createElement('button');
-          button.textContent = name;
+          button.textContent = section?.label || section?.name || 'بخش';
+          button.dataset.sectionId = section?.id || '';
+          button.dataset.sectionStart = String(start);
           button.onclick = () => {
-            if (index >= sectionTimes.length) return;
-            seekTransport(sectionTimes[index], false);
+            seekTransport(start, false, true);
             if (!getDAW?.()?.isPlaying) {
               ensureAudioCtx();
               startTransport();
