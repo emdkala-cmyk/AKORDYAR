@@ -1018,6 +1018,7 @@ function getMidiScoreController() {
     const MIDI_MAPS = shortcutStore.midiMaps;
     let midiLearnActive = false;
     let midiLearnTargetId = null;
+    let midiLearnTimer = null;
     function loadMidiMaps() { return shortcutStore.loadMidiMaps(); }
     function saveMidiMaps() { return shortcutStore.saveMidiMaps(); }
     function getMidiMap(note) { return shortcutStore.getMidiMap(note); }
@@ -1029,6 +1030,8 @@ function getMidiScoreController() {
     }
     function executeMidiMappedFunction(funcId) { const fn = ACTION_FUNCTIONS[funcId]; if (fn) fn(); }
     function hideMidiLearnToast() {
+      clearTimeout(midiLearnTimer);
+      midiLearnTimer = null;
       const toastEl = document.querySelector('.mapping-toast');
       if (toastEl) toastEl.style.display = 'none';
     }
@@ -1054,6 +1057,8 @@ function getMidiScoreController() {
       const label = SHORTCUT_DEFAULTS.find(s => s.id === funcId)?.label || funcId;
       toastEl.textContent = '🎹 «' + label + '» — نت MIDI را بزنید...';
       toastEl.style.display = 'block';
+      clearTimeout(midiLearnTimer);
+      midiLearnTimer = setTimeout(() => cancelMidiLearn(), 3000);
     }
     function handleMidiLearnInput(note) {
       if (!midiLearnActive || !midiLearnTargetId) return;
