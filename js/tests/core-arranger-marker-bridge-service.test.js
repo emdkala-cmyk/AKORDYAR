@@ -13,6 +13,8 @@ const options = {
   getElement: id => ({ id }),
   documentRef: { body: {} },
   isPerforming: () => false,
+  isSnapEnabled: () => true,
+  snapTime: value => value,
   startPointerDrag: () => {},
   saveState: () => {},
   saveSong: () => {},
@@ -57,6 +59,8 @@ assert.equal(received.clamp, options.clamp);
 assert.equal(received.getElement, options.getElement);
 assert.equal(received.documentRef, options.documentRef);
 assert.equal(received.isPerforming, options.isPerforming);
+assert.equal(received.isSnapEnabled, options.isSnapEnabled);
+assert.equal(received.snapTime, options.snapTime);
 assert.equal(received.startPointerDrag, options.startPointerDrag);
 assert.equal(received.saveState, options.saveState);
 assert.equal(received.saveSong, options.saveSong);

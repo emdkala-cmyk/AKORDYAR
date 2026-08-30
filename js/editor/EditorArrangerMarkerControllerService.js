@@ -16,6 +16,8 @@
     getElement = id => globalScope.document?.getElementById(id),
     documentRef = globalScope.document,
     isPerforming = () => false,
+    isSnapEnabled = () => true,
+    snapTime = value => value,
     startPointerDrag = (...args) =>
       globalScope.EditorRuntimeAdapter?.startPointerDrag?.(...args),
     saveState = () => {},
@@ -67,6 +69,20 @@
       if (typeof saveSong === 'function') saveSong();
     }
 
+    function markerTimeFrom(value, maxTime) {
+      const bounded = clamp(
+        Number.isFinite(Number(value)) ? Number(value) : 0,
+        0,
+        maxTime
+      );
+      const snapped = isSnapEnabled() ? snapTime(bounded) : bounded;
+      return clamp(
+        Number.isFinite(Number(snapped)) ? Number(snapped) : bounded,
+        0,
+        maxTime
+      );
+    }
+
     function setArrangerA() {
       if (isPerforming()) {
         toast('markerهای ارنجر هنگام اجرا قابل تغییر نیستند');
@@ -76,7 +92,7 @@
       markers.enabled = true;
       const maxTime = getProjectEnd();
       const start = Math.min(
-        clamp(getDAW().playhead, 0, maxTime),
+        markerTimeFrom(getDAW().playhead, maxTime),
         Math.max(0, maxTime - 0.5)
       );
       markers.start = start;
@@ -98,9 +114,10 @@
       }
       const markers = getArrangerMarkers();
       markers.enabled = true;
+      const maxTime = getProjectEnd();
       const end = Math.max(
         0.5,
-        clamp(getDAW().playhead, 0, getProjectEnd())
+        markerTimeFrom(getDAW().playhead, maxTime)
       );
       markers.end = end;
       if (!(markers.end > markers.start)) {
@@ -229,9 +246,8 @@
         if (!inner) return;
         const rect = inner.getBoundingClientRect();
         const markers = getArrangerMarkers();
-        const time = clamp(
+        const time = markerTimeFrom(
           xToTime(event.clientX - rect.left),
-          0,
           getProjectEnd()
         );
         if (dragTarget === 'A') {

@@ -52,8 +52,11 @@ const daw = {
   arrangerMarkers: null
 };
 let performing = false;
+let snapEnabled = false;
+let snapCalls = 0;
 let stateSaves = 0;
 let songSaves = 0;
+let dragCallbacks = null;
 const toasts = [];
 
 const controller = ControllerService.create({
@@ -68,6 +71,12 @@ const controller = ControllerService.create({
     removeEventListener() {}
   },
   isPerforming: () => performing,
+  isSnapEnabled: () => snapEnabled,
+  snapTime: value =>
+    (snapCalls += 1, Math.round(value * 2) / 2),
+  startPointerDrag: (target, startEvent, onMove, onEnd) => {
+    dragCallbacks = { target, startEvent, onMove, onEnd };
+  },
   saveState: () => { stateSaves += 1; },
   saveSong: () => { songSaves += 1; },
   toast: message => toasts.push(message),
@@ -87,10 +96,47 @@ assert.equal(songSaves, 1);
 assert.equal(elements.get('arranger-marker-a').style.left, '392px');
 assert.equal(elements.get('arranger-marker-b').style.left, '892px');
 
+daw.playhead = 4.24;
+controller.setArrangerA();
+assert.equal(daw.arrangerMarkers.start, 4.24);
+assert.equal(snapCalls, 0);
+
+snapEnabled = true;
+controller.setArrangerA();
+assert.equal(daw.arrangerMarkers.start, 4);
+assert.equal(snapCalls, 1);
+
 daw.playhead = 12;
 controller.setArrangerB();
 assert.equal(daw.arrangerMarkers.end, 12);
-assert.equal(stateSaves, 2);
+assert.equal(stateSaves, 4);
+
+controller.bindDrag();
+const markerAElement = elements.get('arranger-marker-a');
+markerAElement.getListener('pointerdown')({
+  button: 0,
+  currentTarget: markerAElement,
+  stopPropagation() {},
+  preventDefault() {}
+});
+dragCallbacks.onMove({ clientX: 570 });
+assert.equal(daw.arrangerMarkers.start, 4.5);
+dragCallbacks.onEnd();
+assert.equal(stateSaves, 5);
+
+snapEnabled = false;
+const markerBElement = elements.get('arranger-marker-b');
+markerBElement.getListener('pointerdown')({
+  button: 0,
+  currentTarget: markerBElement,
+  stopPropagation() {},
+  preventDefault() {}
+});
+dragCallbacks.onMove({ clientX: 1237 });
+assert.equal(daw.arrangerMarkers.end, 11.37);
+assert.equal(snapCalls, 2);
+dragCallbacks.onEnd();
+assert.equal(stateSaves, 6);
 
 controller.toggleArrangerMarkers();
 assert.equal(daw.arrangerMarkers.enabled, false);

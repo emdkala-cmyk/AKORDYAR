@@ -1369,6 +1369,8 @@ function applyState(stateStr) {
         getElement: id => $(id),
         documentRef: document,
         isPerforming: () => coreGetPerformanceState()?.active || false,
+        isSnapEnabled: () => editorTransportState.snapEnabled === true,
+        snapTime: (...args) => snapTime(...args),
         startPointerDrag: (...args) =>
           coreStartPointerDrag(...args),
         saveState: () => saveState(),
