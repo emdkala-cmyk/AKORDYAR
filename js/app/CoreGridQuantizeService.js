@@ -46,9 +46,13 @@
       return state.snapEnabled;
     }
 
+    function isSnapEnabled() {
+      return getTransportState().snapEnabled === true;
+    }
+
     function snapTime(time) {
       const state = getTransportState();
-      if (!state.snapEnabled) return time;
+      if (!isSnapEnabled()) return time;
       const timing = getSongState()?.getTimingContext?.() || {};
       const config = getTimeSignatureGridConfig(
         timing.timeSignature,
@@ -144,6 +148,7 @@
       getTimeSignatureGridConfig,
       getActiveQuantizeGridStep,
       toggleSnap,
+      isSnapEnabled,
       snapTime,
       showQuantizeModal,
       applyQuantize,

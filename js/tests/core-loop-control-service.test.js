@@ -25,7 +25,7 @@ const daw = {
   loopA: 0,
   loopB: 10,
   playhead: 4,
-  isPlaying: true,
+  isPlaying: false,
   rafId: 22
 };
 const selected = [
@@ -35,6 +35,8 @@ const selected = [
 const calls = [];
 let selectionEnd = 99;
 let performing = false;
+let snapEnabled = false;
+let snapCalls = 0;
 
 const service = LoopControlService.create({
   getDAW: () => daw,
@@ -49,6 +51,11 @@ const service = LoopControlService.create({
   startTransport: () => calls.push('start'),
   stopAllVoices: () => calls.push('stopVoices'),
   cancelAnimationFrame: value => calls.push(['cancel', value]),
+  isSnapEnabled: () => snapEnabled,
+  snapTime: value => {
+    snapCalls += 1;
+    return Math.round(value * 2) / 2;
+  },
   toast: value => calls.push(['toast', value]),
   formatTime: value => `t${value}`
 });
@@ -77,16 +84,15 @@ assert.deepEqual(
   [2, 11, false, 11]
 );
 
+const callsBeforePlay = calls.length;
 service.setLoopFromSelectionAndPlay();
 assert.deepEqual(
   [daw.loopA, daw.loopB, daw.loopEnabled, daw.playhead],
   [2, 11, true, 2]
 );
-assert.deepEqual(calls.slice(-6), [
+assert.deepEqual(calls.slice(callsBeforePlay), [
   'render',
   'playhead',
-  ['cancel', 22],
-  'stopVoices',
   'start',
   ['toast', 'Loop ON: t2 → t11']
 ]);

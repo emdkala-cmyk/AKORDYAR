@@ -15,10 +15,27 @@
     xToTime = value => value,
     clamp = (value, min, max) => Math.max(min, Math.min(max, value)),
     getProjectEnd = () => Number.POSITIVE_INFINITY,
+    isSnapEnabled = () => true,
+    snapTime = value => value,
     startPointerDrag = (...args) =>
       globalScope.EditorRuntimeAdapter?.startPointerDrag?.(...args),
     saveState = () => {}
   } = {}) {
+    function loopTimeFrom(value) {
+      const numeric = Number(value);
+      const bounded = clamp(
+        Number.isFinite(numeric) ? numeric : 0,
+        0,
+        getProjectEnd()
+      );
+      const snapped = isSnapEnabled() ? Number(snapTime(bounded)) : bounded;
+      return clamp(
+        Number.isFinite(snapped) ? snapped : bounded,
+        0,
+        getProjectEnd()
+      );
+    }
+
     function renderLoopRegion() {
       const daw = getDAW();
       const strip = getElement('loop-strip');
@@ -62,11 +79,7 @@
         const inner = getElement('tl-inner');
         if (!inner) return;
         const rect = inner.getBoundingClientRect();
-        const time = clamp(
-          xToTime(event.clientX - rect.left),
-          0,
-          getProjectEnd()
-        );
+        const time = loopTimeFrom(xToTime(event.clientX - rect.left));
         const daw = getDAW();
         if (dragTarget === 'A') {
           daw.loopA = Math.min(time, daw.loopB - 0.5);

@@ -1143,6 +1143,8 @@ function getMidiScoreController() {
         documentRef: document,
         getElement: id => $(id),
         getDAW: () => editorGetRuntimeDAW(),
+        isSnapEnabled: () => editorCoreApi.isSnapEnabled?.() ?? true,
+        snapTime: value => editorCoreApi.snapTime?.(value) ?? value,
         setVerticalZoom: value => setVerticalZoom(value),
         setZoom: (...args) => setZoom(...args),
         toast,

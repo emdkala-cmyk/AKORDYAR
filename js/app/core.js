@@ -175,6 +175,7 @@ function customPrompt(message, defaultValue = '') {
       getTimeSignatureGridConfig,
       getActiveQuantizeGridStep,
       toggleSnap,
+      isSnapEnabled,
       snapTime,
       showQuantizeModal,
       applyQuantize,
@@ -184,6 +185,7 @@ function customPrompt(message, defaultValue = '') {
       getTimeSignatureGridConfig,
       getActiveQuantizeGridStep,
       toggleSnap,
+      isSnapEnabled,
       snapTime,
       showQuantizeModal,
       applyQuantize,
@@ -1313,6 +1315,8 @@ function applyState(stateStr) {
         xToTime: value => xToTime(value),
         clamp: (value, min, max) => clamp(value, min, max),
         getProjectEnd: () => getProjectEnd(),
+        isSnapEnabled: () => editorTransportState.snapEnabled === true,
+        snapTime: (...args) => snapTime(...args),
         startPointerDrag: (...args) =>
           coreStartPointerDrag(...args),
         saveState: (...args) => saveState(...args)
@@ -1340,6 +1344,8 @@ function applyState(stateStr) {
         startTransport: () => startTransport(),
         stopAllVoices: () => stopAllVoices(),
         cancelAnimationFrame: (...args) => cancelAnimationFrame(...args),
+        isSnapEnabled: () => editorTransportState.snapEnabled === true,
+        snapTime: (...args) => snapTime(...args),
         toast: message => toast(message),
         formatTime: value => formatTime(value)
       });

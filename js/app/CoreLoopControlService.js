@@ -19,9 +19,35 @@
     stopAllVoices = () => {},
     cancelAnimationFrame = (...args) =>
       globalScope.cancelAnimationFrame?.(...args),
+    isSnapEnabled = () => true,
+    snapTime = value => value,
     toast = () => {},
     formatTime = value => String(value)
   } = {}) {
+    function loopTimeFrom(value) {
+      const numeric = Number(value);
+      const bounded = Number.isFinite(numeric) ? Math.max(0, numeric) : 0;
+      const snapped = isSnapEnabled()
+        ? Number(snapTime(bounded))
+        : bounded;
+      return Number.isFinite(snapped) ? Math.max(0, snapped) : bounded;
+    }
+
+    function restartPlaybackFromLoopStart(daw) {
+      if (!daw?.isPlaying) return false;
+
+      daw.playhead = daw.loopA;
+      daw.isPlaying = false;
+      if (daw.rafId != null) {
+        cancelAnimationFrame(daw.rafId);
+        daw.rafId = null;
+      }
+      stopAllVoices();
+      updatePlayheadUI();
+      startTransport();
+      return true;
+    }
+
     function toggleLoop() {
       const daw = getDAW();
       if (isPerforming()) {
@@ -32,12 +58,15 @@
       const button = getElement('loopToggleBtn');
       if (button) button.classList.toggle('loop-active', daw.loopEnabled);
       renderLoopRegion();
+      if (daw.loopEnabled && daw.loopB > daw.loopA) {
+        restartPlaybackFromLoopStart(daw);
+      }
       toast(daw.loopEnabled ? 'Loop ON' : 'Loop OFF');
     }
 
     function setLoopA() {
       const daw = getDAW();
-      daw.loopA = daw.playhead;
+      daw.loopA = loopTimeFrom(daw.playhead);
       if (daw.loopB <= daw.loopA) {
         daw.loopB = Math.max(daw.loopA + 1, daw.loopA + 5);
       }
@@ -47,7 +76,7 @@
 
     function setLoopB() {
       const daw = getDAW();
-      daw.loopB = daw.playhead;
+      daw.loopB = loopTimeFrom(daw.playhead);
       if (daw.loopA >= daw.loopB) {
         daw.loopA = Math.max(0, daw.loopB - 5);
       }
@@ -71,8 +100,10 @@
         return null;
       }
       return {
-        start: Math.min(...clips.map(clip => clip.start)),
-        end: Math.max(...clips.map(clip => clip.start + clip.duration))
+        start: loopTimeFrom(Math.min(...clips.map(clip => clip.start))),
+        end: loopTimeFrom(
+          Math.max(...clips.map(clip => clip.start + clip.duration))
+        )
       };
     }
 
@@ -110,14 +141,13 @@
       const button = getElement('loopToggleBtn');
       if (button) button.classList.add('loop-active');
       renderLoopRegion();
-      updatePlayheadUI();
 
       if (daw.isPlaying) {
-        daw.isPlaying = false;
-        if (daw.rafId) cancelAnimationFrame(daw.rafId);
-        stopAllVoices();
+        restartPlaybackFromLoopStart(daw);
+      } else {
+        updatePlayheadUI();
+        startTransport();
       }
-      startTransport();
       toast(
         'Loop ON: ' +
           formatTime(daw.loopA) +

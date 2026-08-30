@@ -22,6 +22,8 @@
     xToTime = value => value,
     clientToTime = () => 0,
     clamp = (value, min, max) => Math.max(min, Math.min(max, value)),
+    isSnapEnabled = () => true,
+    snapTime = value => value,
     autoScrollToPlayhead = () => {},
     renderLoopRegion = () => {},
     saveState = () => {}
@@ -30,6 +32,13 @@
     let wheelTarget = null;
     let rulerTarget = null;
     let playheadTarget = null;
+
+    const loopTimeFrom = value => {
+      const numeric = Number(value);
+      const bounded = Number.isFinite(numeric) ? Math.max(0, numeric) : 0;
+      const snapped = isSnapEnabled() ? Number(snapTime(bounded)) : bounded;
+      return Number.isFinite(snapped) ? Math.max(0, snapped) : bounded;
+    };
 
     const startPointerDrag = (target, startEvent, onMove, onEnd = () => {}) => {
       const pointerId = startEvent.pointerId;
@@ -112,7 +121,7 @@
         const localY = event.clientY - rulerRect.top;
         const isUpperHalf = localY < rulerRect.height * 0.5;
         if (isUpperHalf && daw.loopEnabled) {
-          const time = clientToTime(event.clientX);
+          const time = loopTimeFrom(clientToTime(event.clientX));
           if (event.ctrlKey || event.metaKey) {
             daw.loopB = Math.max(time, daw.loopA + 0.5);
           } else {

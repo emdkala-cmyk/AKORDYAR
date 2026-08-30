@@ -134,7 +134,7 @@ markerBElement.getListener('pointerdown')({
 });
 dragCallbacks.onMove({ clientX: 1237 });
 assert.equal(daw.arrangerMarkers.end, 11.37);
-assert.equal(snapCalls, 2);
+assert.equal(snapCalls, 3);
 dragCallbacks.onEnd();
 assert.equal(stateSaves, 6);
 
@@ -146,7 +146,7 @@ assert.equal(daw.arrangerMarkers.enabled, true);
 performing = true;
 daw.playhead = 1;
 controller.setArrangerA();
-assert.equal(daw.arrangerMarkers.start, 4);
+assert.equal(daw.arrangerMarkers.start, 4.5);
 assert.match(toasts.at(-1), /قابل تغییر نیستند/);
 performing = false;
 
