@@ -23,5 +23,7 @@ assert.match(script.textContent, /_pRenderChords/);
 assert.match(script.textContent, /_pScheduleChordRender/);
 assert.match(script.textContent, /"Am"/);
 assert.match(script.textContent, /"cSize":20/);
+assert.match(script.textContent, /z-index:30/);
+assert.match(script.textContent, /z-index:29/);
 
 console.log('CorePlayerViewChordRendererService tests passed');

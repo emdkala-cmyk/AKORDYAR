@@ -50,7 +50,7 @@
           el = document.createElement('span');
           el.className = 'p-chord';
           el.setAttribute('data-chord-key', key);
-          el.style.cssText = 'position:absolute;pointer-events:none;font-weight:bold;line-height:1.15;box-sizing:border-box;background:transparent;z-index:5;direction:ltr;white-space:nowrap;visibility:hidden;-webkit-font-smoothing:antialiased;text-rendering:geometricPrecision;';
+          el.style.cssText = 'position:absolute;pointer-events:none;font-weight:bold;line-height:1.15;box-sizing:border-box;background:transparent;z-index:30;direction:ltr;white-space:nowrap;visibility:hidden;-webkit-font-smoothing:antialiased;text-rendering:geometricPrecision;';
           pb.appendChild(el);
           _pChordEls[key] = el;
           return { el: el, created: true };
@@ -62,7 +62,7 @@
           el = document.createElement('div');
           el.className = 'p-chord-line';
           el.setAttribute('data-chordline-key', key);
-          el.style.cssText = 'position:absolute;width:2px;pointer-events:none;opacity:.5;z-index:4;visibility:hidden;';
+          el.style.cssText = 'position:absolute;width:2px;pointer-events:none;opacity:.5;z-index:29;visibility:hidden;';
           pb.appendChild(el);
           _pChordLineEls[key] = el;
           return { el: el, created: true };

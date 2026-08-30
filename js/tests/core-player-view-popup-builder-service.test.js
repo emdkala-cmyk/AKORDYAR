@@ -66,6 +66,8 @@ assert.match(doc.body.innerHTML, /Line one/);
 assert.match(doc.head.innerHTML, /transition: opacity 1\.2s/);
 assert.match(doc.head.innerHTML, /\.popup-sync-line\.done \{ opacity: 0\.58; \}/);
 assert.match(doc.head.innerHTML, /\.popup-sync-line\.active::before/);
+assert.match(doc.head.innerHTML, /top: -0\.7em; bottom: 0\.4em/);
+assert.match(doc.head.innerHTML, /z-index: 30 !important/);
 assert.match(doc.head.innerHTML, /hl-gradient-sweep 4s/);
 assert.doesNotMatch(
   doc.head.innerHTML,

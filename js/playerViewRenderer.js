@@ -38,6 +38,12 @@ const PlayerViewRenderer = (() => {
         50% { background-position: 100% 50%; }
         100% { background-position: 0% 50%; }
       }
+      @keyframes hl-mobile-shift-text {
+        0%, 100% { color: #FFFFFF; }
+        25% { color: #7DF9FF; }
+        50% { color: #FFD1E7; }
+        75% { color: #E9D4FF; }
+      }
       @keyframes hl-pulse-glow {
         0%, 100% { box-shadow: 0 0 8px rgba(34,211,100,0.3), inset 0 0 12px rgba(34,211,100,0.05); }
         50% { box-shadow: 0 0 20px rgba(34,211,100,0.6), inset 0 0 20px rgba(34,211,100,0.1); }
@@ -403,7 +409,17 @@ const PlayerViewRenderer = (() => {
       lineEl.style.marginTop    = mobileLineMargin + 'em';
       lineEl.style.color        = textColor;
 
-      lineEl.textContent = line.text || '\u200B';
+      if (isMobileLayout) {
+        // Keep the text separate from the row container.  Color Shift uses
+        // background-clip:text, which must never turn the whole row into a
+        // transparent stacking layer above the mobile highlight frame.
+        const lineTextEl = document.createElement('span');
+        lineTextEl.className = 'pv-line-text';
+        lineTextEl.textContent = line.text || '\u200B';
+        lineEl.appendChild(lineTextEl);
+      } else {
+        lineEl.textContent = line.text || '\u200B';
+      }
 
       container.appendChild(lineEl);
     });
@@ -732,6 +748,9 @@ const PlayerViewRenderer = (() => {
       const isChord = el.classList.contains('pv-chord');
       const isConnector = el.classList.contains('pv-chord-line');
       const lineActive = activeLineId && el.dataset.lineId === activeLineId;
+      const lineTextEl = !isChord && isMobileLayout
+        ? el.querySelector('.pv-line-text')
+        : null;
 
       el.classList.toggle('pv-active', !!lineActive);
       el.classList.toggle('pv-done', !!isDone);
@@ -741,6 +760,17 @@ const PlayerViewRenderer = (() => {
       el.style.backgroundClip = '';
       el.style.webkitBackgroundClip = '';
       el.style.webkitTextFillColor = '';
+      if (lineTextEl) {
+        lineTextEl.style.animation = '';
+        lineTextEl.style.background = '';
+        lineTextEl.style.backgroundSize = '';
+        lineTextEl.style.backgroundClip = '';
+        lineTextEl.style.webkitBackgroundClip = '';
+        lineTextEl.style.webkitTextFillColor = '';
+        lineTextEl.style.color = '';
+        lineTextEl.style.textShadow = '';
+        lineTextEl.style.webkitTextStroke = '';
+      }
 
       if (isConnector) {
         // Player View keeps the chord palette while the active row is
@@ -773,16 +803,37 @@ const PlayerViewRenderer = (() => {
               ? '0 0 6px rgba(34,211,100,0.5), 0 0 12px rgba(34,211,100,0.3)'
               : '0 1px 0 rgba(0,0,0,0.8), 0 2px 0 rgba(0,0,0,0.7), 0 3px 0 rgba(0,0,0,0.6), 0 4px 8px rgba(0,0,0,0.5), 0 0 15px rgba(255,46,147,0.3)';
         if (!isChord && isShift) {
-          el.style.backgroundSize = '400% 400%';
-          el.style.animation = 'hl-gradient-sweep 4s ease infinite';
-          el.style.backgroundClip = 'text';
-          el.style.webkitBackgroundClip = 'text';
-          el.style.webkitTextFillColor = 'transparent';
+          const gradientTarget = lineTextEl || el;
+          if (lineTextEl) {
+            // Mobile WebKit loses glyph contrast when the animated gradient
+            // is clipped to text over the same colorful highlight frame.
+            gradientTarget.style.background = 'none';
+            gradientTarget.style.backgroundSize = '';
+            gradientTarget.style.animation = 'hl-mobile-shift-text 4s ease-in-out infinite';
+            gradientTarget.style.backgroundClip = 'initial';
+            gradientTarget.style.webkitBackgroundClip = 'initial';
+            gradientTarget.style.webkitTextFillColor = 'currentColor';
+            gradientTarget.style.color = '#FFFFFF';
+            gradientTarget.style.textShadow = '0 1px 2px rgba(0,0,0,0.98), 0 0 5px rgba(0,0,0,0.85)';
+            gradientTarget.style.webkitTextStroke = '0.55px rgba(5, 9, 18, 0.9)';
+          } else {
+            // Desktop keeps the animated gradient fill.
+            gradientTarget.style.background = 'linear-gradient(90deg, #ff66b3 0%, #c084fc 25%, #55e8ff 50%, #70e0cc 75%, #ff66b3 100%)';
+            gradientTarget.style.backgroundSize = '400% 400%';
+            gradientTarget.style.animation = 'hl-gradient-sweep 4s ease infinite';
+            gradientTarget.style.backgroundClip = 'text';
+            gradientTarget.style.webkitBackgroundClip = 'text';
+            gradientTarget.style.webkitTextFillColor = 'transparent';
+            gradientTarget.style.color = 'transparent';
+            gradientTarget.style.textShadow = '0 1px 2px rgba(0,0,0,0.95), 0 0 4px rgba(0,0,0,0.75)';
+          }
         } else if (!isChord && isPulse) {
           el.style.animation = 'hl-text-pulse 2s ease-in-out infinite';
         }
         if (!isChord) {
-          el.style.background = isNeon
+          el.style.background = isMobileLayout && isShift
+            ? 'transparent'
+            : isNeon
             ? 'linear-gradient(180deg, rgba(0,242,254,0.2), rgba(0,242,254,0.04) 55%, transparent)'
             : isFrost
               ? 'linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.03) 50%, rgba(200,220,255,0.08) 100%)'
