@@ -78,4 +78,11 @@ song.lineColors = ['blue', 'yellow'];
 renderer.render(false);
 assert.equal(editor.children[1].style.color, 'yellow');
 
+editor.children = [
+  { textContent: 'خط اول', dataset: {}, classList: { add() {} } },
+  { textContent: '', dataset: {}, classList: { add() {} } },
+  { textContent: 'خط دوم', dataset: {}, classList: { add() {} } }
+];
+assert.equal(renderer.readLyrics(editor), 'خط اول\n\nخط دوم');
+
 console.log('EditorLyricsRenderer tests passed');

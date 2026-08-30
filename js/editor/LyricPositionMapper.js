@@ -63,6 +63,79 @@ const LyricPositionMapper = (() => {
   }
 
   /**
+   * پیدا کردن یک تغییر پیوسته بین دو نسخه‌ی متن.
+   *
+   * ویرایش‌های contenteditable (تایپ، Enter، paste و حذف) معمولاً یک ناحیه‌ی
+   * پیوسته را عوض می‌کنند. نگه داشتن prefix/suffix مشترک باعث می‌شود موقعیت
+   * کاراکترهای قبل و بعد از آن ناحیه بدون تکیه بر متنِ کاراکتر یا تکراری بودن
+   * آن، به نسخه‌ی جدید منتقل شود.
+   */
+  function findTextEdit(oldText, newText) {
+    const oldValue = String(oldText ?? '');
+    const newValue = String(newText ?? '');
+    let start = 0;
+
+    while (
+      start < oldValue.length &&
+      start < newValue.length &&
+      oldValue[start] === newValue[start]
+    ) {
+      start += 1;
+    }
+
+    let oldEnd = oldValue.length;
+    let newEnd = newValue.length;
+    while (
+      oldEnd > start &&
+      newEnd > start &&
+      oldValue[oldEnd - 1] === newValue[newEnd - 1]
+    ) {
+      oldEnd -= 1;
+      newEnd -= 1;
+    }
+
+    return {
+      start,
+      oldEnd,
+      newEnd,
+      delta: newValue.length - oldValue.length,
+      oldLength: oldValue.length
+    };
+  }
+
+  /**
+   * انتقال یک offset قدیمی به متن جدید.
+   *
+   * affinity فقط برای insertion در یک boundary استفاده می‌شود:
+   * - right: anchor همراه متنِ قدیمیِ بعد از insertion حرکت می‌کند.
+   * - left: anchor قبل از insertion می‌ماند.
+   */
+  function remapAbsoluteOffset(offset, edit, affinity = 'right') {
+    const position = Math.max(
+      0,
+      Math.min(Number(offset) || 0, edit.oldLength)
+    );
+
+    if (position < edit.start) return position;
+    if (position > edit.oldEnd) return position + edit.delta;
+
+    const oldChangedLength = edit.oldEnd - edit.start;
+    if (oldChangedLength === 0) {
+      return affinity === 'left' ? edit.start : edit.newEnd;
+    }
+
+    // Offset at the end of a replaced/deleted range belongs after that range.
+    if (position === edit.oldEnd) return edit.newEnd;
+    if (position === edit.start) return edit.start;
+
+    // For an anchor inside a replaced range, retain its relative position as
+    // far as the replacement length allows.
+    const relative = position - edit.start;
+    const newChangedLength = edit.newEnd - edit.start;
+    return edit.start + Math.min(relative, newChangedLength);
+  }
+
+  /**
    * remap یک لنگر (آکورد یا seqPoint) از متن قدیمی به متن جدید.
    * item به‌صورت in-place به‌روز می‌شود (همان قرارداد قبلی runtime).
    *
@@ -71,46 +144,56 @@ const LyricPositionMapper = (() => {
    * @param {string} newText
    */
   function remapAnchorToNewText(item, oldText, newText) {
+    if (!item) return;
+
+    const oldValue = String(oldText ?? '');
+    const newValue = String(newText ?? '');
+    const rawLineIndex = Number(item.lineIndex);
+    if (Number.isFinite(rawLineIndex) && rawLineIndex < 0) {
+      return;
+    }
+    const edit = findTextEdit(oldValue, newValue);
+    const oldLines = oldValue.split('\n');
+    const oldLineIndex = Math.max(
+      0,
+      Math.min(
+        rawLineIndex || 0,
+        Math.max(0, oldLines.length - 1)
+      )
+    );
+    const oldLine = oldLines[oldLineIndex] || '';
+    const oldCharIndex = Math.max(
+      0,
+      Math.min(Number(item.charIndex) || 0, oldLine.length)
+    );
+    const oldAbs = lineCharToAbs(
+      oldValue,
+      oldLineIndex,
+      oldCharIndex
+    );
+    const affinity = item.anchorType === 'LineEnd' ? 'left' : 'right';
+    const newAbs = remapAbsoluteOffset(oldAbs, edit, affinity);
+    const mapped = absToLineChar(newValue, newAbs);
+    const newLines = newValue.split('\n');
+
+    item.lineIndex = Math.max(
+      0,
+      Math.min(mapped.lineIndex, Math.max(0, newLines.length - 1))
+    );
+
     if (item.anchorType === 'LineStart') {
-      const nl = newText.split('\n');
-      item.lineIndex = Math.min(item.lineIndex, nl.length - 1);
       item.charIndex = 0;
       return;
     }
     if (item.anchorType === 'LineEnd') {
-      const nl = newText.split('\n');
-      item.lineIndex = Math.min(item.lineIndex, nl.length - 1);
-      item.charIndex = (nl[item.lineIndex] || '').length;
+      item.charIndex = (newLines[item.lineIndex] || '').length;
       return;
     }
-    const abs = lineCharToAbs(oldText, item.lineIndex, item.charIndex);
-    const anchorChar = oldText[abs];
-    if (!anchorChar || anchorChar === '\n') {
-      const cl = absToLineChar(newText, Math.min(abs, newText.length));
-      item.lineIndex = cl.lineIndex;
-      item.charIndex = cl.charIndex;
-      item.anchorType = 'OnCharacter';
-      return;
-    }
-    let best = -1, bestD = Infinity, sf = 0;
-    while (sf < newText.length) {
-      const f = newText.indexOf(anchorChar, sf);
-      if (f === -1) break;
-      const d = Math.abs(f - abs);
-      if (d < bestD) { bestD = d; best = f; }
-      if (f >= abs) break;
-      sf = f + 1;
-    }
-    if (best === -1) {
-      const cl = absToLineChar(newText, Math.min(abs, newText.length));
-      item.lineIndex = cl.lineIndex;
-      item.charIndex = cl.charIndex;
-      item.anchorType = 'OnCharacter';
-      return;
-    }
-    const pos = absToLineChar(newText, best);
-    item.lineIndex = pos.lineIndex;
-    item.charIndex = pos.charIndex;
+
+    item.charIndex = Math.max(
+      0,
+      Math.min(mapped.charIndex, (newLines[item.lineIndex] || '').length)
+    );
     item.anchorType = 'OnCharacter';
   }
 
@@ -152,6 +235,8 @@ const LyricPositionMapper = (() => {
     hasPersian,
     lineCharToAbs,
     absToLineChar,
+    findTextEdit,
+    remapAbsoluteOffset,
     remapAnchorToNewText,
     mapChordColumnsToLyricIndices
   };

@@ -10,6 +10,45 @@
     documentRef = globalScope.document,
     getState = () => null
   } = {}) {
+    function cleanLineText(element) {
+      return String(element?.textContent || '')
+        .replace(/\u200B/g, '')
+        .replace(/\r\n?/g, '\n');
+    }
+
+    function getLineElements(editor) {
+      return Array.from(editor?.children || []);
+    }
+
+    function normalizeLineElements(editor) {
+      const lineElements = getLineElements(editor);
+      lineElements.forEach((element, lineIndex) => {
+        element.classList?.add?.('eline');
+        if (element.dataset) {
+          element.dataset.lineIndex = String(lineIndex);
+        }
+        element.dir = 'auto';
+      });
+      return lineElements;
+    }
+
+    /**
+     * contenteditable در Enter روی ابتدا/انتهای یک بیت ممکن است innerText را
+     * با یک newline اضافه گزارش کند؛ درحالی‌که DOM فقط یک نود خط خالی دارد.
+     * هر فرزند مستقیم editor را یک خط واقعی در نظر می‌گیریم تا متن منطقی و
+     * مختصات lineIndex آکوردها همیشه از یک منبع واحد خوانده شوند.
+     */
+    function readLyrics(editor) {
+      const lineElements = normalizeLineElements(editor);
+      if (lineElements.length) {
+        return lineElements.map(cleanLineText).join('\n');
+      }
+
+      return String(editor?.textContent || editor?.innerText || '')
+        .replace(/\u200B/g, '')
+        .replace(/\r\n?/g, '\n');
+    }
+
     function applyLineStyle(element, styles, color) {
       element.style.fontSize = `${styles.tSize}px`;
       element.style.color = color || styles.tColor;
@@ -60,7 +99,7 @@
         editor.innerHTML = '';
         editor.appendChild(fragment);
       } else {
-        editor.querySelectorAll('.eline').forEach((element, lineIndex) => {
+        normalizeLineElements(editor).forEach((element, lineIndex) => {
           applyLineStyle(
             element,
             styles,
@@ -81,7 +120,12 @@
       return true;
     }
 
-    return Object.freeze({ render });
+    return Object.freeze({
+      render,
+      getLineElements,
+      normalizeLineElements,
+      readLyrics
+    });
   }
 
   globalScope.EditorLyricsRenderer = Object.freeze({ create });

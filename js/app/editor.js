@@ -1628,7 +1628,14 @@ function edBlankSong() {
     }
 
     // -- Editor Input --
-    function edGetLyricsFromDOM() { return $('editor')?.innerText?.replace(/\u200B/g,'').replace(/\r\n?/g,'\n') || ''; }
+    function edGetLyricsFromDOM() {
+      const editor = $('editor');
+      const renderer = getEditorLyricsRenderer();
+      if (editor && typeof renderer?.readLyrics === 'function') {
+        return renderer.readLyrics(editor);
+      }
+      return editor?.innerText?.replace(/\u200B/g, '').replace(/\r\n?/g, '\n') || '';
+    }
 
     function edRemapAnchors(oldText, newText) {
       const songState = getEditorSongStateService();

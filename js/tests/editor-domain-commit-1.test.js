@@ -165,6 +165,169 @@ test('mapper: remapAnchorToNewText لنگر OnCharacter و LineStart', () => {
   assert.strictEqual(lineStart.charIndex, 0);
 });
 
+test('mapper: افزودن سطر در ابتدا آکوردهای همه‌ی خطوط قبلی را جابه‌جا می‌کند', () => {
+  const oldText = 'verse one\nverse two\nverse three';
+  const newText = 'intro\n' + oldText;
+  const chords = [
+    { lineIndex: 0, charIndex: 0, anchorType: 'LineStart' },
+    { lineIndex: 1, charIndex: 5, anchorType: 'OnCharacter' },
+    { lineIndex: 2, charIndex: 11, anchorType: 'LineEnd' }
+  ];
+
+  chords.forEach(chord =>
+    LyricPositionMapper.remapAnchorToNewText(chord, oldText, newText)
+  );
+
+  assert.deepStrictEqual(
+    chords.map(chord => ({
+      lineIndex: chord.lineIndex,
+      charIndex: chord.charIndex,
+      anchorType: chord.anchorType
+    })),
+    [
+      { lineIndex: 1, charIndex: 0, anchorType: 'LineStart' },
+      { lineIndex: 2, charIndex: 5, anchorType: 'OnCharacter' },
+      { lineIndex: 3, charIndex: 11, anchorType: 'LineEnd' }
+    ]
+  );
+});
+
+test('mapper: افزودن سطر در وسط و شکستن خط موقعیت آکورد را حفظ می‌کند', () => {
+  const oldText = 'first\nsecond\nthird';
+  const insertedText = 'first\nadded\nsecond\nthird';
+  const middleLineChord = {
+    lineIndex: 1,
+    charIndex: 0,
+    anchorType: 'LineStart'
+  };
+  const lastLineChord = {
+    lineIndex: 2,
+    charIndex: 2,
+    anchorType: 'OnCharacter'
+  };
+
+  LyricPositionMapper.remapAnchorToNewText(
+    middleLineChord,
+    oldText,
+    insertedText
+  );
+  LyricPositionMapper.remapAnchorToNewText(
+    lastLineChord,
+    oldText,
+    insertedText
+  );
+
+  assert.deepStrictEqual(
+    {
+      lineIndex: middleLineChord.lineIndex,
+      charIndex: middleLineChord.charIndex
+    },
+    { lineIndex: 2, charIndex: 0 }
+  );
+  assert.deepStrictEqual(
+    {
+      lineIndex: lastLineChord.lineIndex,
+      charIndex: lastLineChord.charIndex
+    },
+    { lineIndex: 3, charIndex: 2 }
+  );
+
+  const oldSplitText = 'abcd\nef';
+  const newSplitText = 'ab\ncd\nef';
+  const splitChord = {
+    lineIndex: 0,
+    charIndex: 2,
+    anchorType: 'OnCharacter'
+  };
+  const splitLineEnd = {
+    lineIndex: 0,
+    charIndex: 4,
+    anchorType: 'LineEnd'
+  };
+  LyricPositionMapper.remapAnchorToNewText(
+    splitChord,
+    oldSplitText,
+    newSplitText
+  );
+  LyricPositionMapper.remapAnchorToNewText(
+    splitLineEnd,
+    oldSplitText,
+    newSplitText
+  );
+
+  assert.deepStrictEqual(
+    { lineIndex: splitChord.lineIndex, charIndex: splitChord.charIndex },
+    { lineIndex: 1, charIndex: 0 }
+  );
+  assert.deepStrictEqual(
+    {
+      lineIndex: splitLineEnd.lineIndex,
+      charIndex: splitLineEnd.charIndex
+    },
+    { lineIndex: 1, charIndex: 2 }
+  );
+});
+
+test('mapper: خطوط مشابه باعث انتخاب کاراکتر تکراری از خط اشتباه نمی‌شوند', () => {
+  const oldText = 'same\nsame';
+  const newText = 'new\n' + oldText;
+  const chord = {
+    lineIndex: 1,
+    charIndex: 2,
+    anchorType: 'OnCharacter'
+  };
+
+  LyricPositionMapper.remapAnchorToNewText(chord, oldText, newText);
+
+  assert.deepStrictEqual(
+    { lineIndex: chord.lineIndex, charIndex: chord.charIndex },
+    { lineIndex: 2, charIndex: 2 }
+  );
+});
+
+test('mapper: خط خالی در ابتدا یا انتهای بیت آکوردهای دو بیت را جابه‌جا نمی‌کند', () => {
+  const oldText = 'first\nsecond';
+  const cases = [
+    {
+      newText: '\nfirst\nsecond',
+      expected: [1, 2]
+    },
+    {
+      newText: 'first\n\nsecond',
+      expected: [0, 2]
+    }
+  ];
+
+  cases.forEach(({ newText, expected }) => {
+    const firstChord = {
+      lineIndex: 0,
+      charIndex: 0,
+      anchorType: 'LineStart'
+    };
+    const secondChord = {
+      lineIndex: 1,
+      charIndex: 0,
+      anchorType: 'LineStart'
+    };
+
+    LyricPositionMapper.remapAnchorToNewText(
+      firstChord,
+      oldText,
+      newText
+    );
+    LyricPositionMapper.remapAnchorToNewText(
+      secondChord,
+      oldText,
+      newText
+    );
+
+    assert.deepStrictEqual(
+      [firstChord.lineIndex, secondChord.lineIndex],
+      expected
+    );
+  });
+});
+
 /* ─── ChordLineSyncService ─── */
 
 test('sync: مرتب‌سازی بر اساس lineIndex سپس charIndex', () => {
