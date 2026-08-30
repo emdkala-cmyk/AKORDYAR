@@ -1647,6 +1647,21 @@ function edBlankSong() {
       edFilterChordsWithBase(ch => ch.lineIndex >= 0);
     }
 
+    function edRemapSyncTimes(oldText, newText) {
+      const songState = getEditorSongStateService();
+      if (oldText === newText || !songState?.currentSong?.()) return;
+
+      const syncTimes = songState.getSyncTimes?.();
+      if (!Array.isArray(syncTimes) || syncTimes.length === 0) return;
+
+      const remapped = requireLyricPositionMapper().remapLineValues(
+        syncTimes,
+        oldText,
+        newText
+      );
+      songState.replaceSyncTimes?.(remapped);
+    }
+
     let edSelectionService = null;
     function getEditorSelectionService() {
       if (
@@ -1765,6 +1780,13 @@ function edBlankSong() {
           remapAnchors: (oldText, newText) => edRemapAnchors(oldText, newText),
           remapSequencePoints: (oldText, newText) =>
             edRemapSeqPoints(oldText, newText),
+          remapSyncTimes: (oldText, newText) =>
+            edRemapSyncTimes(oldText, newText),
+          refreshSyncLyrics: () => {
+            if (editorCoreApi.isSyncActive?.()) {
+              editorCoreApi.renderSyncLyrics?.();
+            }
+          },
           scheduleEditorRefresh: () => edScheduleEditorRefresh(),
           scheduleCommit: () => {
             clearTimeout(edCommitTimer);

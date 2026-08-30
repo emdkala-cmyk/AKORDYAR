@@ -328,6 +328,50 @@ test('mapper: خط خالی در ابتدا یا انتهای بیت آکورد�
   });
 });
 
+test('mapper: تایم‌های سینک دستی با اضافه و حذف سطرها جابه‌جا می‌شوند', () => {
+  const times = [1.5, 3.75];
+
+  assert.deepStrictEqual(
+    LyricPositionMapper.remapLineValues(
+      times,
+      'first\nsecond',
+      '\nfirst\nsecond'
+    ),
+    [undefined, 1.5, 3.75]
+  );
+  assert.deepStrictEqual(
+    LyricPositionMapper.remapLineValues(
+      times,
+      'first\nsecond',
+      'first\n\nsecond'
+    ),
+    [1.5, undefined, 3.75]
+  );
+  assert.deepStrictEqual(
+    LyricPositionMapper.remapLineValues(
+      times,
+      'first\nsecond',
+      'first\nadded\nsecond'
+    ),
+    [1.5, undefined, 3.75]
+  );
+  assert.deepStrictEqual(
+    LyricPositionMapper.remapLineValues(times, 'first\nsecond', 'second'),
+    [3.75]
+  );
+});
+
+test('mapper: split یک سطر زمان قبلی را روی نیمهٔ اول نگه می‌دارد', () => {
+  assert.deepStrictEqual(
+    LyricPositionMapper.remapLineValues(
+      [1.5, 4.25],
+      'firstsecond\nthird',
+      'first\nsecond\nthird'
+    ),
+    [1.5, undefined, 4.25]
+  );
+});
+
 /* ─── ChordLineSyncService ─── */
 
 test('sync: مرتب‌سازی بر اساس lineIndex سپس charIndex', () => {

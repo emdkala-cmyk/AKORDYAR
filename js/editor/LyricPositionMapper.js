@@ -135,6 +135,53 @@ const LyricPositionMapper = (() => {
     return edit.start + Math.min(relative, newChangedLength);
   }
 
+  function remapLineValues(values, oldText, newText, defaultValue = undefined) {
+    if (!Array.isArray(values) || values.length === 0) return [];
+
+    const oldLines = String(oldText ?? '').split('\n');
+    const newLines = String(newText ?? '').split('\n');
+    const remapped = new Array(newLines.length).fill(defaultValue);
+
+    let prefixLength = 0;
+    while (
+      prefixLength < oldLines.length &&
+      prefixLength < newLines.length &&
+      oldLines[prefixLength] === newLines[prefixLength]
+    ) {
+      remapped[prefixLength] = values[prefixLength];
+      prefixLength += 1;
+    }
+
+    let oldSuffixStart = oldLines.length;
+    let newSuffixStart = newLines.length;
+    while (
+      oldSuffixStart > prefixLength &&
+      newSuffixStart > prefixLength &&
+      oldLines[oldSuffixStart - 1] === newLines[newSuffixStart - 1]
+    ) {
+      oldSuffixStart -= 1;
+      newSuffixStart -= 1;
+    }
+
+    const suffixDelta = newSuffixStart - oldSuffixStart;
+    for (let oldIndex = oldSuffixStart; oldIndex < oldLines.length; oldIndex += 1) {
+      const newIndex = oldIndex + suffixDelta;
+      if (newIndex >= 0 && newIndex < remapped.length) {
+        remapped[newIndex] = values[oldIndex];
+      }
+    }
+
+    const pairedLength = Math.min(
+      oldSuffixStart - prefixLength,
+      newSuffixStart - prefixLength
+    );
+    for (let offset = 0; offset < pairedLength; offset += 1) {
+      remapped[prefixLength + offset] = values[prefixLength + offset];
+    }
+
+    return remapped;
+  }
+
   /**
    * remap یک لنگر (آکورد یا seqPoint) از متن قدیمی به متن جدید.
    * item به‌صورت in-place به‌روز می‌شود (همان قرارداد قبلی runtime).
@@ -237,6 +284,7 @@ const LyricPositionMapper = (() => {
     absToLineChar,
     findTextEdit,
     remapAbsoluteOffset,
+    remapLineValues,
     remapAnchorToNewText,
     mapChordColumnsToLyricIndices
   };

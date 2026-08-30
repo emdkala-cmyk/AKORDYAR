@@ -16,6 +16,8 @@
     executeCommand = (...args) => globalScope.document?.execCommand?.(...args),
     remapAnchors = () => {},
     remapSequencePoints = () => {},
+    remapSyncTimes = () => {},
+    refreshSyncLyrics = () => {},
     scheduleEditorRefresh = () => {},
     scheduleCommit = () => {},
     scheduleSave = () => {},
@@ -70,6 +72,8 @@
       songState.setLyrics(newText);
       remapAnchors(oldText, newText);
       remapSequencePoints(oldText, newText);
+      remapSyncTimes(oldText, newText);
+      refreshSyncLyrics();
       scheduleEditorRefresh();
       scheduleCommit();
       scheduleSave();

@@ -57,6 +57,8 @@ const state = {
 };
 const remappedAnchors = [];
 const remappedSequencePoints = [];
+const remappedSyncTimes = [];
+const syncRefreshes = [];
 const refreshes = [];
 const commits = [];
 const saves = [];
@@ -78,6 +80,8 @@ const service = InteractionService.create({
   executeCommand: (...args) => commands.push(args),
   remapAnchors: (...args) => remappedAnchors.push(args),
   remapSequencePoints: (...args) => remappedSequencePoints.push(args),
+  remapSyncTimes: (...args) => remappedSyncTimes.push(args),
+  refreshSyncLyrics: () => syncRefreshes.push(true),
   scheduleEditorRefresh: () => refreshes.push(true),
   scheduleCommit: () => commits.push(true),
   scheduleSave: () => saves.push(true),
@@ -104,6 +108,8 @@ editor.dispatch('input');
 assert.equal(lyrics, 'new\ntext');
 assert.deepEqual(remappedAnchors, [['old', 'new\ntext']]);
 assert.deepEqual(remappedSequencePoints, [['old', 'new\ntext']]);
+assert.deepEqual(remappedSyncTimes, [['old', 'new\ntext']]);
+assert.equal(syncRefreshes.length, 1);
 assert.equal(refreshes.length, 1);
 assert.equal(commits.length, 1);
 assert.equal(saves.length, 1);
