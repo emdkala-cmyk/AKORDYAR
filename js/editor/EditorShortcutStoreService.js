@@ -6,26 +6,45 @@
  */
 (function attachEditorShortcutStoreService(globalScope) {
   const SHORTCUT_DEFAULTS = Object.freeze([
-    { id: 'undo', label: 'برگشت (Undo)', code: 'KeyZ', ctrl: true, shift: false },
-    { id: 'redo', label: 'جلو (Redo)', code: 'KeyY', ctrl: true, shift: false },
-    { id: 'play', label: 'پخش / توقف', code: 'Space', ctrl: false, shift: false },
-    { id: 'metronome', label: 'روشن/خاموش مترونوم', code: 'KeyC', ctrl: false, shift: false },
-    { id: 'split', label: 'برش در پخشگر', code: 'KeyS', ctrl: false, shift: false },
-    { id: 'copy', label: 'کپی', code: 'KeyC', ctrl: true, shift: false },
-    { id: 'cut', label: 'بریدن', code: 'KeyX', ctrl: true, shift: false },
-    { id: 'paste', label: 'چسباندن', code: 'KeyV', ctrl: true, shift: false },
-    { id: 'selectAll', label: 'انتخاب همه', code: 'KeyA', ctrl: true, shift: false },
-    { id: 'duplicate', label: 'کپی + چسباندن', code: 'KeyD', ctrl: true, shift: false },
-    { id: 'delete', label: 'حذف انتخاب‌شده', code: 'Delete', ctrl: false, shift: false },
-    { id: 'loop', label: 'روشن/خاموش حلقه', code: 'NumpadDivide', ctrl: false, shift: false },
-    { id: 'loopA', label: 'شروع حلقه', code: 'KeyI', ctrl: false, shift: false },
-    { id: 'loopB', label: 'پایان حلقه', code: 'KeyO', ctrl: false, shift: false },
-    { id: 'fullscreen', label: 'پنجره تمام‌صفحه', code: 'F9', ctrl: false, shift: false },
-    { id: 'focusMode', label: 'حالت تمرکز', code: 'F10', ctrl: false, shift: false },
-    { id: 'seekBack', label: 'عقب‌رفتن', code: 'ArrowLeft', ctrl: false, shift: false },
-    { id: 'seekFwd', label: 'جلورفتن', code: 'ArrowRight', ctrl: false, shift: false },
-    { id: 'goStart', label: 'رفتن به ابتدا', code: 'Home', ctrl: false, shift: false },
-    { id: 'setLoopFromSel', label: 'محدوده loop از selection', code: 'KeyP', ctrl: false, shift: false }
+    { id: 'undo', label: 'برگشت (Undo)', code: 'KeyZ', ctrl: true, shift: false, alt: false },
+    { id: 'redo', label: 'جلو (Redo)', code: 'KeyY', ctrl: true, shift: false, alt: false },
+    { id: 'play', label: 'پخش / توقف', code: 'Space', ctrl: false, shift: false, alt: false },
+    { id: 'metronome', label: 'روشن/خاموش مترونوم', code: 'KeyC', ctrl: false, shift: false, alt: false },
+    { id: 'split', label: 'برش در پخشگر', code: 'KeyS', ctrl: false, shift: false, alt: false },
+    { id: 'copy', label: 'کپی', code: 'KeyC', ctrl: true, shift: false, alt: false },
+    { id: 'cut', label: 'بریدن', code: 'KeyX', ctrl: true, shift: false, alt: false },
+    { id: 'paste', label: 'چسباندن', code: 'KeyV', ctrl: true, shift: false, alt: false },
+    { id: 'selectAll', label: 'انتخاب همه', code: 'KeyA', ctrl: true, shift: false, alt: false },
+    { id: 'duplicate', label: 'کپی + چسباندن', code: 'KeyD', ctrl: true, shift: false, alt: false },
+    { id: 'delete', label: 'حذف انتخاب‌شده', code: 'Delete', ctrl: false, shift: false, alt: false },
+    { id: 'loop', label: 'روشن/خاموش حلقه', code: 'NumpadDivide', ctrl: false, shift: false, alt: false },
+    { id: 'loopA', label: 'شروع حلقه', code: 'KeyI', ctrl: false, shift: false, alt: false },
+    { id: 'loopB', label: 'پایان حلقه', code: 'KeyO', ctrl: false, shift: false, alt: false },
+    { id: 'fullscreen', label: 'پنجره تمام‌صفحه', code: 'F9', ctrl: false, shift: false, alt: false },
+    { id: 'focusMode', label: 'حالت تمرکز', code: 'F10', ctrl: false, shift: false, alt: false },
+    { id: 'seekBack', label: 'عقب‌رفتن', code: 'ArrowLeft', ctrl: false, shift: false, alt: false },
+    { id: 'seekFwd', label: 'جلورفتن', code: 'ArrowRight', ctrl: false, shift: false, alt: false },
+    { id: 'goStart', label: 'رفتن به ابتدا', code: 'Home', ctrl: false, shift: false, alt: false },
+    { id: 'setLoopFromSel', label: 'محدوده loop از selection', code: 'KeyP', ctrl: false, shift: false, alt: false },
+    { id: 'zoomHOut', label: 'بزرگنمایی افقی (کم)', code: 'KeyG', ctrl: false, shift: false, alt: false },
+    { id: 'zoomHIn', label: 'بزرگنمایی افقی (زیاد)', code: 'KeyH', ctrl: false, shift: false, alt: false },
+    { id: 'zoomVOut', label: 'بزرگنمایی عمودی (کم)', code: 'KeyJ', ctrl: false, shift: false, alt: false },
+    { id: 'zoomVIn', label: 'بزرگنمایی عمودی (زیاد)', code: 'KeyK', ctrl: false, shift: false, alt: false },
+    { id: 'zoomToSelection', label: 'بزرگنمایی به انتخاب', code: 'KeyS', ctrl: false, shift: false, alt: true },
+    { id: 'zoomFull', label: 'بزرگنمایی کامل', code: 'KeyF', ctrl: false, shift: true, alt: false },
+    { id: 'togglePlayheadMode', label: 'حالت پخشگر', code: 'KeyV', ctrl: false, shift: false, alt: false },
+    { id: 'toggleRecording', label: 'ضبط', code: 'KeyR', ctrl: false, shift: false, alt: false },
+    { id: 'toggleTrackHeight', label: 'ارتفاع ترک', code: 'KeyZ', ctrl: false, shift: false, alt: false },
+    { id: 'loopPlay', label: 'پخش با حلقه', code: 'KeyP', ctrl: false, shift: false, alt: true },
+    { id: 'colorBrush', label: 'قلمموی رنگ', code: 'KeyC', ctrl: false, shift: true, alt: false },
+    { id: 'colorEyedropper', label: 'قطره‌چکان رنگ', code: 'KeyC', ctrl: false, shift: false, alt: true },
+    { id: 'toggleInspector', label: 'نمایش/مخفی بازرسی', code: 'ArrowLeft', ctrl: true, shift: true, alt: false },
+    { id: 'toggleSidebar', label: 'نمایش/مخفی نوار جانبی', code: 'ArrowRight', ctrl: true, shift: true, alt: false },
+    { id: 'toggleTimeline', label: 'نمایش/مخفی خط زمانی', code: 'ArrowDown', ctrl: true, shift: true, alt: false },
+    { id: 'tapTempo', label: 'ضربه تمپو', code: 'KeyT', ctrl: false, shift: false, alt: false },
+    { id: 'quantizeChords', label: 'کوانتیز آکوردها', code: 'KeyQ', ctrl: false, shift: false, alt: false },
+    { id: 'stop', label: 'توقف', code: 'Backspace', ctrl: true, shift: false, alt: false },
+    { id: 'goEnd', label: 'رفتن به انتها', code: 'End', ctrl: false, shift: false, alt: false }
   ].map(Object.freeze));
 
   const KEY_NAMES = Object.freeze({
@@ -36,6 +55,7 @@
     End: 'End',
     F9: 'F9',
     F10: 'F10',
+    NumpadDivide: '/',
     ArrowLeft: '←',
     ArrowRight: '→',
     ArrowUp: '↑',
@@ -87,7 +107,8 @@
           ? {
               code: definition.code,
               ctrl: definition.ctrl,
-              shift: definition.shift
+              shift: definition.shift,
+              alt: definition.alt
             }
           : null
       );
@@ -100,7 +121,8 @@
       return (
         event.code === shortcut.code &&
         modifier === Boolean(shortcut.ctrl) &&
-        event.shiftKey === Boolean(shortcut.shift)
+        !!event.shiftKey === Boolean(shortcut.shift) &&
+        !!event.altKey === Boolean(shortcut.alt)
       );
     }
 

@@ -1,5 +1,6 @@
 const assert = require('node:assert/strict');
 const KeyboardService = require('../editor/EditorKeyboardService.js');
+const ShortcutStoreService = require('../editor/EditorShortcutStoreService.js');
 
 function createWindow() {
   return {
@@ -45,6 +46,7 @@ function keyEvent(code, overrides = {}) {
 
 const windowRef = createWindow();
 const calls = [];
+const shortcutStore = ShortcutStoreService.create();
 const service = KeyboardService.create({
   windowRef,
   isChordModalOpen: () => false,
@@ -52,6 +54,7 @@ const service = KeyboardService.create({
   isEditorLocked: () => false,
   hasSelectedChords: () => true,
   hasSelectedChordLineClip: () => true,
+  getShortcutMatch: (event, id) => shortcutStore.matchShortcut(event, id),
   onTogglePlay: () => calls.push('play'),
   isSequentialChordingActive: () => false,
   onQuantizeSelectedChords: () => calls.push('quantize'),

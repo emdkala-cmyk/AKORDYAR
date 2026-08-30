@@ -87,7 +87,7 @@ assert.doesNotMatch(
 );
 assert.match(keyboardRuntimeService, /keyboardService\.create\(\{/);
 assert.match(keyboardControllerService, /runtimeService\.create\(\{/);
-assert.match(keyboardService, /event\.code === 'KeyZ'/);
+assert.match(keyboardService, /getShortcutMatch\(event, 'toggleTrackHeight'\)/);
 assert.match(html, /id="timelineHorizontalScrollbar"/);
 assert.match(html, /id="timelineVerticalScrollbar"/);
 assert.match(html, /id="timelinePanelDragHandle"/);

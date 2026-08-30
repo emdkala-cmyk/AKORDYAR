@@ -326,7 +326,7 @@
         return true;
       }
 
-      if (event.altKey && event.code === 'KeyP') {
+      if (getShortcutMatch(event, 'loopPlay')) {
         event.preventDefault?.();
         event.stopPropagation?.();
         onSetLoopFromSelectionAndPlay(event);
@@ -422,59 +422,40 @@
         return true;
       }
 
-      if (
-        !editable &&
-        !isChordModalOpen() &&
-        !event.ctrlKey &&
-        !event.metaKey &&
-        !event.shiftKey &&
-        (event.code === 'KeyG' || event.code === 'KeyH')
-      ) {
-        event.preventDefault?.();
-        onZoomHorizontal(event.code === 'KeyH', event);
-        return true;
+      if (!editable && !isChordModalOpen() && !event.altKey) {
+        if (getShortcutMatch(event, 'zoomHOut')) {
+          event.preventDefault?.();
+          onZoomHorizontal(false, event);
+          return true;
+        }
+        if (getShortcutMatch(event, 'zoomHIn')) {
+          event.preventDefault?.();
+          onZoomHorizontal(true, event);
+          return true;
+        }
       }
 
-      if (
-        !editable &&
-        !isChordModalOpen() &&
-        !event.ctrlKey &&
-        !event.metaKey &&
-        !event.altKey &&
-        !event.shiftKey &&
-        (event.code === 'KeyJ' || event.code === 'KeyK')
-      ) {
-        event.preventDefault?.();
-        onZoomVertical(event.code === 'KeyK', event);
-        return true;
-      }
-
-      if (
-        !editable &&
-        !isChordModalOpen() &&
-        event.altKey &&
-        !event.ctrlKey &&
-        !event.metaKey &&
-        !event.shiftKey &&
-        event.code === 'KeyS'
-      ) {
-        event.preventDefault?.();
-        onZoomToSelection(event);
-        return true;
-      }
-
-      if (
-        !editable &&
-        !isChordModalOpen() &&
-        event.shiftKey &&
-        !event.ctrlKey &&
-        !event.metaKey &&
-        !event.altKey &&
-        event.code === 'KeyF'
-      ) {
-        event.preventDefault?.();
-        onZoomFull(event);
-        return true;
+      if (!editable && !isChordModalOpen()) {
+        if (getShortcutMatch(event, 'zoomVOut')) {
+          event.preventDefault?.();
+          onZoomVertical(false, event);
+          return true;
+        }
+        if (getShortcutMatch(event, 'zoomVIn')) {
+          event.preventDefault?.();
+          onZoomVertical(true, event);
+          return true;
+        }
+        if (getShortcutMatch(event, 'zoomToSelection')) {
+          event.preventDefault?.();
+          onZoomToSelection(event);
+          return true;
+        }
+        if (getShortcutMatch(event, 'zoomFull')) {
+          event.preventDefault?.();
+          onZoomFull(event);
+          return true;
+        }
       }
 
       if (
@@ -553,28 +534,13 @@
       ) {
         event.preventDefault?.();
         onToggleMetronome(event);
-      } else if (
-        event.code === 'KeyV' &&
-        !event.ctrlKey &&
-        !event.metaKey &&
-        !event.altKey
-      ) {
+      } else if (getShortcutMatch(event, 'togglePlayheadMode')) {
         event.preventDefault?.();
         onTogglePlayheadMode(event);
-      } else if (
-        event.code === 'KeyR' &&
-        !event.ctrlKey &&
-        !event.metaKey &&
-        !event.altKey
-      ) {
+      } else if (getShortcutMatch(event, 'toggleRecording')) {
         event.preventDefault?.();
         onToggleRecording(event);
-      } else if (
-        event.code === 'KeyZ' &&
-        !event.ctrlKey &&
-        !event.metaKey &&
-        !event.altKey
-      ) {
+      } else if (getShortcutMatch(event, 'toggleTrackHeight')) {
         event.preventDefault?.();
         onToggleSelectedTrackHeight(event);
       } else if (event.key === 'Escape') {
@@ -600,17 +566,11 @@
       if (isEditableEvent(event, windowRef?.document)) return false;
 
       const key = String(event.key || '').toLowerCase();
-      if (
-        key === 'c' &&
-        event.shiftKey &&
-        !event.ctrlKey &&
-        !event.metaKey &&
-        !event.altKey
-      ) {
+      if (getShortcutMatch(event, 'colorBrush')) {
         event.preventDefault?.();
         onToggleColorBrush(event);
       }
-      if (key === 'c' && event.altKey) {
+      if (getShortcutMatch(event, 'colorEyedropper')) {
         event.preventDefault?.();
         onToggleColorEyedropper(event);
       }
@@ -625,19 +585,17 @@
         return true;
       }
 
-      if (event.shiftKey && (event.ctrlKey || event.metaKey)) {
-        if (event.key === 'ArrowLeft') {
-          event.preventDefault?.();
-          onTogglePanel('inspector', event);
-        }
-        if (event.key === 'ArrowRight') {
-          event.preventDefault?.();
-          onTogglePanel('sidebar', event);
-        }
-        if (event.key === 'ArrowDown') {
-          event.preventDefault?.();
-          onTogglePanel('timeline', event);
-        }
+      if (getShortcutMatch(event, 'toggleInspector')) {
+        event.preventDefault?.();
+        onTogglePanel('inspector', event);
+      }
+      if (getShortcutMatch(event, 'toggleSidebar')) {
+        event.preventDefault?.();
+        onTogglePanel('sidebar', event);
+      }
+      if (getShortcutMatch(event, 'toggleTimeline')) {
+        event.preventDefault?.();
+        onTogglePanel('timeline', event);
       }
 
       if (isPerfModeActive()) {
@@ -696,26 +654,13 @@
         return true;
       }
 
-      if (
-        event.key === 't' &&
-        !editable &&
-        !event.ctrlKey &&
-        !event.metaKey &&
-        !event.altKey
-      ) {
+      if (getShortcutMatch(event, 'tapTempo') && !editable) {
         event.preventDefault?.();
         onTapTempo(event);
         return true;
       }
 
-      if (
-        event.code === 'KeyQ' &&
-        !editable &&
-        !event.ctrlKey &&
-        !event.metaKey &&
-        !event.altKey &&
-        hasSelectedChordLineClip()
-      ) {
+      if (getShortcutMatch(event, 'quantizeChords') && !editable && hasSelectedChordLineClip()) {
         event.preventDefault?.();
         event.stopImmediatePropagation?.();
         onQuantizeSelectedChords(event);

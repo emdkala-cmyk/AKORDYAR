@@ -988,6 +988,7 @@ function getMidiScoreController() {
         const keyParts = [];
         if (cur.ctrl) keyParts.push('Ctrl');
         if (cur.shift) keyParts.push('Shift');
+        if (cur.alt) keyParts.push('Alt');
         keyParts.push(formatKeyName(cur.code));
         const midiLabel = midiNote ? '🎹N' + midiNote[0].replace('n','') : '';
         const midiRemoveBtn = midiNote ? `<button class="ed-btn" data-action="removeMidiMap" data-value="${editorEscapeHtml(midiNote[0].replace('n',''))}" title="حذف MIDI" style="font-size:0.6rem;min-width:18px;height:24px;padding:0 3px;background:#e24f5b;color:#fff;border-color:#e24f5b;">✕</button>` : '';
@@ -997,7 +998,7 @@ function getMidiScoreController() {
       });
       $('shortcutModal').classList.add('show');
     }
-    function closeShortcutModal() { $('shortcutModal').classList.remove('show'); _editingShortcutId = null; }
+    function closeShortcutModal() { $('shortcutModal').classList.remove('show'); _editingShortcutId = null; cancelMidiLearn(); }
     function startEditShortcut(id) {
       _editingShortcutId = id;
       document.querySelectorAll('.shortcut-key').forEach(el => el.classList.remove('editing'));
@@ -1027,7 +1028,23 @@ function getMidiScoreController() {
       return shortcutStore.removeMidiMap(note);
     }
     function executeMidiMappedFunction(funcId) { const fn = ACTION_FUNCTIONS[funcId]; if (fn) fn(); }
+    function hideMidiLearnToast() {
+      const toastEl = document.querySelector('.mapping-toast');
+      if (toastEl) toastEl.style.display = 'none';
+    }
+    function cancelMidiLearn() {
+      if (!midiLearnActive) return;
+      midiLearnActive = false;
+      const prevId = midiLearnTargetId;
+      midiLearnTargetId = null;
+      if (prevId) {
+        const btn = document.querySelector(`[data-action="${prevId}"]`);
+        if (btn) btn.classList.remove('mapping-active');
+      }
+      hideMidiLearnToast();
+    }
     function startMidiLearn(funcId) {
+      cancelMidiLearn();
       midiLearnActive = true;
       midiLearnTargetId = funcId;
       const btn = document.querySelector(`[data-action="${funcId}"]`);
@@ -1041,9 +1058,11 @@ function getMidiScoreController() {
     function handleMidiLearnInput(note) {
       if (!midiLearnActive || !midiLearnTargetId) return;
       setMidiMap(note, midiLearnTargetId);
+      const completedId = midiLearnTargetId;
       midiLearnActive = false;
       midiLearnTargetId = null;
-      const btn = document.querySelector(`[data-action="${midiLearnTargetId}"]`);
+      hideMidiLearnToast();
+      const btn = document.querySelector(`[data-action="${completedId}"]`);
       if (btn) btn.classList.remove('mapping-active');
       openShortcutModal();
       toast('🎹 MIDI mapping ذخیره شد: Note ' + note);
@@ -2327,6 +2346,7 @@ if ($('edDoBoth')) {
           getShortcutMatch: (event, id) => matchShortcut(event, id),
           onCancelShortcutEdit: () => {
             _editingShortcutId = null;
+            cancelMidiLearn();
             openShortcutModal();
           },
           onFinishShortcutEdit: (code, ctrl, shift) =>

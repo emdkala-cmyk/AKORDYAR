@@ -16,7 +16,7 @@ const storage = {
 };
 
 const store = ShortcutStoreService.create({ storage });
-assert.equal(store.shortcutDefaults.length, 20);
+assert.equal(store.shortcutDefaults.length, 39);
 
 store.loadShortcuts();
 assert.deepEqual(store.getShortcut('play'), {
