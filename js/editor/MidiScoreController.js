@@ -125,7 +125,7 @@
         changed = true;
       }
       if (!changed) {
-        toast('ابتدا یک فایل MIDI یا MusicXML وارد کنید');
+        toast(t('importHintFirst'));
         return false;
       }
       song.liveScoreSettings = {
@@ -317,7 +317,7 @@
 
       partsElement?.replaceChildren();
       if (meta) {
-        meta.textContent = 'ابتدا یک فایل چندپارتی MIDI یا MusicXML وارد کنید';
+        meta.textContent = t('importMultiPartHint');
       }
       viewer.replaceChildren();
       const state = documentRef.createElement('div');
@@ -325,20 +325,18 @@
       const title = documentRef.createElement('strong');
       title.textContent = t('scoreReaderReady');
       const description = documentRef.createElement('p');
-      description.textContent =
-        'پس از ورود فایل، هر ساز به‌صورت یک تب جدا نمایش داده می‌شود؛ ' +
-        'با انتخاب تب، نت همان ساز را می‌بینید.';
+      description.textContent = t('importMultiPartDesc');
       const actions = documentRef.createElement('div');
       actions.className = 'midi-score-empty-actions';
       const midiButton = documentRef.createElement('button');
       midiButton.type = 'button';
       midiButton.className = 'midi-score-action';
-      midiButton.textContent = '📥 ورود MIDI چندپارتی';
+      midiButton.textContent = t('importMultiPartMidi');
       midiButton.addEventListener('click', openImporter);
       const xmlButton = documentRef.createElement('button');
       xmlButton.type = 'button';
       xmlButton.className = 'midi-score-action';
-      xmlButton.textContent = '📄 ورود MusicXML چندپارتی';
+      xmlButton.textContent = t('importMultiPartXml');
       xmlButton.addEventListener('click', openMusicXmlImporter);
       actions.append(midiButton, xmlButton);
       state.append(title, description, actions);
