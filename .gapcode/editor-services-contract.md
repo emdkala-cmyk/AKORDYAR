@@ -34,20 +34,9 @@ adapter.getPERFOrThrow()           // PERF
 adapter.getPerformanceStore()      // PerformanceStore | null
 ```
 
-### `EdCurAdapter`
-
-`EdCurAdapter` فقط compatibility shim است:
-
-```js
-EdCurAdapter.getEdCur()             // Song | null
-EdCurAdapter.setEdCur(song)         // void
-EdCurAdapter.onChange(listener)     // unsubscribe()
-EdCurAdapter.rebuildSongDocument()  // SongDocument | null
-EdCurAdapter.syncViewStyles()       // void
-```
-
-کد جدید نباید مستقیماً `window.edCur` را بخواند یا بنویسد.
-این قاعده با `npm run quality:legacy-deps` روی سرویس‌های `js/editor` کنترل می‌شود.
+> **توجه:** `EdCurAdapter` از کد حذف شده و دیگر وجود ندارد.
+> `window.edCur` نیز از کد اجرا حذف شده (0 ارجاع باقی‌مانده).
+> `EditorSongRuntimeService` مالک رسمی song است.
 
 ### `EditorSongStateService`
 
@@ -348,7 +337,7 @@ transport، selection و lifecycle از طریق callbackهای context تزری
 
 ## قانون seam
 
-هر تغییر در `setEditorSong`، `EditorRuntimeAdapter`، `EdCurAdapter` یا
+هر تغییر در `setEditorSong`، `EditorRuntimeAdapter` یا
 `EditorSongInitializationService` باید تست
 `js/tests/editor-runtime-seam.test.js` را حفظ کند. تست seam باید نشان دهد که
 پس از restore/hydration، reference legacy و runtime adapter به یک object اشاره
@@ -472,5 +461,5 @@ perf.update(values);
 
 - کد جدید در `js/editor` نباید `window.edCur`، `DAW` یا `PERF` را مستقیم بخواند.
 - تغییر song باید از `EditorSongRuntimeService` یا `setEditorSong` عبور کند.
-- حذف `EdCurAdapter`، `RuntimeStateAdapter` یا fallbackهای popup فقط بعد از
+- حذف `RuntimeStateAdapter` یا fallbackهای popup فقط بعد از
   عبور تست‌های seam، load-order و Electron مجاز است.
