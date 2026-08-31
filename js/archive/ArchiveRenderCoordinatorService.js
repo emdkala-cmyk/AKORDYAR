@@ -194,7 +194,7 @@
       );
       sortSongs(songs, sort);
 
-      getElement('archiveResultCount').textContent = songs.length + ' نتیجه';
+      getElement('archiveResultCount').textContent = songs.length + ' ' + t('results');
       const isTrash = currentTab === 'trash';
       getElement('archiveStatusText').textContent =
         isTrash ? t('trash') : currentTab === 'fav' ? t('favorites') : t('allSongs');

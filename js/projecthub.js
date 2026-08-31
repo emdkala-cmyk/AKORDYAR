@@ -16,6 +16,7 @@
 
   /* ---------- Helpers ---------- */
   const $ = (id) => document.getElementById(id);
+  const t = (key) => window.t?.(key) ?? key;
 
   function getCurrentSong() {
     return window.ArchiveRuntimeAdapter?.getSong?.() || null;
