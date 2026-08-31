@@ -149,7 +149,21 @@
   // MusicXML is the notation/layout authority.  Broadcast only a compact
   // part catalogue by default; the requesting phone receives its own part's
   // measures/notes through the targeted payload below.
-  function musicXmlSourceData(score) {
+  function musicXmlSourceData(score, partId) {
+    /* For merged scores, look up the correct XML from dataSources */
+    const dataSources = score?.source?.dataSources;
+    if (Array.isArray(dataSources) && dataSources.length > 0) {
+      const wanted = String(partId || '');
+      for (const entry of dataSources) {
+        if (wanted && Array.isArray(entry.partIds) && entry.partIds.includes(wanted)) {
+          if (typeof entry.data === 'string' && entry.data.trim()) return entry.data;
+        }
+      }
+      /* Fallback: first available source */
+      for (const entry of dataSources) {
+        if (typeof entry.data === 'string' && entry.data.trim()) return entry.data;
+      }
+    }
     const source = score?.source?.data;
     if (typeof source === 'string' && source.trim()) return source;
     if (source && typeof source === 'object' &&
@@ -274,7 +288,18 @@
         // The catalogue intentionally omits the raw XML.  It is included only
         // in the targeted part response so the phone can let OSMD parse the
         // original notation instead of trying to reconstruct MusicXML.
-        data: includePart ? musicXmlSourceData(score) : null
+        data: includePart ? musicXmlSourceData(score, activePartId) : null,
+        xmlPartIds: (function() {
+          const sources = score?.source?.dataSources;
+          if (!Array.isArray(sources) || !sources.length) return null;
+          const map = {};
+          sources.forEach(entry => {
+            if (Array.isArray(entry.partIds) && Array.isArray(entry.xmlPartIds)) {
+              entry.partIds.forEach((id, i) => { map[id] = entry.xmlPartIds[i] || id; });
+            }
+          });
+          return Object.keys(map).length ? map : null;
+        })()
       } : null
     };
     if (compactPart) {

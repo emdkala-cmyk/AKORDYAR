@@ -658,8 +658,9 @@
 
   async function renderInto(root, score, partId, options = {}) {
     const wantedPartId = partId || score?.activePartId;
-    /* For merged scores, find the original XML part ID from dataSources */
+    /* For merged scores, find the original XML part ID */
     let xmlPartId = wantedPartId;
+    /* 1) Check dataSources (desktop merged scores) */
     const dataSources = score?.source?.dataSources;
     if (Array.isArray(dataSources)) {
       for (const entry of dataSources) {
@@ -670,6 +671,13 @@
             break;
           }
         }
+      }
+    }
+    /* 2) Check xmlPartIds on source (mobile compact scores from sync) */
+    if (xmlPartId === wantedPartId) {
+      const map = score?.source?.xmlPartIds;
+      if (map && typeof map === 'object' && map[wantedPartId]) {
+        xmlPartId = map[wantedPartId];
       }
     }
     const xml = selectPartXml(sourceText(score, wantedPartId), xmlPartId);
