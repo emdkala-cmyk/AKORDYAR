@@ -488,23 +488,25 @@
 
     /* ---- collect per-part raw XML sources for OSMD rendering ---- */
     const dataSources = [];
-    const xmlPartIdMap = {}; /* merged-part-id → original XML part-id */
     if (left.source?.data) {
-      left.parts.forEach(p => {
-        const id = String(p.id);
-        xmlPartIdMap[id] = id;
+      dataSources.push({
+        data: left.source.data,
+        partIds: left.parts.map(p => String(p.id)),
+        xmlPartIds: left.parts.map(p => String(p.id))
       });
-      dataSources.push({ data: left.source.data, partIds: left.parts.map(p => String(p.id)) });
     }
     if (right.source?.data) {
       const rightMergedIds = [];
+      const rightXmlIds = [];
       right.parts.forEach((p, i) => {
-        const originalXmlId = String(p.id);
-        const mergedId = String(mergedParts[left.parts.length + i].id);
-        xmlPartIdMap[mergedId] = originalXmlId;
-        rightMergedIds.push(mergedId);
+        rightXmlIds.push(String(p.id));
+        rightMergedIds.push(String(mergedParts[left.parts.length + i].id));
       });
-      dataSources.push({ data: right.source.data, partIds: rightMergedIds });
+      dataSources.push({
+        data: right.source.data,
+        partIds: rightMergedIds,
+        xmlPartIds: rightXmlIds
+      });
     }
 
     /* ---- merge source metadata ---- */
@@ -524,8 +526,7 @@
         mimeType: left.source?.mimeType || right.source?.mimeType || 'application/vnd.recordare.musicxml+xml',
         size: number(left.source?.size, 0) + number(right.source?.size, 0),
         data: null,
-        dataSources,
-        xmlPartIdMap
+        dataSources
       },
       ticksPerQuarter: left.ticksPerQuarter || right.ticksPerQuarter || DEFAULT_PPQN,
       parts: mergedParts,
