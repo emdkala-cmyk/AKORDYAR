@@ -128,16 +128,16 @@
         <div class="ed-sep"></div>
         <div class="ed-grp">
           <button class="ed-btn" id="edRemoveAsterisks" title="حذف تمام کاراکترهای ستاره (*) از متن">✕ *</button>
-          <button class="ed-btn" id="edReverseChords" title="برعکس کردن ترتیب آکورد هر خط">⇄ آکورد</button>
+          <button class="ed-btn" id="edReverseChords" title="برعکس کردن ترتیب آکورد هر خط" data-i18n="chord">⇄ آکورد</button>
           <button class="ed-btn" id="edDoBoth" title="حذف ستاره‌ها + برعکس آکورد (به ترتیب)">✕+⇄</button>
         </div>
         <div class="ed-sep"></div>
         <div class="ed-grp">
-          <button class="ed-btn" id="edSyncChordLineBtn" data-action="syncChordLine" title="بروزرسانی Chord Line از Lyrics Chord" style="border-color:#00F2FE; color:#00F2BE;">🔄 سینک</button>
+          <button class="ed-btn" id="edSyncChordLineBtn" data-action="syncChordLine" title="بروزرسانی Chord Line از Lyrics Chord" style="border-color:#00F2FE; color:#00F2BE;" data-i18n="sync">🔄 سینک</button>
         </div>
       </div>
       <div data-inline-actions style="min-width: 120px; display:flex; align-items:center; gap:8px;">
-        <button class="ed-btn" id="sendToArrangerBtn" data-action="sendToArranger" title="ارسال به ارنجر ترک" style="font-size:0.78rem; font-weight:700; min-width:auto; padding:4px 10px; border-color:var(--accent-cyan-glow); color:var(--accent-cyan-glow);">🎼 ارسال به ارنجر</button>
+        <button class="ed-btn" id="sendToArrangerBtn" data-action="sendToArranger" title="ارسال به ارنجر ترک" style="font-size:0.78rem; font-weight:700; min-width:auto; padding:4px 10px; border-color:var(--accent-cyan-glow); color:var(--accent-cyan-glow);" data-i18n="sendToArranger">🎼 ارسال به ارنجر</button>
       </div>
     </header>
 
@@ -200,7 +200,7 @@
         <div class="side-panel-content-inner">
 
       <div class="ins-card">
-        <div class="ins-card-title">اطلاعات پایه</div>
+        <div class="ins-card-title" data-i18n="songInfo">اطلاعات پایه</div>
         <div class="field">
           <label data-i18n="artist">خواننده</label>
           <input type="text" id="edArtist" data-i18n-placeholder="artistPlaceholder" placeholder="نام خواننده">
@@ -226,7 +226,7 @@
         <div class="field">
           <label data-i18n="genre">ژانر</label>
           <select id="edGenre">
-            <option value="">انتخاب کنید...</option>
+            <option value="" data-i18n="selectGenre">انتخاب کنید...</option>
             <option value="sad" data-i18n="sad">غمگین</option>
             <option value="happy" data-i18n="happy">شاد</option>
             <option value="heavy" data-i18n="heavy">سنگین</option>
@@ -1344,7 +1344,7 @@
         <div class="hub-logo">
           <div class="logo-icon">🎼</div>
           <div class="logo-text">
-            <span class="logo-name">آکوردیار</span>
+            <span class="logo-name" data-i18n="brand">آکوردیار</span>
             <span class="logo-ver">v1.0</span>
           </div>
         </div>
