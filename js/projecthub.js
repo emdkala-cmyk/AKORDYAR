@@ -61,8 +61,8 @@
       const songs = callApi(getArchiveApi(), 'getAllSongs') || [];
       return songs.slice(0, 8).map((s) => ({
         id: s.id,
-        name: s.title || s.name || 'بدون نام',
-        artist: s.artist || 'نامشخص',
+        name: s.title || s.name || t('untitled'),
+        artist: s.artist || t('unknown'),
         key: s.key || '—',
         tempo: s.tempo || '—',
         tracks: (s._dawTracks || []).length || 0,
@@ -79,10 +79,10 @@
   const TEMPLATES = [
     {
       id: 'tpl-001',
-      name: 'تمرین خوانندگی',
-      desc: 'لاین آکورد + متن شعر + مترونوم ۹۰ BPM',
+      name: t('tplVocalPractice'),
+      desc: t('tplVocalDesc'),
       icon: '🎤',
-      tags: ['وکال', 'مترونوم'],
+      tags: [t('vocal'), t('metronome')],
       config: {
         tempo: 90,
         key: 'C',
@@ -97,10 +97,10 @@
     },
     {
       id: 'tpl-002',
-      name: 'تنظیم آکوستیک',
-      desc: 'گیتار آکوستیک + وکال + باس، تمپوی آرام',
+      name: t('tplAcoustic'),
+      desc: t('tplAcousticDesc'),
       icon: '🎸',
-      tags: ['آکوستیک', 'گیتار'],
+      tags: [t('acoustic'), t('guitar')],
       tagClass: 'yellow',
       config: {
         tempo: 80,
@@ -118,10 +118,10 @@
     },
     {
       id: 'tpl-003',
-      name: 'پروژه کامل DAW',
-      desc: '۸ ترک: درام، باس، کیبورد، گیتار، وکال',
+      name: t('tplFullDaw'),
+      desc: t('tplFullDawDesc'),
       icon: '🎹',
-      tags: ['کامل', '۸ ترک'],
+      tags: [t('full'), t('8tracks')],
       tagClass: 'purple',
       config: {
         tempo: 120,
@@ -143,10 +143,10 @@
     },
     {
       id: 'tpl-004',
-      name: 'ضبط سریع',
-      desc: 'فقط لاین Rec + میکسر ساده برای ضبط فوری',
+      name: t('tplQuickRecord'),
+      desc: t('tplQuickRecordDesc'),
       icon: '🎧',
-      tags: ['ضبط', 'سریع'],
+      tags: [t('recording'), t('quick')],
       tagClass: 'pink',
       config: {
         tempo: 100,
@@ -162,10 +162,10 @@
     },
     {
       id: 'tpl-005',
-      name: 'بکینگ ترک',
-      desc: 'درام + باس + کیبورد برای همراهی خواننده',
+      name: t('tplBacking'),
+      desc: t('tplBackingDesc'),
       icon: '🎼',
-      tags: ['بکینگ', 'ساز'],
+      tags: [t('backing'), t('instrument')],
       tagClass: 'yellow',
       config: {
         tempo: 110,
@@ -183,10 +183,10 @@
     },
     {
       id: 'tpl-006',
-      name: 'پادکست',
-      desc: 'دو ترک وکال + افکت‌های صوتی',
+      name: t('podcast'),
+      desc: t('tplPodcastDesc'),
       icon: '🎙️',
-      tags: ['پادکست', 'وکال'],
+      tags: [t('podcast'), t('vocal')],
       tagClass: 'purple',
       config: {
         tempo: 100,
@@ -211,7 +211,7 @@
       if (!Array.isArray(arrangers)) return [];
       return arrangers.map((arr) => ({
         id: arr.id,
-        name: arr.name || 'بدون نام',
+        name: arr.name || t('untitled'),
         songCount: (arr.items || []).length,
         crossfade: arr.crossfade || 0,
         pauseBetween: !!arr.pauseBetween,
@@ -233,8 +233,8 @@
       list.innerHTML = `
         <div class="arranger-empty">
           <div style="font-size:1.5rem;margin-bottom:6px;">🎼</div>
-          <span>ارنجر ترکی وجود ندارد</span>
-          <span style="font-size:0.65rem;display:block;margin-top:4px;">از «ارسال به ارنجر» یا «➕ جدید» استفاده کنید</span>
+          <span>${t('noArrangerTrack')}</span>
+          <span style="font-size:0.65rem;display:block;margin-top:4px;">${t('useArrangerHint')}</span>
         </div>`;
       return;
     }
@@ -245,8 +245,8 @@
         <div class="arranger-info">
           <div class="arranger-name">${escH(p.name)}</div>
           <div class="arranger-meta">
-            <span>🎵 ${p.songCount} آهنگ</span>
-            ${p.crossfade > 0 ? `<span>🔄 کراس‌فید: ${p.crossfade}s</span>` : ''}
+            <span>🎵 ${p.songCount} ${t('songs')}</span>
+            ${p.crossfade > 0 ? `<span>🔄 ${t('crossfade')}: ${p.crossfade}s</span>` : ''}
           </div>
         </div>
         <button class="icon-btn" title="${t('openInArranger')}" data-action="open">📂</button>
@@ -265,8 +265,8 @@
       list.innerHTML = `
         <div class="empty-state">
           <div class="empty-ic">📂</div>
-          <span>هنوز پروژه‌ای در آرشیو نیست</span>
-          <span style="font-size:0.72rem">با «پروژه جدید» شروع کنید</span>
+          <span>${t('noProjectsYet')}</span>
+          <span style="font-size:0.72rem">${t('startWithNew')}</span>
         </div>`;
       return;
     }
@@ -280,7 +280,7 @@
             <span>🎵 ${escH(p.artist)}</span>
             <span>🎼 <span class="meta-key">${escH(p.key)}</span></span>
             <span>⏱ <span class="meta-key">${escH(p.tempo)}</span> BPM</span>
-            <span>🎚 <span class="meta-key">${p.tracks}</span> ترک</span>
+            <span>🎚 <span class="meta-key">${p.tracks}</span> ${t('tracks')}</span>
             <span>🕘 ${escH(p.lastModified)}</span>
           </div>
         </div>
@@ -307,7 +307,7 @@
         <div class="template-config">
           <span>⏱ ${t.config.tempo} BPM</span>
           <span>🎼 ${escH(t.config.key)}</span>
-          <span>🎚 ${t.config.tracks.length} ترک</span>
+          <span>🎚 ${t.config.tracks.length} ${t('tracks')}</span>
         </div>
       </div>
     `).join('');

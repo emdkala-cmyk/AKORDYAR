@@ -18,7 +18,7 @@
       if (!box) return;
       if (!editingArr || !editingArr.items.length) {
         box.innerHTML =
-          '<div style="text-align:center;padding:30px;color:var(--text-secondary);">ترانه‌ای در این ارنجر وجود ندارد</div>';
+          `<div style="text-align:center;padding:30px;color:var(--text-secondary);">${t('noSongsInArranger')}</div>`;
         return;
       }
 
@@ -38,7 +38,7 @@
         html += `<div class="arr-song-card">
           <div class="song-header">
             <div class="song-num">${index + 1}</div>
-            <div class="song-title">${song.title || 'بدون عنوان'}</div>
+            <div class="song-title">${song.title || t('untitled')}</div>
           </div>
           <div class="song-meta">
             ${song.artist ? '<span>🎤 ' + song.artist + '</span>' : ''}

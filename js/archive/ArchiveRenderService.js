@@ -33,23 +33,23 @@
   }
 
   const GENRE_LABELS = Object.freeze({
-    sad: 'غمگین',
-    happy: 'شاد',
-    heavy: 'سنگین',
+    sad: t('sad'),
+    happy: t('happy'),
+    heavy: t('heavy'),
     'heavy-6-8': '6/8 سنگین',
     '6/8 سنگین': '6/8 سنگین',
-    romantic: 'عاشقانه',
-    energetic: 'انرژیک',
-    calm: 'آرام',
-    epic: 'حماسی',
-    pop: 'پاپ',
-    rock: 'راک',
-    jazz: 'جاز',
-    classical: 'کلاسیک',
-    folk: 'سنتی',
-    electronic: 'الکترونیک',
-    hiphop: 'هیپ‌هاپ',
-    other: 'سایر'
+    romantic: t('love'),
+    energetic: t('energetic'),
+    calm: t('calm'),
+    epic: t('epic'),
+    pop: t('pop'),
+    rock: t('rock'),
+    jazz: t('jazz'),
+    classical: t('classical'),
+    folk: t('traditional'),
+    electronic: t('electronic'),
+    hiphop: t('hipHop'),
+    other: t('other')
   });
 
   function create(context = {}) {
@@ -64,7 +64,7 @@
 
     function renderEmpty(list, { query, isTrash, currentTab }) {
       list.innerHTML =
-        `<div class="archive-empty"><div class="archive-empty-icon">${isTrash ? '🗑' : '🎵'}</div>${query ? 'نتیجه‌ای یافت نشد' : isTrash ? 'سطل زباله خالی است' : currentTab === 'fav' ? 'ترانه‌ای در علاقه‌مندی نیست' : 'آرشیو خالی است'}</div>`;
+        `<div class="archive-empty"><div class="archive-empty-icon">${isTrash ? '🗑' : '🎵'}</div>${query ? t('noResults') : isTrash ? t('trashEmpty') : currentTab === 'fav' ? t('noFavorites') : t('archiveEmpty')}</div>`;
     }
 
     function renderTable(list, songs, options) {
@@ -76,10 +76,10 @@
       let headerHtml = '<table class="archive-table archive-table-header"><thead><tr>';
       if (selectMode) {
         headerHtml +=
-          '<th style="width:36px;"><input type="checkbox" class="arch-select-all-cb archive-card-check" data-action="archSelectAll" aria-label="انتخاب همه"></th>';
+          `<th style="width:36px;"><input type="checkbox" class="arch-select-all-cb archive-card-check" data-action="archSelectAll" aria-label="${t('selectAll')}"></th>`;
       }
       headerHtml +=
-        '<th>عنوان</th><th>خواننده</th><th>گام</th><th>BPM</th><th>میزان</th><th>تاریخ</th><th>عملیات</th></tr></thead></table>';
+        `<th>${t('title')}</th><th>${t('artist')}</th><th>${t('key')}</th><th>BPM</th><th>${t('meter')}</th><th>${t('date')}</th><th>${t('actions')}</th></tr></thead></table>`;
 
       let bodyHtml =
         '<div class="archive-table-body"><table class="archive-table archive-table-body-inner"><tbody>';
@@ -98,7 +98,7 @@
             `<td style="width:36px;"><input type="checkbox" class="archive-card-check" data-action="archToggleSelect" data-song-id="${escapeHtml(song.id)}" ${selected ? 'checked' : ''} aria-label="انتخاب"></td>`;
         }
         bodyHtml +=
-          `<td style="font-weight:700;">${escapeHtml(song.title || 'بدون نام')}</td><td>${escapeHtml(song.artist || '—')}</td><td style="color:#FFA500;font-weight:700;font-family:JetBrains Mono,monospace;">${keyLabel}</td><td style="color:#FF6BA8;">${song.tempo || song.bpm || '—'}</td><td>${escapeHtml(getDisplayTimeSignature(song) || '—')}</td><td style="font-size:0.72rem;color:var(--text-secondary);">${dateLabel}</td>`;
+          `<td style="font-weight:700;">${escapeHtml(song.title || t('untitled'))}</td><td>${escapeHtml(song.artist || '—')}</td><td style="color:#FFA500;font-weight:700;font-family:JetBrains Mono,monospace;">${keyLabel}</td><td style="color:#FF6BA8;">${song.tempo || song.bpm || '—'}</td><td>${escapeHtml(getDisplayTimeSignature(song) || '—')}</td><td style="font-size:0.72rem;color:var(--text-secondary);">${dateLabel}</td>`;
         bodyHtml +=
           `<td><div class="at-actions"><button data-arch-action="open" data-song-id="${song.id}" title="${t('open')}" aria-label="${t('open')}">▶</button> <button data-arch-action="menu" data-song-id="${song.id}" title="${t('more')}" aria-label="${t('more')}">⋯</button></div></td></tr>`;
       }
@@ -154,7 +154,7 @@
         card.setAttribute('role', 'button');
         card.setAttribute(
           'aria-label',
-          (song.title || 'بدون نام') + ' ' + (song.artist || '')
+          (song.title || t('untitled')) + ' ' + (song.artist || '')
         );
 
         let inner = '';
@@ -163,11 +163,11 @@
             `<input type="checkbox" class="archive-card-check" data-action="archToggleSelect" data-song-id="${escapeHtml(song.id)}" ${selectedIds.has(song.id) ? 'checked' : ''} aria-label="انتخاب">`;
         }
         inner +=
-          `<div class="archive-card-body"><div class="archive-card-top"><div class="archive-card-title">${escapeHtml(song.title || 'بدون نام')}</div></div><div class="archive-card-artist">${escapeHtml(song.artist || '—')}</div>`;
+          `<div class="archive-card-body"><div class="archive-card-top"><div class="archive-card-title">${escapeHtml(song.title || t('untitled'))}</div></div><div class="archive-card-artist">${escapeHtml(song.artist || '—')}</div>`;
         if (tags.length) inner += `<div class="archive-card-meta">${tags.join('')}</div>`;
         if (dateLabel) {
           inner +=
-            `<div class="archive-card-date">${trashed ? 'حذف شده: ' : ''}${dateLabel}</div>`;
+            `<div class="archive-card-date">${trashed ? t('deletedLabel') : ''}${dateLabel}</div>`;
         }
         inner += '</div><div class="archive-card-actions">';
         inner +=

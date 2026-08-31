@@ -31,7 +31,7 @@
       const overlay = getElement('arrSongNoteOverlay');
       if (title) {
         title.textContent =
-          (song ? (song.title || 'بدون نام') : '') + ' — یادداشت اجرا';
+          (song ? (song.title || t('untitled')) : '') + ' — یادداشت اجرا';
       }
       if (text) text.value = setting.notes || '';
       overlay?.classList?.add?.('show');

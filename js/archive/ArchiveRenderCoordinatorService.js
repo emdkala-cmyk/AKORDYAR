@@ -21,7 +21,8 @@
       getSelectedIds = () => new Set(),
       getActiveSongId = () => null,
       renderList = () => {},
-      renderEmpty = () => {}
+      renderEmpty = () => {},
+      t = key => globalScope.t?.(key) ?? key
     } = context;
     const FEEL_6_8_LABEL = '2/4 (حس 6/8)';
     const FEEL_6_8_ID = '2/4-feel-6/8';
@@ -196,7 +197,7 @@
       getElement('archiveResultCount').textContent = songs.length + ' نتیجه';
       const isTrash = currentTab === 'trash';
       getElement('archiveStatusText').textContent =
-        isTrash ? 'سطل زباله' : currentTab === 'fav' ? 'علاقه‌مندی‌ها' : 'همه ترانه‌ها';
+        isTrash ? t('trash') : currentTab === 'fav' ? t('favorites') : t('allSongs');
       getElement('archiveFilterBar').style.display = isTrash ? 'none' : '';
 
       const list = getElement('archiveList');
