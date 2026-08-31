@@ -94,7 +94,7 @@
           <button class="ed-btn" id="edAlignLeft" data-i18n-title="alignLeft">⇤</button>
         </div>
         <div class="ed-grp">
-          <label data-i18n="chordLabel">آکورد:</label>
+          <label data-i18n="chordLabel" data-i18n="akord">آکورد:</label>
           <input type="number" id="edChordSize" value="23" min="8" max="36">
           <select id="edChordFont"><option selected>JetBrains Mono</option><option>Courier New</option><option>Fira Code</option><option>Source Code Pro</option><option>Consolas</option><option>monospace</option><option>Cairo</option><option>Rubik</option><option>Mada</option><option>Sahel</option></select>
           <button class="ed-btn" id="edSizeLockBtn" data-action="sizeLock" data-i18n-title="lockTextChordSize"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg></button>
@@ -229,7 +229,7 @@
             <option value="" data-i18n="selectGenre">انتخاب کنید...</option>
             <option value="sad" data-i18n="sad">غمگین</option>
             <option value="happy" data-i18n="happy">شاد</option>
-            <option value="heavy" data-i18n="heavy">سنگین</option>
+            <option value="heavy" data-i18n="heavy"><span data-i18n="heavy">سنگین</span></option>
             <option value="heavy-6-8">6/8 سنگین</option>
             <option value="romantic" data-i18n="love">عاشقانه</option>
             <option value="energetic" data-i18n="energetic">انرژیک</option>
@@ -310,7 +310,7 @@
 
       <div class="project-stats" id="songStatsPanel">
         <div class="project-stats-row">
-          <span class="stat-label" data-i18n="chords">آکوردها</span>
+          <span class="stat-label" data-i18n="chords" data-i18n="akord">آکوردها</span>
           <span class="stat-value" id="statChordCount">0</span>
         </div>
         <div class="project-stats-row">
@@ -344,7 +344,7 @@
             id="timelineFloatBtn"
             data-timeline-layout-action="toggle-floating"
             data-i18n-title="detachTimeline"
-            aria-label="جدا کردن یا اتصال تایم‌لاین"
+            aria-label="detachTimeline"
             aria-pressed="false"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
@@ -371,7 +371,7 @@
             class="timeline-layout-btn"
             data-timeline-layout-action="reset-layout"
             data-i18n-title="resetTimelineLayout"
-            aria-label="بازنشانی چیدمان تایم‌لاین"
+            aria-label="resetTimelineLayout"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
               <path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v6h6"/>
@@ -448,7 +448,7 @@
                   <div class="loop-loc loop-loc-left" id="loop-loc-left"><div class="loop-loc-head"></div></div>
                   <div class="loop-loc loop-loc-right" id="loop-loc-right"><div class="loop-loc-head"></div></div>
                 </div>
-                <div class="arranger-markers-overlay" id="arranger-markers-overlay" style="display:none;" aria-label="markerهای ارنجر">
+                <div class="arranger-markers-overlay" id="arranger-markers-overlay" style="display:none;" aria-label="arrangerMarkers">
                   <div class="arranger-marker arranger-marker-a" id="arranger-marker-a">
                     <span class="arranger-marker-badge">A</span>
                   </div>
@@ -472,7 +472,7 @@
         <div
           class="timeline-vertical-scrollbar"
           id="timelineVerticalScrollbar"
-          aria-label="اسکرول عمودی لاین‌های تایم‌لاین"
+          aria-label="verticalScroll"
           role="scrollbar"
           aria-orientation="vertical"
           tabindex="0"
@@ -483,7 +483,7 @@
         <div
           class="timeline-bottom-scrollbar"
           id="timelineHorizontalScrollbar"
-          aria-label="اسکرول افقی تایم‌لاین"
+          aria-label="horizontalScroll"
           role="scrollbar"
           aria-orientation="horizontal"
           tabindex="0"
@@ -497,7 +497,7 @@
     <!-- Mixer Window -->
     <div class="mixer-panel" id="mixerPanel" data-inline-actions>
       <div class="mixer-head">
-        <div class="mixer-title">🎛 میکسر صدا</div>
+        <div class="mixer-title" data-i18n="mixer">🎛 میکسر صدا</div>
         <button class="mixer-close" data-action="toggleMixer" data-i18n-title="close">✕</button>
       </div>
       <div class="mixer-channels" id="mixerChannels"></div>
@@ -558,7 +558,7 @@
         </div>
         <div class="settings-foot">
           <button class="settings-btn" data-action="resetSettings" data-i18n="resetSettings">بازنشانی</button>
-          <button class="settings-btn primary" data-action="closeSettings" data-i18n="confirmSettings">تأیید</button>
+          <button class="settings-btn primary" data-action="closeSettings" data-i18n="confirmSettings" data-i18n="confirmSettings">تأیید</button>
         </div>
       </div>
     </div>
@@ -608,7 +608,7 @@
           <div class="midi-score-header-actions">
             <button type="button" class="midi-score-action" data-action="midiScoreImport" data-i18n="midiImport">📥 ورود MIDI</button>
             <button type="button" class="midi-score-action" data-action="musicXmlScoreImport" data-i18n="musicXmlImport">📄 ورود MusicXML</button>
-            <button type="button" class="midi-score-action" data-action="midiScoreClear">🗑 حذف</button>
+            <button type="button" class="midi-score-action" data-action="midiScoreClear" data-i18n="delete">🗑 حذف</button>
             <button type="button" class="midi-score-action" data-action="musicXmlScoreClear" data-i18n="deleteMusicXml">🗑 حذف MusicXML</button>
           <button type="button" class="midi-score-close" data-action="midiScoreClose" aria-label="بستن">×</button>
         </div>
@@ -629,15 +629,15 @@
 
   <!-- Quantize Modal -->
   <div class="quantize-modal" id="quantizeModal" data-inline-actions>
-    <h3>🎛️ پریست کوانتایز</h3>
-    <div class="q-preset" data-action="applyQuantize" data-value="1/1"><span>۱ میزان (1/1)</span><span class="q-shortcut">۴ ضرب</span></div>
-    <div class="q-preset" data-action="applyQuantize" data-value="1/2"><span>۱/۲ میزان</span><span class="q-shortcut">۲ ضرب</span></div>
-    <div class="q-preset active" data-action="applyQuantize" data-value="1/4"><span>۱/۴ میزان (1 beat)</span><span class="q-shortcut">۱ ضرب</span></div>
-    <div class="q-preset" data-action="applyQuantize" data-value="1/8"><span>۱/۸ میزان</span><span class="q-shortcut">نیم ضرب</span></div>
-    <div class="q-preset" data-action="applyQuantize" data-value="1/16"><span>۱/۱۶ میزان</span><span class="q-shortcut">ربع ضرب</span></div>
-    <div class="q-preset" data-action="applyQuantize" data-value="1/32"><span>۱/۳۲ میزان</span><span class="q-shortcut">هشتم ضرب</span></div>
+    <h3> data-i18n="quantizePreset">🎛️ پریست کوانتایز<</h3>
+    <div class="q-preset" data-action="applyQuantize" data-value="1/1"><span>۱ میزان (1/1)</span><span class="q-shortcut" data-i18n="fourBeats">۴ ضرب</span></div>
+    <div class="q-preset" data-action="applyQuantize" data-value="1/2"><span>۱/۲ میزان</span><span class="q-shortcut" data-i18n="twoBeats">۲ ضرب</span></div>
+    <div class="q-preset active" data-action="applyQuantize" data-value="1/4"><span>۱/۴ میزان (1 beat)</span><span class="q-shortcut" data-i18n="oneBeat">۱ ضرب</span></div>
+    <div class="q-preset" data-action="applyQuantize" data-value="1/8"><span data-i18n="eighthMeasure">۱/۸ میزان</span><span class="q-shortcut" data-i18n="halfBeat">نیم ضرب</span></div>
+    <div class="q-preset" data-action="applyQuantize" data-value="1/16"><span data-i18n="sixteenthMeasure">۱/۱۶ میزان</span><span class="q-shortcut" data-i18n="quarterBeat">ربع ضرب</span></div>
+    <div class="q-preset" data-action="applyQuantize" data-value="1/32"><span data-i18n="thirtySecondMeasure">۱/۳۲ میزان</span><span class="q-shortcut" data-i18n="eighthBeat">هشتم ضرب</span></div>
     <div style="margin-top:12px;border-top:1px solid #374151;padding-top:8px;">
-      <div class="q-preset" data-action="applyQuantize" data-value="triplet"><span data-i18n="triplet">تریپلت</span><span class="q-shortcut">۳ تایی</span></div>
+      <div class="q-preset" data-action="applyQuantize" data-value="triplet"><span data-i18n="triplet" data-i18n="triplet">تریپلت</span><span class="q-shortcut" data-i18n="threeTuplet">۳ تایی</span></div>
       <div class="q-preset" data-action="applyQuantize" data-value="dotted"><span data-i18n="dotted">نقطه‌دار</span><span class="q-shortcut">1.5x</span></div>
     </div>
   </div>
@@ -650,10 +650,10 @@
         <button data-action="closeImportChordModal"><span class="ir-icon" data-ir="✕" aria-hidden="true"></span></button>
       </div>
       <div class="import-panel-body">
-        <label>لینک وبسایت (اختیاری - لامینور، گیتاروست و...)</label>
+        <label data-i18n="webLink">لینک وبسایت (اختیاری)</label>
         <input type="text" id="importUrl" placeholder="https://laminor.org/artists/...">
         <div style="text-align:center;margin-bottom:14px;"><button class="btn-primary" style="padding:8px 20px;border-radius:8px;border:none;background:var(--accent-teal);color:#000;font-weight:700;cursor:pointer;" data-action="fetchFromUrl" data-i18n="fetchFromLink">📥 دریافت از لینک</button></div>
-        <label>یا متن آکورد و شعر را اینجا بچسبانید:</label>
+        <label data-i18n="pasteTextHere">یا متن آکورد و شعر را اینجا بچسبانید:</label>
         <textarea id="importText" placeholder="خط‌های آکورد و شعر را اینجا بچسبانید...&#10;مثال:&#10;D#m C#m B G#m&#10;سلام من به تو یار قدیمی"></textarea>
         <div id="importPreview" class="import-preview" style="display:none;"></div>
       </div>
@@ -677,17 +677,17 @@
           <div class="field">
             <label data-i18n="source">منبع</label>
             <select id="autoSource" style="width:100%;background:#0D1017;border:1px solid var(--border-subtle);padding:10px;border-radius:8px;color:white;font-size:0.9rem;">
-              <option value="laminor">لامینور (laminor.org)</option>
-              <option value="akord">آکورد (akord.ir)</option>
+              <option value="laminor" data-i18n="laminor">لامینور (laminor.org)</option>
+              <option value="akord" data-i18n="akord">آکورد (akord.ir)</option>
             </select>
           </div>
           <div class="field" id="autoCookieField" style="display:none;">
-            <label>کوکی نشست (برای ترانه‌های VIP) — کوکی laravel_session از مرورگر</label>
-            <input type="text" id="autoSessionCookie" placeholder="کوکی laravel_session رو اینجا بچسبانید" style="width:100%;background:#0D1017;border:1px solid var(--border-subtle);padding:10px;border-radius:8px;color:white;font-size:0.85rem;direction:ltr;font-family:monospace;">
+            <label data-i18n="cookieSession">کوکی نشست (برای ترانه‌های VIP) — کوکی laravel_session از مرورگر</label>
+            <input type="text" id="autoSessionCookie" data-i18n-placeholder="cookieSession" placeholder="Paste cookie here" style="width:100%;background:#0D1017;border:1px solid var(--border-subtle);padding:10px;border-radius:8px;color:white;font-size:0.85rem;direction:ltr;font-family:monospace;">
             <div style="font-size:0.75rem;color:var(--text-secondary);margin-top:4px;">F12 → Application → Cookies → laminor.org → laravel_session</div>
           </div>
           <div class="field">
-            <label>نام خواننده (ها) — با کاما جدا کنید: هایده, معین, گوگوش</label>
+            <label data-i18n="artistNames">نام خواننده — با کاما جدا کنید: هایده, معین, گوگوش</label>
             <textarea id="autoArtistName" placeholder="مثال: هایده&#10;یا: هایده, معین, گوگوش&#10;یا هر خط یک خواننده" rows="3" style="width:100%;background:#0D1017;border:1px solid var(--border-subtle);padding:10px;border-radius:8px;color:white;font-size:0.9rem;resize:vertical;font-family:inherit;line-height:1.6;"></textarea>
             <div id="autoArtistTags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;"></div>
           </div>
@@ -697,11 +697,11 @@
           </div>
           <div class="field" style="display:flex;align-items:center;gap:10px;">
             <input type="checkbox" id="autoSaveArchive" checked style="width:18px;height:18px;accent-color:var(--accent-teal);cursor:pointer;">
-            <label data-i18n="autoSaveToArchive">ذخیره خودکار در آرشیو</label>
+            <label data-i18n="autoSaveToArchive" data-i18n="autoSaveToArchive">ذخیره خودکار در آرشیو</label>
           </div>
           <div class="field" style="display:flex;align-items:center;gap:10px;">
             <input type="checkbox" id="autoFixChords" checked style="width:18px;height:18px;accent-color:var(--accent-teal);cursor:pointer;">
-            <label style="margin:0;cursor:pointer;font-size:0.9rem;">حذف ستاره + برعکس آکورد</label>
+            <label style="margin:0;cursor:pointer;font-size:0.9rem;" data-i18n="removeStarsReverse">حذف ستاره + برعکس آکورد</label>
           </div>
         </div>
         <div id="autoImportStatus" style="margin-top:12px;padding:10px;border-radius:8px;background:#0D1017;border:1px solid var(--border-subtle);font-size:0.85rem;color:var(--text-secondary);min-height:60px;white-space:pre-wrap;display:none;"></div>
@@ -719,7 +719,7 @@
             <button class="ctrl-btn" data-action="autoRetryFailed" style="border-color:#D69E2E;color:#D69E2E;" data-i18n="retryFailed">🔄 تلاش مجدد ناموفق‌ها</button>
             <button class="ctrl-btn" data-action="autoImportSaveArchive" style="border-color:var(--accent-teal);color:var(--accent-teal);" data-i18n="saveToArchive" data-i18n="saveToArchive">📁 ذخیره در آرشیو</button>
             <button class="ctrl-btn" data-action="autoImportSaveConfirm" style="border-color:var(--accent-cyan-glow);color:var(--accent-cyan-glow);" data-i18n="exportFiles">💾 خروجی فایل‌ها</button>
-            <button class="ctrl-btn" data-action="closeAutoImportModal" data-i18n="close">بستن</button>
+            <button class="ctrl-btn" data-action="closeAutoImportModal" data-i18n="close" data-i18n="close">بستن</button>
           </div>
           <div id="autoImportFolderInput" style="display:none;margin-top:12px;">
             <input type="text" id="autoSavePathInput" placeholder="آدرس پوشه مثلاً D:\Music\خوانندگان" style="width:100%;background:#0D1017;border:1px solid var(--border-subtle);padding:10px;border-radius:8px;color:white;font-size:0.9rem;direction:ltr;text-align:left;margin-bottom:8px;">
@@ -746,7 +746,7 @@
         </h3>
         <div style="display:flex;gap:6px;align-items:center;">
           <button class="ctrl-btn" data-action="archToggleFullscreen" id="archFullscreenBtn" data-i18n-title="fullscreen" aria-label="تمام‌صفحه" style="font-size:0.8rem;">⛶</button>
-          <button class="ctrl-btn active-blue" data-action="archClose" data-i18n-title="close" aria-label="بستن آرشیو" style="font-size:0.8rem;" data-i18n="close">بستن</button>
+          <button class="ctrl-btn active-blue" data-action="archClose" data-i18n-title="close" aria-label="بستن آرشیو" style="font-size:0.8rem;" data-i18n="close" data-i18n="close">بستن</button>
         </div>
       </div>
       <!-- Artist Slider Section -->
@@ -761,7 +761,7 @@
         </div>
         <div class="artist-slider-body" id="artistSliderBody">
           <div class="artist-slider-search">
-            <input type="text" id="artistSearchInput" placeholder="جستجوی خواننده..." aria-label="جستجوی خواننده">
+            <input type="text" id="artistSearchInput" placeholder="جستجوی خواننده..." aria-label="searchArtist">
             <button class="asc-clear" id="artistSearchClear" data-action="archClearArtistSearch" aria-label="پاک کردن">✕</button>
           </div>
           <div class="artist-slider-track">
@@ -784,7 +784,7 @@
       <!-- Toolbar -->
       <div class="archive-toolbar" style="flex-shrink:0;">
         <div class="archive-search-wrap">
-          <input type="text" id="archiveSearch" placeholder="جستجو: نام، خواننده، گام، متن..." aria-label="جستجوی ترانه">
+          <input type="text" id="archiveSearch" placeholder="جستجو: نام، خواننده، گام، متن..." aria-label="searchSong">
           <button class="archive-search-clear" id="archiveSearchClear" data-action="archClearSearch" aria-label="پاک کردن جستجو"><span class="ir-icon" data-ir="✕" aria-hidden="true"></span></button>
         </div>
         <div class="atb-sep"></div>
@@ -795,10 +795,10 @@
         <div class="atb-sep"></div>
         <div class="atb-group">
           <button class="ctrl-btn" data-action="archToggleSelectMode" id="archSelectBtn" data-i18n-title="multiSelect" aria-label="انتخاب چندتایی" style="font-size:0.85rem;">☑</button>
-          <button class="ctrl-btn" data-action="archImportFiles" data-i18n-title="importFiles" aria-label="ورودی فایل‌ها" style="font-size:0.85rem;">📄</button>
-          <button class="ctrl-btn" data-action="archImportFolder" data-i18n-title="importFolder" aria-label="ورودی پوشه" style="font-size:0.85rem;">📁</button>
-          <button class="ctrl-btn" data-action="archImportFullArchive" data-i18n-title="importArchive" aria-label="ورودی آرشیو" style="font-size:0.85rem;">📦</button>
-          <button class="ctrl-btn" data-action="archExportAll" data-i18n-title="exportAction" aria-label="خروجی" style="font-size:0.85rem;">📤</button>
+          <button class="ctrl-btn" data-action="archImportFiles" data-i18n-title="importFiles" aria-label="importFiles" style="font-size:0.85rem;">📄</button>
+          <button class="ctrl-btn" data-action="archImportFolder" data-i18n-title="importFolder" aria-label="importFolder" style="font-size:0.85rem;">📁</button>
+          <button class="ctrl-btn" data-action="archImportFullArchive" data-i18n-title="importArchive" aria-label="importArchive" style="font-size:0.85rem;">📦</button>
+          <button class="ctrl-btn" data-action="archExportAll" data-i18n-title="exportAction" aria-label="exportAction" style="font-size:0.85rem;">📤</button>
           <button class="ctrl-btn" data-action="songNew" data-i18n-title="newSong" aria-label="ترانه جدید" style="font-size:0.85rem;">➕</button>
         </div>
         <div class="atb-sep"></div>
@@ -809,9 +809,9 @@
       <!-- Filter Bar -->
       <div class="archive-filter-bar" id="archiveFilterBar" style="flex-shrink:0;">
         <select id="filterSig" aria-label="فیلتر میزان‌نما"><option value="" data-i18n="allTimeSigs">همه میزان‌ها</option><option value="4/4">4/4</option><option value="3/4">3/4</option><option value="2/4">2/4</option><option value="2/4 (حس 6/8)">2/4 (حس 6/8)</option><option value="6/8">6/8</option><option value="5/4">5/4</option><option value="7/8">7/8</option><option value="9/8">9/8</option><option value="12/8">12/8</option></select>
-        <select id="filterGenre" aria-label="فیلتر ژانر"><option value="">همه ژانرها</option><option value="sad" data-i18n="sad">غمگین</option><option value="happy" data-i18n="happy">شاد</option><option value="heavy" data-i18n="heavy">سنگین</option><option value="heavy-6-8">6/8 سنگین</option><option value="romantic" data-i18n="love">عاشقانه</option><option value="energetic" data-i18n="energetic">انرژیک</option><option value="calm" data-i18n="calm">آرام</option><option value="epic" data-i18n="epic">حماسی</option><option value="pop" data-i18n="pop">پاپ</option><option value="rock" data-i18n="rock">راک</option><option value="jazz" data-i18n="jazz">جاز</option><option value="classical" data-i18n="classical">کلاسیک</option><option value="folk" data-i18n="traditional">سنتی</option><option value="electronic" data-i18n="electronic">الکترونیک</option><option value="hiphop" data-i18n="hipHop">هیپ‌هاپ</option><option value="other" data-i18n="other">سایر</option></select>
-        <select id="filterTempo" aria-label="فیلتر تمپو"><option value="" data-i18n="allTempos">همه تمپوها</option><option value="slow">کند (≤80)</option><option value="mid">متوسط (81-120)</option><option value="fast">سریع (121-160)</option><option value="vfast">خیلی سریع (>160)</option></select>
-        <select id="filterKey" aria-label="فیلتر گام"><option value="" data-i18n="allKeys">همه گام‌ها</option><option value="C">C</option><option value="C#">C#/Db</option><option value="D">D</option><option value="D#">D#/Eb</option><option value="E">E</option><option value="F">F</option><option value="F#">F#/Gb</option><option value="G">G</option><option value="G#">G#/Ab</option><option value="A">A</option><option value="A#">A#/Bb</option><option value="B">B</option><option value="_maj" data-i18n="majorOnly">--- فقط ماژور ---</option><option value="_min" data-i18n="minorOnly">--- فقط مینور ---</option></select>
+        <select id="filterGenre" aria-label="filterGenre"><option value="">همه ژانرها</option><option value="sad" data-i18n="sad">غمگین</option><option value="happy" data-i18n="happy">شاد</option><option value="heavy" data-i18n="heavy"><span data-i18n="heavy">سنگین</span></option><option value="heavy-6-8">6/8 سنگین</option><option value="romantic" data-i18n="love">عاشقانه</option><option value="energetic" data-i18n="energetic">انرژیک</option><option value="calm" data-i18n="calm">آرام</option><option value="epic" data-i18n="epic">حماسی</option><option value="pop" data-i18n="pop">پاپ</option><option value="rock" data-i18n="rock">راک</option><option value="jazz" data-i18n="jazz">جاز</option><option value="classical" data-i18n="classical">کلاسیک</option><option value="folk" data-i18n="traditional">سنتی</option><option value="electronic" data-i18n="electronic">الکترونیک</option><option value="hiphop" data-i18n="hipHop">هیپ‌هاپ</option><option value="other" data-i18n="other">سایر</option></select>
+        <select id="filterTempo" aria-label="filterTempo"><option value="" data-i18n="allTempos">همه تمپوها</option><option value="slow">کند (≤80)</option><option value="mid">متوسط (81-120)</option><option value="fast">سریع (121-160)</option><option value="vfast">خیلی سریع (>160)</option></select>
+        <select id="filterKey" aria-label="filterKey"><option value="" data-i18n="allKeys">همه گام‌ها</option><option value="C">C</option><option value="C#">C#/Db</option><option value="D">D</option><option value="D#">D#/Eb</option><option value="E">E</option><option value="F">F</option><option value="F#">F#/Gb</option><option value="G">G</option><option value="G#">G#/Ab</option><option value="A">A</option><option value="A#">A#/Bb</option><option value="B">B</option><option value="_maj" data-i18n="majorOnly">--- فقط ماژور ---</option><option value="_min" data-i18n="minorOnly">--- فقط مینور ---</option></select>
         <select id="filterSort" aria-label="مرتب‌سازی"><option value="newest" data-i18n="sortNewest">جدیدترین</option><option value="oldest" data-i18n="sortOldest">قدیمی‌ترین</option><option value="title" data-i18n="sortByTitle" data-i18n="title">عنوان</option><option value="artist" data-i18n="sortByArtist" data-i18n="artist">خواننده</option><option value="lastEdit" data-i18n="lastEdited">آخرین ویرایش</option><option value="lastOpen" data-i18n="lastOpened">آخرین بازشدن</option><option value="key">گام</option><option value="bpm">BPM</option></select>
         <button class="archive-filter-clear" data-action="archClearFilters" aria-label="پاک کردن فیلترها" data-i18n="clearFilters">پاک کردن فیلترها</button>
       </div>
@@ -821,7 +821,7 @@
         <button data-action="archBulkFav" data-value="true">افزودن به علاقه‌مندی</button>
         <button data-action="archBulkFav" data-value="false">حذف از علاقه‌مندی</button>
         <button data-action="archBulkExport" data-i18n="groupExport">خروجی گروهی</button>
-        <button class="bb-danger" data-action="archBulkTrash">انتقال به سطل زباله</button>
+        <button class="bb-danger" data-action="archBulkTrash" data-i18n="moveToTrash">انتقال به سطل زباله</button>
       </div>
       <!-- Status Bar -->
       <div class="archive-status-bar" style="flex-shrink:0;">
@@ -835,9 +835,9 @@
 
   <!-- Artist Context Menu -->
   <div class="artist-ctx-menu" id="artistCtxMenu" data-inline-actions>
-    <div class="acm-item" data-action="archArtistCtx" data-value="set-image">انتخاب عکس</div>
-    <div class="acm-item" data-action="archArtistCtx" data-value="change-image">تغییر عکس</div>
-    <div class="acm-item" data-action="archArtistCtx" data-value="remove-image">حذف عکس</div>
+    <div class="acm-item" data-action="archArtistCtx" data-value="set-image" data-i18n="selectPhoto">انتخاب عکس</div>
+    <div class="acm-item" data-action="archArtistCtx" data-value="change-image" data-i18n="changePhoto">تغییر عکس</div>
+    <div class="acm-item" data-action="archArtistCtx" data-value="remove-image" data-i18n="removePhoto">حذف عکس</div>
     <div class="acm-sep"></div>
     <div class="acm-item danger" data-action="archArtistCtx" data-value="reset-image">بازگردانی تصویر پیش‌فرض</div>
   </div>
@@ -845,11 +845,11 @@
   <!-- Archive Confirm Dialog -->
   <div class="archive-confirm-overlay" id="archiveConfirmOverlay" data-inline-actions>
     <div class="archive-confirm-box">
-      <h4 id="archConfirmTitle">تأیید</h4>
+      <h4 id="archConfirmTitle" data-i18n="confirmSettings">تأیید</h4>
       <p id="archConfirmMsg"></p>
       <div class="archive-confirm-actions">
         <button data-action="archConfirmResolve" data-value="false" data-i18n="cancel">انصراف</button>
-        <button class="confirm-danger" id="archConfirmOk" data-action="archConfirmResolve" data-value="true">تأیید</button>
+        <button class="confirm-danger" id="archConfirmOk" data-action="archConfirmResolve" data-value="true" data-i18n="confirmSettings">تأیید</button>
       </div>
     </div>
   </div>
@@ -876,7 +876,7 @@
           <div class="ae-field"><label data-i18n="timeSignature">میزان‌نما</label><select id="aeTimeSig"><option value="4/4">4/4</option><option value="3/4">3/4</option><option value="2/4">2/4</option><option value="2/4 (حس 6/8)">2/4 (حس 6/8)</option><option value="6/8">6/8</option><option value="5/4">5/4</option><option value="7/8">7/8</option><option value="9/8">9/8</option><option value="12/8">12/8</option></select></div>
         </div>
         <div class="ae-row">
-          <div class="ae-field"><label data-i18n="genre">ژانر</label><select id="aeGenre"><option value="">بدون ژانر</option><option value="sad" data-i18n="sad">غمگین</option><option value="happy" data-i18n="happy">شاد</option><option value="heavy" data-i18n="heavy">سنگین</option><option value="heavy-6-8">6/8 سنگین</option><option value="romantic" data-i18n="love">عاشقانه</option><option value="energetic" data-i18n="energetic">انرژیک</option><option value="calm" data-i18n="calm">آرام</option><option value="epic" data-i18n="epic">حماسی</option><option value="pop" data-i18n="pop">پاپ</option><option value="rock" data-i18n="rock">راک</option><option value="jazz" data-i18n="jazz">جاز</option><option value="classical" data-i18n="classical">کلاسیک</option><option value="folk" data-i18n="traditional">سنتی</option><option value="electronic" data-i18n="electronic">الکترونیک</option><option value="hiphop" data-i18n="hipHop">هیپ‌هاپ</option><option value="other" data-i18n="other">سایر</option></select></div>
+          <div class="ae-field"><label data-i18n="genre">ژانر</label><select id="aeGenre"><option value="">بدون ژانر</option><option value="sad" data-i18n="sad">غمگین</option><option value="happy" data-i18n="happy">شاد</option><option value="heavy" data-i18n="heavy"><span data-i18n="heavy">سنگین</span></option><option value="heavy-6-8">6/8 سنگین</option><option value="romantic" data-i18n="love">عاشقانه</option><option value="energetic" data-i18n="energetic">انرژیک</option><option value="calm" data-i18n="calm">آرام</option><option value="epic" data-i18n="epic">حماسی</option><option value="pop" data-i18n="pop">پاپ</option><option value="rock" data-i18n="rock">راک</option><option value="jazz" data-i18n="jazz">جاز</option><option value="classical" data-i18n="classical">کلاسیک</option><option value="folk" data-i18n="traditional">سنتی</option><option value="electronic" data-i18n="electronic">الکترونیک</option><option value="hiphop" data-i18n="hipHop">هیپ‌هاپ</option><option value="other" data-i18n="other">سایر</option></select></div>
           <div class="ae-field"><label data-i18n="category">دسته‌بندی</label><input type="text" id="aeCategory" placeholder="مثال: عاشقانه، ریمیکس"></div>
         </div>
         <div class="ae-field"><label data-i18n="description" data-i18n="description">توضیحات</label><textarea id="aeNotes" placeholder="توضیحات اختیاری..."></textarea></div>
@@ -923,7 +923,7 @@
     <div class="chord-editor" style="width:980px;max-height:88vh;display:flex;flex-direction:column;">
       <div class="arr-drag-handle" id="arrModalDragHandle">
         <h3 style="margin:0;" data-i18n="arrangerTitle">🎼 ارنجر ترک</h3>
-        <button class="ctrl-btn" data-action="closeArrangerModal" data-i18n="close" data-i18n="close">بستن</button>
+        <button class="ctrl-btn" data-action="closeArrangerModal" data-i18n="close" data-i18n="close" data-i18n="close">بستن</button>
       </div>
 
       <!-- ─── بخش بالا: لیست پلی‌لیست‌های ذخیره‌شده ─── -->
@@ -1318,8 +1318,8 @@
       <p id="audioCopyModalText" data-i18n="copyFileToProject">فایل صوتی در پروژه کپی شود؟</p>
       <p style="color:#8B949E;font-size:0.78rem;margin:0 0 20px;line-height:1.6;">بله = کپی (حجم پروژه بالا میرود)<br>نه = فقط مسیر فایل (حجم کم، فایل اصلی باید بمونه)</p>
       <div style="display:flex;gap:12px;justify-content:center;">
-        <button id="audioCopyYes" style="padding:10px 32px;border-radius:10px;border:none;background:var(--accent-teal);color:#000;font-size:0.9rem;font-weight:700;cursor:pointer;transition:0.15s;min-width:100px;">بله — کپی</button>
-        <button id="audioCopyNo" style="padding:10px 32px;border-radius:10px;border:1px solid #4A5568;background:#2D3748;color:#e2e8f0;font-size:0.9rem;font-weight:700;cursor:pointer;transition:0.15s;min-width:100px;">نه — فقط مسیر</button>
+        <button id="audioCopyYes" style="padding:10px 32px;border-radius:10px;border:none;background:var(--accent-teal);color:#000;font-size:0.9rem;font-weight:700;cursor:pointer;transition:0.15s;min-width:100px;" data-i18n="yesCopy">بله — کپی</button>
+        <button id="audioCopyNo" style="padding:10px 32px;border-radius:10px;border:1px solid #4A5568;background:#2D3748;color:#e2e8f0;font-size:0.9rem;font-weight:700;cursor:pointer;transition:0.15s;min-width:100px;" data-i18n="noPathOnly">نه — فقط مسیر</button>
       </div>
     </div>
   </div>
@@ -1331,7 +1331,7 @@
       <input type="text" id="customPromptInput" style="width:100%;background:#0D1017;border:1px solid var(--border-subtle);padding:10px 14px;border-radius:8px;color:white;font-size:0.95rem;margin-bottom:20px;direction:rtl;" />
       <div style="display:flex;gap:10px;justify-content:flex-end;">
         <button id="customPromptCancel" style="padding:8px 20px;border-radius:8px;border:1px solid #4A5568;background:#2D3748;color:#e2e8f0;font-size:0.85rem;font-weight:600;cursor:pointer;" data-i18n="cancel">انصراف</button>
-        <button id="customPromptOk" style="padding:8px 24px;border-radius:8px;border:none;background:var(--accent-teal);color:#000;font-size:0.85rem;font-weight:700;cursor:pointer;">تأیید</button>
+        <button id="customPromptOk" style="padding:8px 24px;border-radius:8px;border:none;background:var(--accent-teal);color:#000;font-size:0.85rem;font-weight:700;cursor:pointer;" data-i18n="confirmSettings">تأیید</button>
       </div>
     </div>
   </div>
@@ -1344,7 +1344,7 @@
         <div class="hub-logo">
           <div class="logo-icon">🎼</div>
           <div class="logo-text">
-            <span class="logo-name" data-i18n="brand">آکوردیار</span>
+            <span class="logo-name" data-i18n="brand" data-i18n="akord">آکوردیار</span>
             <span class="logo-ver">v1.0</span>
           </div>
         </div>
@@ -1446,9 +1446,9 @@
     <!-- Advanced Filters -->
     <div class="qsp-filters" id="quickSearchFilters">
       <select id="qspFilterSig" data-command="quickSearchFilter" aria-label="فیلتر میزان‌نما"><option value="" data-i18n="allTimeSigs">همه میزان‌ها</option><option value="4/4">4/4</option><option value="3/4">3/4</option><option value="2/4">2/4</option><option value="2/4 (حس 6/8)">2/4 (حس 6/8)</option><option value="6/8">6/8</option><option value="5/4">5/4</option><option value="7/8">7/8</option><option value="9/8">9/8</option><option value="12/8">12/8</option></select>
-      <select id="qspFilterGenre" data-command="quickSearchFilter" aria-label="فیلتر ژانر"><option value="">همه ژانرها</option><option value="sad" data-i18n="sad">غمگین</option><option value="happy" data-i18n="happy">شاد</option><option value="heavy" data-i18n="heavy">سنگین</option><option value="heavy-6-8">6/8 سنگین</option><option value="romantic" data-i18n="love">عاشقانه</option><option value="energetic" data-i18n="energetic">انرژیک</option><option value="calm" data-i18n="calm">آرام</option><option value="epic" data-i18n="epic">حماسی</option><option value="pop" data-i18n="pop">پاپ</option><option value="rock" data-i18n="rock">راک</option><option value="jazz" data-i18n="jazz">جاز</option><option value="classical" data-i18n="classical">کلاسیک</option><option value="folk" data-i18n="traditional">سنتی</option><option value="electronic" data-i18n="electronic">الکترونیک</option><option value="hiphop" data-i18n="hipHop">هیپ‌هاپ</option><option value="other" data-i18n="other">سایر</option></select>
-      <select id="qspFilterTempo" data-command="quickSearchFilter" aria-label="فیلتر تمپو"><option value="" data-i18n="allTempos">همه تمپوها</option><option value="slow">کند (≤80)</option><option value="mid">متوسط (81-120)</option><option value="fast">سریع (121-160)</option><option value="vfast">خیلی سریع (>160)</option></select>
-      <select id="qspFilterKey" data-command="quickSearchFilter" aria-label="فیلتر گام"><option value="" data-i18n="allKeys">همه گام‌ها</option><option value="C">C</option><option value="C#">C#/Db</option><option value="D">D</option><option value="D#">D#/Eb</option><option value="E">E</option><option value="F">F</option><option value="F#">F#/Gb</option><option value="G">G</option><option value="G#">G#/Ab</option><option value="A">A</option><option value="A#">A#/Bb</option><option value="B">B</option><option value="_maj" data-i18n="majorOnly">--- فقط ماژور ---</option><option value="_min" data-i18n="minorOnly">--- فقط مینور ---</option></select>
+      <select id="qspFilterGenre" data-command="quickSearchFilter" aria-label="filterGenre"><option value="">همه ژانرها</option><option value="sad" data-i18n="sad">غمگین</option><option value="happy" data-i18n="happy">شاد</option><option value="heavy" data-i18n="heavy"><span data-i18n="heavy">سنگین</span></option><option value="heavy-6-8">6/8 سنگین</option><option value="romantic" data-i18n="love">عاشقانه</option><option value="energetic" data-i18n="energetic">انرژیک</option><option value="calm" data-i18n="calm">آرام</option><option value="epic" data-i18n="epic">حماسی</option><option value="pop" data-i18n="pop">پاپ</option><option value="rock" data-i18n="rock">راک</option><option value="jazz" data-i18n="jazz">جاز</option><option value="classical" data-i18n="classical">کلاسیک</option><option value="folk" data-i18n="traditional">سنتی</option><option value="electronic" data-i18n="electronic">الکترونیک</option><option value="hiphop" data-i18n="hipHop">هیپ‌هاپ</option><option value="other" data-i18n="other">سایر</option></select>
+      <select id="qspFilterTempo" data-command="quickSearchFilter" aria-label="filterTempo"><option value="" data-i18n="allTempos">همه تمپوها</option><option value="slow">کند (≤80)</option><option value="mid">متوسط (81-120)</option><option value="fast">سریع (121-160)</option><option value="vfast">خیلی سریع (>160)</option></select>
+      <select id="qspFilterKey" data-command="quickSearchFilter" aria-label="filterKey"><option value="" data-i18n="allKeys">همه گام‌ها</option><option value="C">C</option><option value="C#">C#/Db</option><option value="D">D</option><option value="D#">D#/Eb</option><option value="E">E</option><option value="F">F</option><option value="F#">F#/Gb</option><option value="G">G</option><option value="G#">G#/Ab</option><option value="A">A</option><option value="A#">A#/Bb</option><option value="B">B</option><option value="_maj" data-i18n="majorOnly">--- فقط ماژور ---</option><option value="_min" data-i18n="minorOnly">--- فقط مینور ---</option></select>
       <button class="qsp-filter-clear" data-command="quickSearchClearFilters" title="پاک کردن فیلترها" data-i18n="clear" data-i18n="clear">پاک کردن</button>
     </div>
     <div class="qsp-list" id="quickSearchList"></div>
