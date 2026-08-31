@@ -296,18 +296,18 @@
     const grid = $('hubTemplatesGrid');
     if (!grid) return;
 
-    grid.innerHTML = TEMPLATES.map((t) => `
-      <div class="template-card" data-id="${t.id}">
-        <div class="template-ic">${t.icon}</div>
-        <div class="template-name">${escH(t.name)}</div>
-        <div class="template-desc">${escH(t.desc)}</div>
+    grid.innerHTML = TEMPLATES.map((tpl) => `
+      <div class="template-card" data-id="${tpl.id}">
+        <div class="template-ic">${tpl.icon}</div>
+        <div class="template-name">${escH(tpl.name)}</div>
+        <div class="template-desc">${escH(tpl.desc)}</div>
         <div class="template-tags">
-          ${t.tags.map((tag) => `<span class="tag ${t.tagClass || ''}">${escH(tag)}</span>`).join('')}
+          ${tpl.tags.map((tag) => `<span class="tag ${tag.tagClass || ''}">${escH(tag)}</span>`).join('')}
         </div>
         <div class="template-config">
-          <span>⏱ ${t.config.tempo} BPM</span>
-          <span>🎼 ${escH(t.config.key)}</span>
-          <span>🎚 ${t.config.tracks.length} ${t('tracks')}</span>
+          <span>⏱ ${tpl.config.tempo} BPM</span>
+          <span>🎼 ${escH(tpl.config.key)}</span>
+          <span>🎚 ${tpl.config.tracks.length} ${globalScope.t?.('tracks') ?? 'ترک'}</span>
         </div>
       </div>
     `).join('');
