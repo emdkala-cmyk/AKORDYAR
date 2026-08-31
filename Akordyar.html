@@ -274,7 +274,7 @@
           <label data-i18n="autoDetect">تشخیص خودکار</label>
           <div style="display:flex;gap:4px;">
             <button class="ed-btn" data-action="detectTempo" data-i18n="tempo">تمپو</button>
-            <button class="ed-btn" data-action="detectKey" style="flex:1;font-size:12px;height:30px;border-radius:4px;">گام</button>
+            <button class="ed-btn" data-action="detectKey" style="flex:1;font-size:12px;height:30px;border-radius:4px;" data-i18n="key">گام</button>
           </div>
         </div>
       </div>
@@ -286,7 +286,7 @@
           <div class="status-indicator"></div>
         </div>
         <div class="status-tab" id="tab-midi" data-action="toggleMIDITab">
-          <span class="status-tab-label">میدی کنترلر</span>
+          <span class="status-tab-label" data-i18n="midiCtrl">میدی کنترلر</span>
           <div class="status-indicator"></div>
         </div>
         <div class="status-tab" id="tab-midi-sync" data-action="toggleMIDISync">
@@ -868,7 +868,7 @@
           <div class="ae-field"><label>آلبوم</label><input type="text" id="aeAlbum"></div>
         </div>
         <div class="ae-row">
-          <div class="ae-field"><label>گام</label><select id="aeKey"></select></div>
+          <div class="ae-field"><label data-i18n="key">گام</label><select id="aeKey"></select></div>
           <div class="ae-field"><label>حالت</label><select id="aeKeyMode"><option value="maj">ماژور</option><option value="min">مینور</option></select></div>
         </div>
         <div class="ae-row">
@@ -946,7 +946,7 @@
             <input type="text" id="arrSearchInput" placeholder="🔍 جستجوی آهنگ..." data-action="arrFilterSongs" style="width:100%;background:#0D1017;border:1px solid var(--border-subtle);padding:8px 12px;border-radius:8px;color:white;font-size:0.9rem;direction:rtl;">
           </div>
           <div class="arr-setlist-toolbar" id="arrSetlistToolbar">
-            <button data-action="arrAutoTranspose" title="تغییر گام همه آهنگ‌ها">♯ تغییر گام همه</button>
+            <button data-action="arrAutoTranspose" data-i18n-title="transposeAll">♯ تغییر گام همه</button>
             <button data-action="arrClearNotes" class="arr-stl-danger" title="پاک کردن همه یادداشت‌ها">🗑 پاک کردن یادداشت‌ها</button>
             <div class="arr-crossfade-bar" style="margin-inline-start:auto;">
               <label>🔄 کراس‌فید:</label>
@@ -1008,7 +1008,7 @@
        <button class="perf-nav-btn" data-action="perfPrev" data-i18n-title="previous">⏮</button>
       <div class="perf-time" id="perfTime">00:00</div>
       <div class="perf-trans-ctrl">
-        <label>گام:</label>
+        <label data-i18n="key">گام:</label>
          <button data-action="perfTransposeDown">♭</button>
         <span class="perf-trans-val" id="perfTransVal">0</span>
          <button data-action="perfTransposeUp">♯</button>
