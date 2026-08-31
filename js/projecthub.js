@@ -80,10 +80,10 @@
   const TEMPLATES = [
     {
       id: 'tpl-001',
-      name: t('tplVocalPractice'),
-      desc: t('tplVocalDesc'),
+      nameKey: 'tplVocalPractice',
+      descKey: 'tplVocalDesc',
       icon: '🎤',
-      tags: [t('vocal'), t('metronome')],
+      tagKeys: ['vocal', 'metronome'],
       config: {
         tempo: 90,
         key: 'C',
@@ -98,10 +98,10 @@
     },
     {
       id: 'tpl-002',
-      name: t('tplAcoustic'),
-      desc: t('tplAcousticDesc'),
+      nameKey: 'tplAcoustic',
+      descKey: 'tplAcousticDesc',
       icon: '🎸',
-      tags: [t('acoustic'), t('guitar')],
+      tagKeys: ['acoustic', 'guitar'],
       tagClass: 'yellow',
       config: {
         tempo: 80,
@@ -119,10 +119,10 @@
     },
     {
       id: 'tpl-003',
-      name: t('tplFullDaw'),
-      desc: t('tplFullDawDesc'),
+      nameKey: 'tplFullDaw',
+      descKey: 'tplFullDawDesc',
       icon: '🎹',
-      tags: [t('full'), t('8tracks')],
+      tagKeys: ['full', '8tracks'],
       tagClass: 'purple',
       config: {
         tempo: 120,
@@ -144,10 +144,10 @@
     },
     {
       id: 'tpl-004',
-      name: t('tplQuickRecord'),
-      desc: t('tplQuickRecordDesc'),
+      nameKey: 'tplQuickRecord',
+      descKey: 'tplQuickRecordDesc',
       icon: '🎧',
-      tags: [t('recording'), t('quick')],
+      tagKeys: ['recording', 'quick'],
       tagClass: 'pink',
       config: {
         tempo: 100,
@@ -163,10 +163,10 @@
     },
     {
       id: 'tpl-005',
-      name: t('tplBacking'),
-      desc: t('tplBackingDesc'),
+      nameKey: 'tplBacking',
+      descKey: 'tplBackingDesc',
       icon: '🎼',
-      tags: [t('backing'), t('instrument')],
+      tagKeys: ['backing', 'instrument'],
       tagClass: 'yellow',
       config: {
         tempo: 110,
@@ -184,10 +184,10 @@
     },
     {
       id: 'tpl-006',
-      name: t('podcast'),
-      desc: t('tplPodcastDesc'),
+      nameKey: 'tplPodcast',
+      descKey: 'tplPodcastDesc',
       icon: '🎙️',
-      tags: [t('podcast'), t('vocal')],
+      tagKeys: ['podcast', 'vocal'],
       tagClass: 'purple',
       config: {
         tempo: 100,
@@ -297,21 +297,27 @@
     const grid = $('hubTemplatesGrid');
     if (!grid) return;
 
-    grid.innerHTML = TEMPLATES.map((tpl) => `
+    grid.innerHTML = TEMPLATES.map((tpl) => {
+      const name = t(tpl.nameKey);
+      const desc = t(tpl.descKey);
+      const tags = (tpl.tagKeys || []).map(k => t(k));
+      const tracksLabel = t('tracks');
+      return `
       <div class="template-card" data-id="${tpl.id}">
         <div class="template-ic">${tpl.icon}</div>
-        <div class="template-name">${escH(tpl.name)}</div>
-        <div class="template-desc">${escH(tpl.desc)}</div>
+        <div class="template-name">${escH(name)}</div>
+        <div class="template-desc">${escH(desc)}</div>
         <div class="template-tags">
-          ${tpl.tags.map((tag) => `<span class="tag ${tag.tagClass || ''}">${escH(tag)}</span>`).join('')}
+          ${tags.map((tag) => `<span class="tag ${tpl.tagClass || ''}">${escH(tag)}</span>`).join('')}
         </div>
         <div class="template-config">
           <span>⏱ ${tpl.config.tempo} BPM</span>
           <span>🎼 ${escH(tpl.config.key)}</span>
-          <span>🎚 ${tpl.config.tracks.length} ${globalScope.t?.('tracks') ?? 'ترک'}</span>
+          <span>🎚 ${tpl.config.tracks.length} ${tracksLabel}</span>
         </div>
       </div>
-    `).join('');
+    `;
+    }).join('');
   }
 
   /* ---------- Actions (یکپارچه با توابع واقعی) ---------- */

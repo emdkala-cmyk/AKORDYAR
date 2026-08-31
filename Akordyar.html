@@ -741,7 +741,7 @@
       <div style="display:flex;justify-content:space-between;align-items:center;padding:0 0 8px;border-bottom:1px solid var(--border-subtle);flex-shrink:0;">
         <h3 style="margin:0;display:flex;align-items:center;gap:8px;font-size:1.05rem;">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-          آرشیو ترانه‌ها
+          <span data-i18n="archiveTitle">آرشیو ترانه‌ها</span>
           <span id="archiveTotalCount" style="font-size:0.75rem;color:var(--text-secondary);font-weight:normal;"></span>
         </h3>
         <div style="display:flex;gap:6px;align-items:center;">
@@ -754,14 +754,14 @@
         <div class="artist-slider-header" data-action="archToggleArtistSection" role="button" aria-expanded="true" aria-controls="artistSliderBody" tabindex="0">
           <h4>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-            خواننده‌ها
+            <span data-i18n="artists">خواننده‌ها</span>
             <span class="ash-count" id="artistCountLabel"></span>
           </h4>
           <span class="ash-toggle" id="artistToggleIcon">▼</span>
         </div>
         <div class="artist-slider-body" id="artistSliderBody">
           <div class="artist-slider-search">
-            <input type="text" id="artistSearchInput" placeholder="جستجوی خواننده..." aria-label="searchArtist">
+            <input type="text" id="artistSearchInput" placeholder="جستجوی خواننده..." data-i18n-placeholder="searchArtist" aria-label="searchArtist">
             <button class="asc-clear" id="artistSearchClear" data-action="archClearArtistSearch" aria-label="پاک کردن">✕</button>
           </div>
           <div class="artist-slider-track">
@@ -1372,7 +1372,7 @@
           </button>
           <button class="nav-btn" data-view="settings">
             <span class="nav-ic">⚙️</span>
-            <span class="nav-txt">تنظیمات</span>
+            <span class="nav-txt" data-i18n="settings">تنظیمات</span>
           </button>
         </nav>
 
@@ -1423,7 +1423,7 @@
       <footer class="hub-bottom">
         <div class="bottom-left">
           <button class="btn-primary" id="hubBtnNewProject" data-i18n="newSong">➕ پروژه جدید</button>
-          <button class="btn-secondary" id="hubBtnChooseFile">📁 انتخاب فایل…</button>
+          <button class="btn-secondary" id="hubBtnChooseFile">📁 <span data-i18n="selectFile">انتخاب فایل…</span></button>
         </div>
         <div class="bottom-right">
           <button class="btn-secondary" id="hubBtnOpen" data-i18n="openProject">باز کردن</button>
