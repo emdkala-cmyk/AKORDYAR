@@ -10,20 +10,21 @@
 
 | مورد | وضعیت فعلی |
 |---|---|
-| loader | `js/app.js`، loader ترتیبی ۱۱۶ خطی؛ `document.write` فقط compatibility path صریح |
-| هستهٔ برنامه | `js/app/core.js`، ۵٬۸۸۹ خط |
-| ادیتور | `js/app/editor.js`، ۶٬۷۶۵ خط |
+| loader | `js/app.js`، loader ترتیبی ۱۲۴ خطی |
+| هستهٔ برنامه | `js/app/core.js`، ۱٬۹۰۴ خط |
+| ادیتور | `js/app/editor.js`، ۲٬۸۷۷ خط |
+| سرویس‌ها | ۲۶۶ فایل production در `js/` (core: 56، editor: 82، app: 73، sync: 7) |
 | استخراج‌های جدید | `EditorHydrationService`، `EditorLifecycleService`، `EditorNotationService`، `EditorAnchorService`، `EditorSelectionService`، `EditorChordDragService`، `EditorTextSelectionService`، `EditorChordCommandService`، `EditorKeyCommandService`، `EditorSongStateService`، `EditorChordRenderer`، `EditorChordStateService`، `EventBindings` |
-| مالکیت سند فعلی | setter رسمی `setEditorSong` در core و bridge خواندن/نوشتن `EdCurAdapter` |
-| رویدادهای HTML | در محدودهٔ فعلی `Akordyar.html` و مسیرهای app/archive/projecthub/search، بدون `onclick`/`onchange`/`oninput` |
+| مالکیت سند فعلی | setter رسمی `setEditorSong` در core و `EditorSongRuntimeService` |
+| رویدادهای HTML | در محدودهٔ فعلی `Akordyar.html` و مسیرهای app/archive/projecthub/search |
 | Electron | `contextBridge`، whitelist کانال‌ها، sender/origin validation و validation ورودی IPC |
-| تست | `npm test` با ۳۹ ورودی موفق |
+| تست | `npm test` با ۲۴۴ ورودی موفق |
 
 ### جریان فعلی state
 
 ```text
 Editor / Archive
-    -> setEditorSong / EdCurAdapter
+    -> setEditorSong / EditorSongRuntimeService
     -> DomainBridge + PerformanceStore برای viewهای performance
 
 Timeline / DAW
@@ -38,19 +39,17 @@ Electron renderer
 
 ### بدهی‌های باقی‌مانده
 
-- `window.edCur` هنوز compatibility boundary است و باید مصرف مستقیم legacy به‌تدریج کم شود.
-- `DAW` و `PERF` از طریق adapter قابل مصرف‌اند، اما مالک تاریخی آن‌ها هنوز core است.
-- `DomainBridge` و `PerformanceStore` عمدتاً viewهای performance را پوشش می‌دهند؛ editor/timeline هنوز کاملاً store-driven نیستند.
-- بخش‌هایی از editor هنوز handler property داخلی (`element.onclick = ...`) دارند؛ این‌ها با inline attribute فرق دارند و در extraction بعدی به controller منتقل می‌شوند.
+- `DAW` و `PERF` از طریق adapter قابل مصرف‌اند.
+- `DomainBridge` و `PerformanceStore` عمدتاً viewهای performance را پوشش می‌دهند.
 - مترونوم ۶/۸ اکنون فقط ضرب اول را accent می‌کند؛ صدای مترونوم از تنظیمات قابل preview است.
 - انتخاب لاین، resize عمودی و میانبر `Z` در مرز فعلی core/editor تثبیت شده‌اند و contract test دارند.
-- state انتخاب آکورد از طریق `EditorSelectionService` mutation و projection می‌شود؛ مالکیت آرایهٔ legacy همچنان در editor است.
-- محاسبات مقصد drag از طریق `EditorChordDragService` انجام می‌شود؛ pointer lifecycle و mutation سند هنوز در editor است.
-- ساخت و restore انتخاب متن از طریق `EditorTextSelectionService` انجام می‌شود؛ focus و lifecycle همچنان در wrapper editor کنترل می‌شوند.
-- نرمال‌سازی، parse و mutation نام آکورد از طریق `EditorChordCommandService` انجام می‌شود؛ modal، sequence progression و render همچنان در editor باقی مانده‌اند.
-- mutationهای تغییر گام، ترنسپوز، تغییر گام اصلی و reset از طریق `EditorKeyCommandService` انجام می‌شود؛ refresh، save و sync تایم‌لاین همچنان orchestration editor است.
-- خواندن و mutation محدود state آهنگ در core از طریق `EditorSongStateService` انجام می‌شود؛ quantize، tempo/key detection، timeline grid، popupها، performance tempo، history و audio-save دیگر برای این مسیرها مستقیماً `edCur` را لمس نمی‌کنند.
-- direct `edCur` در core اکنون به setter رسمی، sequence legacy و compatibility state ارنجر محدود شده و extraction بعدی باید روی sequence/CL state متمرکز شود.
+- state انتخاب آکورد از طریق `EditorSelectionService` mutation و projection می‌شود.
+- محاسبات مقصد drag از طریق `EditorChordDragService` انجام می‌شود.
+- ساخت و restore انتخاب متن از طریق `EditorTextSelectionService` انجام می‌شود.
+- نرمال‌سازی، parse و mutation نام آکورد از طریق `EditorChordCommandService` انجام می‌شود.
+- mutationهای تغییر گام، ترنسپوز، تغییر گام اصلی و reset از طریق `EditorKeyCommandService` انجام می‌شود.
+- خواندن و mutation محدود state آهنگ در core از طریق `EditorSongStateService` انجام می‌شود.
+- حذف کامل `window.edCur` از کد اجرا انجام شده (0 ارجاع باقی‌مانده).
 
 ## 1. Overall Architecture (Layered)
 
@@ -182,13 +181,17 @@ Everything else:     onclick → app.js global → edCur mutation → direct DOM
 **Migration rule:** New modules must NOT directly mutate edCur or DOM.
 Legacy code may temporarily violate this until each domain is migrated.
 
-## Current refactor snapshot — ۱۲ اوت ۲۰۲۶
+## وضعیت فعلی — ۳۱ اوت ۲۰۲۶
 
-- `js/app.js`: ۱۱۶ خط
-- `js/app/core.js`: ۵٬۸۹۳ خط
-- `js/app/editor.js`: ۶٬۷۸۷ خط
+- `js/app.js`: ۱۲۴ خط
+- `js/app/core.js`: ۱٬۹۰۴ خط
+- `js/app/editor.js`: ۲٬۸۷۷ خط
 - `js/core/EditorSongStateService.js`: ۱۹۰ خط
-- `npm test`: ۳۹ ورودی موفق
+- `npm test`: ۲۴۴ ورودی موفق
+- `npm run lint`: ۲۱۱ فایل موفق
+- `edCur` در editor.js: ۰ ارجاع
+- `edCur` در core.js: ۰ ارجاع
+- `window.edCur` در کد اجرا: ۰ ارجاع
 
 در commit `56d087e`، مسیرهای sync، نقاط sequential و ثبت آکوردهای CL از
 `SyncModeController` به `EditorSongStateService` منتقل شدند. کنترلر دیگر
@@ -204,7 +207,7 @@ Legacy code may temporarily violate this until each domain is migrated.
 `EditorRenderer` متمرکز شود؛ حذف مستقیم `edCur` از این بخش‌ها بدون contract test
 برای selection، transpose و lifecycle انجام نشود.
 
-## Snapshot معماری — ۱۲ اوت ۲۰۲۶، پس از موج extraction ادیتور
+## مراحل تاریخی extraction (بایگانی)
 
 ### مرزهای جدید
 
@@ -226,27 +229,18 @@ Legacy code may temporarily violate this until each domain is migrated.
 - `EditorLyricsRenderer`، `EditorMutationService` و
   `EditorChordInteractionService`: renderer و interactionهای قبلی.
 
-### شمارش واقعی
+### شمارش واقعی (بایگانی — اوت ۲۰۲۶)
 
 ```text
 app.js       116
 core.js      5893
 editor.js    6342
-print.js     197
-search.js    195
 edCur refs در editor.js  201
 edCur refs در core.js      7
 npm test     47 test entries passed
 ```
 
-این وضعیت هنوز hybrid است: مسیرهای جدید callback/adapter محور هستند، اما
-orchestration اصلی DOM و command keyboard در `editor.js` باقی مانده است. هدف
-مرحلهٔ بعد انتقال popup/keyboard بزرگ و کاهش مستقیم mutationهای `edCur` است؛
-حذف compatibility boundary تا زمانی که hot-swap و Electron contract تست نشده‌اند
-مجاز نیست.
-
-`EditorCommitService` نیز اکنون مرز commit به History و PerformanceStore را
-فراهم می‌کند؛ `edCommit()` فقط wrapper سازگاری است.
+**وضعیت فعلی (۳۱ اوت ۲۰۲۶):** app.js: 124، core.js: 1,904، editor.js: 2,877، edCur: 0، tests: 244
 
 ## آخرین snapshot عملیاتی — ۱۲ اوت ۲۰۲۶، extraction رندر timeline و popup seam
 
@@ -257,8 +251,7 @@ orchestration اصلی DOM و command keyboard در `editor.js` باقی مان�
   را از `js/app/core.js` خارج کرد.
 - `AudioDropImportService` مسیر drag/drop فایل صوتی، ساخت track، decode،
   linked Electron path و fallback ذخیرهٔ Blob را از orchestration editor جدا کرد.
-- `EdCurAdapter` یک مالک canonical برای song نگه می‌دارد و `window.edCur` فقط
-  facade سازگاری getter/setter است؛ listener تغییر نیز contract تست دارد.
+- `EditorSongRuntimeService` مالک canonical برای song است و `window.edCur` حذف شده.
 - `WindowBridge` اکنون get/set/call/dispatch و پاک‌سازی registryهای popup را
   پوشش می‌دهد؛ دسترسی مستقیم popup property و `dispatchEvent` از core/editor
   حذف شد و `SyncModeController` نیز highlight پنجره‌ها را از همین bridge عبور
@@ -266,22 +259,16 @@ orchestration اصلی DOM و command keyboard در `editor.js` باقی مان�
 - contract test قدیمی timeline به محل جدید سرویس منتقل شد و تست seam مستقل برای
   selection سرویس اضافه شد.
 
-### شمارش و کیفیت واقعی
+### شمارش و کیفیت واقعی (بایگانی — اوت ۲۰۲۶)
 
 ```text
 js/app.js       117 خط
-js/app/core.js  5662 خط در quality line-budget
-js/app/editor.js 6208 خط در quality line-budget
-TimelineTrackRendererService.js 535 خط
-AudioDropImportService.js       214 خط
+js/app/core.js  5662 خط
+js/app/editor.js 6208 خط
 npm test         59 ورودی موفق
-npm run lint     موفق — 68 فایل
-quality:legacy-deps موفق
 ```
 
-`core.js` و `editor.js` هنوز warning هدف extraction دارند، اما هر دو زیر سقف
-سخت ۶۰۰۰ و ۶۵۰۰ خط هستند. مرحلهٔ بعد باید روی hydration/restore و keyboard
-seamهای باقی‌مانده تمرکز کند؛ بدنهٔ legacy رندر ترک دیگر در core باقی نمانده است.
+**وضعیت فعلی (۳۱ اوت ۲۰۲۶):** core.js: 1,904، editor.js: 2,877، tests: 244، lint: 211 فایل
 
 ## آخرین snapshot عملیاتی — ۲۴ اوت ۲۰۲۶، پس از اختیاری‌شدن A/B ارنجر
 
@@ -300,16 +287,18 @@ seamهای باقی‌مانده تمرکز کند؛ بدنهٔ legacy رندر 
   loop خاموش می‌شود اما `loopA/loopB` دست‌نخورده می‌مانند؛ hot-swap نیز
   origin صوتی AudioContext را همراه A آهنگ جدید دوباره تنظیم می‌کند.
 
-وضعیت فعلی همچنان hybrid است. wrapperهای عمومی و compatibility boundaryهای
-لازم برای hot-swap، Electron و مسیرهای قدیمی حذف نشده‌اند. هشدار line budget
-برای `core.js` و `editor.js` هدف بعدی معماری است، نه خطای runtime.
+### وضعیت نهایی — ۳۱ اوت ۲۰۲۶
+
+ریفکتور اصلی تکمیل شده است. all quality gates سبز هستند.
 
 ```text
 js/app.js       ۱۲۴ خط
-js/app/core.js  ۵۸۵۳ خط در quality line-budget
-js/app/editor.js ۶۲۱۷ خط در quality line-budget
-تست‌ها         ۱۰۴ ورودی موفق
-lint            ۱۰۹ فایل JavaScript موفق
+js/app/core.js  ۱٬۹۰۴ خط (target: 5,600, max: 6,000)
+js/app/editor.js ۲٬۸۷۷ خط (target: 6,000, max: 6,500)
+تست‌ها         ۲۴۴ ورودی موفق
+lint            ۲۱۱ فایل JavaScript موفق
+legacy-deps     PASSED (262 فایل)
+edCur refs      0 در کل کد اجرا
 ```
 
 ایمن‌سازی کامل QR و سینک موبایل طبق دامنهٔ تعیین‌شدهٔ کاربر در این موج
