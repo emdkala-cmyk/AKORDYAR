@@ -59,7 +59,8 @@
     storageRef = null,
     getDockHeight = () => DEFAULT_LAYOUT.dockHeight,
     setDockHeight = height => height,
-    onViewportChange = () => {}
+    onViewportChange = () => {},
+    t = key => globalScope.t?.(key) ?? key
   } = {}) {
     let initialized = false;
     let state = null;
@@ -164,13 +165,13 @@
       elements.maximizeButton?.classList?.toggle('active', floating && state.maximized);
       elements.floatButton?.setAttribute?.('aria-pressed', String(floating));
       elements.maximizeButton?.setAttribute?.('aria-pressed', String(floating && state.maximized));
-      elements.closeButton?.setAttribute?.('aria-label', state.closed ? 'باز کردن تایم‌لاین' : 'بستن تایم‌لاین');
-      elements.closeButton?.setAttribute?.('title', state.closed ? 'باز کردن تایم‌لاین' : 'بستن تایم‌لاین');
+      elements.closeButton?.setAttribute?.('aria-label', state.closed ? t('openTimeline') : t('closeTimeline'));
+      elements.closeButton?.setAttribute?.('title', state.closed ? t('openTimeline') : t('closeTimeline'));
       elements.restoreButton?.toggleAttribute?.('hidden', !state.closed);
       if (elements.floatButton) {
         elements.floatButton.title = floating
-          ? 'اتصال دوبارهٔ تایم‌لاین به پایین برنامه'
-          : 'جدا کردن تایم‌لاین و تبدیل به پنجرهٔ قابل‌جابه‌جایی';
+          ? t('reattachTimeline')
+          : t('detachTimeline');
       }
     }
 

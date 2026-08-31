@@ -77,7 +77,7 @@
       root.setAttribute('role', 'button');
       root.setAttribute('aria-label', 'اشتراک‌گذاری گروه‌نوازی');
       root.tabIndex = 0;
-      root.title = 'اشتراک‌گذاری گروه‌نوازی';
+      root.title = t('groupSharing');
       root.style.cssText = [
         'position:fixed', 'left:14px', 'top:14px', 'z-index:99999',
         'width:36px', 'height:36px', 'max-height:calc(100vh - 20px)',

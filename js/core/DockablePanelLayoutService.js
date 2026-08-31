@@ -94,7 +94,8 @@
     minWidth = 280,
     minHeight = 240,
     defaultFloating = DEFAULT_LAYOUT.floating,
-    onStateChange = () => {}
+    onStateChange = () => {},
+    t = key => globalScope.t?.(key) ?? key
   } = {}) {
     let initialized = false;
     let state = null;
@@ -207,7 +208,7 @@
       elements.restoreButton?.toggleAttribute?.('hidden', !state.closed);
       elements.closeButton?.setAttribute?.(
         'aria-label',
-        state.closed ? 'باز کردن پنل' : 'بستن پنل'
+        state.closed ? t('openPanel') : t('closePanel')
       );
       if (elements.floatButton) {
         elements.floatButton.title = floating

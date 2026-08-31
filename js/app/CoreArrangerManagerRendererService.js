@@ -18,6 +18,7 @@
     exportArranger = () => {},
     confirmRef = () => false,
     translate = key => key,
+    t = key => globalScope.t?.(key) ?? key,
     toast = () => {}
   } = {}) {
     function render() {
@@ -39,17 +40,17 @@
       const toolbar = documentRef.createElement('div');
       toolbar.className = 'arr-manager-toolbar';
       toolbar.innerHTML = `
-        <button class="arr-btn-new" data-action="createNewArranger" title="ساخت پلی‌لیست جدید">
+        <button class="arr-btn-new" data-action="createNewArranger" title="${t('createPlaylist')}">
           ＋ پلی‌لیست جدید
         </button>
         <div style="display:flex;gap:6px;">
-          <button class="arr-btn-import" data-action="importArrangerFromFile" title="بارگذاری یک پلی‌لیست از فایل JSON">
+          <button class="arr-btn-import" data-action="importArrangerFromFile" title="${t('importPlaylistJson')}">
             📥 ورود یک پلی‌لیست
           </button>
-          <button class="arr-btn-import" data-action="importAllPlaylistsFromFile" title="بارگذاری کامل همه پلی‌لیست‌ها از فایل پشتیبان">
+          <button class="arr-btn-import" data-action="importAllPlaylistsFromFile" title="${t('importAllPlaylists')}">
             📥 ورود کامل پلی‌لیست‌ها
           </button>
-          <button class="arr-btn-import" data-action="exportAllPlaylistsToFile" title="خروجی کامل همه پلی‌لیست‌ها در یک فایل" ${arrangers.length === 0 ? 'disabled' : ''}>
+          <button class="arr-btn-import" data-action="exportAllPlaylistsToFile" title="${t('exportAllPlaylists')}" ${arrangers.length === 0 ? 'disabled' : ''}>
             📤 خروجی کامل پلی‌لیست‌ها
           </button>
         </div>
@@ -92,9 +93,9 @@
             ${badges.length ? `<div class="arr-card-badges">${badges.join('')}</div>` : ''}
           </div>
           <div class="acts">
-            <button data-a="edit" title="ویرایش">✏️ ویرایش</button>
-            <button data-a="export" class="act-export" title="خروجی به فایل">📤</button>
-            <button data-a="del" class="act-del" title="حذف">🗑</button>
+            <button data-a="edit" title="${t('edit')}">✏️ ویرایش</button>
+            <button data-a="export" class="act-export" title="${t('exportToFile')}">📤</button>
+            <button data-a="del" class="act-del" title="${t('delete')}">🗑</button>
           </div>
         `;
 

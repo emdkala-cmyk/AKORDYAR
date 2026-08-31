@@ -16,7 +16,8 @@
     renderClips = () => {},
     scheduleAllFromPlayhead = () => {},
     startPointerDrag = (...args) =>
-      globalScope.EditorRuntimeAdapter?.startPointerDrag?.(...args)
+      globalScope.EditorRuntimeAdapter?.startPointerDrag?.(...args),
+    t = key => globalScope.t?.(key) ?? key
   } = {}) {
     if (typeof getDAW !== 'function') {
       throw new TypeError('EditorMixerService requires getDAW');
@@ -86,7 +87,7 @@
           track.name +
           '" data-mn="' +
           track.id +
-          '" title="تغییر نام لاین" spellcheck="false"></div>' +
+          '" title="' + t('renameLine') + '" spellcheck="false"></div>' +
           '<div class="mixer-ch-controls">' +
           '<button class="t-btn ' +
           (track.muted ? 'on' : '') +

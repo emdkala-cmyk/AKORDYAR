@@ -25,7 +25,8 @@
     musicXmlRenderer = globalScope.ScoreRenderer || globalScope.MusicXmlScoreRenderer,
     scoreRenderer = globalScope.ScoreRenderer || musicXmlRenderer,
     transposeService = globalScope.ScoreTransposeService,
-    scorePlayheadService = globalScope.EditorScorePlayheadService
+    scorePlayheadService = globalScope.EditorScorePlayheadService,
+    t = key => globalScope.t?.(key) ?? key
   } = {}) {
     if (!importService?.create) {
       throw new TypeError('ScoreController requires MidiScoreImportService');
@@ -231,8 +232,8 @@
       const syncButton = documentRef.createElement('button');
       syncButton.type = 'button';
       syncButton.className = 'midi-score-part-btn midi-score-sync-btn';
-      syncButton.textContent = '🎼 همگام‌سازی با گام پروژه';
-      syncButton.title = 'ترنسپوز نت‌های همه سازها و بازسازی علامت گام در ابتدای میزان‌ها';
+      syncButton.textContent = t('syncWithProjectKey');
+      syncButton.title = t('syncScoreTranspose');
       syncButton.addEventListener('click', syncScoresToProjectKey);
       partsElement.appendChild(syncButton);
 
@@ -241,9 +242,9 @@
         chordToggle.type = 'button';
         chordToggle.className = 'midi-score-part-btn midi-score-chord-toggle';
         const visible = chordVisibility(selectedPartId, currentScore);
-        chordToggle.textContent = `آکوردها: ${visible ? 'روشن' : 'خاموش'}`;
+        chordToggle.textContent = `${t('chords')}: ${visible ? t('on') : t('off')}`;
         chordToggle.setAttribute('aria-pressed', String(visible));
-        chordToggle.title = 'نمایش یا مخفی‌کردن آکوردها روی میزان‌ها';
+        chordToggle.title = t('toggleScoreChords');
         chordToggle.addEventListener('click', () => {
           setChordVisibility(selectedPartId, !chordVisibility(selectedPartId, musicXmlScore()));
         });
@@ -264,10 +265,10 @@
 
       const playheadSelect = documentRef.createElement('select');
       playheadSelect.className = 'midi-score-playhead-mode-select';
-      playheadSelect.setAttribute('aria-label', 'حالت پلی‌هد');
+      playheadSelect.setAttribute('aria-label', t('playheadMode'));
       [
-        { value: 'line', label: 'پلی‌هد: خط' },
-        { value: 'measure', label: 'پلی‌هد: هایلایت میزان' }
+        { value: 'line', label: t('playheadLine') },
+        { value: 'measure', label: t('playheadHighlight') }
       ].forEach(optionData => {
         const option = documentRef.createElement('option');
         option.value = optionData.value;
@@ -292,7 +293,7 @@
         qrButton.type = 'button';
         qrButton.className = 'midi-score-part-btn midi-score-qr-btn';
         qrButton.textContent = 'QR';
-        qrButton.title = 'نمایش QR اختصاصی همین پارت';
+        qrButton.title = t('showPartQR');
         qrButton.setAttribute('aria-label', `QR ${part.name || part.id}`);
         qrButton.addEventListener('click', event => {
           event.stopPropagation();
@@ -322,7 +323,7 @@
       const state = documentRef.createElement('div');
       state.className = 'midi-score-empty-state';
       const title = documentRef.createElement('strong');
-      title.textContent = 'محیط نت‌خوان آماده است';
+      title.textContent = t('scoreReaderReady');
       const description = documentRef.createElement('p');
       description.textContent =
         'پس از ورود فایل، هر ساز به‌صورت یک تب جدا نمایش داده می‌شود؛ ' +

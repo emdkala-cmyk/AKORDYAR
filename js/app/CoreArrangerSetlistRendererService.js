@@ -15,7 +15,8 @@
     ensureArrItem = () => ({}),
     saveArrangers = () => {},
     openArrSongNote = () => {},
-    translate = key => key
+    translate = key => key,
+    t = key => globalScope.t?.(key) ?? key
   } = {}) {
     let dragIndex = null;
 
@@ -56,8 +57,8 @@
         element.dataset.i = index;
         element.innerHTML = `
           <div class="arr-item-controls">
-            <button data-a="up" title="بالا">↑</button>
-            <button data-a="down" title="پایین">↓</button>
+            <button data-a="up" title="${t('moveUp')}">↑</button>
+            <button data-a="down" title="${t('moveDown')}">↓</button>
             <span class="arr-item-number">${index + 1}</span>
           </div>
           <div class="arr-item-info" draggable="true">
@@ -65,11 +66,11 @@
             <small>${song.artist || '—'}</small>
           </div>
           <div class="ai-ctrls">
-            <button class="ai-trans-btn" data-a="trans-down" title="بمل">♭</button>
+            <button class="ai-trans-btn" data-a="trans-down" title="${t('flat')}">♭</button>
             <span class="ai-trans-val">${transposeLabel}</span>
-            <button class="ai-trans-btn" data-a="trans-up" title="دیز">♯</button>
-            <button class="ai-notes-btn ${hasNotes ? 'has-notes' : ''}" data-a="notes" title="یادداشت اجرا">📝</button>
-            <button data-a="del" title="حذف">✕</button>
+            <button class="ai-trans-btn" data-a="trans-up" title="${t('sharp')}">♯</button>
+            <button class="ai-notes-btn ${hasNotes ? 'has-notes' : ''}" data-a="notes" title="${t('performanceNote')}">📝</button>
+            <button data-a="del" title="${t('delete')}">✕</button>
           </div>`;
 
         element.onclick = event => {

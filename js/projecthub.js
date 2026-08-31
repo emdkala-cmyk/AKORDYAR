@@ -249,7 +249,7 @@
             ${p.crossfade > 0 ? `<span>🔄 کراس‌فید: ${p.crossfade}s</span>` : ''}
           </div>
         </div>
-        <button class="icon-btn" title="باز کردن در ارنجر" data-action="open">📂</button>
+        <button class="icon-btn" title="${t('openInArranger')}" data-action="open">📂</button>
       </div>
     `).join('');
   }
@@ -285,8 +285,8 @@
           </div>
         </div>
         <div class="project-actions">
-          <button class="icon-btn" title="باز کردن" data-action="open">📂</button>
-          <button class="icon-btn danger" title="حذف" data-action="delete">🗑</button>
+          <button class="icon-btn" title="${t('open')}" data-action="open">📂</button>
+          <button class="icon-btn danger" title="${t('delete')}" data-action="delete">🗑</button>
         </div>
       </div>
     `).join('');

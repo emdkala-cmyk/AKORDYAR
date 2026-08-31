@@ -132,18 +132,18 @@
             : 0;
 
           header.innerHTML = `
-            <span class="t-icon" data-icon-pick="${track.id}" title="تغییر آیکون">${getIconSvg(track.icon)}</span>
+            <span class="t-icon" data-icon-pick="${track.id}" title="${t('changeIcon')}">${getIconSvg(track.icon)}</span>
             <span class="t-label">${track.name}</span>
             <div style="display:flex;gap:2px;align-items:center;">
-              <button class="t-btn" data-chord-ver-prev="" title="ورژن قبلی" style="font-size:0.55rem;">◀</button>
-              <span style="font-size:0.55rem;color:var(--accent-cyan-glow);min-width:46px;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center;font-family:'JetBrains Mono';cursor:pointer;" data-chord-ver-label="" title="دوبار کلیک برای تغییر نام ورژن">${song.chordVersions[currentVersion]?.name || `V${currentVersion + 1}`}</span>
-              <button class="t-btn" data-chord-ver-next="" title="ورژن بعدی" style="font-size:0.55rem;">▶</button>
-              <button class="t-btn" data-chord-ver-add="" title="ورژن جدید" style="font-size:0.55rem;">+</button>
+              <button class="t-btn" data-chord-ver-prev="" title="${t('prevVersion')}" style="font-size:0.55rem;">◀</button>
+              <span style="font-size:0.55rem;color:var(--accent-cyan-glow);min-width:46px;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center;font-family:'JetBrains Mono';cursor:pointer;" data-chord-ver-label="" title="${t('renameVersionHint')}">${song.chordVersions[currentVersion]?.name || `V${currentVersion + 1}`}</span>
+              <button class="t-btn" data-chord-ver-next="" title="${t('nextVersion')}" style="font-size:0.55rem;">▶</button>
+              <button class="t-btn" data-chord-ver-add="" title="${t('newVersion')}" style="font-size:0.55rem;">+</button>
             </div>
-            <button class="t-btn ${track.locked ? 'on-lock' : ''}" data-lock="${track.id}" title="قفل">
+            <button class="t-btn ${track.locked ? 'on-lock' : ''}" data-lock="${track.id}" title="${t('lock')}">
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
             </button>
-            <button class="t-btn ${isRecordingChords ? 'on-rec' : ''}" data-rec="chord" title="ضبط آکورد">
+            <button class="t-btn ${isRecordingChords ? 'on-rec' : ''}" data-rec="chord" title="${t('recordChord')}">
               <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="8"/></svg>
             </button>
           `;
@@ -161,7 +161,7 @@
             saveState();
             renderTracks();
             renderClips();
-            toast(track.locked ? '🔒 آکوردهای کورد لاین قفل شد' : '🔓 آکوردهای کورد لاین باز شد');
+            toast(track.locked ? t('chordLineLocked') : t('chordLineUnlocked'));
           });
           header.querySelector('[data-chord-ver-prev]')?.addEventListener('click', event => {
             event.stopPropagation();
@@ -180,7 +180,7 @@
             renameChordVersion();
           });
         } else if (track.type === 'section') {
-          header.innerHTML = `<span class="t-icon" data-icon-pick="${track.id}" title="تغییر آیکون">${getIconSvg(track.icon)}</span><span class="t-label">${track.name}</span>`;
+          header.innerHTML = `<span class="t-icon" data-icon-pick="${track.id}" title="${t('changeIcon')}">${getIconSvg(track.icon)}</span><span class="t-label">${track.name}</span>`;
           header.querySelector('[data-icon-pick]')?.addEventListener('click', event => {
             event.stopPropagation();
             openIconPicker(track);
@@ -198,14 +198,14 @@
 
           header.innerHTML = `
             <div class="track-name-top-row">
-              <span class="t-icon" data-icon-pick="${track.id}" title="تغییر آیکون">${getIconSvg(track.icon)}</span>
+              <span class="t-icon" data-icon-pick="${track.id}" title="${t('changeIcon')}">${getIconSvg(track.icon)}</span>
               <span class="t-label" contenteditable="true" spellcheck="false" style="cursor:text;min-width:40px;outline:none;">${track.name}</span>
-              <button class="t-btn" data-load="${track.id}" title="لود آهنگ" style="font-size:0.7rem;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></button>
+              <button class="t-btn" data-load="${track.id}" title="${t('loadSong')}" style="font-size:0.7rem;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></button>
             </div>
             <div class="track-name-bottom-row">
               <button class="t-btn ${track.muted ? 'on' : ''}" data-mute="${track.id}">M</button>
               <button class="t-btn ${track.solo ? 'on-solo' : ''}" data-solo="${track.id}">S</button>
-              <button class="t-btn ${track.locked ? 'on-lock' : ''}" data-lock="${track.id}" title="قفل ترک"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></button>
+              <button class="t-btn ${track.locked ? 'on-lock' : ''}" data-lock="${track.id}" title="${t('lockTrack')}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></button>
               <input type="range" class="t-vol" min="0" max="1" step="0.01" value="${track.vol}" data-vol="${track.id}">
               <div class="pan-wrap" data-pan-wrap="${track.id}">
                 <div class="pan-track"><div class="pan-fill-left" style="width:${panLeftWidth}%;right:50%;"></div><div class="pan-fill-right" style="width:${panRightWidth}%;left:50%;"></div></div>
@@ -214,9 +214,9 @@
               </div>
               <input type="range" class="t-pan" min="-1" max="1" step="0.01" value="${track.pan}" data-pan="${track.id}">
               <div class="t-transpose">
-                <button class="t-trans-btn" data-trans-down="${track.id}" title="بمل">♭</button>
+                <button class="t-trans-btn" data-trans-down="${track.id}" title="${t('flat')}">♭</button>
                 <span class="t-trans-val" data-trans-val="${track.id}">${track.transpose || 0}</span>
-                <button class="t-trans-btn" data-trans-up="${track.id}" title="دیز">♯</button>
+                <button class="t-trans-btn" data-trans-up="${track.id}" title="${t('sharp')}">♯</button>
               </div>
             </div>
           `;

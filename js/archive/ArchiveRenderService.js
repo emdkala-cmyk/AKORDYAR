@@ -58,7 +58,8 @@
       requestFrame = callback =>
         (globalScope.requestAnimationFrame || (cb => globalScope.setTimeout(cb, 0)))(callback),
       escapeHtml = value => String(value ?? ''),
-      syncSelectAll = () => {}
+      syncSelectAll = () => {},
+      t = key => globalScope.t?.(key) ?? key
     } = context;
 
     function renderEmpty(list, { query, isTrash, currentTab }) {
@@ -99,7 +100,7 @@
         bodyHtml +=
           `<td style="font-weight:700;">${escapeHtml(song.title || 'بدون نام')}</td><td>${escapeHtml(song.artist || '—')}</td><td style="color:#FFA500;font-weight:700;font-family:JetBrains Mono,monospace;">${keyLabel}</td><td style="color:#FF6BA8;">${song.tempo || song.bpm || '—'}</td><td>${escapeHtml(getDisplayTimeSignature(song) || '—')}</td><td style="font-size:0.72rem;color:var(--text-secondary);">${dateLabel}</td>`;
         bodyHtml +=
-          `<td><div class="at-actions"><button data-arch-action="open" data-song-id="${song.id}" title="بازکردن" aria-label="بازکردن">▶</button> <button data-arch-action="menu" data-song-id="${song.id}" title="بیشتر" aria-label="بیشتر">⋯</button></div></td></tr>`;
+          `<td><div class="at-actions"><button data-arch-action="open" data-song-id="${song.id}" title="${t('open')}" aria-label="${t('open')}">▶</button> <button data-arch-action="menu" data-song-id="${song.id}" title="${t('more')}" aria-label="${t('more')}">⋯</button></div></td></tr>`;
       }
       bodyHtml += '</tbody></table></div>';
       list.innerHTML = headerHtml + bodyHtml;
@@ -170,17 +171,17 @@
         }
         inner += '</div><div class="archive-card-actions">';
         inner +=
-          `<button data-arch-action="fav" data-song-id="${song.id}" class="btn-fav ${song.favorite ? 'is-fav' : ''}" title="${song.favorite ? 'حذف از علاقه‌مندی' : 'افزودن به علاقه‌مندی'}" aria-label="علاقه‌مندی" type="button">${song.favorite ? '⭐' : '☆'}</button>`;
+          `<button data-arch-action="fav" data-song-id="${song.id}" class="btn-fav ${song.favorite ? 'is-fav' : ''}" title="${song.favorite ? t('removeFavorite') : t('addFavorite')}" aria-label="${t('favorite')}" type="button">${song.favorite ? '⭐' : '☆'}</button>`;
         if (trashed) {
           inner +=
-            `<button data-arch-action="restore" data-song-id="${song.id}" class="btn-load" title="بازیابی" aria-label="بازیابی" type="button">♻️</button>`;
+            `<button data-arch-action="restore" data-song-id="${song.id}" class="btn-load" title="${t('restore')}" aria-label="${t('restore')}" type="button">♻️</button>`;
           inner +=
-            `<button data-arch-action="permanent-delete" data-song-id="${song.id}" class="btn-del" title="حذف دائمی" aria-label="حذف دائمی" type="button">✕</button>`;
+            `<button data-arch-action="permanent-delete" data-song-id="${song.id}" class="btn-del" title="${t('permanentDelete')}" aria-label="${t('permanentDelete')}" type="button">✕</button>`;
         } else {
           inner +=
-            `<button data-arch-action="open" data-song-id="${song.id}" class="btn-load" title="بازکردن" aria-label="بازکردن" type="button">▶</button>`;
+            `<button data-arch-action="open" data-song-id="${song.id}" class="btn-load"title="${t('open')}" aria-label="${t('open')}" type="button">▶</button>`;
           inner +=
-            `<button data-arch-action="menu" data-song-id="${song.id}" class="btn-menu" title="بیشتر" aria-label="بیشتر" type="button">⋯</button>`;
+            `<button data-arch-action="menu" data-song-id="${song.id}" class="btn-menu" title="${t('more')}" aria-label="${t('more')}" type="button">⋯</button>`;
         }
         inner += '</div>';
         card.innerHTML = inner;
