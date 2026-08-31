@@ -148,7 +148,7 @@
       state.reset();
 
       try {
-        status.textContent = '🔍 در حال شناسایی تعداد ترانه‌ها...';
+        status.textContent = t('detectingSongs');
         let grandExpected = 0;
 
         for (let index = 0; index < artistNames.length; index++) {
@@ -290,7 +290,7 @@
         }
 
         if (saveToArchive) {
-          status.textContent = '📁 در حال ذخیره در آرشیو...';
+          status.textContent = t('savingToArchive');
           const existingSongs = getAllSongs();
           let archived = 0;
           let dupes = 0;
@@ -367,7 +367,7 @@
             : `❌ خطا: ${errorMessage}`
         );
         button.disabled = false;
-        button.textContent = '🔄 تلاش مجدد';
+        button.textContent = t('retry');
         element('autoImportDone').style.display = 'block';
         return { success: false, error: errorMessage };
       }

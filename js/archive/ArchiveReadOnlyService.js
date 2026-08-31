@@ -69,7 +69,7 @@
       exitReadOnly();
       const copy = clone(sourceSong);
       copy.id = generateId();
-      copy.title = (copy.title || 'بدون نام') + ' (نسخه قابل ویرایش)';
+      copy.title = (copy.title || t('untitled')) + ' (نسخه قابل ویرایش)';
       copy.createdAt = now();
       copy.updatedAt = now();
       const songs = getAllSongs();

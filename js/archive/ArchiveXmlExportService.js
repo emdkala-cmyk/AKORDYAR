@@ -65,7 +65,7 @@
       }
       syncMetadata(song);
 
-      const filename = (song.title || 'ترانه جدید') + '.xml';
+      const filename = (song.title || t('newSongDefault')) + '.xml';
       const blob = new BlobCtor([buildXml(song)], {
         type: 'application/xml'
       });

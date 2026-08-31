@@ -82,7 +82,7 @@
       if (panel) panel.style.display = 'flex';
       const nameElement = getElement('perfArrangerName');
       if (nameElement) {
-        nameElement.textContent = '🎤 ' + (editingArr.name || 'اجرا');
+        nameElement.textContent = '🎤 ' + (editingArr.name || t('performLabel'));
       }
       getElement('perfPauseModeBtn')?.classList.toggle(
         'arr-stl-active',

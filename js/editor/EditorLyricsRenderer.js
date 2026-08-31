@@ -71,7 +71,7 @@
 
       if (state.printTitle) {
         state.printTitle.textContent =
-          song.title || state.titleFallback || 'بدون نام';
+          song.title || state.titleFallback || t('untitled');
       }
       if (state.printSub) {
         state.printSub.textContent =

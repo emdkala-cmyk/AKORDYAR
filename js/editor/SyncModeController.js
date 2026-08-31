@@ -617,7 +617,7 @@ class SyncModeController {
       this.renderSyncLyrics(); this.edSaveSong();
     };
     if (this.$('syncResetBtn')) this.$('syncResetBtn').onclick = () => {
-      if (!confirm('تمام زمان‌های سینک پاک شود؟')) return;
+      if (!confirm(t('clearSyncTimesConfirm'))) return;
       state.history.push(JSON.stringify(this.songState.getSyncTimes())); state.redoHistory = [];
       this.songState.replaceSyncTimes([]); state.cursor = 0;
       this.renderSyncLyrics(); this.edSaveSong();

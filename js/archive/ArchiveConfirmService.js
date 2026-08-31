@@ -18,7 +18,7 @@
         resolveElement('archConfirmTitle').textContent = title;
         resolveElement('archConfirmMsg').innerHTML = message;
         const okButton = resolveElement('archConfirmOk');
-        okButton.textContent = okLabel || 'تأیید';
+        okButton.textContent = okLabel || t('confirmBtn');
         okButton.className = dangerMode ? 'confirm-danger' : 'confirm-ok';
         resolveElement('archiveConfirmOverlay').classList.add('show');
       });

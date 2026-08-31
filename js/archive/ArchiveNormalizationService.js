@@ -125,7 +125,7 @@
       const timestamp = now();
       const output = { ...data };
       output.id = String(data.id || generateId());
-      output.title = data.title || 'بدون نام';
+      output.title = data.title || t('untitled');
       output.artist = data.artist || '';
       output.album = data.album || '';
       output.key = data.key || 'C';

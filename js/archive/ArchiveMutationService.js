@@ -81,7 +81,7 @@
       if (!song) return;
       const ok = await confirm(
         'انتقال به سطل زباله',
-        `ترانه «${escapeHtml(song.title || 'بدون نام')}» به سطل زباله منتقل شود؟`,
+        `ترانه «${escapeHtml(song.title || t('untitled'))}» به سطل زباله منتقل شود؟`,
         'انتقال'
       );
       if (!ok) return;
@@ -111,7 +111,7 @@
       if (!song) return;
       const ok = await confirm(
         'حذف دائمی',
-        `<strong>⚠️ این عمل غیرقابل بازگشت است!</strong><br>ترانه «${escapeHtml(song.title || 'بدون نام')}» برای همیشه حذف خواهد شد.`,
+        `<strong>⚠️ این عمل غیرقابل بازگشت است!</strong><br>ترانه «${escapeHtml(song.title || t('untitled'))}» برای همیشه حذف خواهد شد.`,
         'حذف دائمی',
         true
       );
@@ -142,7 +142,7 @@
       if (!song) return;
       const copy = clone(song);
       copy.id = generateId();
-      copy.title = (copy.title || 'بدون نام') + ' (کپی)';
+      copy.title = (copy.title || t('untitled')) + ' (کپی)';
       copy.createdAt = now();
       copy.updatedAt = now();
       copy.lastOpenedAt = null;

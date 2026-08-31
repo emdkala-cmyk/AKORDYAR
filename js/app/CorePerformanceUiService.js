@@ -47,7 +47,7 @@
       };
 
       setText('perfSongNum', `${currentIndex + 1} / ${arr.items.length}`);
-      setText('perfSongTitle', song ? song.title || 'بدون نام' : '—');
+      setText('perfSongTitle', song ? song.title || t('untitled') : '—');
       setText('perfSongArtist', song?.artist || '');
       const keyName = song?.key || currentSong.key || 'C';
       const keyMode = song?.keyMode || currentSong.keyMode || 'maj';
@@ -81,7 +81,7 @@
         element.draggable = true;
         element.innerHTML =
           `<span class="pf-num">${index + 1}</span>` +
-          `<span class="pf-name">${itemSong ? itemSong.title || 'بدون نام' : '—'}</span>` +
+          `<span class="pf-name">${itemSong ? itemSong.title || t('untitled') : '—'}</span>` +
           `<span class="pf-key">${itemSong?.key || '—'}${itemSetting.transpose ? (itemSetting.transpose > 0 ? '+' : '') + itemSetting.transpose : ''}</span>`;
 
         element.onclick = () => jumpToSong(index);
@@ -162,7 +162,7 @@
             ? Math.max(0, sectionStart)
             : 0;
           const button = documentRef.createElement('button');
-          button.textContent = section?.label || section?.name || 'بخش';
+          button.textContent = section?.label || section?.name || t('sectionLabel');
           button.dataset.sectionId = section?.id || '';
           button.dataset.sectionStart = String(start);
           button.onclick = () => {

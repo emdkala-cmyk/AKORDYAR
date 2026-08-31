@@ -58,7 +58,7 @@
 
     function arrClearNotes() {
       const editingArr = getEditingArr?.();
-      if (!editingArr || !confirm('یادداشت‌های همه آهنگ‌ها پاک شود؟')) {
+      if (!editingArr || !confirm(t('clearAllNotesConfirm'))) {
         return;
       }
       editingArr.items.forEach((id, index) => {

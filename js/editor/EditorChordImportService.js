@@ -318,10 +318,10 @@
 
     function showImportPreview(parsed) {
       const parsedResult = parseChordLyricText(parsed.rawText);
-      let preview = `عنوان: ${parsed.title || 'نامشخص'}\n`;
-      preview += `خواننده: ${parsed.artist || 'نامشخص'}\n`;
-      preview += `گام: ${parsed.key || 'نامشخص'}\n`;
-      preview += `ریتم: ${parsed.rhythm || 'نامشخص'}\n`;
+      let preview = `عنوان: ${parsed.title || t('unknown')}\n`;
+      preview += `خواننده: ${parsed.artist || t('unknown')}\n`;
+      preview += `گام: ${parsed.key || t('unknown')}\n`;
+      preview += `ریتم: ${parsed.rhythm || t('unknown')}\n`;
       preview += `آکوردها: ${[...parsedResult.allChords].join(', ')}\n`;
       preview +=
         `تعداد خطوط: ${parsedResult.sections.length} ` +
@@ -402,7 +402,7 @@
         'ترانه با ' +
           imported.chordCount +
           ' آکورد وارد شد: ' +
-          (imported.title || 'بدون نام')
+          (imported.title || t('untitled'))
       );
       return imported;
     }

@@ -279,7 +279,7 @@
         'display:inline-flex;align-items:center;gap:4px;';
       const translateFn = globalScope.t || (k => k);
       const label = documentRef.createElement('span');
-      label.textContent = translateFn('note') || 'نت:';
+      label.textContent = translateFn('note') || t('noteLabel');
       label.style.cssText =
         'font-size:0.7rem;color:var(--text-secondary);';
       const select = documentRef.createElement('select');

@@ -375,7 +375,7 @@ const PlayerViewRenderer = (() => {
 
     const titleEl = document.createElement('div');
     titleEl.className = 'pv-song-title';
-    titleEl.textContent = doc.title || 'بدون عنوان';
+    titleEl.textContent = doc.title || t('untitled');
     titleEl.style.fontSize = isMobileLayout ? '17px' : '20px';
     titleEl.style.fontWeight = '900';
     titleEl.style.color = '#00F2FE';

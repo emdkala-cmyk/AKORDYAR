@@ -481,7 +481,7 @@
             const message = documentRef.createElement('div');
             message.className = 'score-render-error';
             message.setAttribute('role', 'alert');
-            message.textContent = `خطا در نمایش استاندارد MusicXML: ${error?.message || 'رندر OSMD ناموفق بود'}`;
+            message.textContent = `خطا در نمایش استاندارد MusicXML: ${error?.message || t('osmdRenderFailed')}`;
             root.replaceChildren(message);
             console.error('[ScoreRenderer] OSMD render failed:', error);
           });
