@@ -102,12 +102,13 @@
           .clp-active-bg { background: rgba(255,46,147,0.08); border-radius: 6px; }
         </style>`;
       let html = `<div class="clp-header"><div class="title">${title}</div><div class="sub">${artist} · ${keyStr}</div></div>`;
+      const tf = globalScope.t || (k => k);
       html += `<div class="clp-controls">
-        <button class="clp-btn clp-btn-primary" id="clpSyncBtn" title="بروزرسانی Chord Line از Lyrics Chord">🔄 سینک</button>
-        <button class="clp-btn" id="clpTransDown" title="بمل">♭</button>
+        <button class="clp-btn clp-btn-primary" id="clpSyncBtn" title="${tf('refresh')}">🔄 ${tf('sync')}</button>
+        <button class="clp-btn" id="clpTransDown" title="${tf('flat')}">♭</button>
         <span id="clpTransVal" style="color:#718096;font-size:12px;font-weight:600;min-width:24px;text-align:center;display:inline-block;">${transpose > 0 ? '+' : ''}${transpose}</span>
-        <button class="clp-btn" id="clpTransUp" title="دیز">♯</button>
-        <button class="clp-btn" id="clpCopyBtn" title="کپی آکوردها">✔ کپی</button>
+        <button class="clp-btn" id="clpTransUp" title="${tf('sharp')}">♯</button>
+        <button class="clp-btn" id="clpCopyBtn" title="${tf('copy')}">✔ ${tf('copy')}</button>
       </div>`;
       html += `<div class="clp-body" id="clpBody">`;
       lines.forEach((line, i) => {

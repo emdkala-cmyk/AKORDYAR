@@ -140,11 +140,12 @@
         const originalMode = song.originalKeyMode || song.keyMode;
         originalKeyLabel.textContent =
           '🎵 ' + originalKey + (originalMode === 'min' ? 'm' : '');
+        const translateFn = globalScope.t || (k => k);
         originalKeyLabel.title =
-          'گام اورجینال: ' +
+          translateFn('originalKey') + ': ' +
           originalKey +
           (originalMode === 'min' ? 'm' : '') +
-          ' | کلیک=تغییر | Alt+کلیک=انتقال به گام پروژه';
+          ' | ' + translateFn('clickToChange') + ' | Alt+' + translateFn('clickToTranspose');
       }
 
       const value = song?.transpose || 0;
