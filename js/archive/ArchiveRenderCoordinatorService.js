@@ -174,12 +174,12 @@
       const keyFilter = getElement('filterKey')?.value || '';
       const sort = getElement('filterSort')?.value || 'newest';
 
-      getElement('tabCountAll').textContent = activeAll.length;
-      getElement('tabCountFav').textContent =
+      if (getElement('tabCountAll')) getElement('tabCountAll').textContent = activeAll.length;
+      if (getElement('tabCountFav')) getElement('tabCountFav').textContent =
         activeAll.filter(song => song.favorite).length;
-      getElement('tabCountTrash').textContent =
+      if (getElement('tabCountTrash')) getElement('tabCountTrash').textContent =
         allSongs.filter(song => song.deletedAt).length;
-      getElement('archiveTotalCount').textContent = `(${activeAll.length} ترانه)`;
+      if (getElement('archiveTotalCount')) getElement('archiveTotalCount').textContent = `(${activeAll.length} ترانه)`;
 
       const songs = filterByTab(allSongs, currentTab).filter(song =>
         matchesFilters(song, {
