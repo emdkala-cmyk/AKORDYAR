@@ -231,6 +231,8 @@
       }
       const sizeLock = getElement('setSizeLock');
       if (sizeLock) sizeLock.checked = !!getSizeLocked();
+      const langSelect = getElement('setLanguage');
+      if (langSelect) langSelect.value = globalScope.currentLang || 'fa';
       const modal = getElement('settingsModal');
       modal?.classList.add('show');
       modal?.focus?.();

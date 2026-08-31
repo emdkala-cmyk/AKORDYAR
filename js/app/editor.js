@@ -2578,6 +2578,11 @@ if ($('edDoBoth')) {
       applyOutputDevice: (_, element) => applyOutputDevice(element.value),
       applyMetroSound: (_, element) => applyMetroSound(element.value),
       previewMetroSound: () => previewMetronomeSound(),
+      applyLanguage: (_, element) => {
+        window.setCurrentLang?.(element.value);
+        window.applyI18n?.();
+        window.toast?.(element.value === 'fa' ? 'زبان فارسی' : 'English');
+      },
       applySettingsToggles: () => applySettingsToggles(),
       resetSettings: () => resetSettings(),
       closeSettings: () => closeSettings(),
