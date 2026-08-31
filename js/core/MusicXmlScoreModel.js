@@ -488,18 +488,23 @@
 
     /* ---- collect per-part raw XML sources for OSMD rendering ---- */
     const dataSources = [];
+    const xmlPartIdMap = {}; /* merged-part-id → original XML part-id */
     if (left.source?.data) {
+      left.parts.forEach(p => {
+        const id = String(p.id);
+        xmlPartIdMap[id] = id;
+      });
       dataSources.push({ data: left.source.data, partIds: left.parts.map(p => String(p.id)) });
     }
     if (right.source?.data) {
-      const rightPartIds = right.parts.map((p, i) => {
-        const originalId = String(p.id);
-        const usedIdsArr = Array.from(usedIds);
-        /* find the renamed id */
-        const idx = right.parts.indexOf(right.parts.find(rp => rp === p));
-        return String(mergedParts[left.parts.length + idx].id);
+      const rightMergedIds = [];
+      right.parts.forEach((p, i) => {
+        const originalXmlId = String(p.id);
+        const mergedId = String(mergedParts[left.parts.length + i].id);
+        xmlPartIdMap[mergedId] = originalXmlId;
+        rightMergedIds.push(mergedId);
       });
-      dataSources.push({ data: right.source.data, partIds: rightPartIds });
+      dataSources.push({ data: right.source.data, partIds: rightMergedIds });
     }
 
     /* ---- merge source metadata ---- */
@@ -519,7 +524,8 @@
         mimeType: left.source?.mimeType || right.source?.mimeType || 'application/vnd.recordare.musicxml+xml',
         size: number(left.source?.size, 0) + number(right.source?.size, 0),
         data: null,
-        dataSources
+        dataSources,
+        xmlPartIdMap
       },
       ticksPerQuarter: left.ticksPerQuarter || right.ticksPerQuarter || DEFAULT_PPQN,
       parts: mergedParts,

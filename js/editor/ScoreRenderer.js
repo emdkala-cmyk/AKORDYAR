@@ -658,7 +658,10 @@
 
   async function renderInto(root, score, partId, options = {}) {
     const wantedPartId = partId || score?.activePartId;
-    const xml = selectPartXml(sourceText(score, wantedPartId), wantedPartId);
+    /* For merged scores, map the merged part ID back to the original XML part ID */
+    const xmlPartIdMap = score?.source?.xmlPartIdMap;
+    const xmlPartId = (xmlPartIdMap && xmlPartIdMap[wantedPartId]) || wantedPartId;
+    const xml = selectPartXml(sourceText(score, wantedPartId), xmlPartId);
     if (!xml) throw new Error('MusicXML منبع اصلی برای OSMD در پروژه موجود نیست.');
     const OSMD = getOsmdConstructor();
     if (typeof OSMD !== 'function') {
