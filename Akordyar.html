@@ -250,10 +250,10 @@
       <div class="ins-card">
         <div class="ins-card-title" data-i18n="songProperties">مشخصات آهنگ</div>
         <div class="field">
-          <label>تمپو</label>
+          <label data-i18n="tempo">تمپو</label>
           <div class="tempo-row">
             <input type="number" id="edTempo" min="20" max="300" value="120" placeholder="120">
-            <button class="ed-btn" id="metroToggleBtn" data-action="toggleMetronome" title="مترونوم" style="min-width:32px;height:34px;font-size:12px;border-radius:4px;">🔇</button>
+            <button class="ed-btn" id="metroToggleBtn" data-action="toggleMetronome" data-i18n-title="metronome">🔇</button>
             <button class="tempo-tap-btn" data-action="tapTempo" title="TAP">TAP</button>
           </div>
         </div>
@@ -262,7 +262,7 @@
           <input type="text" id="time-display" value="00:00.000" style="text-align:center;font-family:'JetBrains Mono',monospace;font-weight:600;color:#9CA3AF;font-size:13px;">
         </div>
         <div class="field">
-          <label>کانتین</label>
+          <label data-i18n="countIn">کانتین</label>
           <select id="edCountIn" data-action="setCountInBars">
             <option value="0" data-i18n="disabled">غیرفعال</option>
             <option value="1" data-i18n="oneMeasure">۱ میزان</option>
@@ -271,18 +271,18 @@
           </select>
         </div>
         <div class="field">
-          <label>تشخیص خودکار</label>
+          <label data-i18n="autoDetect">تشخیص خودکار</label>
           <div style="display:flex;gap:4px;">
-            <button class="ed-btn" data-action="detectTempo" style="flex:1;font-size:12px;height:30px;border-radius:4px;">تمپو</button>
+            <button class="ed-btn" data-action="detectTempo" data-i18n="tempo">تمپو</button>
             <button class="ed-btn" data-action="detectKey" style="flex:1;font-size:12px;height:30px;border-radius:4px;">گام</button>
           </div>
         </div>
       </div>
 
       <div class="ins-card">
-        <div class="ins-card-title">سوئیچ‌ها</div>
+        <div class="ins-card-title" data-i18n="interactiveSwitches">سوئیچ‌ها</div>
         <div class="status-tab active-teal" id="tab-sync">
-          <span class="status-tab-label">سینک دستی</span>
+          <span class="status-tab-label" data-i18n="manualSync">سینک دستی</span>
           <div class="status-indicator"></div>
         </div>
         <div class="status-tab" id="tab-midi" data-action="toggleMIDITab">
@@ -293,11 +293,11 @@
           <span class="status-tab-label" data-i18n="playbackToggle">هماهنگ پخش</span>
           <div class="status-indicator"></div>
         </div>
-        <button class="ed-btn" data-action="toggleMidiMonitor" style="margin-top:2px;width:100%;font-size:12px;height:30px;border-radius:4px;">مانیتور MIDI</button>
+        <button class="ed-btn" data-action="toggleMidiMonitor" style="margin-top:2px;width:100%;font-size:12px;height:30px;border-radius:4px;" data-i18n="monitor">مانیتور MIDI</button>
       </div>
 
       <div class="ins-card">
-        <div class="ins-card-title">افکت هایلایت</div>
+        <div class="ins-card-title" data-i18n="highlightEffect">افکت هایلایت</div>
         <div class="hl-selector">
           <div class="hl-opt hl-opt-neon active" data-effect="neon" data-value="neon" data-action="setHighlightEffect" title="Neon Glow"></div>
           <div class="hl-opt hl-opt-frost" data-effect="frost" data-value="frost" data-action="setHighlightEffect" title="Frosted Glass"></div>
@@ -663,7 +663,7 @@
           <input type="checkbox" id="importAutoFix" checked style="width:16px;height:16px;accent-color:var(--accent-teal);cursor:pointer;">
           حذف ستاره + برعکس آکورد
         </label>
-        <button class="btn-primary" data-action="applyImportChords">✅ اعمال در پروژه</button>
+        <button class="btn-primary" data-action="applyImportChords" data-i18n="applyToProject">✅ اعمال در پروژه</button>
       </div>
     </div>
   </div>
@@ -697,7 +697,7 @@
           </div>
           <div class="field" style="display:flex;align-items:center;gap:10px;">
             <input type="checkbox" id="autoSaveArchive" checked style="width:18px;height:18px;accent-color:var(--accent-teal);cursor:pointer;">
-            <label style="margin:0;cursor:pointer;font-size:0.9rem;">ذخیره خودکار در آرشیو</label>
+            <label data-i18n="autoSaveToArchive">ذخیره خودکار در آرشیو</label>
           </div>
           <div class="field" style="display:flex;align-items:center;gap:10px;">
             <input type="checkbox" id="autoFixChords" checked style="width:18px;height:18px;accent-color:var(--accent-teal);cursor:pointer;">
@@ -717,13 +717,13 @@
           <div style="display:flex;justify-content:center;gap:12px;flex-wrap:wrap;">
             <button class="ctrl-btn active-blue" data-action="autoImportNewRequest">🔄 درخواست جدید</button>
             <button class="ctrl-btn" data-action="autoRetryFailed" style="border-color:#D69E2E;color:#D69E2E;">🔄 تلاش مجدد ناموفق‌ها</button>
-            <button class="ctrl-btn" data-action="autoImportSaveArchive" style="border-color:var(--accent-teal);color:var(--accent-teal);">📁 ذخیره در آرشیو</button>
+            <button class="ctrl-btn" data-action="autoImportSaveArchive" style="border-color:var(--accent-teal);color:var(--accent-teal);" data-i18n="saveToArchive">📁 ذخیره در آرشیو</button>
             <button class="ctrl-btn" data-action="autoImportSaveConfirm" style="border-color:var(--accent-cyan-glow);color:var(--accent-cyan-glow);">💾 خروجی فایل‌ها</button>
             <button class="ctrl-btn" data-action="closeAutoImportModal" data-i18n="close">بستن</button>
           </div>
           <div id="autoImportFolderInput" style="display:none;margin-top:12px;">
             <input type="text" id="autoSavePathInput" placeholder="آدرس پوشه مثلاً D:\Music\خوانندگان" style="width:100%;background:#0D1017;border:1px solid var(--border-subtle);padding:10px;border-radius:8px;color:white;font-size:0.9rem;direction:ltr;text-align:left;margin-bottom:8px;">
-            <button class="ctrl-btn active-blue" data-action="autoImportDoSave" style="width:100%;">✅ ذخیره کن</button>
+            <button class="ctrl-btn active-blue" data-action="autoImportDoSave" style="width:100%;" data-i18n="saveIt">✅ ذخیره کن</button>
           </div>
         </div>
       </div>
@@ -736,7 +736,7 @@
 
   <!-- Archive Modal -->
   <div class="modal-overlay" id="archiveModal" data-inline-actions>
-    <div class="chord-editor archive-modal-dialog" style="width:min(96vw,1600px);height:min(92vh,1000px);max-height:min(92vh,1000px);display:flex;flex-direction:column;overflow:hidden;" role="dialog" aria-modal="true" aria-label="آرشیو ترانه‌ها">
+    <div class="chord-editor archive-modal-dialog" style="width:min(96vw,1600px);height:min(92vh,1000px);max-height:min(92vh,1000px);display:flex;flex-direction:column;overflow:hidden;" role="dialog" aria-modal="true" aria-label="songArchive">
       <!-- Header -->
       <div style="display:flex;justify-content:space-between;align-items:center;padding:0 0 8px;border-bottom:1px solid var(--border-subtle);flex-shrink:0;">
         <h3 style="margin:0;display:flex;align-items:center;gap:8px;font-size:1.05rem;">
@@ -797,8 +797,8 @@
           <button class="ctrl-btn" data-action="archToggleSelectMode" id="archSelectBtn" title="انتخاب چندتایی" aria-label="انتخاب چندتایی" style="font-size:0.85rem;">☑</button>
           <button class="ctrl-btn" data-action="archImportFiles" title="ورودی فایل‌ها" aria-label="ورودی فایل‌ها" style="font-size:0.85rem;">📄</button>
           <button class="ctrl-btn" data-action="archImportFolder" title="ورودی پوشه (شامل زیرپوشه‌ها)" aria-label="ورودی پوشه" style="font-size:0.85rem;">📁</button>
-          <button class="ctrl-btn" data-action="archImportFullArchive" title="ورودی آرشیو کامل" aria-label="ورودی آرشیو" style="font-size:0.85rem;">📦</button>
-          <button class="ctrl-btn" data-action="archExportAll" title="خروجی آرشیو" aria-label="خروجی" style="font-size:0.85rem;">📤</button>
+          <button class="ctrl-btn" data-action="archImportFullArchive" data-i18n-title="importArchive" aria-label="ورودی آرشیو" style="font-size:0.85rem;">📦</button>
+          <button class="ctrl-btn" data-action="archExportAll" data-i18n-title="exportAction" aria-label="خروجی" style="font-size:0.85rem;">📤</button>
           <button class="ctrl-btn" data-action="songNew" title="ترانه جدید" aria-label="ترانه جدید" style="font-size:0.85rem;">➕</button>
         </div>
         <div class="atb-sep"></div>
@@ -883,15 +883,15 @@
       </div>
       <div class="archive-edit-footer">
         <button data-action="archEditClose" data-i18n="cancel">لغو</button>
-        <button class="ae-save" data-action="archEditSave">ذخیره تغییرات</button>
+        <button class="ae-save" data-action="archEditSave" data-i18n="saveChanges">ذخیره تغییرات</button>
       </div>
     </div>
   </div>
 
   <!-- Archive Context Menu -->
   <div class="archive-ctx-menu" id="archiveCtxMenu" data-inline-actions>
-    <div class="acm-item" data-action="archCtxAction" data-value="open">📂 بازکردن</div>
-    <div class="acm-item" data-action="archCtxAction" data-value="readonly">👁 بازکردن فقط‌خواندنی</div>
+    <div class="acm-item" data-action="archCtxAction" data-value="open" data-i18n="openProject">📂 بازکردن</div>
+    <div class="acm-item" data-action="archCtxAction" data-value="readonly" data-i18n="openReadOnly">👁 بازکردن فقط‌خواندنی</div>
     <div class="acm-sep"></div>
     <div class="acm-item" data-action="archCtxAction" data-value="edit">✏️ ویرایش مشخصات</div>
     <div class="acm-item" data-action="archCtxAction" data-value="fav">⭐ تغییر علاقه‌مندی</div>
@@ -978,7 +978,7 @@
       <textarea id="arrSongNoteText" placeholder="یادداشت‌ها، نکات اجرا، کیبورد دوم..."></textarea>
       <div class="note-actions" data-inline-actions>
         <button data-action="closeArrSongNote" data-i18n="cancel">لغو</button>
-        <button class="btn-save" data-action="saveArrSongNote">💾 ذخیره</button>
+        <button class="btn-save" data-action="saveArrSongNote" data-i18n="save">💾 ذخیره</button>
       </div>
     </div>
   </div>
@@ -1315,7 +1315,7 @@
   <div id="audioCopyModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(8px);z-index:9999;align-items:center;justify-content:center;">
     <div style="background:#1A1F2E;border:1px solid var(--accent-teal);border-radius:16px;width:420px;max-width:90vw;padding:24px;box-shadow:0 0 50px rgba(0,0,0,0.8);text-align:center;">
       <div style="font-size:2rem;margin-bottom:12px;">🎵</div>
-      <p id="audioCopyModalText" style="color:#e2e8f0;font-size:0.95rem;margin:0 0 8px;line-height:1.7;">فایل صوتی در پروژه کپی شود؟</p>
+      <p id="audioCopyModalText" data-i18n="copyFileToProject">فایل صوتی در پروژه کپی شود؟</p>
       <p style="color:#8B949E;font-size:0.78rem;margin:0 0 20px;line-height:1.6;">بله = کپی (حجم پروژه بالا میرود)<br>نه = فقط مسیر فایل (حجم کم، فایل اصلی باید بمونه)</p>
       <div style="display:flex;gap:12px;justify-content:center;">
         <button id="audioCopyYes" style="padding:10px 32px;border-radius:10px;border:none;background:var(--accent-teal);color:#000;font-size:0.9rem;font-weight:700;cursor:pointer;transition:0.15s;min-width:100px;">بله — کپی</button>
@@ -1352,23 +1352,23 @@
         <nav class="hub-nav">
           <button class="nav-btn active" data-view="recent">
             <span class="nav-ic">🕘</span>
-            <span class="nav-txt">پروژه‌های اخیر</span>
+            <span class="nav-txt" data-i18n="recentProjects">پروژه‌های اخیر</span>
           </button>
           <button class="nav-btn" data-view="archive">
             <span class="nav-ic">🎵</span>
-            <span class="nav-txt">آرشیو آهنگ‌ها</span>
+            <span class="nav-txt" data-i18n="songArchive">آرشیو آهنگ‌ها</span>
           </button>
           <button class="nav-btn" data-view="new">
             <span class="nav-ic">➕</span>
-            <span class="nav-txt">پروژه جدید</span>
+            <span class="nav-txt" data-i18n="newSong">پروژه جدید</span>
           </button>
           <button class="nav-btn" data-view="open">
             <span class="nav-ic">📂</span>
-            <span class="nav-txt">باز کردن پروژه</span>
+            <span class="nav-txt" data-i18n="openProject">باز کردن پروژه</span>
           </button>
           <button class="nav-btn" data-view="templates">
             <span class="nav-ic">📋</span>
-            <span class="nav-txt">قالب‌ها</span>
+            <span class="nav-txt" data-i18n="templates">قالب‌ها</span>
           </button>
           <button class="nav-btn" data-view="settings">
             <span class="nav-ic">⚙️</span>
@@ -1379,7 +1379,7 @@
         <div class="hub-sidebar-footer">
           <div class="storage-info">
             <span class="storage-dot"></span>
-            <span>فضای ذخیره‌سازی</span>
+            <span data-i18n="storageSpace">فضای ذخیره‌سازی</span>
           </div>
           <div class="storage-bar"><div class="storage-fill" style="width:42%"></div></div>
           <span class="storage-text">۴۲٪ استفاده شده</span>
@@ -1402,7 +1402,7 @@
           <div class="hub-content">
             <section class="hub-section" id="hubRecentSection">
               <div class="section-header">
-                <h2>پروژه‌های اخیر</h2>
+                <h2 data-i18n="recentProjects">پروژه‌های اخیر</h2>
                 <button class="btn-ghost" id="hubBtnRefresh">🔄 تازه‌سازی</button>
               </div>
               <div class="project-list" id="hubProjectList"></div>
@@ -1410,7 +1410,7 @@
 
             <section class="hub-section" id="hubTemplatesSection">
               <div class="section-header">
-                <h2>قالب‌های آماده</h2>
+                <h2 data-i18n="templates">قالب‌های آماده</h2>
                 <button class="btn-ghost" id="hubBtnBrowseTemplates">مشاهده همه</button>
               </div>
               <div class="templates-grid" id="hubTemplatesGrid"></div>
@@ -1422,7 +1422,7 @@
       <!-- Bottom Bar -->
       <footer class="hub-bottom">
         <div class="bottom-left">
-          <button class="btn-primary" id="hubBtnNewProject">➕ پروژه جدید</button>
+          <button class="btn-primary" id="hubBtnNewProject" data-i18n="newSong">➕ پروژه جدید</button>
           <button class="btn-secondary" id="hubBtnChooseFile">📁 انتخاب فایل…</button>
         </div>
         <div class="bottom-right">
