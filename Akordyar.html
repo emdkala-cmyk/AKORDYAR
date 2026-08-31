@@ -202,15 +202,15 @@
       <div class="ins-card">
         <div class="ins-card-title">اطلاعات پایه</div>
         <div class="field">
-          <label>خواننده</label>
+          <label data-i18n="artist">خواننده</label>
           <input type="text" id="edArtist" data-i18n-placeholder="artistPlaceholder" placeholder="نام خواننده">
         </div>
         <div class="field">
-          <label>نام ترانه</label>
+          <label data-i18n="songTitle">نام ترانه</label>
           <input type="text" id="edTitle" data-i18n-placeholder="songTitlePlaceholder" placeholder="نام ترانه">
         </div>
         <div class="field">
-          <label>سیگنچر (کسر میزان)</label>
+          <label data-i18n="timeSignature">سیگنچر (کسر میزان)</label>
           <select id="edTimeSig">
             <option value="4/4">4/4</option>
             <option value="3/4">3/4</option>
@@ -224,7 +224,7 @@
           </select>
         </div>
         <div class="field">
-          <label>ژانر</label>
+          <label data-i18n="genre">ژانر</label>
           <select id="edGenre">
             <option value="">انتخاب کنید...</option>
             <option value="sad">غمگین</option>
@@ -248,7 +248,7 @@
       </div>
 
       <div class="ins-card">
-        <div class="ins-card-title">مشخصات آهنگ</div>
+        <div class="ins-card-title" data-i18n="songProperties">مشخصات آهنگ</div>
         <div class="field">
           <label>تمپو</label>
           <div class="tempo-row">
@@ -258,7 +258,7 @@
           </div>
         </div>
         <div class="field">
-          <label>زمان پخش</label>
+          <label data-i18n="playTime">زمان پخش</label>
           <input type="text" id="time-display" value="00:00.000" style="text-align:center;font-family:'JetBrains Mono',monospace;font-weight:600;color:#9CA3AF;font-size:13px;">
         </div>
         <div class="field">
@@ -290,7 +290,7 @@
           <div class="status-indicator"></div>
         </div>
         <div class="status-tab" id="tab-midi-sync" data-action="toggleMIDISync">
-          <span class="status-tab-label">هماهنگ پخش</span>
+          <span class="status-tab-label" data-i18n="playbackToggle">هماهنگ پخش</span>
           <div class="status-indicator"></div>
         </div>
         <button class="ed-btn" data-action="toggleMidiMonitor" style="margin-top:2px;width:100%;font-size:12px;height:30px;border-radius:4px;">مانیتور MIDI</button>
@@ -310,7 +310,7 @@
 
       <div class="project-stats" id="songStatsPanel">
         <div class="project-stats-row">
-          <span class="stat-label">آکوردها</span>
+          <span class="stat-label" data-i18n="chords">آکوردها</span>
           <span class="stat-value" id="statChordCount">0</span>
         </div>
         <div class="project-stats-row">
@@ -382,8 +382,8 @@
             class="timeline-layout-btn timeline-close-btn"
             id="timelineCloseBtn"
             data-timeline-layout-action="toggle-closed"
-            title="بستن تایم‌لاین"
-            aria-label="بستن تایم‌لاین"
+            data-i18n-title="close"
+            aria-label="close"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
               <path d="M6 6l12 12M18 6L6 18"/>
@@ -420,8 +420,8 @@
         <div class="color-quick-bar" id="colorQuickBar">
           <!-- quick swatches populated by JS -->
         </div>
-        <button class="tl-tool-btn" id="mixerBtn" data-action="toggleMixer" title="باز/بستن میکسر صدا">🎛 میکسر</button>
-        <button class="tl-tool-btn" data-action="openSettings" title="تنظیمات برنامه">⚙️ تنظیمات</button>
+        <button class="tl-tool-btn" id="mixerBtn" data-action="toggleMixer" data-i18n-title="openMixer">🎛 <span data-i18n="mixer">میکسر</span></button>
+        <button class="tl-tool-btn" data-action="openSettings" data-i18n-title="settings">⚙️ <span data-i18n="settings">تنظیمات</span></button>
         <div class="tl-zoom">
           <span>Zoom</span>
           <input type="range" min="5" max="260" value="70" id="zoom-range" data-action="setZoom">
@@ -513,7 +513,7 @@
         <div class="settings-body">
           <div class="settings-group">
             <div class="settings-group-title">🎨 ظاهر (تم)</div>
-            <label class="settings-label">تم</label>
+            <label class="settings-label" data-i18n="settings">تم</label>
             <select id="setTheme" data-action="applyTheme">
               <option value="dark">تیره (پیش‌فرض)</option>
               <option value="midnight">نیمه‌شب</option>
@@ -521,16 +521,16 @@
               <option value="sunset">غروب خورشید</option>
               <option value="forest">جنگل</option>
             </select>
-            <label class="settings-label">رنگ اصلی (Accent)</label>
+            <label class="settings-label" data-i18n="settings">رنگ اصلی (Accent)</label>
             <input type="color" id="setAccent" value="#3FB8AF" data-action="applyAccent">
           </div>
           <div class="settings-group">
-            <div class="settings-group-title">🔊 صوت</div>
-            <label class="settings-label">دستگاه خروجی صدا</label>
+            <div class="settings-group-title">🔊 <span data-i18n="settings">صوت</span></div>
+            <label class="settings-label" data-i18n="settings">دستگاه خروجی صدا</label>
             <select id="setOutDevice" data-action="applyOutputDevice">
               <option value="default">پیش‌فرض سیستم</option>
             </select>
-            <label class="settings-label">صدای مترونوم</label>
+            <label class="settings-label" data-i18n="metronome">صدای مترونوم</label>
             <div style="display:flex;gap:6px;align-items:center;">
               <select id="setMetroSound" data-action="applyMetroSound" style="flex:1;">
                 <option value="classic">کلاسیک (تیک)</option>
@@ -542,13 +542,13 @@
             </div>
           </div>
           <div class="settings-group">
-            <div class="settings-group-title">🎛 عمومی</div>
+            <div class="settings-group-title">🎛 <span data-i18n="settings">عمومی</span></div>
             <label class="settings-row"><input type="checkbox" id="setMetronome" data-action="applySettingsToggles"> مترونوم هنگام پخش</label>
             <label class="settings-row"><input type="checkbox" id="setReturnToStart" data-action="applySettingsToggles"> برگشت به ابتدا هنگام Pause (Cubase)</label>
             <label class="settings-row"><input type="checkbox" id="setSizeLock" data-action="applySettingsToggles"> قفل اندازه متن و آکورد</label>
           </div>
           <div class="settings-group">
-            <div class="settings-group-title">🌐 زبان (Language)</div>
+            <div class="settings-group-title">🌐 <span data-i18n="language">زبان</span></div>
             <label class="settings-label">زبان برنامه</label>
             <select id="setLanguage" data-action="applyLanguage">
               <option value="fa">فارسی (Persian)</option>
@@ -557,8 +557,8 @@
           </div>
         </div>
         <div class="settings-foot">
-          <button class="settings-btn" data-action="resetSettings">بازنشانی</button>
-          <button class="settings-btn primary" data-action="closeSettings">تأیید</button>
+          <button class="settings-btn" data-action="resetSettings" data-i18n="resetSettings">بازنشانی</button>
+          <button class="settings-btn primary" data-action="closeSettings" data-i18n="confirmSettings">تأیید</button>
         </div>
       </div>
     </div>
@@ -864,7 +864,7 @@
       <div class="archive-edit-body">
         <div class="ae-field"><label>عنوان</label><input type="text" id="aeTitle"></div>
         <div class="ae-row">
-          <div class="ae-field"><label>خواننده</label><input type="text" id="aeArtist"></div>
+          <div class="ae-field"><label data-i18n="artist">خواننده</label><input type="text" id="aeArtist"></div>
           <div class="ae-field"><label>آلبوم</label><input type="text" id="aeAlbum"></div>
         </div>
         <div class="ae-row">
@@ -876,10 +876,10 @@
           <div class="ae-field"><label>میزان‌نما</label><select id="aeTimeSig"><option value="4/4">4/4</option><option value="3/4">3/4</option><option value="2/4">2/4</option><option value="2/4 (حس 6/8)">2/4 (حس 6/8)</option><option value="6/8">6/8</option><option value="5/4">5/4</option><option value="7/8">7/8</option><option value="9/8">9/8</option><option value="12/8">12/8</option></select></div>
         </div>
         <div class="ae-row">
-          <div class="ae-field"><label>ژانر</label><select id="aeGenre"><option value="">بدون ژانر</option><option value="sad">غمگین</option><option value="happy">شاد</option><option value="heavy">سنگین</option><option value="heavy-6-8">6/8 سنگین</option><option value="romantic">عاشقانه</option><option value="energetic">انرژیک</option><option value="calm">آرام</option><option value="epic">حماسی</option><option value="pop">پاپ</option><option value="rock">راک</option><option value="jazz">جاز</option><option value="classical">کلاسیک</option><option value="folk">سنتی</option><option value="electronic">الکترونیک</option><option value="hiphop">هیپ‌هاپ</option><option value="other">سایر</option></select></div>
+          <div class="ae-field"><label data-i18n="genre">ژانر</label><select id="aeGenre"><option value="">بدون ژانر</option><option value="sad">غمگین</option><option value="happy">شاد</option><option value="heavy">سنگین</option><option value="heavy-6-8">6/8 سنگین</option><option value="romantic">عاشقانه</option><option value="energetic">انرژیک</option><option value="calm">آرام</option><option value="epic">حماسی</option><option value="pop">پاپ</option><option value="rock">راک</option><option value="jazz">جاز</option><option value="classical">کلاسیک</option><option value="folk">سنتی</option><option value="electronic">الکترونیک</option><option value="hiphop">هیپ‌هاپ</option><option value="other">سایر</option></select></div>
           <div class="ae-field"><label>دسته‌بندی</label><input type="text" id="aeCategory" placeholder="مثال: عاشقانه، ریمیکس"></div>
         </div>
-        <div class="ae-field"><label>توضیحات</label><textarea id="aeNotes" placeholder="توضیحات اختیاری..."></textarea></div>
+        <div class="ae-field"><label data-i18n="description">توضیحات</label><textarea id="aeNotes" placeholder="توضیحات اختیاری..."></textarea></div>
       </div>
       <div class="archive-edit-footer">
         <button data-action="archEditClose">لغو</button>
