@@ -34,16 +34,27 @@
 
     function applyToSong(song, score, {
       midiScore = song?.midiScore || null,
-      mappings = song?.scorePartMappings || null
+      mappings = song?.scorePartMappings || null,
+      merge = true
     } = {}) {
       if (!song || typeof song !== 'object') return null;
       const serializable = model.serialize(score);
       if (!serializable) return song;
-      const generatedMappings = mappingService.autoMap(serializable, midiScore);
+
+      /* Merge with existing score when available and merge flag is on */
+      let finalScore = serializable;
+      if (merge && song.musicXmlScore) {
+        const existing = model.normalize(song.musicXmlScore);
+        if (existing && existing.parts && existing.parts.length > 0) {
+          finalScore = model.mergeScores(existing, serializable);
+        }
+      }
+
+      const generatedMappings = mappingService.autoMap(finalScore, midiScore);
       const finalMappings = mappingService.merge(mappings, generatedMappings);
-      serializable.mappings = finalMappings;
-      song.musicXmlScore = model.serialize(serializable);
-      song.musicXmlScoreVersion = serializable.schemaVersion || 1;
+      finalScore.mappings = finalMappings;
+      song.musicXmlScore = model.serialize(finalScore);
+      song.musicXmlScoreVersion = finalScore.schemaVersion || 1;
       mappingService.persistToSong?.(song, finalMappings);
       song.scorePartMappings = finalMappings;
       song.liveScoreSettings = {

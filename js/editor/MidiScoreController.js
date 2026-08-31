@@ -526,6 +526,7 @@
         const parsed = await xmlService.parseFile(file);
         const song = getSong();
         if (!song) throw new Error('ترانه‌ای برای افزودن MusicXML وجود ندارد');
+        const hadExistingScore = !!(song.musicXmlScore && song.musicXmlScore.parts && song.musicXmlScore.parts.length > 0);
         xmlService.applyToSong(song, parsed, {
           midiScore: song.midiScore,
           mappings: song.scorePartMappings
@@ -546,7 +547,11 @@
         refreshQrParts();
         saveSong();
         render();
-        toast(`MusicXML وارد شد: ${parsed.parts.length} پارت`);
+        const totalParts = song.musicXmlScore?.parts?.length || 0;
+        toast(hadExistingScore
+          ? `MusicXML ادغام شد: ${totalParts} پارت در مجموع`
+          : `MusicXML وارد شد: ${parsed.parts.length} پارت`
+        );
         return parsed;
       } catch (error) {
         console.error('[MusicXML Score] Import failed:', error);
