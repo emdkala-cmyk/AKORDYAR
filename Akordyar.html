@@ -22,9 +22,9 @@
       <div class="side-panel-layout-toolbar" id="projectPanelLayoutControls">
         <button type="button" class="side-panel-layout-btn side-panel-drag-handle" id="projectPanelDragHandle" title="برای جابه‌جایی Project بکشید" aria-label="جابه‌جایی Project">⠿</button>
         <span class="side-panel-layout-title">PROJECT</span>
-        <button type="button" class="side-panel-layout-btn" id="projectPanelFloatBtn" data-panel-layout-action="toggle-floating" title="شناور کردن پنجره Project" aria-label="شناور کردن پنجره Project" aria-pressed="false">↗</button>
-        <button type="button" class="side-panel-layout-btn" id="projectPanelMaximizeBtn" data-panel-layout-action="toggle-maximize" title="بزرگ‌نمایی پنجره Project" aria-label="بزرگ‌نمایی پنجره Project" aria-pressed="false">□</button>
-        <button type="button" class="side-panel-layout-btn" id="projectPanelResetBtn" data-panel-layout-action="reset-layout" title="بازنشانی چیدمان Project" aria-label="بازنشانی چیدمان Project">↺</button>
+        <button type="button" class="side-panel-layout-btn" id="projectPanelFloatBtn" data-panel-layout-action="toggle-floating" data-i18n-title="floatWindow" aria-label="شناور کردن پنجره Project" aria-pressed="false">↗</button>
+        <button type="button" class="side-panel-layout-btn" id="projectPanelMaximizeBtn" data-panel-layout-action="toggle-maximize" data-i18n-title="maximizeWindow" aria-label="بزرگ‌نمایی پنجره Project" aria-pressed="false">□</button>
+        <button type="button" class="side-panel-layout-btn" id="projectPanelResetBtn" data-panel-layout-action="reset-layout" data-i18n-title="resetLayout" aria-label="بازنشانی چیدمان Project">↺</button>
         <button type="button" class="side-panel-layout-btn side-panel-close-btn" id="projectPanelCloseBtn" data-panel-layout-action="toggle-closed" data-i18n-title="close" aria-label="close">×</button>
       </div>
       <div class="side-panel-content sidebar-content" id="projectPanelContent">
@@ -72,15 +72,15 @@
         <div class="toolbar-drag-handle" id="toolbarDragHandle" title="بکش برای جابه‌جایی">⠿</div>
         <button class="toolbar-pin-btn" id="toolbarPinBtn" data-action="toolbarDock" title="جدا/اتصال (Undock/Dock)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 11l-4 4h14l-4-4"/><path d="M12 3v8"/><path d="M3 11h18"/></svg></button>
         <div class="ed-grp">
-          <span id="edOrigKeyLabel" style="font-size:0.78rem;font-weight:700;color:#9F7AEA;padding:3px 8px;border-radius:6px;background:rgba(159,122,234,0.12);border:1px solid rgba(159,122,234,0.3);white-space:nowrap;cursor:pointer;" title="گام اورجینال آهنگ"></span>
+          <span id="edOrigKeyLabel" style="font-size:0.78rem;font-weight:700;color:#9F7AEA;padding:3px 8px;border-radius:6px;background:rgba(159,122,234,0.12);border:1px solid rgba(159,122,234,0.3);white-space:nowrap;cursor:pointer;" data-i18n-title="originalKey"></span>
           <select id="edKey"></select>
           <select id="edKeyMode"><option value="maj" data-i18n="major">ماژور</option><option value="min" data-i18n="minor">مینور</option></select>
         </div>
         <div class="ed-sep"></div>
         <div class="ed-grp">
-          <button class="ed-btn" id="edTransUp" title="دیز">♯</button>
-          <span id="edTransVal" title="دوبار کلیک = ریست">0</span>
-          <button class="ed-btn" id="edTransDown" title="بمل">♭</button>
+          <button class="ed-btn" id="edTransUp" data-i18n-title="sharp">♯</button>
+          <span id="edTransVal" data-i18n-title="doubleClickReset">0</span>
+          <button class="ed-btn" id="edTransDown" data-i18n-title="flat">♭</button>
           <button class="ed-btn" id="edToggleAccidental" data-i18n-title="toggleAccidental">♯/♭</button>
         </div>
         <div class="ed-sep"></div>
@@ -89,9 +89,9 @@
           <input type="number" id="edTextSize" value="23" min="10" max="48">
           <select id="edTextFont"><option selected>Vazirmatn</option><option>Vazirmatn Thin</option><option>Vazirmatn Bold</option><option>Vazirmatn Black</option><option>BArshia</option><option>BFarnaz</option><option>BJadid</option><option>BZar</option><option>BZar Bold</option><option>Lalezar</option><option>Mada</option><option>Rubik</option><option>JetBrains Mono</option></select>
           <button class="ed-btn active" id="edTextBold"><b>B</b></button>
-          <button class="ed-btn" id="edAlignRight" title="راست‌چین">⇥</button>
-          <button class="ed-btn active" id="edAlignCenter" title="وسط‌چین">↔</button>
-          <button class="ed-btn" id="edAlignLeft" title="چپ‌چین">⇤</button>
+          <button class="ed-btn" id="edAlignRight" data-i18n-title="alignRight">⇥</button>
+          <button class="ed-btn active" id="edAlignCenter" data-i18n-title="alignCenter">↔</button>
+          <button class="ed-btn" id="edAlignLeft" data-i18n-title="alignLeft">⇤</button>
         </div>
         <div class="ed-grp">
           <label data-i18n="chordLabel">آکورد:</label>
@@ -105,12 +105,12 @@
         <div class="ed-sep"></div>
         <div class="ed-grp" id="edSeqGroup">
           <label data-i18n="seqLabel">ترتیبی:</label>
-          <div class="ed-seg" id="edSeqModeSeg" title="انتخاب حالت آکوردگذاری">
+          <div class="ed-seg" id="edSeqModeSeg" data-i18n-title="seqMode">
             <button class="ed-btn ed-seg-btn active" id="edSeqModeLyrics" title="لایرس: نقطه‌گذاری روی متن با موس" data-i18n="lyrics">لایرس</button>
             <button class="ed-btn ed-seg-btn" id="edSeqModeChord" title="کورد لاین: نمایش پاپ‌آپ چورد لاین (برای سینک و ترانسپوز)" data-i18n="chordLine">کورد لاین</button>
           </div>
           <div class="ed-seg-inner" id="edSeqLyricsTools">
-            <button class="ed-btn" id="edSeqToggle" title="انتخاب نقاط">⚙️</button>
+            <button class="ed-btn" id="edSeqToggle" data-i18n-title="selectPoints">⚙️</button>
             <button class="ed-btn" id="edSeqStart" data-i18n-title="chordingStarted">🎵</button>
             <button class="ed-btn" id="edSeqPrev" data-i18n-title="previous">◀</button>
             <button class="ed-btn" id="edSeqNext" data-i18n-title="next">▶</button>
@@ -161,8 +161,8 @@
           <button id="syncPlayBtn" data-i18n="syncPlay">▶ پخش</button>
           <button id="syncTapBtn" data-i18n="tapLine">👆 ثبت این خط (Ctrl+Space)</button>
           <span class="sync-sep"></span>
-          <button id="syncUndoBtn" title="برگشت">↩ Undo</button>
-          <button id="syncRedoBtn" title="جلو">↪ Redo</button>
+          <button id="syncUndoBtn" data-i18n-title="undo">↩ Undo</button>
+          <button id="syncRedoBtn" data-i18n-title="redo">↪ Redo</button>
           <button id="syncMinus">- 0.1s</button>
           <span id="syncCurTime">00:00.0</span>
           <button id="syncPlus">+ 0.1s</button>
@@ -191,9 +191,9 @@
       <div class="side-panel-layout-toolbar" id="songPropertiesPanelLayoutControls">
         <button type="button" class="side-panel-layout-btn side-panel-drag-handle" id="songPropertiesPanelDragHandle" title="برای جابه‌جایی Song Properties بکشید" aria-label="جابه‌جایی Song Properties">⠿</button>
         <span class="side-panel-layout-title">SONG PROPERTIES</span>
-        <button type="button" class="side-panel-layout-btn" id="songPropertiesPanelFloatBtn" data-panel-layout-action="toggle-floating" title="شناور کردن پنجره Song Properties" aria-label="شناور کردن پنجره Song Properties" aria-pressed="false">↗</button>
-        <button type="button" class="side-panel-layout-btn" id="songPropertiesPanelMaximizeBtn" data-panel-layout-action="toggle-maximize" title="بزرگ‌نمایی پنجره Song Properties" aria-label="بزرگ‌نمایی پنجره Song Properties" aria-pressed="false">□</button>
-        <button type="button" class="side-panel-layout-btn" id="songPropertiesPanelResetBtn" data-panel-layout-action="reset-layout" title="بازنشانی چیدمان Song Properties" aria-label="بازنشانی چیدمان Song Properties">↺</button>
+        <button type="button" class="side-panel-layout-btn" id="songPropertiesPanelFloatBtn" data-panel-layout-action="toggle-floating" data-i18n-title="floatWindow" aria-label="شناور کردن پنجره Song Properties" aria-pressed="false">↗</button>
+        <button type="button" class="side-panel-layout-btn" id="songPropertiesPanelMaximizeBtn" data-panel-layout-action="toggle-maximize" data-i18n-title="maximizeWindow" aria-label="بزرگ‌نمایی پنجره Song Properties" aria-pressed="false">□</button>
+        <button type="button" class="side-panel-layout-btn" id="songPropertiesPanelResetBtn" data-panel-layout-action="reset-layout" data-i18n-title="resetLayout" aria-label="بازنشانی چیدمان Song Properties">↺</button>
         <button type="button" class="side-panel-layout-btn side-panel-close-btn" id="songPropertiesPanelCloseBtn" data-panel-layout-action="toggle-closed" data-i18n-title="close" aria-label="بستن پنجره Song Properties">×</button>
       </div>
       <div class="side-panel-content inspector-content" id="songPropertiesPanelContent">
@@ -370,7 +370,7 @@
             type="button"
             class="timeline-layout-btn"
             data-timeline-layout-action="reset-layout"
-            title="بازنشانی چیدمان تایم‌لاین"
+            data-i18n-title="resetTimelineLayout"
             aria-label="بازنشانی چیدمان تایم‌لاین"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
@@ -390,7 +390,7 @@
             </svg>
           </button>
         </div>
-        <button class="tl-tool-btn rec-btn" id="recBtn" data-action="toggleRec" title="ضبط صدا از میکروفن/ورودی (R)">● REC</button>
+        <button class="tl-tool-btn rec-btn" id="recBtn" data-action="toggleRec" data-i18n-title="recordAudio">● REC</button>
         <button class="tl-tool-btn" data-action="split" title="Split (S)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="22"/><polyline points="8 6 12 2 16 6"/><polyline points="8 18 12 22 16 18"/></svg></button>
         <button class="tl-tool-btn" data-action="cut" title="Cut (Ctrl+X)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg></button>
         <button class="tl-tool-btn" data-action="copy" title="Copy (Ctrl+C)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
@@ -402,11 +402,11 @@
         <button class="tl-tool-btn" data-action="setLoopB" title="Set Loop B (O)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><polyline points="12 19 19 12 12 5"/></svg></button>
         <button class="tl-tool-btn" data-action="clearLoop" title="Clear Loop"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
         <div class="arranger-marker-divider" aria-hidden="true"></div>
-        <button class="tl-tool-btn arranger-marker-btn arranger-marker-toggle-btn" id="arranger-marker-toggle" data-action="toggleArrangerMarkers" title="فعال‌سازی A/B ارنجر" aria-pressed="false">A/B</button>
+        <button class="tl-tool-btn arranger-marker-btn arranger-marker-toggle-btn" id="arranger-marker-toggle" data-action="toggleArrangerMarkers" data-i18n-title="toggleArrangerAB" aria-pressed="false">A/B</button>
         <div class="arranger-marker-controls" id="arranger-marker-controls" style="display:none;">
-          <button class="tl-tool-btn arranger-marker-btn arranger-marker-a-btn" data-action="setArrangerA" title="تعیین شروع ارنجر A">A</button>
-          <button class="tl-tool-btn arranger-marker-btn arranger-marker-b-btn" data-action="setArrangerB" title="تعیین تعویض ارنجر B">B</button>
-          <button class="tl-tool-btn arranger-marker-btn arranger-marker-clear-btn" data-action="clearArrangerMarkers" title="پاک کردن markerهای ارنجر">×</button>
+          <button class="tl-tool-btn arranger-marker-btn arranger-marker-a-btn" data-action="setArrangerA" data-i18n-title="setArrangerA">A</button>
+          <button class="tl-tool-btn arranger-marker-btn arranger-marker-b-btn" data-action="setArrangerB" data-i18n-title="setArrangerB">B</button>
+          <button class="tl-tool-btn arranger-marker-btn arranger-marker-clear-btn" data-action="clearArrangerMarkers" data-i18n-title="clearArrangerMarkers">×</button>
         </div>
         <div style="width:1px;height:20px;background:var(--border-subtle);margin:0 4px;"></div>
         <button class="tl-tool-btn" id="playheadModeBtn" data-action="togglePlayheadMode" title="Playhead Mode: Page Scroll / Center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="22"/><polyline points="8 6 12 2 16 6"/><polyline points="8 18 12 22 16 18"/></svg></button>
