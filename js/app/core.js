@@ -485,8 +485,10 @@ const requestRenderSyncLyrics = debounce(() => { renderSyncLyrics(); }, 120);
     }
 
     function toast(msg) {
-      const t = $('toast'); t.textContent = msg; t.classList.add('show');
-      clearTimeout(toast._tm); toast._tm = setTimeout(() => t.classList.remove('show'), 1700);
+      const toastEl = $('toast');
+      const translatedMsg = typeof globalScope.t === 'function' ? globalScope.t(msg) || msg : msg;
+      toastEl.textContent = translatedMsg; toastEl.classList.add('show');
+      clearTimeout(toast._tm); toast._tm = setTimeout(() => toastEl.classList.remove('show'), 1700);
     }
 
     function ensureAudioCtx() {
