@@ -486,6 +486,22 @@
       events: left.tempoMap?.events?.length ? left.tempoMap.events : right.tempoMap?.events || tempoEvents
     };
 
+    /* ---- collect per-part raw XML sources for OSMD rendering ---- */
+    const dataSources = [];
+    if (left.source?.data) {
+      dataSources.push({ data: left.source.data, partIds: left.parts.map(p => String(p.id)) });
+    }
+    if (right.source?.data) {
+      const rightPartIds = right.parts.map((p, i) => {
+        const originalId = String(p.id);
+        const usedIdsArr = Array.from(usedIds);
+        /* find the renamed id */
+        const idx = right.parts.indexOf(right.parts.find(rp => rp === p));
+        return String(mergedParts[left.parts.length + idx].id);
+      });
+      dataSources.push({ data: right.source.data, partIds: rightPartIds });
+    }
+
     /* ---- merge source metadata ---- */
     const leftFileNames = left.source?.fileName || '';
     const rightFileNames = right.source?.fileName || '';
@@ -502,7 +518,8 @@
         fileName: leftFileNames && rightFileNames ? `${leftFileNames} + ${rightFileNames}` : leftFileNames || rightFileNames,
         mimeType: left.source?.mimeType || right.source?.mimeType || 'application/vnd.recordare.musicxml+xml',
         size: number(left.source?.size, 0) + number(right.source?.size, 0),
-        data: null
+        data: null,
+        dataSources
       },
       ticksPerQuarter: left.ticksPerQuarter || right.ticksPerQuarter || DEFAULT_PPQN,
       parts: mergedParts,

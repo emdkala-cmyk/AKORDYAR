@@ -42,7 +42,21 @@
     return globalScope.opensheetmusicdisplay || null;
   }
 
-  function sourceText(score) {
+  function sourceText(score, partId) {
+    /* For merged scores, look up the per-part source XML first */
+    const dataSources = score?.source?.dataSources;
+    if (Array.isArray(dataSources) && dataSources.length > 0 && partId) {
+      const wanted = String(partId);
+      for (const entry of dataSources) {
+        if (Array.isArray(entry.partIds) && entry.partIds.includes(wanted)) {
+          if (typeof entry.data === 'string' && entry.data.trim()) return entry.data;
+        }
+      }
+      /* Fallback: if no entry matches the wanted part, return the first available */
+      for (const entry of dataSources) {
+        if (typeof entry.data === 'string' && entry.data.trim()) return entry.data;
+      }
+    }
     const candidates = [
       score?.source?.data,
       score?.sourceText,
@@ -643,7 +657,8 @@
   }
 
   async function renderInto(root, score, partId, options = {}) {
-    const xml = selectPartXml(sourceText(score), partId || score?.activePartId);
+    const wantedPartId = partId || score?.activePartId;
+    const xml = selectPartXml(sourceText(score, wantedPartId), wantedPartId);
     if (!xml) throw new Error('MusicXML منبع اصلی برای OSMD در پروژه موجود نیست.');
     const OSMD = getOsmdConstructor();
     if (typeof OSMD !== 'function') {
