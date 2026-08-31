@@ -1054,7 +1054,7 @@ function getMidiScoreController() {
       if (btn) btn.classList.add('mapping-active');
       let toastEl = document.querySelector('.mapping-toast');
       if (!toastEl) { toastEl = document.createElement('div'); toastEl.className = 'mapping-toast'; document.body.appendChild(toastEl); }
-      const label = SHORTCUT_DEFAULTS.find(s => s.id === funcId)?.label || funcId;
+      const label = t(SHORTCUT_DEFAULTS.find(s => s.id === funcId)?.labelKey || funcId) || funcId;
       toastEl.textContent = '🎹 «' + label + '» — نت MIDI را بزنید...';
       toastEl.style.display = 'block';
       clearTimeout(midiLearnTimer);
@@ -2695,7 +2695,7 @@ if ($('edDoBoth')) {
         keyboardMappingService = window.KeyboardMappingService.create({
           documentRef: document,
           getLabel: actionId =>
-            SHORTCUT_DEFAULTS.find(shortcut => shortcut.id === actionId)?.label ||
+            t(SHORTCUT_DEFAULTS.find(shortcut => shortcut.id === actionId)?.labelKey || actionId) ||
             actionId,
           saveShortcut: (actionId, shortcut) => {
             SHORTCUTS[actionId] = shortcut;
