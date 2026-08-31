@@ -276,8 +276,9 @@
       wrap.className = 'ed-grp';
       wrap.style.cssText =
         'display:inline-flex;align-items:center;gap:4px;';
+      const translateFn = globalScope.t || (k => k);
       const label = documentRef.createElement('span');
-      label.textContent = 'نت:';
+      label.textContent = translateFn('note') || 'نت:';
       label.style.cssText =
         'font-size:0.7rem;color:var(--text-secondary);';
       const select = documentRef.createElement('select');
@@ -286,9 +287,9 @@
         'background:#0D1117;color:#E2E8F0;border:1px solid #30363D;border-radius:6px;padding:2px 6px;font-size:0.75rem;cursor:pointer;';
 
       [
-        ['auto', 'خودکار'],
-        ['sharp', 'دیز ♯'],
-        ['flat', 'بمل ♭']
+        ['auto', translateFn('accidentalAuto') || 'خودکار'],
+        ['sharp', translateFn('accidentalSharp') || 'دیز ♯'],
+        ['flat', translateFn('accidentalFlat') || 'بمل ♭']
       ].forEach(([value, text]) => {
         const option = documentRef.createElement('option');
         option.value = value;
