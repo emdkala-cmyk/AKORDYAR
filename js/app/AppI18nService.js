@@ -455,7 +455,16 @@
     let currentLang = readLanguage(storage);
 
     function t(key) {
-      return I18N[currentLang]?.[key] || I18N.fa?.[key] || key;
+      // First try to find by key name
+      if (I18N[currentLang]?.[key]) return I18N[currentLang][key];
+      if (I18N.fa?.[key]) return I18N.fa[key];
+      // If not found, try to find by value (reverse lookup for Persian text)
+      if (currentLang !== 'fa') {
+        const faEntries = Object.entries(I18N.fa || {});
+        const match = faEntries.find(([, val]) => val === key);
+        if (match) return I18N[currentLang]?.[match[0]] || key;
+      }
+      return key;
     }
 
     function getCurrentLang() {
