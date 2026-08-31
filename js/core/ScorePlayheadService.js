@@ -103,6 +103,15 @@
     return Math.max(0, number(tick, 0)) / scorePpqn(score) * 60 / bpm;
   }
 
+  function isMusicXmlScore(score) {
+    const format = String(score?.format || '').toLowerCase();
+    const mimeType = String(score?.source?.mimeType || '').toLowerCase();
+    return format === 'score-partwise' ||
+      format === 'score-timewise' ||
+      score?.meterMap?.source === 'musicxml' ||
+      mimeType.includes('musicxml');
+  }
+
   function create({
     midiScore = null,
     musicXmlScore = null,
@@ -128,35 +137,50 @@
       return api;
     }
 
-    function secondsToTick(seconds) {
-      const projectTick = projectSecondsToTick(
-        midi || xml,
-        seconds,
-        activeProjectTempo
-      );
+    function secondsToTickFor(score, seconds) {
+      const target = score || midi || xml;
+      const projectTick = projectSecondsToTick(target, seconds, activeProjectTempo);
       if (projectTick != null) return projectTick;
-      if (midi?.conversions?.secondsToTick) return midi.conversions.secondsToTick(seconds);
-      return musicXmlSecondsToTick(xml, seconds);
+      if (target?.conversions?.secondsToTick) {
+        return target.conversions.secondsToTick(seconds);
+      }
+      return isMusicXmlScore(target)
+        ? musicXmlSecondsToTick(target, seconds)
+        : musicXmlSecondsToTick(xml, seconds);
+    }
+
+    function secondsToTick(seconds) {
+      return secondsToTickFor(midi || xml, seconds);
+    }
+
+    function tickToSecondsFor(score, tick) {
+      const target = score || midi || xml;
+      const projectSeconds = projectTickToSeconds(target, tick, activeProjectTempo);
+      if (projectSeconds != null) return projectSeconds;
+      if (target?.conversions?.tickToSeconds) {
+        return target.conversions.tickToSeconds(tick);
+      }
+      return isMusicXmlScore(target)
+        ? musicXmlTickToSeconds(target, tick)
+        : musicXmlTickToSeconds(xml, tick);
     }
 
     function tickToSeconds(tick) {
-      const projectSeconds = projectTickToSeconds(
-        midi || xml,
-        tick,
-        activeProjectTempo
-      );
-      if (projectSeconds != null) return projectSeconds;
-      if (midi?.conversions?.tickToSeconds) return midi.conversions.tickToSeconds(tick);
-      return musicXmlTickToSeconds(xml, tick);
+      return tickToSecondsFor(midi || xml, tick);
+    }
+
+    function tickToMeasureBeatFor(score, tick, partId) {
+      const target = score || midi || xml;
+      if (isMusicXmlScore(target) && musicXmlModel?.tickToMeasureBeat) {
+        return musicXmlModel.tickToMeasureBeat(target, tick, partId);
+      }
+      return target?.conversions?.tickToBarBeat
+        ? target.conversions.tickToBarBeat(tick)
+        : null;
     }
 
     function tickToMeasureBeat(tick, partId) {
-      if (xml && musicXmlModel?.tickToMeasureBeat) {
-        return musicXmlModel.tickToMeasureBeat(xml, tick, partId);
-      }
-      return midi?.conversions?.tickToBarBeat
-        ? midi.conversions.tickToBarBeat(tick)
-        : null;
+      return tickToMeasureBeatFor(midi || xml, tick, partId);
     }
 
     function measureBeatToTick(measureIndex, beat, tickInBeat = 0, partId) {
@@ -183,8 +207,11 @@
     const api = {
       setScores,
       secondsToTick,
+      secondsToTickFor,
       tickToSeconds,
+      tickToSecondsFor,
       tickToMeasureBeat,
+      tickToMeasureBeatFor,
       measureBeatToTick,
       activeNotes
     };

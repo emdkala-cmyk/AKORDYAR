@@ -76,6 +76,12 @@
       return value > 0 ? value : 120;
     }
 
+    function scoreTickFor(seconds, targetScore = score()) {
+      const clock = selectedMode === 'musicxml' ? editorScoreClock() : scoreClock();
+      const value = clock?.secondsToTick?.(seconds, targetScore);
+      return Number.isFinite(Number(value)) ? Number(value) : 0;
+    }
+
     function playheadMode() {
       return globalScope.ScoreRenderer?.normalizePlayheadMode?.(
         getSong()?.liveScoreSettings?.playheadMode
@@ -458,10 +464,13 @@
           })).then(instance => {
             if (token !== renderToken || !instance) return;
             viewer.classList.remove('score-render-pending');
+            const activeTick = scoreTickFor(activeSeconds, normalized);
             const position = scoreRenderer.getPlayheadPosition(normalized, selectedPartId, activeSeconds, {
               root,
               midiScore: midiScore(),
-              activeTick: scoreClock()?.secondsToTick?.(activeSeconds)
+              projectTempo: projectTempo(),
+              activeTick,
+              sourceTick: activeTick
             });
             scoreRenderer.updatePlayhead?.(root, {
               ...position,
@@ -481,7 +490,7 @@
           const activeRenderer = renderer;
           viewer.innerHTML = activeRenderer.renderSvg(normalized, selectedPartId, {
             activeTime: activeSeconds,
-            activeTick: scoreClock()?.secondsToTick?.(activeSeconds),
+            activeTick: scoreTickFor(activeSeconds, normalized),
             midiScore: midiScore(),
             chords: null,
             ariaLabel: `${part?.name || 'Score'} score`,
@@ -619,12 +628,14 @@
         : null;
       if (selectedMode === 'musicxml' && root && scoreRenderer?.getPlayheadPosition) {
         const clock = editorScoreClock();
+        const activeTick = scoreTickFor(activeSeconds, currentScore);
         const position = clock?.positionAt
           ? clock.positionAt(activeSeconds, {
               score: currentScore,
               partId: selectedPartId,
               root,
-              activeTick: clock.secondsToTick(activeSeconds),
+              activeTick,
+              sourceTick: activeTick,
               loop: {
                 enabled: Boolean(getDAW()?.loopEnabled),
                 start: getDAW()?.loopA,
@@ -634,7 +645,9 @@
           : scoreRenderer.getPlayheadPosition(currentScore, selectedPartId, activeSeconds, {
               root,
               midiScore: midiScore(),
-              activeTick: clock?.secondsToTick?.(activeSeconds)
+              projectTempo: projectTempo(),
+              activeTick,
+              sourceTick: activeTick
             });
         scoreRenderer.updatePlayhead?.(root, {
           ...position,
@@ -662,12 +675,13 @@
         const position = renderer.getPlayheadPosition
           ? renderer.getPlayheadPosition(currentScore, selectedPartId, activeSeconds, {
               midiScore: midiScore(),
-              activeTick: scoreClock()?.secondsToTick?.(activeSeconds)
+              activeTick: scoreTickFor(activeSeconds, currentScore),
+              projectTempo: projectTempo()
             })
           : {
               x: renderer.getPlayheadX(currentScore, selectedPartId, activeSeconds, {
                 midiScore: midiScore(),
-                activeTick: scoreClock()?.secondsToTick?.(activeSeconds)
+                activeTick: scoreTickFor(activeSeconds, currentScore)
               }),
               yTop: 0,
               yBottom: 0,

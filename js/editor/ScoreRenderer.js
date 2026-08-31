@@ -280,56 +280,14 @@
     return new Fraction(Math.max(0, Math.round(number(tick))), ppqn * 4);
   }
 
-  function sourceTickForPlaybackTick(instance, playbackTick) {
-    const model = globalScope.MusicXmlScoreModel;
-    const notes = model?.getNotes?.(instance.score, instance.partId) ||
-      instance.score?.parts?.find(part => String(part.id) === String(instance.partId))
-        ?.measures?.flatMap(measure => measure.notes || []) || [];
-    const pairs = notes
-      .filter(note => !note?.rest && note?.timing &&
-        Number.isFinite(Number(note.timing.startTick)) &&
-        Number.isFinite(Number(note.startTick)))
-      .map(note => ({
-        playback: Number(note.timing.startTick),
-        source: Number(note.startTick)
-      }))
-      .sort((a, b) => a.playback - b.playback);
-    if (!pairs.length) return playbackTick;
-    if (pairs.length === 1) {
-      return pairs[0].source + (playbackTick - pairs[0].playback);
-    }
-    let left = pairs[0];
-    let right = pairs[1];
-    if (playbackTick <= left.playback) {
-      right = pairs[1];
-    } else {
-      for (let index = 1; index < pairs.length; index += 1) {
-        if (playbackTick <= pairs[index].playback) {
-          left = pairs[index - 1];
-          right = pairs[index];
-          break;
-        }
-        left = pairs[index - 1];
-        right = pairs[index];
-      }
-      if (playbackTick > right.playback) {
-        left = pairs[pairs.length - 2];
-        right = pairs[pairs.length - 1];
-      }
-    }
-    const denominator = right.playback - left.playback;
-    const ratio = denominator ? (playbackTick - left.playback) / denominator : 0;
-    return left.source + ratio * (right.source - left.source);
-  }
-
-  function positionFor(instance, tick) {
+  function positionFor(instance, tick, sourceTick = tick) {
     const { osmd, score } = instance;
     const graphic = osmd?.GraphicSheet;
-    const sourceTick = sourceTickForPlaybackTick(instance, tick);
     const fraction = fractionFor(osmd, sourceTick, score);
     if (!graphic || !fraction) {
       return {
         tick,
+        sourceTick,
         x: 0,
         yTop: 0,
         staffTop: 0,
@@ -342,12 +300,23 @@
     }
     try {
       const result = graphic.calculateXPositionFromTimestamp(fraction);
-      const x = number(result?.[0], 0);
+      const sourceX = number(result?.[0], 0);
       const system = result?.[1] || graphic.MusicPages?.[0]?.MusicSystems?.[0];
       const bounds = currentSystemBounds(osmd, system);
-      const domTop = osmdPointToRoot(instance, x, bounds.yTop);
-      const domBottom = osmdPointToRoot(instance, x, bounds.yBottom);
-      const measure = measureBoundsFor(instance, tick);
+      const domTop = osmdPointToRoot(instance, sourceX, bounds.yTop);
+      const domBottom = osmdPointToRoot(instance, sourceX, bounds.yBottom);
+      const measure = measureBoundsFor(instance, sourceTick);
+      const sourcePpqn = Math.max(1, number(score?.ticksPerQuarter, 480));
+      const boundaryEpsilon = Math.max(1e-6, sourcePpqn * 1e-6);
+      const atMeasureStart = measure &&
+        Math.abs(sourceTick - number(measure.sourceStartTick, NaN)) <= boundaryEpsilon;
+      const atMeasureEnd = measure &&
+        Math.abs(sourceTick - number(measure.sourceEndTick, NaN)) <= boundaryEpsilon;
+      const x = atMeasureStart
+        ? number(measure.left, domTop.x)
+        : atMeasureEnd
+          ? number(measure.right, domTop.x)
+          : domTop.x;
       const nextSystem = bounds.systemIndex;
       const systemChanged = instance.lastSystemIndex !== -1 &&
         instance.lastSystemIndex !== nextSystem;
@@ -355,10 +324,10 @@
       return {
         tick,
         sourceTick,
-        sourceX: x,
+        sourceX,
         sourceYTop: bounds.yTop,
         sourceYBottom: bounds.yBottom,
-        x: domTop.x,
+        x,
         yTop: domTop.y,
         staffTop: domTop.y,
         yBottom: domBottom.y,
@@ -376,6 +345,7 @@
     } catch (_) {
       return {
         tick,
+        sourceTick,
         x: 0,
         yTop: 0,
         staffTop: 0,
@@ -388,7 +358,7 @@
     }
   }
 
-  function measureBoundsFor(instance, playbackTick) {
+  function measureBoundsFor(instance, sourceTick) {
     const score = instance?.score;
     const measures = globalScope.MusicXmlScoreModel?.getMeasures?.(
       score,
@@ -398,7 +368,6 @@
     )?.measures || score?.measures || [];
     if (!measures.length || !instance?.osmd?.GraphicSheet) return null;
 
-    const sourceTick = sourceTickForPlaybackTick(instance, playbackTick);
     const measureIndex = Math.max(0, measures.findIndex((measure, index) => {
       const last = index === measures.length - 1;
       return sourceTick >= number(measure.startTick) &&
@@ -544,6 +513,8 @@
         return {
           measureIndex: measure.index ?? measureIndex,
           measureNumber: measure.number ?? String(measureIndex + 1),
+          sourceStartTick: number(measure.startTick),
+          sourceEndTick: number(measure.endTick, number(measure.startTick) + 1),
           left: Math.min(leftPoint.x, rightPoint.x),
           right: Math.max(leftPoint.x + 1, rightPoint.x),
           top: leftPoint.y,
@@ -572,6 +543,8 @@
       return {
         measureIndex: measure.index ?? measureIndex,
         measureNumber: measure.number ?? String(measureIndex + 1),
+        sourceStartTick: number(measure.startTick),
+        sourceEndTick: number(measure.endTick, number(measure.startTick) + 1),
         left,
         right,
         top: startPoint.y,
@@ -760,12 +733,24 @@
       midiScore: options.midiScore || null,
       musicXmlScore: score
     });
+    const projectTick = options.clock?.secondsToTickFor?.(score, seconds) ??
+      globalScope.ScorePlayheadService?.projectSecondsToTick?.(
+        score,
+        seconds,
+        options.projectTempo
+      );
     const tick = Number.isFinite(Number(options.activeTick))
       ? Number(options.activeTick)
-      : (clock?.secondsToTick?.(seconds) || 0);
-    if (instance?.osmd) return positionFor(instance, tick);
+      : (Number.isFinite(Number(projectTick))
+        ? Number(projectTick)
+        : (clock?.secondsToTick?.(seconds) || 0));
+    const sourceTick = Number.isFinite(Number(options.sourceTick))
+      ? Number(options.sourceTick)
+      : (Number.isFinite(Number(projectTick)) ? Number(projectTick) : tick);
+    if (instance?.osmd) return positionFor(instance, tick, sourceTick);
     return {
       tick,
+      sourceTick,
       x: 0,
       yTop: 0,
       staffTop: 0,

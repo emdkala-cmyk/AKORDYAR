@@ -3,6 +3,7 @@ const ScorePlayhead = require('../core/ScorePlayheadService');
 const MusicXmlParser = require('../core/MusicXmlScoreParser');
 const MusicXmlModel = require('../core/MusicXmlScoreModel');
 const ScoreRenderer = require('../editor/ScoreRenderer');
+const EditorScorePlayhead = require('../editor/ScorePlayheadService');
 
 const score = MusicXmlModel.normalize(MusicXmlParser.parse(
   `<score-partwise><part-list><score-part id="P1"><part-name>Flute</part-name></score-part></part-list>` +
@@ -34,6 +35,35 @@ const fasterClock = ScorePlayhead.create({
 assert.equal(fasterClock.secondsToTick(1), 1440);
 fasterClock.setScores({ projectTempo: 90 });
 assert.equal(fasterClock.secondsToTick(1), 720);
+
+const mixedClock = ScorePlayhead.create({
+  midiScore: { ticksPerQuarter: 960 },
+  musicXmlScore: score,
+  projectTempo: 120
+});
+assert.equal(mixedClock.secondsToTickFor(score, 1), 960);
+
+const rendererCalls = [];
+const editorClock = EditorScorePlayhead.create({
+  midiScore: { ticksPerQuarter: 960 },
+  musicXmlScore: score,
+  projectTempo: 120,
+  partId: 'P1',
+  renderer: {
+    getPlayheadPosition(_score, _partId, _seconds, options) {
+      rendererCalls.push(options);
+      return { x: 0, yTop: 0, yBottom: 10, systemIndex: 0 };
+    }
+  }
+});
+const editorPosition = editorClock.positionAt(1, {
+  score,
+  partId: 'P1'
+});
+assert.equal(editorPosition.tick, 960);
+assert.equal(editorPosition.sourceTick, 960);
+assert.equal(rendererCalls[0].activeTick, 960);
+assert.equal(rendererCalls[0].sourceTick, 960);
 
 assert.equal(ScoreRenderer.ticksToWholeNotes(480, score), 0.25);
 assert.equal(ScoreRenderer.ticksToWholeNotes(1920, score), 1);

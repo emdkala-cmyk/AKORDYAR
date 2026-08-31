@@ -52,12 +52,21 @@
       return api;
     }
 
-    function secondsToTick(seconds) {
-      return clock?.secondsToTick?.(Math.max(0, number(seconds))) || 0;
+    function secondsToTick(seconds, score = musicXmlScore || midiScore) {
+      const safeSeconds = Math.max(0, number(seconds));
+      const scoreTick = clock?.secondsToTickFor?.(score, safeSeconds);
+      if (Number.isFinite(Number(scoreTick))) return Number(scoreTick);
+      return clock?.secondsToTick?.(safeSeconds) || 0;
     }
 
-    function tickToMeasureBeat(tick, targetPartId = currentPartId) {
-      return clock?.tickToMeasureBeat?.(tick, targetPartId) || null;
+    function tickToMeasureBeat(
+      tick,
+      targetPartId = currentPartId,
+      score = musicXmlScore || midiScore
+    ) {
+      return clock?.tickToMeasureBeatFor?.(score, tick, targetPartId) ||
+        clock?.tickToMeasureBeat?.(tick, targetPartId) ||
+        null;
     }
 
     function resolveLoopTime(seconds, loop = {}) {
@@ -75,18 +84,23 @@
         score?.activePartId || score?.parts?.[0]?.id || null;
       const time = resolveLoopTime(seconds, options.loop || {});
       const wrapped = Math.abs(time - number(seconds)) > 1e-9;
+      const scoreTick = secondsToTick(time, score);
       const tick = !wrapped && Number.isFinite(Number(options.activeTick))
         ? Number(options.activeTick)
-        : secondsToTick(time);
+        : scoreTick;
+      const sourceTick = Number.isFinite(Number(options.sourceTick))
+        ? Number(options.sourceTick)
+        : scoreTick;
       const position = renderer?.getPlayheadPosition
         ? renderer.getPlayheadPosition(score, targetPartId, time, {
             ...options,
             activeTick: tick,
+            sourceTick,
             midiScore,
             clock
           })
         : { tick, x: 0, systemIndex: 0, yTop: 0, yBottom: 0 };
-      const barBeat = tickToMeasureBeat(tick, targetPartId);
+      const barBeat = tickToMeasureBeat(sourceTick, targetPartId, score);
       const nextSystemIndex = number(position.systemIndex, 0);
       const systemChanged = lastSystemIndex !== -1 && nextSystemIndex !== lastSystemIndex;
       lastSystemIndex = nextSystemIndex;
@@ -94,6 +108,7 @@
         ...position,
         time,
         tick,
+        sourceTick,
         barBeat,
         systemChanged,
         partId: targetPartId
