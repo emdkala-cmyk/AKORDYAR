@@ -159,6 +159,7 @@ function getEditorKeyCommandController() {
             rebuildPerformanceSongDocument();
           }
         },
+        syncScoresToProjectKey: () => getMidiScoreController()?.syncScoresToProjectKey?.(),
         toast,
         customPrompt: (...args) => customPrompt(...args)
       });

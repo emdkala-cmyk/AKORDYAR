@@ -27,6 +27,7 @@
     saveSong = () => {},
     saveCurrentVersion = () => {},
     rebuildPerformanceSongDocument = () => {},
+    syncScoresToProjectKey = null,
     toast = () => {},
     customPrompt = (message, defaultValue = '') =>
       Promise.resolve(globalScope.prompt?.(message, defaultValue)),
@@ -162,7 +163,7 @@
 
     function applyResult(
       result,
-      { saveVersion = false, rebuild = true } = {}
+      { saveVersion = false, rebuild = true, syncScore = false } = {}
     ) {
       if (!result?.changed) return false;
       if (saveVersion) saveCurrentVersion();
@@ -170,6 +171,9 @@
       renderAllChordsAndText();
       saveSong();
       if (rebuild) rebuildPerformanceSongDocument();
+      if (syncScore && typeof syncScoresToProjectKey === 'function') {
+        try { syncScoresToProjectKey(); } catch (_) {}
+      }
       return true;
     }
 
@@ -179,7 +183,7 @@
         newTranspose,
         resolveAccidentalPreference()
       );
-      return applyResult(result, { saveVersion: true });
+      return applyResult(result, { saveVersion: true, syncScore: true });
     }
 
     function applyKeyChange(newKey, newMode) {
@@ -188,7 +192,7 @@
         newKey,
         newMode
       );
-      return applyResult(result);
+      return applyResult(result, { syncScore: true });
     }
 
     function applyOriginalKeyChange(newKey, newMode) {
