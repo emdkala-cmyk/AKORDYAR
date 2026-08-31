@@ -1,7 +1,7 @@
 # Editor Domain Extraction — Inventory و نقشهٔ Commitها
 
 **تاریخ:** 2026-08-11
-**هدف رسمی:** کاهش حداقل ۱٬۰۰۰ خط از `js/app.js` (وضعیت فعلی: ~15٬528 خط)
+**هدف رسمی:** کاهش حداقل ۱٬۰۰۰ خط از `js/app.js` — **تکمیل شده**
 **مرز:** Lyrics Parser + Chord Sync + Editor State + Editor Rendering + Editor Events
 **اصول:** Safe Extraction — state در مالکیت `app.js`/`edCur` می‌ماند، wrapperهای همنام در app.js، هر commit جداگانه تست و ثبت می‌شود.
 
@@ -37,7 +37,7 @@
 
 | فایل | خطوط | مرز فعلی |
 |---|---:|---|
-| `js/app/core.js` | ۵٬۸۸۹ | DAW/runtime glue، timeline، transport و compatibility wrapperها؛ مسیرهای عمومی song state از `EditorSongStateService` |
+| `js/app/core.js` | ۱٬۹۰۴ | DAW/runtime glue، timeline، transport و compatibility wrapperها |
 | `js/app/editor.js` | ۶٬۷۶۵ | render/editor commandها، audio restore و legacy UI glue؛ selection، drag، text restore، chord command و key/transpose mutation از مسیر سرویس |
 | `js/app/search.js` | ۱۹۵ | quick search؛ نتیجهٔ داینامیک با `data-command` |
 
@@ -60,7 +60,7 @@
 - `EditorSongStateService` در commit `163806a` اضافه شد.
 - مسیرهای عمومی core برای timing، quantize، tempo/key detection، popupها، highlight، performance tempo، history و audio-save از accessor رسمی استفاده می‌کنند.
 - direct `edCur` در core از مسیرهای عمومی حذف شد؛ sequence/CL legacy و setter سازگاری هنوز برای مرحلهٔ بعد باقی مانده‌اند.
-- `core.js` در snapshot فعلی ۵٬۸۸۹ خط و `npm test` برابر ۳۹ ورودی موفق است.
+- `core.js` در snapshot نهایی ۱٬۹۰۴ خط و `npm test` برابر ۲۴۴ ورودی موفق است.
 
 ## ۱) نقشهٔ مناطق Editor Domain در app.js
 
@@ -91,13 +91,14 @@
 ## ۳) Dependency graph (خلاصهٔ بحرانی)
 
 ### state مرکزی
-- **`edCur` — 604 رفرنس در کل app.js**؛ بزرگ‌ترین کوپلینگ پروژه. 12 نقطهٔ sync با `window.edCur` (خطوط 1046، 1050، 6476، 8621، 9350، 9392، 10776، 11393، 12221، 12446 و...) که projecthub.js و EdCurAdapter به آن وابسته‌اند.
-- `edSeqPoints` (26 رفرنس)، `edChordIdx` (19)، `edPendingAnchor` (8)، `undoStack`/`saveState` (از طریق `edCommit`).
+
+> **وضعیت فعلی (۳۱ اوت ۲۰۲۶):** `window.edCur` از کد اجرا حذف شده (0 ارجاع).
+> `EditorSongRuntimeService` مالک رسمی song است.
 
 ### وابستگی‌های خروجی editor
 - `$`، `toast`، `t()`، `saveState`/`undo`، `renderTimeline`/`renderAll`
 - `syncTransposeToTimelineChords` → پل به DAW clips (آکوردهای timeline)
-- `songDocumentModel`، `EdCurAdapter`، `performanceBridge`، `singerViewRenderer`/`playerViewRenderer` (از طریق `syncUIAfterSongChange` در 6326)
+- `songDocumentModel`، `EditorSongRuntimeService`، `performanceBridge`، `singerViewRenderer`/`playerViewRenderer`
 - DOM: `#editor`، `#editorWrap`، `#chord-modal`، `window.open` (پاپ‌اپ‌ها)
 
 ### وابستگی‌های ورودی به editor (نقاط شکست ممنوع)
@@ -217,7 +218,7 @@ setter، تست hot-swap و Electron را اضافه کند.
 |---|---|
 | projection هدر ترک و lane | `js/core/TimelineTrackRendererService.js` |
 | drag/drop فایل صوتی | `js/editor/AudioDropImportService.js` |
-| مالک canonical song و facade `window.edCur` | `js/core/EdCurAdapter.js` |
+| مالک canonical song | `EditorSongRuntimeService` |
 | popup lifecycle و cross-document property access | `js/core/WindowBridge.js` |
 
 ```text
