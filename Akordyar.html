@@ -784,7 +784,7 @@
       <!-- Toolbar -->
       <div class="archive-toolbar" style="flex-shrink:0;">
         <div class="archive-search-wrap">
-          <input type="text" id="archiveSearch" placeholder="جستجو: نام، خواننده، گام، متن..." aria-label="searchSong">
+          <input type="text" id="archiveSearch" placeholder="جستجو: نام، خواننده، گام، متن..." data-i18n-placeholder="archiveSearch" aria-label="searchSong">
           <button class="archive-search-clear" id="archiveSearchClear" data-action="archClearSearch" aria-label="پاک کردن جستجو"><span class="ir-icon" data-ir="✕" aria-hidden="true"></span></button>
         </div>
         <div class="atb-sep"></div>
@@ -906,14 +906,14 @@
   <div class="shortcut-modal" id="shortcutModal" data-inline-actions>
     <div class="shortcut-panel">
       <div class="shortcut-panel-header">
-        <h3>⌨️ شرتکات (Keyboard Shortcuts)</h3>
+        <h3>⌨️ <span data-i18n="shortcuts">شرتکات</span> (Keyboard Shortcuts)</h3>
         <button data-action="closeShortcutModal"><span class="ir-icon" data-ir="✕" aria-hidden="true"></span></button>
       </div>
       <div class="shortcut-list" id="shortcutList"></div>
       <div class="shortcut-panel-footer">
         <button class="sk-reset" data-action="resetShortcuts" data-i18n="resetSettings">بازنشانی پیش‌فرض</button>
-        <button class="sk-reset" data-action="clearMidiMaps">🎹 پاک کردن MIDI</button>
-        <span style="font-size:0.75rem;color:var(--text-secondary);">روی هر کلید کلیک کنید | 🎹 = MIDI Learn</span>
+        <button class="sk-reset" data-action="clearMidiMaps">🎹 <span data-i18n="clearMidi">پاک کردن MIDI</span></button>
+        <span style="font-size:0.75rem;color:var(--text-secondary);"><span data-i18n="midiLearnHint">روی هر کلید کلیک کنید</span> | 🎹 = MIDI Learn</span>
       </div>
     </div>
   </div>
@@ -1440,7 +1440,7 @@
       <button class="qsp-close" data-command="quickSearchClose" data-i18n-title="close"><span class="ir-icon" data-ir="✕" aria-hidden="true"></span></button>
     </div>
     <div class="qsp-search">
-      <input type="text" id="quickSearchInput" data-command="quickSearchFilter" placeholder="جستجو: نام، خواننده، متن...">
+      <input type="text" id="quickSearchInput" data-command="quickSearchFilter" placeholder="جستجو: نام، خواننده، متن..." data-i18n-placeholder="quickSearchPlaceholder">
       <button class="qsp-clear" id="quickSearchClear" data-command="quickSearchClearInput"><span class="ir-icon" data-ir="✕" aria-hidden="true"></span></button>
     </div>
     <!-- Advanced Filters -->

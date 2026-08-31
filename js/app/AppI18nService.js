@@ -12,7 +12,7 @@
     fa: Object.freeze({
       project: 'پروژه', archive: 'آرشیو آهنگ\u200Cها', newSong: 'ترانه جدید', saveSong: 'ذخیره ترانه', arranger: 'ارنجر ترک', print: 'چاپ',
       brand: 'ترانه آکورد', major: 'ماژور', minor: 'مینور', textLabel: 'متن:', chordLabel: 'آکورد:', seqLabel: 'ترتیبی:',
-      settings: 'تنظیمات', artist: 'خواننده', scColorEyedropper: 'قطره‌چکان رنگ', scColorBrush: 'قلمموی رنگ',
+      settings: 'تنظیمات', artist: 'خواننده', quickSearchPlaceholder: 'جستجو: نام، خواننده، متن...',  midiLearnHint: 'روی هر کلید کلیک کنید',  scColorEyedropper: 'قطره‌چکان رنگ', scColorBrush: 'قلمموی رنگ',
       scLoopPlay: 'پخش با حلقه', scToggleTrackHeight: 'ارتفاع ترک', scToggleRecording: 'ضبط', scTogglePlayheadMode: 'حالت پخشگر',
       scZoomFull: 'بزرگنمایی کامل', scZoomToSelection: 'بزرگنمایی به انتخاب', scZoomVIn: 'بزرگنمایی عمودی (زیاد)', scZoomVOut: 'بزرگنمایی عمودی (کم)',
       scZoomHIn: 'بزرگنمایی افقی (زیاد)', scZoomHOut: 'بزرگنمایی افقی (کم)', scSetLoopFromSel: 'محدوده loop از selection', scGoStart: 'رفتن به ابتدا',
