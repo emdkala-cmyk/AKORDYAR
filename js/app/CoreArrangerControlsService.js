@@ -15,7 +15,8 @@
     confirm = message => globalScope.confirm?.(message) || false,
     saveArrangers = () => {},
     renderArrPool = () => {},
-    renderArrSetlist = () => {}
+    renderArrSetlist = () => {},
+    t = globalScope.t || (k => k)
   } = {}) {
     function arrSetCrossfade(value) {
       const editingArr = getEditingArr?.();

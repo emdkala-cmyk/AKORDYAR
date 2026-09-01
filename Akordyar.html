@@ -749,6 +749,24 @@
           <button class="ctrl-btn active-blue" data-action="archClose" data-i18n-title="close" aria-label="بستن آرشیو" style="font-size:0.8rem;" data-i18n="close" data-i18n="close">بستن</button>
         </div>
       </div>
+      <!-- New Artists Carousel (shown after import) -->
+      <div class="new-artists-section" id="newArtistsSection" style="display:none;flex-shrink:0;">
+        <div class="artist-slider-header">
+          <h4>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+            <span data-i18n="newArtists">خوانندگان جدید</span>
+            <span class="ash-count" id="newArtistCountLabel"></span>
+          </h4>
+          <button class="new-artists-dismiss" id="newArtistsDismiss" data-action="dismissNewArtists" aria-label="بستن">✕</button>
+        </div>
+        <div class="artist-slider-body">
+          <div class="new-artists-track" id="newArtistsTrack">
+            <div class="new-artists-container" id="newArtistsContainer"></div>
+            <button class="new-artists-nav nav-up" id="newArtistsPrevBtn" data-action="newArtistsSlide" data-value="-1">▲</button>
+            <button class="new-artists-nav nav-down" id="newArtistsNextBtn" data-action="newArtistsSlide" data-value="1">▼</button>
+          </div>
+        </div>
+      </div>
       <!-- Artist Slider Section -->
       <div class="artist-slider-section" id="artistSliderSection" style="flex-shrink:0;">
         <div class="artist-slider-header" data-action="archToggleArtistSection" role="button" aria-expanded="true" aria-controls="artistSliderBody" tabindex="0">

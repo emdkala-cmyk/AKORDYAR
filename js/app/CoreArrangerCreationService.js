@@ -15,6 +15,7 @@
     renderArrangerManager = () => {},
     openArrEditor = () => {},
     toast = () => {},
+    t = globalScope.t || (k => k),
     now = () => Date.now(),
     isoNow = () => new Date().toISOString()
   } = {}) {

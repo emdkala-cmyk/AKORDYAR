@@ -30,6 +30,25 @@
 .archive-list.table-view .archive-table-body { flex: 1; overflow-y: auto; min-height: 0; }
 
 /* ===== Artist Slider ===== */
+/* New Artists Carousel */
+.new-artists-section { margin-bottom: 12px; border: 1px solid rgba(0,242,254,0.3); border-radius: 12px; background: linear-gradient(135deg, rgba(0,242,254,0.03), rgba(63,184,175,0.03)); overflow: hidden; }
+.new-artists-dismiss { background: none; border: none; color: var(--text-secondary); font-size: 1.1rem; cursor: pointer; padding: 4px 8px; border-radius: 6px; transition: all 0.2s; }
+.new-artists-dismiss:hover { color: var(--accent-neon-pink); background: rgba(255,46,147,0.1); }
+.new-artists-track { position: relative; overflow: hidden; perspective: 800px; height: 180px; display: flex; align-items: center; justify-content: center; }
+.new-artists-container { position: absolute; left: 50%; top: 50%; width: 0; height: 0; transform-style: preserve-3d; transition: transform 0.6s cubic-bezier(0.25,0.46,0.45,0.94); }
+.new-artists-nav { position: absolute; width: 32px; height: 32px; border-radius: 50%; background: rgba(0,0,0,0.8); border: 1px solid rgba(0,242,254,0.3); color: var(--accent-cyan-glow); display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 5; font-size: 0.9rem; transition: all 0.3s; backdrop-filter: blur(8px); }
+.new-artists-nav:hover { background: var(--accent-teal); color: #000; border-color: var(--accent-teal); box-shadow: 0 4px 15px rgba(63,184,175,0.4); transform: scale(1.1); }
+.new-artists-nav:disabled { opacity: 0.3; cursor: default; pointer-events: none; }
+.new-artists-nav.nav-up { top: 8px; left: 50%; transform: translateX(-50%); }
+.new-artists-nav.nav-down { bottom: 8px; top: auto; left: 50%; transform: translateX(-50%); }
+.new-artists-nav.nav-up:hover, .new-artists-nav.nav-down:hover { transform: translateX(-50%) scale(1.1); }
+.new-artist-card { position: absolute; left: -45px; top: -45px; width: 90px; height: 90px; border-radius: 50%; overflow: hidden; cursor: pointer; transition: transform 0.4s ease, box-shadow 0.3s ease, opacity 0.4s ease; backface-visibility: hidden; border: 2px solid rgba(0,242,254,0.4); background: none; padding: 0; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 12px rgba(0,242,254,0.25); animation: newArtistGlow 2s ease-in-out infinite; }
+.new-artist-card:hover { box-shadow: 0 0 20px rgba(0,242,254,0.5), 0 0 40px rgba(0,242,254,0.2); transform: scale(1.15); border-color: var(--accent-cyan-glow); }
+@keyframes newArtistGlow { 0%, 100% { box-shadow: 0 0 12px rgba(0,242,254,0.25); } 50% { box-shadow: 0 0 20px rgba(0,242,254,0.4), 0 0 35px rgba(0,242,254,0.15); } }
+.new-artist-card .artist-card-avatar { width: 100%; height: 100%; }
+.new-artist-card .artist-card-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.new-artist-card .avatar-initials { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 1.6rem; font-weight: 900; color: #fff; }
+
 .artist-slider-section { margin-bottom: 12px; border: 1px solid var(--border-subtle); border-radius: 12px; background: rgba(255,255,255,0.02); overflow: hidden; transition: max-height 0.3s ease, padding 0.3s ease; }
 .artist-slider-section.collapsed { max-height: 40px !important; padding-bottom: 0 !important; }
 .artist-slider-header { display: flex; align-items: center; justify-content: space-between; padding: 8px 14px; cursor: pointer; user-select: none; border-bottom: 1px solid var(--border-subtle); }

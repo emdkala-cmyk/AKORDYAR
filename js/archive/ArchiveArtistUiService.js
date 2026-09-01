@@ -53,6 +53,93 @@
     let artistContextTarget = null;
     const sliderRadius = 460;
 
+    // --- New Artists Carousel ---
+    const newArtists = new Set();
+    let newArtistsAngle = 0;
+    let newArtistsPaused = false;
+    let newArtistsPage = 0;
+    const NEW_VISIBLE = 5;
+    const NEW_RADIUS = 250;
+
+    function addNewArtist(artistName) {
+      const key = artistKey(artistName);
+      if (key && !newArtists.has(key)) {
+        newArtists.add(key);
+        renderNewArtistsCarousel();
+      }
+    }
+
+    function renderNewArtistsCarousel() {
+      const section = getElement('newArtistsSection');
+      const container = getElement('newArtistsContainer');
+      if (!section || !container) return;
+
+      if (newArtists.size === 0) {
+        section.style.display = 'none';
+        return;
+      }
+
+      section.style.display = '';
+      container.innerHTML = '';
+      const keys = Array.from(newArtists);
+      const totalPages = Math.ceil(keys.length / NEW_VISIBLE);
+      if (newArtistsPage >= totalPages) newArtistsPage = 0;
+
+      const startIdx = newArtistsPage * NEW_VISIBLE;
+      const pageKeys = keys.slice(startIdx, startIdx + NEW_VISIBLE);
+      const angleStep = 360 / Math.max(pageKeys.length, 1);
+
+      pageKeys.forEach((key, index) => {
+        const card = documentRef.createElement('div');
+        card.className = 'new-artist-card';
+        const color = avatarColor(key);
+        const initials = getInitials(key);
+        const image = getArtistImage(key);
+        const avatar = image
+          ? `<img src="${image}" alt="${escapeHtml(key)}" loading="lazy">`
+          : `<div class="avatar-initials" style="background:${color}">${initials}</div>`;
+        card.innerHTML = `<div class="artist-card-avatar">${avatar}</div>`;
+        card.style.transform = `rotateX(${angleStep * index}deg) translateZ(${NEW_RADIUS}px)`;
+        card.onclick = () => {
+          setArtistFilter(key);
+          render();
+          updateActiveFilters();
+        };
+        container.appendChild(card);
+      });
+
+      newArtistsAngle = 0;
+      container.style.transform = 'rotateX(0deg)';
+
+      const countLabel = getElement('newArtistCountLabel');
+      if (countLabel) {
+        countLabel.textContent = totalPages > 1
+          ? `(${newArtists.size} · ${newArtistsPage + 1}/${totalPages})`
+          : `(${newArtists.size})`;
+      }
+
+      const prevBtn = getElement('newArtistsPrevBtn');
+      const nextBtn = getElement('newArtistsNextBtn');
+      if (prevBtn) prevBtn.disabled = totalPages <= 1;
+      if (nextBtn) nextBtn.disabled = totalPages <= 1;
+    }
+
+    function slideNewArtists(direction) {
+      const keys = Array.from(newArtists);
+      const totalPages = Math.ceil(keys.length / NEW_VISIBLE);
+      const newPage = newArtistsPage + direction;
+      if (newPage < 0 || newPage >= totalPages) return;
+      newArtistsPage = newPage;
+      renderNewArtistsCarousel();
+    }
+
+    function dismissNewArtists() {
+      newArtists.clear();
+      newArtistsPage = 0;
+      const section = getElement('newArtistsSection');
+      if (section) section.style.display = 'none';
+    }
+
     function buildArtistList() {
       const songs = getAllSongs().filter(song => !song.deletedAt);
       const artists = new Map();
@@ -448,6 +535,24 @@
           divider.addEventListener('pointercancel', stopResize);
         }
       }
+
+      // New Artists navigation
+      const naPrevBtn = getElement('newArtistsPrevBtn');
+      const naNextBtn = getElement('newArtistsNextBtn');
+      const naDismissBtn = getElement('newArtistsDismiss');
+      if (naPrevBtn && !naPrevBtn._archBound) {
+        naPrevBtn._archBound = true;
+        naPrevBtn.addEventListener('click', () => slideNewArtists(-1));
+      }
+      if (naNextBtn && !naNextBtn._archBound) {
+        naNextBtn._archBound = true;
+        naNextBtn.addEventListener('click', () => slideNewArtists(1));
+      }
+      if (naDismissBtn && !naDismissBtn._archBound) {
+        naDismissBtn._archBound = true;
+        naDismissBtn.addEventListener('click', dismissNewArtists);
+      }
+
       resetAutoScroll();
     }
 
@@ -466,7 +571,11 @@
       handleWheel,
       toggleArtistSection,
       toggleFullscreen,
-      bindArtistSection
+      bindArtistSection,
+      addNewArtist,
+      renderNewArtistsCarousel,
+      slideNewArtists,
+      dismissNewArtists
     });
   }
 

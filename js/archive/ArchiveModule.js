@@ -714,7 +714,11 @@
           renderArchive: archRender,
           renderArtists: archRenderArtists,
           openArchive: archOpen,
-          toast
+          toast,
+          addNewArtistToCarousel: artistName => {
+            const ui = getArchiveArtistUiService();
+            ui.addNewArtist(artistName);
+          }
         });
       }
       return _archiveBatchImportService;
