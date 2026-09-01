@@ -598,6 +598,16 @@
     return set;
   }
 
+  /* ---- ثابت‌های قابل تنظیم ---- */
+  const CHROMA_WEIGHT_NORMAL = 0.7;
+  const CHROMA_WEIGHT_WHITENED = 0.3;
+  const HARMONIC_WEIGHT_RATIO = 0.55;
+  const BASS_WEIGHT_RATIO = 0.30;
+  const KEY_WEIGHT_RATIO = 0.15;
+  const COMPLEX_QUALITY_MARGIN = 0.06;
+  const COMPLEX_QUALITIES = new Set(['7', 'M7', 'm7', '9', 'm9', 'dim7', 'sus2', 'sus4']);
+  const SIMPLE_EQUIV = { 'M7': 'maj', 'm7': 'min', '7': 'maj', '9': 'maj', 'm9': 'min', 'dim7': 'dim', 'sus2': 'maj', 'sus4': 'maj' };
+
   function detectChords(features, options = {}) {
     if (!features?.ok) {
       return { ok: false, reason: features?.reason || 'features-missing', chords: [] };
@@ -607,24 +617,34 @@
     if (frameCount < 3) {
       return { ok: false, reason: 'audio-too-short', chords: [], count: 0 };
     }
+    const debug = options.debug === true;
+    const debugWindows = debug ? [] : null;
 
     const activeQualities = Array.isArray(options.qualities) && options.qualities.length
       ? options.qualities
       : DEFAULT_ACTIVE_QUALITIES;
-    const bassWeight = options.bassWeight ?? 0.18;
     const keyBias = options.keyBias ?? 0.08;
     const selfTransition = clamp(options.selfTransition ?? 0.82, 0.5, 0.99);
     const noChordSelf = 0.92;
     const minDurationSeconds = options.minDuration ?? 0.45;
     const noChordThreshold = options.minScore ?? 0.4;
     const softmaxTemp = 0.12;
+    const LOW_ENERGY_VARIANCE_THRESHOLD = 1e-4;
 
-    /* ---- حالت‌های HMM: آکوردهای فعال + N.C. ---- */
+    /* ---- حالت‌های HMM ---- */
     let keyInfo = options.key;
     if (!keyInfo || typeof keyInfo.keySemitone !== 'number') keyInfo = detectKey(features);
+    const keyConfidence = keyInfo?.ok ? (keyInfo.confidence ?? 0.5) : 0.5;
     const diatonic = keyInfo && keyInfo.ok
       ? buildDiatonicChordSet(keyInfo.keySemitone, keyInfo.mode)
       : null;
+    const keySemitone = keyInfo?.ok ? keyInfo.keySemitone : -1;
+
+    // جریمه وابسته به key confidence
+    const diatonicPenalty =
+      keyConfidence >= 0.75 ? 0.88 :
+      keyConfidence >= 0.5  ? 0.94 :
+                             0.98;
 
     const states = [];
     for (const template of CHORD_TEMPLATES) {
@@ -649,14 +669,15 @@
         chordTonePcs: quality.intervals.slice(1).map(iv => (template.root + iv) % 12),
         keyFactor: diatonic && diatonic.has(`${template.root}:${template.quality}`)
           ? 1 + keyBias
-          : 1 - 0.6 * keyBias
+          : 1 - 0.6 * keyBias,
+        isComplex: COMPLEX_QUALITIES.has(template.quality)
       });
     }
     const nChords = states.length;
     const nStates = nChords + 1;
     const NO_CHORD = nChords;
 
-    /* ---- پنجره‌های هم‌گام با ضرب (beat-synchronous windows) ---- */
+    /* ---- پنجره‌های هم‌گام با ضرب ---- */
     let beatPeriod = Number(options.beatPeriod);
     if (!Number.isFinite(beatPeriod) || beatPeriod < 0.2 || beatPeriod > 2) beatPeriod = null;
     let beatOffset = Number(options.beatOffset);
@@ -674,6 +695,7 @@
     const winChroma = [];
     const winBass = hasBass ? [] : null;
     const winSilent = new Uint8Array(windowCount);
+    const winEnergy = new Float32Array(windowCount);
     for (let w = 0; w < windowCount; w += 1) {
       const wStart = gridStart + w * windowSeconds;
       const f0 = Math.max(0, Math.floor(wStart * frameRate));
@@ -681,11 +703,11 @@
       const chromaSum = new Float64Array(12);
       const bassSum = hasBass ? new Float64Array(12) : null;
       let active = 0;
-      let frames = 0;
+      let energy = 0;
       for (let f = f0; f < f1; f += 1) {
-        frames += 1;
         if (frameEnergies[f] < silenceThreshold) continue;
         active += 1;
+        energy += frameEnergies[f];
         const chroma = chromaFrames[f];
         for (let pc = 0; pc < 12; pc += 1) chromaSum[pc] += chroma[pc];
         if (bassSum) {
@@ -694,33 +716,60 @@
         }
       }
       winSilent[w] = active === 0 ? 1 : 0;
+      winEnergy[w] = active > 0 ? energy / active : 0;
       winChroma.push(Float32Array.from(chromaSum, v => (active ? v / active : 0)));
       if (winBass) winBass.push(Float32Array.from(bassSum, v => (active ? v / active : 0)));
     }
+    const maxEnergy = Math.max(1e-9, ...winEnergy);
 
-    /* ---- نمره‌های انتشار (emission): کرومای سفیدشده + جایزه باس + گام ---- */
+    /* ---- محاسبه نمره‌های انتشار ---- */
     const logEmission = new Float64Array(windowCount * nStates);
     const rawScores = new Float32Array(windowCount * nChords);
+    const windowBestScores = new Float32Array(windowCount);
+    const windowSecondScores = new Float32Array(windowCount);
+    const windowBestStates = new Int32Array(windowCount);
     const whitenedChroma = new Float64Array(12);
+    const normalChroma = new Float64Array(12);
     const bassProfile = new Float64Array(12);
+
     for (let w = 0; w < windowCount; w += 1) {
-      // کرومای سفیدشده: حذف مؤلفه مشترک (درام/نویز باندپهن و شیب طیفی)
       const chroma = winChroma[w];
       let chromaNorm = 0;
       for (let pc = 0; pc < 12; pc += 1) chromaNorm += chroma[pc] * chroma[pc];
       chromaNorm = Math.sqrt(chromaNorm);
-      let whitenedNorm = 0;
+      const windowEnergyRatio = winEnergy[w] / maxEnergy;
+      const isLowEnergy = windowEnergyRatio < 0.05;
+
+      // ذخیره chroma عادی
       if (chromaNorm > 1e-9) {
+        for (let pc = 0; pc < 12; pc += 1) normalChroma[pc] = chroma[pc] / chromaNorm;
+      }
+
+      // Whitening محافظت‌شده
+      let whitenedNorm = 0;
+      let whiteningValid = false;
+      if (chromaNorm > 1e-9 && !isLowEnergy) {
         let mean = 0;
         for (let pc = 0; pc < 12; pc += 1) mean += chroma[pc] / chromaNorm;
         mean /= 12;
+        let variance = 0;
         for (let pc = 0; pc < 12; pc += 1) {
-          whitenedChroma[pc] = chroma[pc] / chromaNorm - mean;
-          whitenedNorm += whitenedChroma[pc] * whitenedChroma[pc];
+          const diff = chroma[pc] / chromaNorm - mean;
+          variance += diff * diff;
         }
-        whitenedNorm = Math.sqrt(whitenedNorm);
+        variance /= 12;
+        if (variance > LOW_ENERGY_VARIANCE_THRESHOLD) {
+          const std = Math.sqrt(variance);
+          for (let pc = 0; pc < 12; pc += 1) {
+            whitenedChroma[pc] = (chroma[pc] / chromaNorm - mean) / std;
+            whitenedNorm += whitenedChroma[pc] * whitenedChroma[pc];
+          }
+          whitenedNorm = Math.sqrt(whitenedNorm);
+          whiteningValid = whitenedNorm > 1e-9;
+        }
       }
-      // پروفایل باس: سفیدشده و فقط قله‌های مثبت (کیک در مؤلفه مشترک حذف می‌شود)
+
+      // پروفایل باس
       let bassScale = 0;
       if (hasBass && !winSilent[w]) {
         const bass = winBass[w];
@@ -741,26 +790,94 @@
         }
       }
 
+      // محاسبه نمره هر آکورد
       let bestChordScore = -Infinity;
+      let bestChordIdx = 0;
       for (let s = 0; s < nChords; s += 1) {
         const state = states[s];
-        let score = 0;
-        if (whitenedNorm > 1e-9) {
-          let dot = 0;
-          for (let pc = 0; pc < 12; pc += 1) dot += whitenedChroma[pc] * state.whitened[pc];
-          score = (dot / (whitenedNorm * state.whitenedNorm)) * state.prior * state.keyFactor;
+
+        // نمره harmonic chroma (عادی)
+        let normalScore = 0;
+        if (chromaNorm > 1e-9) {
+          let dotN = 0;
+          for (let pc = 0; pc < 12; pc += 1) dotN += normalChroma[pc] * state.whitened[pc];
+          normalScore = dotN / (1.0 * state.whitenedNorm);
         }
+
+        // نمره whitened chroma
+        let whitenedScore = 0;
+        if (whiteningValid) {
+          let dotW = 0;
+          for (let pc = 0; pc < 12; pc += 1) dotW += whitenedChroma[pc] * state.whitened[pc];
+          whitenedScore = dotW / (whitenedNorm * state.whitenedNorm);
+        }
+
+        // ترکیب: عادی 0.7 + whitened 0.3
+        const chromaScore = CHROMA_WEIGHT_NORMAL * normalScore + CHROMA_WEIGHT_WHITENED * whitenedScore;
+        let score = chromaScore * state.prior * state.keyFactor;
+
+        // جایزه باس
         if (bassScale > 0) {
           let strongestTone = 0;
           for (const pc of state.chordTonePcs) {
             if (bassProfile[pc] > strongestTone) strongestTone = bassProfile[pc];
           }
-          score += bassWeight * (bassProfile[state.root] + 0.5 * strongestTone) * bassScale;
+          score += BASS_WEIGHT_RATIO * (bassProfile[state.root] + 0.5 * strongestTone) * bassScale;
         }
+
+        // جایزه سازگاری با key
+        if (keySemitone >= 0 && diatonic && diatonic.has(`${state.root}:${state.quality}`)) {
+          score += KEY_WEIGHT_RATIO * state.keyFactor;
+        }
+
         rawScores[w * nChords + s] = score;
-        if (score > bestChordScore) bestChordScore = score;
+        if (score > bestChordScore) {
+          bestChordScore = score;
+          bestChordIdx = s;
+        }
       }
-      // N.C.: پنجره‌های ساکت یا بدون تطابق قابل‌قبول
+
+      // Guard برای qualityهای پیچیده
+      for (let s = 0; s < nChords; s += 1) {
+        const st = states[s];
+        if (st.isComplex) {
+          const simpleId = SIMPLE_EQUIV[st.quality];
+          const simpleIdx = states.findIndex(x => x.root === st.root && x.quality === simpleId);
+          if (simpleIdx >= 0) {
+            const simpleScore = rawScores[w * nChords + simpleIdx];
+            if (rawScores[w * nChords + s] - simpleScore < COMPLEX_QUALITY_MARGIN) {
+              rawScores[w * nChords + s] = simpleScore - 0.01;
+            }
+          }
+        }
+      }
+
+      // پنالتی دیاتونیک وابسته به key confidence
+      for (let s = 0; s < nChords; s += 1) {
+        const st = states[s];
+        if (diatonic && !diatonic.has(`${st.root}:${st.quality}`)) {
+          rawScores[w * nChords + s] *= diatonicPenalty;
+        }
+      }
+
+      // بازیابی بهترین نمره
+      bestChordScore = -Infinity;
+      bestChordIdx = 0;
+      let secondBestScore = -Infinity;
+      for (let s = 0; s < nChords; s += 1) {
+        if (rawScores[w * nChords + s] > bestChordScore) {
+          secondBestScore = bestChordScore;
+          bestChordScore = rawScores[w * nChords + s];
+          bestChordIdx = s;
+        } else if (rawScores[w * nChords + s] > secondBestScore) {
+          secondBestScore = rawScores[w * nChords + s];
+        }
+      }
+      windowBestScores[w] = bestChordScore;
+      windowSecondScores[w] = secondBestScore;
+      windowBestStates[w] = bestChordIdx;
+
+      // N.C.
       const ncScore = winSilent[w]
         ? 2.0
         : Math.max(0, noChordThreshold - Math.max(0, bestChordScore)) * 1.6;
@@ -782,7 +899,7 @@
       logEmission[w * nStates + NO_CHORD] = (ncScore - maxZ) / softmaxTemp - logSum;
     }
 
-    /* ---- ماتریس گذار: پایداری + روابط موسیقایی (نت مشترک / چهارم-پنجم / هم‌گامی) ---- */
+    /* ---- ماتریس گذار (محتاطانه) ---- */
     const logTrans = new Float64Array(nStates * nStates);
     for (let i = 0; i < nStates; i += 1) {
       const stay = i === NO_CHORD ? noChordSelf : selfTransition;
@@ -795,15 +912,22 @@
           weight = 0.7;
         } else {
           const pcsI = new Set(states[i].chordTonePcs.concat([states[i].root]));
-          const pcsJ = states[j].chordTonePcs.concat([states[j].root]);
+          const pcsJ = new Set(states[j].chordTonePcs.concat([states[j].root]));
           let shared = 0;
           for (const pc of pcsJ) if (pcsI.has(pc)) shared += 1;
-          if (shared >= 2) weight = 1.3;
+          if (shared >= 2) weight = 1.2;
           const rootDistance = Math.abs(states[i].root - states[j].root);
           const circular = Math.min(rootDistance, 12 - rootDistance);
-          if (circular === 5 || circular === 7) weight *= 1.15;
+          if (circular === 5 || circular === 7) weight *= 1.12;
           if (diatonic && diatonic.has(`${states[i].root}:${states[i].quality}`) &&
-              diatonic.has(`${states[j].root}:${states[j].quality}`)) weight *= 1.1;
+              diatonic.has(`${states[j].root}:${states[j].quality}`)) weight *= 1.08;
+          // پیشرفت‌های رایج (وزن محتاطانه)
+          if (diatonic && keyInfo?.ok) {
+            const tonic = keyInfo.keySemitone;
+            if (circular === 5 && states[j].root === (tonic + 7) % 12 && states[i].quality === 'min') weight *= 1.15;
+            if (circular === 7 && states[j].root === tonic && states[i].root === (tonic + 7) % 12) weight *= 1.15;
+            if (circular === 5 && states[i].root === tonic && states[j].root === (tonic + 5) % 12) weight *= 1.10;
+          }
         }
         weights[j] = weight;
         weightSum += weight;
@@ -815,24 +939,19 @@
       }
     }
 
-    /* ---- رمزگشایی Viterbi ---- */
+    /* ---- Viterbi ---- */
     const delta = new Float64Array(nStates);
     const deltaNext = new Float64Array(nStates);
     const back = new Int32Array(windowCount * nStates);
     const logInit = -Math.log(nStates);
-    for (let s = 0; s < nStates; s += 1) {
-      delta[s] = logInit + logEmission[s];
-    }
+    for (let s = 0; s < nStates; s += 1) delta[s] = logInit + logEmission[s];
     for (let w = 1; w < windowCount; w += 1) {
       for (let j = 0; j < nStates; j += 1) {
         let bestScore = -Infinity;
         let bestPrev = 0;
         for (let i = 0; i < nStates; i += 1) {
           const candidate = delta[i] + logTrans[i * nStates + j];
-          if (candidate > bestScore) {
-            bestScore = candidate;
-            bestPrev = i;
-          }
+          if (candidate > bestScore) { bestScore = candidate; bestPrev = i; }
         }
         deltaNext[j] = bestScore + logEmission[w * nStates + j];
         back[w * nStates + j] = bestPrev;
@@ -843,25 +962,41 @@
     let lastState = 0;
     let lastScore = -Infinity;
     for (let s = 0; s < nStates; s += 1) {
-      if (delta[s] > lastScore) {
-        lastScore = delta[s];
-        lastState = s;
-      }
+      if (delta[s] > lastScore) { lastScore = delta[s]; lastState = s; }
     }
     path[windowCount - 1] = lastState;
     for (let w = windowCount - 2; w >= 0; w -= 1) {
       path[w] = back[(w + 1) * nStates + path[w + 1]];
     }
 
-    /* ---- مسیر → قطعات؛ جذب قطعات کوتاه؛ خروجی ---- */
+    /* ---- Smoothing معتبر (بدون median عددی) ---- */
+    const smoothedPath = new Int32Array(path);
+    for (let w = 1; w < windowCount - 1; w += 1) {
+      const prev = smoothedPath[w - 1];
+      const curr = smoothedPath[w];
+      const next = smoothedPath[w + 1];
+      if (prev === curr || curr === next) continue;
+      if (prev !== next) continue;
+      const wBest = windowBestScores[w];
+      const wSecond = windowSecondScores[w];
+      const relMargin = Math.abs(wBest) > 1e-6 ? (wBest - wSecond) / (Math.abs(wBest) + 1e-6) : 0;
+      const energyRatio = winEnergy[w] / maxEnergy;
+      const isLowConfidence = relMargin < 0.15 || energyRatio < 0.1;
+      if (isLowConfidence) {
+        smoothedPath[w] = prev;
+      }
+    }
+    const effectivePath = smoothedPath;
+
+    /* ---- مسیر → قطعات ---- */
     const minWindows = Math.max(1, Math.round(minDurationSeconds / windowSeconds));
     const runs = [];
     for (let w = 0; w < windowCount; w += 1) {
       const previous = runs[runs.length - 1];
-      if (previous && previous.state === path[w]) {
+      if (previous && previous.state === effectivePath[w]) {
         previous.end = w + 1;
       } else {
-        runs.push({ state: path[w], start: w, end: w + 1 });
+        runs.push({ state: effectivePath[w], start: w, end: w + 1 });
       }
     }
     let unstable = true;
@@ -876,11 +1011,8 @@
         const previousLength = previous ? previous.end - previous.start : -1;
         const nextLength = next ? next.end - next.start : -1;
         const target = nextLength > previousLength ? next : previous;
-        if (target === next) {
-          next.start = run.start;
-        } else if (target === previous) {
-          previous.end = run.end;
-        }
+        if (target === next) { next.start = run.start; }
+        else if (target === previous) { previous.end = run.end; }
         runs.splice(r, 1);
         r -= 1;
         unstable = true;
@@ -895,29 +1027,129 @@
       }
     }
 
+    /* ---- خروجی ---- */
     const chords = [];
     for (const run of runs) {
       if (run.state === NO_CHORD) continue;
       const state = states[run.state];
       let scoreSum = 0;
+      let energySum = 0;
+      let marginSum = 0;
+      let marginCount = 0;
       for (let w = run.start; w < run.end; w += 1) {
         scoreSum += rawScores[w * nChords + run.state];
+        energySum += winEnergy[w];
+        const best = windowBestScores[w];
+        const second = windowSecondScores[w];
+        const relMargin = Math.abs(best) > 1e-6 ? (best - second) / (Math.abs(best) + 1e-6) : 0;
+        marginSum += clamp(relMargin, 0, 1);
+        marginCount += 1;
       }
       const meanScore = run.end > run.start ? scoreSum / (run.end - run.start) : 0;
+      const avgMargin = marginCount > 0 ? marginSum / marginCount : 0;
+      const meanEnergy = run.end > run.start ? energySum / (run.end - run.start) / maxEnergy : 0;
+      const marginConfidence = clamp(avgMargin * 2, 0, 1);
+      const meanScoreConfidence = clamp(meanScore * 1.2, 0, 1);
+      const energyConfidence = clamp(meanEnergy * 3, 0, 1);
+      const confidence = clamp(
+        0.4 * marginConfidence + 0.35 * meanScoreConfidence + 0.25 * energyConfidence,
+        0, 1
+      );
       const startTime = run.start === 0 ? 0 : gridStart + run.start * windowSeconds;
       const endTime = run.end === windowCount ? duration : gridStart + run.end * windowSeconds;
       if (endTime - startTime < 0.25) continue;
+      // تشخیص bass note برای slash notation
+      let bassPc = -1;
+      if (hasBass && winBass) {
+        const bassSum = new Float64Array(12);
+        let bassActive = 0;
+        for (let w = run.start; w < run.end; w += 1) {
+          if (winSilent[w]) continue;
+          const bass = winBass[w];
+          for (let pc = 0; pc < 12; pc += 1) bassSum[pc] += bass[pc];
+          bassActive += 1;
+        }
+        if (bassActive > 0) {
+          let bestBassPc = 0;
+          let bestBassVal = 0;
+          for (let pc = 0; pc < 12; pc += 1) {
+            const avg = bassSum[pc] / bassActive;
+            if (avg > bestBassVal) { bestBassVal = avg; bestBassPc = pc; }
+          }
+          // فقط اگر باس خیلی قوی‌تر از سایر نت‌ها باشد
+          let secondBassVal = 0;
+          for (let pc = 0; pc < 12; pc += 1) {
+            const avg = bassSum[pc] / bassActive;
+            if (pc !== bestBassPc && avg > secondBassVal) secondBassVal = avg;
+          }
+          // Slash bass: فقط در صورت وجود باس واقعاً قوی و مستقل
+          // حذف harmonic aliases: اگر باس کاندید هارمونیک نت‌های آکورد باشد، رد کن
+          const chordPcs = new Set([state.root, ...state.chordTonePcs]);
+          const rootBassVal = bassSum[state.root] / bassActive;
+          const bassDistance = Math.min(
+            Math.abs(bestBassPc - state.root),
+            12 - Math.abs(bestBassPc - state.root)
+          );
+          // بررسی harmonic alias: آیا کاندید باس هارمونیک نت‌های آکورد هست؟
+          let isHarmonicAlias = false;
+          if (bassActive > 0) {
+            for (const pc of chordPcs) {
+              // فاصله pc تا bestBassPc
+              const d = Math.min(Math.abs(pc - bestBassPc), 12 - Math.abs(pc - bestBassPc));
+              // اگر فاصله 2 یا 3 باشد، ممکن است harmonic alias باشد
+              if (d === 2 || d === 3) { isHarmonicAlias = true; break; }
+            }
+          }
+          if (
+            bestBassVal > secondBassVal * 3.0 &&
+            bestBassVal > 0.1 &&
+            !chordPcs.has(bestBassPc) &&
+            bassDistance >= 4 &&
+            bestBassVal > rootBassVal * 2.0 &&
+            !isHarmonicAlias
+          ) {
+            bassPc = bestBassPc;
+          }
+        }
+      }
+      const rootName = formatChordName(state.root, state.suffix, false);
+      let bassName = null;
+      let displayName = rootName;
+      if (bassPc >= 0 && bassPc !== state.root) {
+        bassName = formatChordName(bassPc, '', false);
+        displayName = `${rootName}/${bassName}`;
+      }
       chords.push({
         start: Math.round(startTime * 1000) / 1000,
         end: Math.round(endTime * 1000) / 1000,
         root: state.root,
         quality: state.quality,
-        name: formatChordName(state.root, state.suffix, false),
-        confidence: Math.round(clamp(meanScore, 0, 1) * 100) / 100
+        name: displayName,
+        ...(bassName ? { bass: bassPc } : {}),
+        confidence: Math.round(confidence * 100) / 100
       });
     }
 
-    return { ok: true, chords, count: chords.length };
+    // debug output
+    if (debug && debugWindows) {
+      for (let w = 0; w < windowCount; w += 1) {
+        const best = windowBestScores[w];
+        const second = windowSecondScores[w];
+        const relMargin = Math.abs(best) > 1e-6 ? (best - second) / (Math.abs(best) + 1e-6) : 0;
+        debugWindows.push({
+          windowIndex: w,
+          bestChord: states[windowBestStates[w]]?.quality ?? 'NC',
+          bestScore: Math.round(best * 1000) / 1000,
+          secondScore: Math.round(second * 1000) / 1000,
+          relativeMargin: Math.round(clamp(relMargin, 0, 1) * 1000) / 1000,
+          energy: Math.round(winEnergy[w] * 1000) / 1000,
+          selectedByViterbi: path[w],
+          selectedAfterSmoothing: effectivePath[w]
+        });
+      }
+    }
+
+    return { ok: true, chords, count: chords.length, ...(debug ? { debugWindows } : {}) };
   }
 
   function formatChordName(rootSemitone, suffix, preferFlats) {
