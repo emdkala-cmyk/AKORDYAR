@@ -16,7 +16,6 @@
 
   /* ---------- Helpers ---------- */
   const $ = (id) => document.getElementById(id);
-  const t = (key) => window.t?.(key) ?? key;
 
   function getCurrentSong() {
     return window.ArchiveRuntimeAdapter?.getSong?.() || null;
@@ -62,8 +61,8 @@
       const songs = callApi(getArchiveApi(), 'getAllSongs') || [];
       return songs.slice(0, 8).map((s) => ({
         id: s.id,
-        name: s.title || s.name || t('untitled'),
-        artist: s.artist || t('unknown'),
+        name: s.title || s.name || 'بدون نام',
+        artist: s.artist || 'نامشخص',
         key: s.key || '—',
         tempo: s.tempo || '—',
         tracks: (s._dawTracks || []).length || 0,
@@ -80,10 +79,10 @@
   const TEMPLATES = [
     {
       id: 'tpl-001',
-      nameKey: 'tplVocalPractice',
-      descKey: 'tplVocalDesc',
+      name: 'تمرین خوانندگی',
+      desc: 'لاین آکورد + متن شعر + مترونوم ۹۰ BPM',
       icon: '🎤',
-      tagKeys: ['vocal', 'metronome'],
+      tags: ['وکال', 'مترونوم'],
       config: {
         tempo: 90,
         key: 'C',
@@ -98,10 +97,10 @@
     },
     {
       id: 'tpl-002',
-      nameKey: 'tplAcoustic',
-      descKey: 'tplAcousticDesc',
+      name: 'تنظیم آکوستیک',
+      desc: 'گیتار آکوستیک + وکال + باس، تمپوی آرام',
       icon: '🎸',
-      tagKeys: ['acoustic', 'guitar'],
+      tags: ['آکوستیک', 'گیتار'],
       tagClass: 'yellow',
       config: {
         tempo: 80,
@@ -119,10 +118,10 @@
     },
     {
       id: 'tpl-003',
-      nameKey: 'tplFullDaw',
-      descKey: 'tplFullDawDesc',
+      name: 'پروژه کامل DAW',
+      desc: '۸ ترک: درام، باس، کیبورد، گیتار، وکال',
       icon: '🎹',
-      tagKeys: ['full', '8tracks'],
+      tags: ['کامل', '۸ ترک'],
       tagClass: 'purple',
       config: {
         tempo: 120,
@@ -144,10 +143,10 @@
     },
     {
       id: 'tpl-004',
-      nameKey: 'tplQuickRecord',
-      descKey: 'tplQuickRecordDesc',
+      name: 'ضبط سریع',
+      desc: 'فقط لاین Rec + میکسر ساده برای ضبط فوری',
       icon: '🎧',
-      tagKeys: ['recording', 'quick'],
+      tags: ['ضبط', 'سریع'],
       tagClass: 'pink',
       config: {
         tempo: 100,
@@ -163,10 +162,10 @@
     },
     {
       id: 'tpl-005',
-      nameKey: 'tplBacking',
-      descKey: 'tplBackingDesc',
+      name: 'بکینگ ترک',
+      desc: 'درام + باس + کیبورد برای همراهی خواننده',
       icon: '🎼',
-      tagKeys: ['backing', 'instrument'],
+      tags: ['بکینگ', 'ساز'],
       tagClass: 'yellow',
       config: {
         tempo: 110,
@@ -184,10 +183,10 @@
     },
     {
       id: 'tpl-006',
-      nameKey: 'tplPodcast',
-      descKey: 'tplPodcastDesc',
+      name: 'پادکست',
+      desc: 'دو ترک وکال + افکت‌های صوتی',
       icon: '🎙️',
-      tagKeys: ['podcast', 'vocal'],
+      tags: ['پادکست', 'وکال'],
       tagClass: 'purple',
       config: {
         tempo: 100,
@@ -212,7 +211,7 @@
       if (!Array.isArray(arrangers)) return [];
       return arrangers.map((arr) => ({
         id: arr.id,
-        name: arr.name || t('untitled'),
+        name: arr.name || 'بدون نام',
         songCount: (arr.items || []).length,
         crossfade: arr.crossfade || 0,
         pauseBetween: !!arr.pauseBetween,
@@ -234,8 +233,8 @@
       list.innerHTML = `
         <div class="arranger-empty">
           <div style="font-size:1.5rem;margin-bottom:6px;">🎼</div>
-          <span>${t('noArrangerTrack')}</span>
-          <span style="font-size:0.65rem;display:block;margin-top:4px;">${t('useArrangerHint')}</span>
+          <span>ارنجر ترکی وجود ندارد</span>
+          <span style="font-size:0.65rem;display:block;margin-top:4px;">از «ارسال به ارنجر» یا «➕ جدید» استفاده کنید</span>
         </div>`;
       return;
     }
@@ -246,11 +245,11 @@
         <div class="arranger-info">
           <div class="arranger-name">${escH(p.name)}</div>
           <div class="arranger-meta">
-            <span>🎵 ${p.songCount} ${t('songs')}</span>
-            ${p.crossfade > 0 ? `<span>🔄 ${t('crossfade')}: ${p.crossfade}s</span>` : ''}
+            <span>🎵 ${p.songCount} آهنگ</span>
+            ${p.crossfade > 0 ? `<span>🔄 کراس‌فید: ${p.crossfade}s</span>` : ''}
           </div>
         </div>
-        <button class="icon-btn" title="${t('openInArranger')}" data-action="open">📂</button>
+        <button class="icon-btn" title="باز کردن در ارنجر" data-action="open">📂</button>
       </div>
     `).join('');
   }
@@ -266,8 +265,8 @@
       list.innerHTML = `
         <div class="empty-state">
           <div class="empty-ic">📂</div>
-          <span>${t('noProjectsYet')}</span>
-          <span style="font-size:0.72rem">${t('startWithNew')}</span>
+          <span>هنوز پروژه‌ای در آرشیو نیست</span>
+          <span style="font-size:0.72rem">با «پروژه جدید» شروع کنید</span>
         </div>`;
       return;
     }
@@ -281,13 +280,13 @@
             <span>🎵 ${escH(p.artist)}</span>
             <span>🎼 <span class="meta-key">${escH(p.key)}</span></span>
             <span>⏱ <span class="meta-key">${escH(p.tempo)}</span> BPM</span>
-            <span>🎚 <span class="meta-key">${p.tracks}</span> ${t('tracks')}</span>
+            <span>🎚 <span class="meta-key">${p.tracks}</span> ترک</span>
             <span>🕘 ${escH(p.lastModified)}</span>
           </div>
         </div>
         <div class="project-actions">
-          <button class="icon-btn" title="${t('open')}" data-action="open">📂</button>
-          <button class="icon-btn danger" title="${t('delete')}" data-action="delete">🗑</button>
+          <button class="icon-btn" title="باز کردن" data-action="open">📂</button>
+          <button class="icon-btn danger" title="حذف" data-action="delete">🗑</button>
         </div>
       </div>
     `).join('');
@@ -297,27 +296,21 @@
     const grid = $('hubTemplatesGrid');
     if (!grid) return;
 
-    grid.innerHTML = TEMPLATES.map((tpl) => {
-      const name = t(tpl.nameKey);
-      const desc = t(tpl.descKey);
-      const tags = (tpl.tagKeys || []).map(k => t(k));
-      const tracksLabel = t('tracks');
-      return `
-      <div class="template-card" data-id="${tpl.id}">
-        <div class="template-ic">${tpl.icon}</div>
-        <div class="template-name">${escH(name)}</div>
-        <div class="template-desc">${escH(desc)}</div>
+    grid.innerHTML = TEMPLATES.map((t) => `
+      <div class="template-card" data-id="${t.id}">
+        <div class="template-ic">${t.icon}</div>
+        <div class="template-name">${escH(t.name)}</div>
+        <div class="template-desc">${escH(t.desc)}</div>
         <div class="template-tags">
-          ${tags.map((tag) => `<span class="tag ${tpl.tagClass || ''}">${escH(tag)}</span>`).join('')}
+          ${t.tags.map((tag) => `<span class="tag ${t.tagClass || ''}">${escH(tag)}</span>`).join('')}
         </div>
         <div class="template-config">
-          <span>⏱ ${tpl.config.tempo} BPM</span>
-          <span>🎼 ${escH(tpl.config.key)}</span>
-          <span>🎚 ${tpl.config.tracks.length} ${tracksLabel}</span>
+          <span>⏱ ${t.config.tempo} BPM</span>
+          <span>🎼 ${escH(t.config.key)}</span>
+          <span>🎚 ${t.config.tracks.length} ترک</span>
         </div>
       </div>
-    `;
-    }).join('');
+    `).join('');
   }
 
   /* ---------- Actions (یکپارچه با توابع واقعی) ---------- */

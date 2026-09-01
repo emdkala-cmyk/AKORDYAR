@@ -42,7 +42,7 @@
       const state = getTransportState();
       state.snapEnabled = !state.snapEnabled;
       getElement('snapBtn')?.classList?.toggle('active', state.snapEnabled);
-      toast(state.snapEnabled ? t('snapEnabled') : t('snapDisabled'));
+      toast(state.snapEnabled ? 'اسنپ فعال شد' : 'اسنپ غیرفعال شد');
       return state.snapEnabled;
     }
 
@@ -89,7 +89,9 @@
       )?.classList?.add('active');
       state.snapEnabled = true;
       getElement('snapBtn')?.classList?.add('active');
-      toast(t('operationComplete'));
+      toast(
+        `کوانتایز: ${preset} (${(state.snapValue * 1000).toFixed(0)}ms)`
+      );
       getElement('quantizeModal')?.classList?.remove('show');
       return state.snapValue;
     }
@@ -100,7 +102,7 @@
         clip.type === 'chord' && daw.selectedIds?.has?.(clip.id)
       );
       if (selectedChordClips.length === 0) {
-        toast(t('noChordSelected'));
+        toast('آکوردی در کورد لاین انتخاب نشده است');
         return { changed: false, count: 0 };
       }
 
@@ -121,9 +123,9 @@
         saveState();
         renderClips();
         renderRuler();
-        toast(t('operationComplete'));
+        toast(`کوانتایز شد: ${result.count} آکورد`);
       } else {
-        toast(t('chordsAlreadyOnGrid'));
+        toast('آکوردها از قبل روی گرید هستند');
       }
       return result;
     }

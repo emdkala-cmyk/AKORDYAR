@@ -117,14 +117,14 @@ const service = ArchiveProjectFileImportService.create({
   assert.ok(calls.some(call => call[0] === 'state'));
   assert.ok(calls.some(call => call[0] === 'save-song'));
   assert.ok(calls.some(call => call[0] === 'render-all'));
-  assert.ok(toasts.at(-1).includes('RawSong.akordyar'), `Expected toast with filename, got '${toasts.at(-1)}'`);
+  assert.equal(toasts.at(-1), 'پروژه لود شد: RawSong.akordyar');
 
   const failed = await service.importSingle({
     name: 'broken.akordyar',
     text: async () => '{broken'
   });
   assert.equal(failed.ok, false);
-  assert.ok(toasts.at(-1).includes('fileLoadError') || toasts.at(-1).includes('خطا در لود فایل'), `Expected error toast, got '${toasts.at(-1)}'`);
+  assert.match(toasts.at(-1), /خطا در لود فایل/);
   assert.ok(calls.some(call => call[0] === 'error'));
 
   const audioResult = await service.importSingle({

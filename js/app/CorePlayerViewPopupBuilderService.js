@@ -86,17 +86,17 @@
           ::-webkit-scrollbar-thumb:hover { background: #718096; }
         </style>`;
       let html = `<div class="popup-header"><div class="title">${title}</div><div class="sub">${sub}</div>
-        <div id="pv-settings-toggle" style="cursor:pointer;font-size:11px;color:#718096;margin-top:4px;user-select:none;transition:color 0.2s;">⚙ ${tf('displaySettings')}</div>
+        <div id="pv-settings-toggle" style="cursor:pointer;font-size:11px;color:#718096;margin-top:4px;user-select:none;transition:color 0.2s;">⚙ تنظیمات نمایش</div>
         <div id="pv-settings" style="display:none;text-align:right;padding:12px 14px;font-size:12px;margin-top:8px;background:linear-gradient(135deg,#1A202C,#161B26);border:1px solid #2D3748;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.4);">
           <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;align-items:center;">
             <label style="color:#A0AEC0;display:flex;align-items:center;gap:5px;">فونت:
               <select id="pv-font"><option value="Vazirmatn">Vazirmatn</option><option value="Vazirmatn Thin">Vazirmatn Thin</option><option value="Vazirmatn Bold">Vazirmatn Bold</option><option value="Vazirmatn Black">Vazirmatn Black</option><option value="BArshia">BArshia</option><option value="BFarnaz">BFarnaz</option><option value="BJadid">BJadid</option><option value="BZar">BZar</option><option value="BZar Bold">BZar Bold</option><option value="Lalezar">Lalezar</option></select>
             </label>
-            <label><input type="color" id="pv-tColor" value="${tColor}"> ${tf('textLabel')}</label>
-            <label><input type="color" id="pv-cColor" value="${cColor}"> ${tf('chordLabel2')}</label>
-            <label><input type="color" id="pv-bgColor" value="#0F131E"> ${tf('background')}</label>
-            <div>${tf('textLabel')} <input type="range" id="pv-tSize" min="12" max="55" value="${tSize}"> <span id="pv-tSizeVal">${tSize}</span></div>
-            <div>${tf('chordLabel2')} <input type="range" id="pv-cSize" min="8" max="40" value="${cSize}"> <span id="pv-cSizeVal">${cSize}</span></div>
+            <label><input type="color" id="pv-tColor" value="${tColor}"> متن</label>
+            <label><input type="color" id="pv-cColor" value="${cColor}"> آکورد</label>
+            <label><input type="color" id="pv-bgColor" value="#0F131E"> پس‌زمینه</label>
+            <div>متن: <input type="range" id="pv-tSize" min="12" max="55" value="${tSize}"> <span id="pv-tSizeVal">${tSize}</span></div>
+            <div>آکورد: <input type="range" id="pv-cSize" min="8" max="40" value="${cSize}"> <span id="pv-cSizeVal">${cSize}</span></div>
             <label><input type="checkbox" id="pv-scaleLock" checked> 🔗 قفل</label>
             <label><input type="checkbox" id="pv-bold"> <b>B</b> ضخیم</label>
           </div>

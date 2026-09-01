@@ -30,7 +30,6 @@
       pickArtistImage = () => {},
       removeArtistImage = () => {},
       toast = () => {},
-      t = globalScope.t || (k => k),
       getSectionCollapsed = () => false,
       setSectionCollapsed = () => {},
       getFullscreen = () => false,
@@ -52,10 +51,6 @@
     let sliderCardCount = 0;
     let artistContextTarget = null;
     const sliderRadius = 460;
-    const EMPTY_SLOTS = 21;
-    let currentRing = 0; // 0 = artists, 1 = empty slots
-    const newArtists = new Set();
-    const EMPTY_SLOT_COLOR = 'rgba(255,46,147,0.15)';
 
     function buildArtistList() {
       const songs = getAllSongs().filter(song => !song.deletedAt);
@@ -210,11 +205,11 @@
       } else if (action === 'remove-image') {
         removeArtistImage(normalizedName);
         refreshArtists();
-        toast(t('deleted'));
+        toast('تصویر خواننده حذف شد');
       } else if (action === 'reset-image') {
         removeArtistImage(normalizedName);
         refreshArtists();
-        toast(t('resetPhoto'));
+        toast('تصویر به حالت پیش‌فرض بازگشت');
       }
     }
 
@@ -239,47 +234,6 @@
       stopAutoScroll();
       container.classList.remove('slider-running', 'slider-paused');
       container.innerHTML = '';
-
-      // Ring 1: Empty slots for new artists
-      if (currentRing === 1) {
-        const newArtistKeys = Array.from(newArtists);
-        for (let i = 0; i < EMPTY_SLOTS; i++) {
-          const slot = documentRef.createElement('div');
-          const filledArtist = newArtistKeys[i];
-          if (filledArtist) {
-            slot.className = 'artist-card-slot filled';
-            const color = avatarColor(filledArtist);
-            const initials = getInitials(filledArtist);
-            const image = getArtistImage(filledArtist);
-            const avatar = image
-              ? `<img src="${image}" alt="${escapeHtml(filledArtist)}" loading="lazy">`
-              : `<div class="avatar-initials" style="background:${color}">${initials}</div>`;
-            slot.innerHTML = `<div class="artist-card-avatar">${avatar}</div><span class="artist-card-tooltip">${escapeHtml(filledArtist)}</span>`;
-            slot.onclick = () => {
-              setArtistFilter(filledArtist);
-              currentRing = 0;
-              render();
-              updateRingNav();
-              updateActiveFilters();
-            };
-          } else {
-            slot.className = 'artist-card-slot';
-            slot.innerHTML = `<span>＋</span>`;
-          }
-          container.appendChild(slot);
-        }
-        requestFrame(() => {
-          positionCards3D();
-          startAutoScroll();
-        });
-        const countLabel = getElement('artistCountLabel');
-        if (countLabel) countLabel.textContent = `( خالی: ${EMPTY_SLOTS - newArtistKeys.length} / ${EMPTY_SLOTS} )`;
-        updateSliderNav();
-        updateRingNav();
-        return;
-      }
-
-      // Ring 0: Normal artist cards
       const currentFilter = getArtistFilter();
       const allCard = documentRef.createElement('div');
       allCard.className = 'artist-card' + (!currentFilter ? ' active' : '');
@@ -372,38 +326,6 @@
       const countLabel = getElement('artistCountLabel');
       if (countLabel) countLabel.textContent = `(${filtered.length} خواننده)`;
       updateSliderNav();
-    }
-
-    function addNewArtist(artistName) {
-      const key = artistKey(artistName);
-      if (key && !newArtists.has(key)) {
-        newArtists.add(key);
-      }
-    }
-
-    function switchRing(direction) {
-      const newRing = currentRing + direction;
-      if (newRing < 0 || newRing > 1) return;
-      currentRing = newRing;
-      stopAutoScroll();
-      sliderAngle = 0;
-      const container = getElement('artistSliderContainer');
-      if (container) {
-        container.style.transition = 'transform 0.5s ease';
-        container.style.transform = 'rotateY(0deg)';
-      }
-      filterArtists();
-      updateRingNav();
-      globalScope.setTimeout(() => {
-        if (container) container.style.transition = '';
-      }, 550);
-    }
-
-    function updateRingNav() {
-      const upBtn = getElement('artistRingUpBtn');
-      const downBtn = getElement('artistRingDownBtn');
-      if (upBtn) upBtn.disabled = currentRing === 0;
-      if (downBtn) downBtn.disabled = currentRing === 1;
     }
 
     function renderArtists() {
@@ -525,21 +447,7 @@
           divider.addEventListener('pointercancel', stopResize);
         }
       }
-
-      // Ring navigation buttons
-      const ringUpBtn = getElement('artistRingUpBtn');
-      const ringDownBtn = getElement('artistRingDownBtn');
-      if (ringUpBtn && !ringUpBtn._archBound) {
-        ringUpBtn._archBound = true;
-        ringUpBtn.addEventListener('click', () => switchRing(-1));
-      }
-      if (ringDownBtn && !ringDownBtn._archBound) {
-        ringDownBtn._archBound = true;
-        ringDownBtn.addEventListener('click', () => switchRing(1));
-      }
-
       resetAutoScroll();
-      updateRingNav();
     }
 
     return Object.freeze({
@@ -557,9 +465,7 @@
       handleWheel,
       toggleArtistSection,
       toggleFullscreen,
-      bindArtistSection,
-      addNewArtist,
-      switchRing
+      bindArtistSection
     });
   }
 

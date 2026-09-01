@@ -129,6 +129,41 @@ if (!editorSyncAnalysisRuntime) {
     'EditorSyncAnalysisRuntimeService باید قبل از app/editor.js بارگذاری شود.'
   );
 }
+
+// تحلیل هوشمند صوت (تمپو/گام/آکورد) — موتور AudioAnalysisEngine + رابط ادیتور.
+const editorAudioAnalysisRuntime =
+  window.EditorAudioAnalysisRuntimeService?.create?.({
+    engine: window.AudioAnalysisEngine,
+    getDAW: () => editorGetRuntimeDAW(),
+    getSong: getCurrentEditorSong,
+    getSongState: () => getEditorSongStateService(),
+    getElement: id => $(id),
+    legacyRuntime: editorSyncAnalysisRuntime,
+    restoreAudio: async () =>
+      getEditorAudioRecoveryService()?.restoreSongAudio?.(
+        getCurrentEditorSong()
+      ) || { loaded: 0 },
+    decodeFileToBuffer,
+    transposeChordName: (name, semitones) =>
+      window.TransposeService?.transposeChordName?.(name, semitones) || name,
+    transposeKeyName: (key, semitones) =>
+      window.TransposeService?.transposeKeyName?.(key, semitones) || key,
+    saveSong: (...args) => edSaveSong(...args),
+    saveState: (...args) => saveState(...args),
+    commit: () => edCommit(),
+    handleTimingChange: (...args) => handleTimingChange(...args),
+    syncToolbar: (...args) => edSyncToolbar(...args),
+    renderEditor: (...args) => edRenderEditor(...args),
+    renderChords: (...args) => edRenderChords(...args),
+    renderTracks: (...args) => renderTracks(...args),
+    renderClips: (...args) => renderClips(...args),
+    renderAll: (...args) => renderAll(...args),
+    ensureTimelineFits: (...args) => ensureTimelineFits(...args),
+    uid: (...args) => uid(...args),
+    roundMs: (...args) => roundMs(...args),
+    colors: COLORS,
+    toast: (...args) => toast(...args)
+  });
 let edSelectedChords = [];
 let editorColorToolService = null;
 let editorKeyCommandController = null;
@@ -632,7 +667,7 @@ function getMidiScoreController() {
       const scroll = $('tl-scroll');
       const range = getTimelineSelectionRange();
       if (!scroll || !range || range.end <= range.start) {
-        toast(t('selectItemFirst'));
+        toast('ابتدا یک آیتم در تایم‌لاین انتخاب کنید');
         return;
       }
       const padding = Math.max(0.25, (range.end - range.start) * 0.08);
@@ -656,7 +691,7 @@ function getMidiScoreController() {
       const daw = editorGetRuntimeDAW();
       const track = daw.tracks.find(tr => tr.id === daw.selectedTrackId);
       if (!track) {
-        toast(t('selectLineFirst'));
+        toast('ابتدا یک لاین را انتخاب کنید');
         return;
       }
 
@@ -689,7 +724,7 @@ function getMidiScoreController() {
       });
       updateTrackSelectionUI();
       saveState();
-      toast(t('operationComplete'));
+      toast(isExpanded ? 'اندازه لاین‌ها به حالت عادی برگشت' : 'لاین انتخاب‌شده بزرگ شد');
     }
 
     /* ===== CHORD EDITOR & MIDI ===== */
@@ -784,7 +819,7 @@ function getMidiScoreController() {
         if (getEditorSongStateService()?.setTempo?.(newBPM)) {
           edSaveSong();
         }
-        toast(t('tempo') + ': ' + newBPM + ' BPM');
+        toast(`تمپوی کیوبیس: ${newBPM} BPM`);
       },
       schedule: (callback, delay) => setTimeout(callback, delay),
       cancel: timer => clearTimeout(timer)
@@ -991,8 +1026,8 @@ function getMidiScoreController() {
         if (cur.alt) keyParts.push('Alt');
         keyParts.push(formatKeyName(cur.code));
         const midiLabel = midiNote ? '🎹N' + midiNote[0].replace('n','') : '';
-        const midiRemoveBtn = midiNote ? `<button class="ed-btn" data-action="removeMidiMap" data-value="${editorEscapeHtml(midiNote[0].replace('n',''))}" title=t('deleteMidi') style="font-size:0.6rem;min-width:18px;height:24px;padding:0 3px;background:#e24f5b;color:#fff;border-color:#e24f5b;">✕</button>` : '';
-        div.innerHTML = `<span class="shortcut-label">${editorEscapeHtml(typeof t === 'function' ? t(sk.labelKey || sk.id) : (sk.labelKey || sk.id))}</span><div style="display:flex;gap:4px;align-items:center;"><div class="shortcut-key" data-sid="${editorEscapeHtml(sk.id)}"><kbd>${editorEscapeHtml(keyParts.join(' + '))}</kbd></div><button class="ed-btn" data-action="startMidiLearn" data-value="${editorEscapeHtml(sk.id)}" title="MIDI Learn" style="font-size:0.7rem;min-width:28px;height:24px;padding:0 4px;${midiNote ? 'background:#9F7AEA;color:#fff;border-color:#9F7AEA;' : ''}">🎹${midiLabel}</button>${midiRemoveBtn}</div>`;
+        const midiRemoveBtn = midiNote ? `<button class="ed-btn" data-action="removeMidiMap" data-value="${editorEscapeHtml(midiNote[0].replace('n',''))}" title="حذف MIDI" style="font-size:0.6rem;min-width:18px;height:24px;padding:0 3px;background:#e24f5b;color:#fff;border-color:#e24f5b;">✕</button>` : '';
+        div.innerHTML = `<span class="shortcut-label">${editorEscapeHtml(sk.label)}</span><div style="display:flex;gap:4px;align-items:center;"><div class="shortcut-key" data-sid="${editorEscapeHtml(sk.id)}"><kbd>${editorEscapeHtml(keyParts.join(' + '))}</kbd></div><button class="ed-btn" data-action="startMidiLearn" data-value="${editorEscapeHtml(sk.id)}" title="MIDI Learn" style="font-size:0.7rem;min-width:28px;height:24px;padding:0 4px;${midiNote ? 'background:#9F7AEA;color:#fff;border-color:#9F7AEA;' : ''}">🎹${midiLabel}</button>${midiRemoveBtn}</div>`;
         div.querySelector('.shortcut-key').addEventListener('click', () => startEditShortcut(sk.id));
         list.appendChild(div);
       });
@@ -1010,9 +1045,9 @@ function getMidiScoreController() {
       SHORTCUTS[_editingShortcutId] = { code, ctrl: !!ctrl, shift: !!shift };
       saveShortcuts(); _editingShortcutId = null;
       openShortcutModal(); // re-render
-      toast(t('shortcutsSaved'));
+      toast('شرتکات ذخیره شد');
     }
-    function resetShortcuts() { shortcutStore.resetShortcuts(); openShortcutModal(); toast(t('shortcutsReset')); }
+    function resetShortcuts() { shortcutStore.resetShortcuts(); openShortcutModal(); toast('شرتکات به پیش‌فرض بازگشت'); }
 
     // ===== MIDI MAP (MIDI Learn) =====
     const MIDI_MAPS = shortcutStore.midiMaps;
@@ -1054,7 +1089,7 @@ function getMidiScoreController() {
       if (btn) btn.classList.add('mapping-active');
       let toastEl = document.querySelector('.mapping-toast');
       if (!toastEl) { toastEl = document.createElement('div'); toastEl.className = 'mapping-toast'; document.body.appendChild(toastEl); }
-      const label = t(SHORTCUT_DEFAULTS.find(s => s.id === funcId)?.labelKey || funcId) || funcId;
+      const label = SHORTCUT_DEFAULTS.find(s => s.id === funcId)?.label || funcId;
       toastEl.textContent = '🎹 «' + label + '» — نت MIDI را بزنید...';
       toastEl.style.display = 'block';
       clearTimeout(midiLearnTimer);
@@ -1364,7 +1399,7 @@ function edBlankSong() {
     function askAudioCopyMode(fileName) {
   // در نسخه نصبی (Electron)، صدا همیشه به صورت مسیر ذخیره می‌شود
   if (isElectron) {
-    toast(t('saved'));
+    toast(`«${fileName}» به‌صورت مسیر ذخیره شد (حجم کم)`);
     return Promise.resolve(false);
   }
   return new Promise((resolve) => {
@@ -1948,12 +1983,12 @@ if ($('edRemoveAsterisks')) {
     if (!song || song.editorLocked) return;
     const result = getEditorMutationService()?.removeAsterisks(song);
     if (!result?.changed) {
-      toast(t('noStarsInText'));
+      toast('ستاره‌ای در متن وجود ندارد');
       return;
     }
     edRenderEditor(true);
     edSaveSong();
-    toast(t('allStarsRemoved'));
+    toast('تمام ستاره‌ها حذف شدند');
   };
 }
 
@@ -1963,7 +1998,7 @@ if ($('edReverseChords')) {
     // در حالت عادی نباید از این دکمه استفاده کرد چون ترتیب موسیقایی را برعکس می‌کند
     const song = getCurrentEditorSong();
     if (!song || song.editorLocked || !song.chords.length) {
-      toast(t('noChordExists'));
+      toast('آکوردی وجود ندارد');
       return;
     }
     if (!confirm('⚠️ آیا مطمئن هستید؟ این کار ترتیب موسیقایی آکوردها را در هر خط برعکس می‌کند و فقط برای موارد خاص کاربرد دارد.')) {
@@ -1973,7 +2008,7 @@ if ($('edReverseChords')) {
     if (!result?.changed) return;
     edRenderEditor(true);
     edSaveSong();
-    toast(t('chordsReversedSpecial'));
+    toast('ترتیب آکورد هر خط برعکس شد (فقط برای موارد خاص)');
   };
 }
 
@@ -1984,7 +2019,7 @@ if ($('edDoBoth')) {
     getEditorMutationService()?.removeAndReverse(song);
     edRenderEditor(true);
     edSaveSong();
-    toast(t('starsRemovedChordsReversed'));
+    toast('ستاره‌ها حذف و آکوردها برعکس شدند');
   };
 }
 
@@ -2265,13 +2300,13 @@ if ($('edDoBoth')) {
           lines.map((_, index) => shuffled[index % shuffled.length])
         );
         edRenderEditor(false);
-        toast(t('textColorRandom'));
+        toast('🎨 رنگ متن رندوم شد');
       } else {
         songState.colorChordsByLine(
           lineIndex => shuffled[lineIndex % shuffled.length]
         );
         edRenderChords();
-        toast(t('chordColorRandom'));
+        toast('🎨 رنگ آکوردها رندوم شد');
       }
       edSaveSong();
     }
@@ -2285,12 +2320,12 @@ if ($('edDoBoth')) {
         songState.clearLineColors();
         songState.setTextColor(defaultTextColor);
         edRenderEditor(false);
-        toast(t('textColorReset'));
+        toast('🔄 رنگ متن ریست شد');
       } else {
         songState.resetChordColors(defaultChordColor);
         songState.setChordColorStyle(defaultChordColor);
         edRenderChords();
-        toast(t('chordColorReset'));
+        toast('🔄 رنگ آکوردها ریست شد');
       }
       edSaveSong();
     }
@@ -2501,7 +2536,7 @@ if ($('edDoBoth')) {
       'quickSearchOpen': () => window.openQuickSearchPanel(),
       'archiveSave': () =>
         Promise.resolve(editorArchiveCall('saveToArchive')).then(() =>
-          toast(t('saved'))
+          toast('ذخیره شد')
         ),
       'songNew': () => editorArchiveCall('newSong'),
       'projectExport': () => editorArchiveCall('exportProject'),
@@ -2536,8 +2571,16 @@ if ($('edDoBoth')) {
       sendToArranger: () => sendCurrentSongToArranger(),
       toggleMetronome: () => toggleMetronome(),
       tapTempo: () => editorSyncAnalysisRuntime.tapTempo(),
-      detectTempo: () => editorSyncAnalysisRuntime.detectTempo(),
-      detectKey: () => editorSyncAnalysisRuntime.detectKey(),
+      detectTempo: () =>
+        editorAudioAnalysisRuntime
+          ? editorAudioAnalysisRuntime.detectTempo()
+          : editorSyncAnalysisRuntime.detectTempo(),
+      detectKey: () =>
+        editorAudioAnalysisRuntime
+          ? editorAudioAnalysisRuntime.detectKey()
+          : editorSyncAnalysisRuntime.detectKey(),
+      detectChords: () => editorAudioAnalysisRuntime?.detectChords?.(),
+      analyzeAll: () => editorAudioAnalysisRuntime?.analyzeAll?.(),
       toggleMIDITab: () => toggleMIDITab(),
       toggleMIDISync: () => toggleMIDISync(),
       toggleMidiMonitor: () => toggleMidiMonitor(),
@@ -2581,7 +2624,7 @@ if ($('edDoBoth')) {
       applyLanguage: (_, element) => {
         window.setCurrentLang?.(element.value);
         window.applyI18n?.();
-        window.toast?.(element.value === 'fa' ? 'زبان فارسی' : t('english'));
+        window.toast?.(element.value === 'fa' ? 'زبان فارسی' : 'English');
       },
       applySettingsToggles: () => applySettingsToggles(),
       resetSettings: () => resetSettings(),
@@ -2647,7 +2690,7 @@ if ($('edDoBoth')) {
       clearMidiMaps: () => {
         shortcutStore.clearMidiMaps();
         openShortcutModal();
-        toast(t('clearMidi'));
+        toast('Mapping های MIDI پاک شد');
       },
       closeArrangerModal: () => closeArrangerModal(),
       switchArrTab: (_, element) => switchArrTab(element.dataset.tab),
@@ -2695,7 +2738,7 @@ if ($('edDoBoth')) {
         keyboardMappingService = window.KeyboardMappingService.create({
           documentRef: document,
           getLabel: actionId =>
-            t(SHORTCUT_DEFAULTS.find(shortcut => shortcut.id === actionId)?.labelKey || actionId) ||
+            SHORTCUT_DEFAULTS.find(shortcut => shortcut.id === actionId)?.label ||
             actionId,
           saveShortcut: (actionId, shortcut) => {
             SHORTCUTS[actionId] = shortcut;

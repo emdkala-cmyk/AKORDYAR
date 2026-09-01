@@ -15,8 +15,7 @@
     confirm = message => globalScope.confirm?.(message) || false,
     saveArrangers = () => {},
     renderArrPool = () => {},
-    renderArrSetlist = () => {},
-    t = globalScope.t || (k => k)
+    renderArrSetlist = () => {}
   } = {}) {
     function arrSetCrossfade(value) {
       const editingArr = getEditingArr?.();
@@ -43,7 +42,7 @@
       const editingArr = getEditingArr?.();
       if (!editingArr) return;
       const value = await customPrompt(
-        t('transposeAllPrompt'),
+        'تغییر گام برای همه آهنگ‌ها (مثلاً 2 یا -3):',
         '0'
       );
       if (value === null) return;
@@ -59,7 +58,7 @@
 
     function arrClearNotes() {
       const editingArr = getEditingArr?.();
-      if (!editingArr || !confirm(t('clearAllNotesConfirm'))) {
+      if (!editingArr || !confirm('یادداشت‌های همه آهنگ‌ها پاک شود؟')) {
         return;
       }
       editingArr.items.forEach((id, index) => {

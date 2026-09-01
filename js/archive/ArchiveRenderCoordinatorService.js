@@ -21,8 +21,7 @@
       getSelectedIds = () => new Set(),
       getActiveSongId = () => null,
       renderList = () => {},
-      renderEmpty = () => {},
-      t = key => globalScope.t?.(key) ?? key
+      renderEmpty = () => {}
     } = context;
     const FEEL_6_8_LABEL = '2/4 (حس 6/8)';
     const FEEL_6_8_ID = '2/4-feel-6/8';
@@ -175,12 +174,12 @@
       const keyFilter = getElement('filterKey')?.value || '';
       const sort = getElement('filterSort')?.value || 'newest';
 
-      if (getElement('tabCountAll')) getElement('tabCountAll').textContent = activeAll.length;
-      if (getElement('tabCountFav')) getElement('tabCountFav').textContent =
+      getElement('tabCountAll').textContent = activeAll.length;
+      getElement('tabCountFav').textContent =
         activeAll.filter(song => song.favorite).length;
-      if (getElement('tabCountTrash')) getElement('tabCountTrash').textContent =
+      getElement('tabCountTrash').textContent =
         allSongs.filter(song => song.deletedAt).length;
-      if (getElement('archiveTotalCount')) getElement('archiveTotalCount').textContent = `(${activeAll.length} ترانه)`;
+      getElement('archiveTotalCount').textContent = `(${activeAll.length} ترانه)`;
 
       const songs = filterByTab(allSongs, currentTab).filter(song =>
         matchesFilters(song, {
@@ -194,10 +193,10 @@
       );
       sortSongs(songs, sort);
 
-      getElement('archiveResultCount').textContent = songs.length + ' ' + t('results');
+      getElement('archiveResultCount').textContent = songs.length + ' نتیجه';
       const isTrash = currentTab === 'trash';
       getElement('archiveStatusText').textContent =
-        isTrash ? t('trash') : currentTab === 'fav' ? t('favorites') : t('allSongs');
+        isTrash ? 'سطل زباله' : currentTab === 'fav' ? 'علاقه‌مندی‌ها' : 'همه ترانه‌ها';
       getElement('archiveFilterBar').style.display = isTrash ? 'none' : '';
 
       const list = getElement('archiveList');

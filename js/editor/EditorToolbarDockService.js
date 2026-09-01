@@ -40,8 +40,8 @@
       selector: '#edTransDown, #edTransVal, #edTransUp'
     },
     { label: 'Undo/Redo', selector: '#edUndoBtn, #edRedoBtn' },
-    { label: 'editorLock', selector: '#edEditorLockBtn' },
-    { label: 'removeStars', selector: '#edRemoveAsterisks' },
+    { label: 'قفل ویرایشگر', selector: '#edEditorLockBtn' },
+    { label: 'حذف ستاره', selector: '#edRemoveAsterisks' },
     { label: 'برعکس آکورد', selector: '#edReverseChords' },
     { label: 'حذف ستاره + برعکس', selector: '#edDoBoth' }
   ]);

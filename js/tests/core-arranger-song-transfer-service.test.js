@@ -43,7 +43,7 @@ const runtime = CoreArrangerSongTransferService.create({
     toast: message => calls.push(['empty-toast', message])
   });
   await emptyRuntime.send();
-  assert.ok(calls.at(-1)[1] === 'ترانه‌ای باز نیست' || calls.at(-1)[1] === 'noSongOpen', `Expected Persian or i18n key, got '${calls.at(-1)[1]}'`);
+  assert.equal(calls.at(-1)[1], 'ترانه‌ای باز نیست');
 
   const failingRuntime = CoreArrangerSongTransferService.create({
     getCurrentSong: () => currentSong,

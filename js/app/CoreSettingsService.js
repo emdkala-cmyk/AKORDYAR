@@ -163,13 +163,13 @@
         ) {
           context.destination
             .setSinkId(id)
-            .then(() => toast(t('outputDeviceChanged')))
-            .catch(() => toast(t('outputDeviceNotSupportedDetailed')));
+            .then(() => toast('دستگاه خروجی تغییر کرد'))
+            .catch(() => toast('تغییر دستگاه پشتیبانی نمی‌شود'));
         } else {
-          toast(t('outputDeviceNotSupported'));
+          toast('تغییر دستگاه خروجی پشتیبانی نمی‌شود');
         }
       } catch (_) {
-        toast(t('outputDeviceNotSupported'));
+        toast('تغییر دستگاه خروجی پشتیبانی نمی‌شود');
       }
     }
 
@@ -179,7 +179,7 @@
       const audioService = getAudioContextService?.();
       if (!audioService) return false;
       const played = audioService.playClick(true, soundType);
-      if (played) toast(t('metronomeTested'));
+      if (played) toast('صدای مترونوم آزمایش شد');
       return played;
     }
 
@@ -261,7 +261,7 @@
       updateReturnToStartButton();
       if (getSizeLocked()) toggleSizeLock();
       openSettings();
-      toast(t('settingsReset'));
+      toast('تنظیمات بازنشانی شد');
     }
 
     function initialize() {

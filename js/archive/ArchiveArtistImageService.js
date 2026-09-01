@@ -15,7 +15,6 @@
       artistKey = value => String(value || '').trim().toLowerCase(),
       refreshArtists = () => {},
       toast = () => {},
-      t = globalScope.t || (k => k),
       maxSize = 512,
       maxBytes = 2 * 1024 * 1024,
       allowedTypes = ['image/png', 'image/jpeg', 'image/webp']
@@ -74,7 +73,7 @@
         storage?.setItem('arch_artist_img_' + normalizedName, dataUrl);
       } catch (error) {
         console.warn('Artist image save error:', error);
-        toast(t('printError'));
+        toast('خطا در ذخیره تصویر: حجم تصویر بیش از حد مجاز است');
       }
     }
 
@@ -145,7 +144,7 @@
           const dataUrl = await process(file);
           set(normalizedName, dataUrl);
           refreshArtists();
-          toast(t('archiveSaved'));
+          toast('تصویر خواننده ذخیره شد');
         } catch (error) {
           toast('خطا: ' + error.message);
         }

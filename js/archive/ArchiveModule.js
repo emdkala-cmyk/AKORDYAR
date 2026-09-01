@@ -363,7 +363,7 @@
         if (typeof create !== 'function') {
           throw new Error('ArchiveConfirmService is not loaded. Check script order.');
         }
-        _archiveConfirmService = create({ getElement: id => $(id), t: window.t || (k => k) });
+        _archiveConfirmService = create({ getElement: id => $(id) });
       }
       return _archiveConfirmService;
     }
@@ -517,7 +517,6 @@
           pickArtistImage: archPickArtistImage,
           removeArtistImage: archRemoveArtistImage,
           toast,
-          t: window.t || (k => k),
           getSectionCollapsed: () => _archState.artistSectionCollapsed,
           setSectionCollapsed: value => {
             _archState.artistSectionCollapsed = value;
@@ -739,7 +738,7 @@
           prepareSong: ensureSongParsed,
           normalizeSong: archNormalize,
           confirmImport: count => archConfirm(
-            t('importArchive'),
+            'ورودی آرشیو',
             `فایل حاوی ${count} ترانه است. آیا با آرشیو فعلی ادغام شود؟`,
             'ادغام'
           ),
@@ -1059,7 +1058,7 @@
     function archEditSave() { return getArchiveMetadataEditService().save(); }
 
     // --- Refresh ---
-    function archRefresh() { archResetSearchCache(); _archState.artistCache=null; archMigrate(edGetAllSongs()); archRender(); archRenderArtists(); toast(t('refresh')); }
+    function archRefresh() { archResetSearchCache(); _archState.artistCache=null; archMigrate(edGetAllSongs()); archRender(); archRenderArtists(); toast('آرشیو تازه‌سازی شد'); }
 
     // ===== ARTIST SLIDER SYSTEM =====
 
@@ -1073,7 +1072,7 @@
 
     // Get initials from name
     function archGetInitials(name) {
-      if (!name || name === t('unknown')) return '?';
+      if (!name || name === 'نامشخص') return '?';
       const parts = name.trim().split(/\s+/);
       if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
       return (parts[0].charAt(0) + parts[parts.length-1].charAt(0)).toUpperCase();
@@ -1094,8 +1093,7 @@
           getDefaultArtists: getArchiveDefaultArtists,
           artistKey: archArtistKey,
           refreshArtists: archRenderArtists,
-          toast,
-          t: window.t || (k => k)
+          toast
         });
       }
       return _archiveArtistImageService;
@@ -1265,7 +1263,7 @@ archiveSaveState();
       if (getArchiveEditorApi().exportProjectFull) {
         return archiveEditorExportProjectFull();
       }
-      toast(t('exportServiceNotReady'));
+      toast('سرویس خروجی پروژه هنوز آماده نیست');
     }
 
     async function edExportXML() {
@@ -1332,7 +1330,7 @@ archiveSaveState();
         if (nativeImport.status === 'error') {
           const error = nativeImport.error;
           console.error('[Project Import] Native file load failed:', error);
-          toast(t('fileLoadError') + (error?.message || error));
+          toast('خطا در باز کردن فایل پروژه: ' + (error?.message || error));
         }
         return;
       }

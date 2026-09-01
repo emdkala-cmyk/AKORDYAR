@@ -102,13 +102,12 @@
           .clp-active-bg { background: rgba(255,46,147,0.08); border-radius: 6px; }
         </style>`;
       let html = `<div class="clp-header"><div class="title">${title}</div><div class="sub">${artist} · ${keyStr}</div></div>`;
-      const tf = globalScope.t || (k => k);
       html += `<div class="clp-controls">
-        <button class="clp-btn clp-btn-primary" id="clpSyncBtn" title="${tf('refresh')}">🔄 ${tf('sync')}</button>
-        <button class="clp-btn" id="clpTransDown" title="${tf('flat')}">♭</button>
+        <button class="clp-btn clp-btn-primary" id="clpSyncBtn" title="بروزرسانی Chord Line از Lyrics Chord">🔄 سینک</button>
+        <button class="clp-btn" id="clpTransDown" title="بمل">♭</button>
         <span id="clpTransVal" style="color:#718096;font-size:12px;font-weight:600;min-width:24px;text-align:center;display:inline-block;">${transpose > 0 ? '+' : ''}${transpose}</span>
-        <button class="clp-btn" id="clpTransUp" title="${tf('sharp')}">♯</button>
-        <button class="clp-btn" id="clpCopyBtn" title="${tf('copy')}">✔ ${tf('copy')}</button>
+        <button class="clp-btn" id="clpTransUp" title="دیز">♯</button>
+        <button class="clp-btn" id="clpCopyBtn" title="کپی آکوردها">✔ کپی</button>
       </div>`;
       html += `<div class="clp-body" id="clpBody">`;
       lines.forEach((line, i) => {
@@ -130,7 +129,7 @@
           if (!song) return;
           const lyricsChords = songState.getChords(song);
           if (lyricsChords.length === 0) {
-            toast(t('noChordsInLyricsDot'));
+            toast('هیچ آکوردی در Lyrics Chord وجود ندارد.');
             return;
           }
           const lyricsChordsInSyncOrder = [...lyricsChords].sort((a, b) => {
@@ -139,7 +138,7 @@
           });
           const currentChordLineClips = songState.getChordLineClips(song);
           if (currentChordLineClips.length === 0) {
-            toast(t('syncNeedsChordsDot'));
+            toast('برای همگام‌سازی، ابتدا حداقل یک آکورد در Chord Line ایجاد کنید.');
             return;
           }
           const appliedCount = Math.min(
@@ -153,9 +152,9 @@
           songState.markChordLineSynced(song);
           syncChordLinePopup();
           if (lyricsChordsInSyncOrder.length > currentChordLineClips.length) {
-            toast(t('syncNeedsChordsDot'));
+            toast(`فقط ${appliedCount} آکورد اول Lyrics روی ${currentChordLineClips.length} آکورد موجود در Chord Line اعمال شد.`);
           } else {
-            toast(t('syncComplete'));
+            toast(`✔ Chord Line با موفقیت از Lyrics Chord همگام شد (${appliedCount} آکورد).`);
           }
         };
       }
@@ -187,7 +186,7 @@
           const songState = getSongState();
           const clips = songState?.getChordLineClips?.() || [];
           if (clips.length === 0) {
-            toast(t('noChordsToCopy'));
+            toast('آکوردی برای کپی وجود ندارد');
             return;
           }
           const currentTranspose = songState.getTranspose();
@@ -195,12 +194,12 @@
             .map(ch => ch.name ? transposeChord(ch.name, currentTranspose) : '')
             .filter(Boolean);
           if (chordNames.length === 0) {
-            toast(t('noChordsToCopy'));
+            toast('آکوردی برای کپی وجود ندارد');
             return;
           }
           navigatorRef?.clipboard?.writeText?.(chordNames.join(' ')).then(
-            () => toast(t('chordsCopied') + ' (' + chordNames.length + ')'),
-            () => toast(t('copyError'))
+            () => toast('✔ ' + chordNames.length + ' آکورد کپی شد'),
+            () => toast('خطا در کپی')
           );
         };
       }

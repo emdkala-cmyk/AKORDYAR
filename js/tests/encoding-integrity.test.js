@@ -73,7 +73,7 @@ const files = [
   'js/archive/ArchivePublicApi.js',
   'js/archive/ArchiveModule.js',
   'js/projecthub.js',
-  'گزارش-کامل-روند-ویرایش-و-ساماندهی-پروژه.md'
+  '.gapcode/گزارش-کامل-روند-ویرایش-و-ساماندهی-پروژه.md'
 ];
 
 for (const relativePath of files) {

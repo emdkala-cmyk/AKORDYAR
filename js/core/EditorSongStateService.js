@@ -61,7 +61,7 @@
       if (!song) return null;
       const styles = getStyles(song);
       return {
-        title: song.title || t('untitled'),
+        title: song.title || 'بدون نام',
         artist: song.artist || '',
         key: song.key || 'C',
         keyMode: song.keyMode || 'maj',

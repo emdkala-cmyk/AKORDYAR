@@ -109,7 +109,7 @@
       }
       toast(
         `گام تشخیص داده شده: ${result.key} ` +
-        `${result.mode === 'maj' ? t('major') : t('minor')} (امتیاز: ${result.score})`
+        `${result.mode === 'maj' ? 'ماژور' : 'مینور'} (امتیاز: ${result.score})`
       );
     }
 

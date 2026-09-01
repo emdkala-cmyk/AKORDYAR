@@ -18,7 +18,6 @@
     exportArranger = () => {},
     confirmRef = () => false,
     translate = key => key,
-    t = key => globalScope.t?.(key) ?? key,
     toast = () => {}
   } = {}) {
     function render() {
@@ -31,7 +30,7 @@
       header.className = 'arr-manager-header';
       header.innerHTML = `
         <div style="display:flex;align-items:center;">
-          <h4>📋 ${t('savedPlaylists')}</h4>
+          <h4>📋 پلی‌لیست‌های ذخیره‌شده</h4>
           <span class="arr-count-badge">${arrangers.length}</span>
         </div>
       `;
@@ -40,18 +39,18 @@
       const toolbar = documentRef.createElement('div');
       toolbar.className = 'arr-manager-toolbar';
       toolbar.innerHTML = `
-        <button class="arr-btn-new" data-action="createNewArranger" title="${t('createPlaylist')}">
-          ＋ ${t('newPlaylist')}
+        <button class="arr-btn-new" data-action="createNewArranger" title="ساخت پلی‌لیست جدید">
+          ＋ پلی‌لیست جدید
         </button>
         <div style="display:flex;gap:6px;">
-          <button class="arr-btn-import" data-action="importArrangerFromFile" title="${t('importPlaylistJson')}">
-            📥 ${t('importPlaylistJson')}
+          <button class="arr-btn-import" data-action="importArrangerFromFile" title="بارگذاری یک پلی‌لیست از فایل JSON">
+            📥 ورود یک پلی‌لیست
           </button>
-          <button class="arr-btn-import" data-action="importAllPlaylistsFromFile" title="${t('importAllPlaylists')}">
-            📥 ${t('importAllPlaylists')}
+          <button class="arr-btn-import" data-action="importAllPlaylistsFromFile" title="بارگذاری کامل همه پلی‌لیست‌ها از فایل پشتیبان">
+            📥 ورود کامل پلی‌لیست‌ها
           </button>
-          <button class="arr-btn-import" data-action="exportAllPlaylistsToFile" title="${t('exportAllPlaylists')}" ${arrangers.length === 0 ? 'disabled' : ''}>
-            📤 ${t('exportAllPlaylists')}
+          <button class="arr-btn-import" data-action="exportAllPlaylistsToFile" title="خروجی کامل همه پلی‌لیست‌ها در یک فایل" ${arrangers.length === 0 ? 'disabled' : ''}>
+            📤 خروجی کامل پلی‌لیست‌ها
           </button>
         </div>
       `;
@@ -62,7 +61,7 @@
         empty.className = 'arr-empty-state';
         empty.innerHTML = `
           <div class="arr-empty-icon">🎼</div>
-          <div class="arr-empty-text">${t('noPlaylistYet')}<br>${t('createFirstPlaylist')}</div>
+          <div class="arr-empty-text">هنوز پلی‌لیستی نساخته‌اید.<br>روی «پلی‌لیست جدید» بزنید تا اولین پلی‌لیست رو بسازید.</div>
         `;
         box.appendChild(empty);
         return;
@@ -77,12 +76,12 @@
         const badges = [];
         if (arr.crossfade) {
           badges.push(
-            `<span class="arr-badge badge-crossfade">🔄 ${t('crossfade')}: ${arr.crossfade}s</span>`
+            `<span class="arr-badge badge-crossfade">🔄 کراس‌فید: ${arr.crossfade}s</span>`
           );
         }
         if (arr.pauseBetween) {
           badges.push(
-            `<span class="arr-badge badge-pause">⏸ ${t('stopBetweenSongs')}</span>`
+            '<span class="arr-badge badge-pause">⏸ توقف بین آهنگ‌ها</span>'
           );
         }
 
@@ -93,9 +92,9 @@
             ${badges.length ? `<div class="arr-card-badges">${badges.join('')}</div>` : ''}
           </div>
           <div class="acts">
-            <button data-a="edit" title="${t('edit')}">✏️ ${t('edit')}</button>
-            <button data-a="export" class="act-export" title="${t('exportToFile')}">📤</button>
-            <button data-a="del" class="act-del" title="${t('delete')}">🗑</button>
+            <button data-a="edit" title="ویرایش">✏️ ویرایش</button>
+            <button data-a="export" class="act-export" title="خروجی به فایل">📤</button>
+            <button data-a="del" class="act-del" title="حذف">🗑</button>
           </div>
         `;
 
@@ -109,7 +108,7 @@
           if (action === 'del') {
             if (
               !confirmRef(
-                `${t('delete')} ${t('savedPlaylists')} \"${arr.name || translate('untitled')}\"?`
+                `حذف پلی‌لیست «${arr.name || translate('untitled')}»؟`
               )
             ) {
               return;
@@ -123,7 +122,7 @@
               if (editor) editor.style.display = 'none';
             }
             render();
-            toast(t('playlistDeleted'));
+            toast('🗑 پلی‌لیست حذف شد');
           } else if (action === 'edit') {
             setEditingArr(arr);
             openArrEditor();

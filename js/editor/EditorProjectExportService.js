@@ -218,7 +218,7 @@
       const linkedCount = timeline.clips.filter(clip =>
         clip.type !== 'chord' && clip.bufferKey && !clip._embedded
       ).length;
-      const defaultName = `${exportSong.title || t('newSongDefault')} (کامل).json`;
+      const defaultName = `${exportSong.title || 'ترانه جدید'} (کامل).json`;
       const data = JSON.stringify(exportSong);
 
       return {

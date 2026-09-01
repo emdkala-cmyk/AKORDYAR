@@ -63,7 +63,7 @@
         settings: { repeatMode: 'none' },
         playlists: arrangers.map(arranger => ({
           id: arranger.id,
-          name: arranger.name || t('playlistNumber'),
+          name: arranger.name || 'پلی‌لیست',
           createdAt: arranger.createdAt || timestamp,
           updatedAt: arranger.updatedAt || timestamp,
           items: playlistItems(arranger.items),

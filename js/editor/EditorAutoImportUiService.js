@@ -70,7 +70,7 @@
       if (footer) footer.style.display = 'flex';
       if (button) {
         button.disabled = false;
-        button.textContent = t('startAutoImport');
+        button.textContent = '🚀 شروع ورودی اتومات';
       }
       hideProgress();
     }

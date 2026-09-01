@@ -33,30 +33,32 @@
           const data = JSON.parse(text);
 
           if (!data || (!data.items && !data.songs)) {
-            toast(t('invalidPlaylistFormat'));
+            toast('❌ فایل معتبر نیست — فرمت پلی‌لیست نیست');
             return;
           }
 
           const supportedVersions = [1, '1.0', 2, '2.0'];
           if (data.version && !supportedVersions.includes(data.version)) {
-            toast(t('unsupportedFileVersion') || `❌ File version (${data.version}) not supported.`);
+            toast(`❌ نسخه فایل (${data.version}) پشتیبانی نمی‌شود.`);
             return;
           }
 
           let baseName = data.name || file.name.replace(/\.json$/i, '');
           if (!baseName || !baseName.trim()) {
-            toast(t('playlistNameEmpty'));
+            toast('❌ نام پلی‌لیست در فایل خالی است.');
             return;
           }
           baseName = baseName.trim();
 
           if (playlistNameExists(baseName)) {
-            toast(t('playlistNameExists'));
+            toast(
+              `⚠ پلی‌لیستی با نام «${baseName}» از قبل وجود دارد.\nبرای ورود این فایل، ابتدا نام پلی‌لیست را در فایل خروجی یا در پروژه‌ی مبدا تغییر دهید.`
+            );
             return;
           }
 
           if (!Array.isArray(data.items)) {
-            toast(t('invalidItemsArray'));
+            toast('❌ آرایه‌ی items در فایل معتبر نیست.');
             return;
           }
 
@@ -65,7 +67,7 @@
             const songId =
               item && typeof item === 'object' ? item.songId : item;
             if (!songId) {
-              toast(t('invalidItemsArray') + ' #' + (index + 1));
+              toast(`❌ آیتم شماره ${index + 1} فاقد songId معتبر است.`);
               return;
             }
           }
@@ -106,10 +108,12 @@
           setEditingArr(newArr);
           renderArrangerManager();
           openArrEditor();
-          toast(t('playlistCreated'));
+          toast(
+            `✅ پلی‌لیست «${newArr.name}» بارگذاری شد (${newArr.items.length} آهنگ${importedSongsCount > 0 ? `، ${importedSongsCount} آهنگ جدید` : ''})`
+          );
         } catch (error) {
           logger.error('[Import] Error:', error);
-          toast(t('fileLoadError') + ' ' + error.message);
+          toast('❌ خطا در بارگذاری فایل: ' + error.message);
         }
       };
       input.click();

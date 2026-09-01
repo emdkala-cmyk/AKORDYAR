@@ -5,7 +5,7 @@
  * DOM contract and the global `archConfirm`/`archConfirmResolve` bridge intact.
  */
 (function attachArchiveConfirmService(globalScope) {
-  function create({ getElement, t = globalScope.t || (k => k) } = {}) {
+  function create({ getElement } = {}) {
     const resolveElement = getElement || (id => {
       if (typeof globalScope.$ === 'function') return globalScope.$(id);
       return globalScope.document?.getElementById(id);
@@ -18,7 +18,7 @@
         resolveElement('archConfirmTitle').textContent = title;
         resolveElement('archConfirmMsg').innerHTML = message;
         const okButton = resolveElement('archConfirmOk');
-        okButton.textContent = okLabel || t('confirmBtn');
+        okButton.textContent = okLabel || 'تأیید';
         okButton.className = dangerMode ? 'confirm-danger' : 'confirm-ok';
         resolveElement('archiveConfirmOverlay').classList.add('show');
       });

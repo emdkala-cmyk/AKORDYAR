@@ -128,7 +128,7 @@ ArchiveArtistImageService.create({
   storage: failingStorage,
   toast: message => toasts.push(message)
 }).set('artist-a', 'too-large');
-assert.ok(toasts.some(message => message.includes('printError') || message.includes('ذخیره تصویر')));
+assert.ok(toasts.some(message => message.includes('ذخیره تصویر')));
 
 console.log('ArchiveArtistImageService tests passed');
 }

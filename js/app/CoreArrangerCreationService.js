@@ -15,23 +15,22 @@
     renderArrangerManager = () => {},
     openArrEditor = () => {},
     toast = () => {},
-    t = globalScope.t || (k => k),
     now = () => Date.now(),
     isoNow = () => new Date().toISOString()
   } = {}) {
     async function createNewArranger() {
       const arrangers = getArrangers?.() || [];
       const name = await prompt(
-        t('newPlaylistNamePrompt'),
-        t('newPlaylist') + ' ' + (arrangers.length + 1)
+        'نام پلی‌لیست جدید:',
+        'پلی‌لیست ' + (arrangers.length + 1)
       );
       if (name === null) return;
 
       const trimmedName =
-        String(name).trim() || t('newPlaylist') + ' ' + (arrangers.length + 1);
+        String(name).trim() || 'پلی‌لیست ' + (arrangers.length + 1);
       if (playlistNameExists?.(trimmedName)) {
         toast?.(
-          t('playlistNameExists')
+          `⚠ پلی‌لیستی با نام «${trimmedName}» از قبل وجود دارد. نام دیگری انتخاب کنید.`
         );
         return createNewArranger();
       }
@@ -50,7 +49,7 @@
       setEditingArr?.(arr);
       renderArrangerManager?.();
       openArrEditor?.();
-      toast?.(t('playlistCreated'));
+      toast?.(`✅ پلی‌لیست «${arr.name}» ساخته شد`);
     }
 
     return Object.freeze({ createNewArranger });

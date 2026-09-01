@@ -22,16 +22,16 @@
     function saveCurrentArranger() {
       const editingArr = getEditingArr?.();
       if (!editingArr) {
-        toast?.(t('noPlaylistEditing'));
+        toast?.('⚠ هیچ پلی‌لیستی در حال ویرایش نیست');
         return;
       }
 
       const nameInput = getElement?.('arrName');
       let newName = nameInput ? nameInput.value.trim() : '';
-      if (!newName) newName = t('untitledPlaylist');
+      if (!newName) newName = 'پلی‌لیست بدون نام';
 
       if (playlistNameExists?.(newName, editingArr.id)) {
-        toast?.(t('playlistNameExists'));
+        toast?.(`⚠ پلی‌لیستی با نام «${newName}» از قبل وجود دارد.`);
         return;
       }
 
@@ -44,7 +44,9 @@
 
       saveArrangers?.();
       renderArrangerManager?.();
-      toast?.(t('playlistSaved'));
+      toast?.(
+        `✅ پلی‌لیست «${editingArr.name}» ذخیره شد (${editingArr.items.length} آهنگ)`
+      );
     }
 
     function saveCurrentArrangerDebounced() {

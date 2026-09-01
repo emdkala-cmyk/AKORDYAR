@@ -485,10 +485,8 @@ const requestRenderSyncLyrics = debounce(() => { renderSyncLyrics(); }, 120);
     }
 
     function toast(msg) {
-      const toastEl = $('toast');
-      const translatedMsg = typeof globalScope.t === 'function' ? globalScope.t(msg) || msg : msg;
-      toastEl.textContent = translatedMsg; toastEl.classList.add('show');
-      clearTimeout(toast._tm); toast._tm = setTimeout(() => toastEl.classList.remove('show'), 1700);
+      const t = $('toast'); t.textContent = msg; t.classList.add('show');
+      clearTimeout(toast._tm); toast._tm = setTimeout(() => t.classList.remove('show'), 1700);
     }
 
     function ensureAudioCtx() {
@@ -1261,7 +1259,7 @@ function applyState(stateStr) {
       coreGetRuntimeDAW().playheadMode = coreGetRuntimeDAW().playheadMode === 'page' ? 'center' : 'page';
       const btn = $('playheadModeBtn');
       if (btn) btn.classList.toggle('ph-center', coreGetRuntimeDAW().playheadMode === 'center');
-      toast(coreGetRuntimeDAW().playheadMode === 'center' ? t('playheadFixedCenter') : t('scrollPaged'));
+      toast(coreGetRuntimeDAW().playheadMode === 'center' ? 'پلی‌هدر ثابت در مرکز' : 'اسکرول صفحه‌ای');
     }
 
     const corePopupWindowRuntime =

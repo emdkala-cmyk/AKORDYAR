@@ -50,7 +50,8 @@
 
     function toggleLoop() {
       const daw = getDAW();
-      if (isPerforming()) {        toast(t('loopDisabledInArranger'));
+      if (isPerforming()) {
+        toast('لوپ در حالت ارنجر غیرفعال است');
         return;
       }
       daw.loopEnabled = !daw.loopEnabled;
@@ -89,13 +90,13 @@
       daw.loopB = 10;
       setSelectionEnd(0);
       renderLoopRegion();
-      toast(t('rangeCleared'));
+      toast('محدوده پاک شد');
     }
 
     function getSelectionBounds() {
       const clips = getSelectedClips();
       if (!clips.length) {
-        toast(t('nothingSelected'));
+        toast('آیتمی انتخاب نشده');
         return null;
       }
       return {
@@ -125,7 +126,8 @@
     }
 
     function setLoopFromSelectionAndPlay() {
-      if (isPerforming()) {        toast(t('loopDisabledInArranger'));
+      if (isPerforming()) {
+        toast('لوپ در حالت ارنجر غیرفعال است');
         return;
       }
       const bounds = getSelectionBounds();

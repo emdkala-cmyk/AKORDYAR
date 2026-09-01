@@ -18,7 +18,7 @@
       if (!box) return;
       if (!editingArr || !editingArr.items.length) {
         box.innerHTML =
-          `<div style="text-align:center;padding:30px;color:var(--text-secondary);">${t('noSongsInArranger')}</div>`;
+          '<div style="text-align:center;padding:30px;color:var(--text-secondary);">ترانه‌ای در این ارنجر وجود ندارد</div>';
         return;
       }
 
@@ -38,13 +38,13 @@
         html += `<div class="arr-song-card">
           <div class="song-header">
             <div class="song-num">${index + 1}</div>
-            <div class="song-title">${song.title || t('untitled')}</div>
+            <div class="song-title">${song.title || 'بدون عنوان'}</div>
           </div>
           <div class="song-meta">
             ${song.artist ? '<span>🎤 ' + song.artist + '</span>' : ''}
-            ${key ? '<span>' + t('key') + ': ' + key + '</span>' : ''}
-            ${rhythm ? '<span>' + t('rhythm') + ': ' + rhythm + '</span>' : ''}
-            <span>' + t('transposeAll') + ': ${transpose}</span>
+            ${key ? '<span>🎵 گام: ' + key + '</span>' : ''}
+            ${rhythm ? '<span>🥁 ریتم: ' + rhythm + '</span>' : ''}
+            <span>♯ تغییر گام: ${transpose}</span>
           </div>
           ${
             setting.notes

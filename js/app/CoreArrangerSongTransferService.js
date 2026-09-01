@@ -20,7 +20,7 @@
     async function send() {
       const currentSong = getCurrentSong?.();
       if (!currentSong) {
-        toast(t('noSongOpen'));
+        toast('ترانه‌ای باز نیست');
         return;
       }
 
@@ -32,7 +32,7 @@
         if (!arrangers.length) {
           editingArr = {
             id: now(),
-            name: t('newPlaylist'),
+            name: 'پلی‌لیست جدید',
             items: [],
             crossfade: 0,
             pauseBetween: false
@@ -54,10 +54,10 @@
 
         saveArrangers?.();
         openArrangerModal?.();
-        toast(t('songAddedToPlaylist'));
+        toast('ترانه به پلی‌لیست اضافه شد');
       } catch (error) {
         logger.error('[Arranger] Failed to send current song:', error);
-        toast(t('songSendError'));
+        toast('خطا در ارسال ترانه به ارنجر');
       }
     }
 

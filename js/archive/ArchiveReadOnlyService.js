@@ -26,7 +26,6 @@
       setReadOnly = () => {},
       now = () => new Date().toISOString(),
       toast = () => {},
-      t = globalScope.t || (k => k),
       logError = (...args) => console.error(...args)
     } = context;
 
@@ -61,7 +60,7 @@
       setReadOnly(false);
       const banner = getElement('readOnlyBanner');
       banner?.remove();
-      toast(t('readOnlyDisabled'));
+      toast('حالت فقط‌خواندنی غیرفعال شد');
     }
 
     async function createEditableCopy() {
@@ -70,14 +69,14 @@
       exitReadOnly();
       const copy = clone(sourceSong);
       copy.id = generateId();
-      copy.title = (copy.title || t('untitled')) + ' (نسخه قابل ویرایش)';
+      copy.title = (copy.title || 'بدون نام') + ' (نسخه قابل ویرایش)';
       copy.createdAt = now();
       copy.updatedAt = now();
       const songs = getAllSongs();
       songs.unshift(copy);
       setAllSongs(songs);
       setSong(copy);
-      toast(t('editableCopyLabel'));
+      toast('نسخه قابل ویرایش ساخته شد');
     }
 
     async function loadReadOnly(id) {
@@ -86,11 +85,11 @@
       try {
         const song = getAllSongs().find(item => String(item.id) === String(id));
         if (!song || song.deletedAt) {
-          toast(t('songNotFoundSingle'));
+          toast('ترانه یافت نشد');
           setLoading(false);
           return;
         }
-        toast(t('loading'));
+        toast('در حال باز کردن ترانه...');
         ensureSongParsed(song);
         closeArchive();
         await loadProject(song);
@@ -105,10 +104,10 @@
           setAllSongs(songs);
         }
         showBanner();
-        toast(t('openReadOnly'));
+        toast('ترانه در حالت فقط‌خواندنی باز شد');
       } catch (error) {
         logError('Archive readonly load error:', error);
-        toast(t('audioLoadFailed') + (error.message || t('unknown')));
+        toast('خطا در لود ترانه: ' + (error.message || 'خطای ناشناخته'));
       } finally {
         setLoading(false);
       }

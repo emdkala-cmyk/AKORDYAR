@@ -500,7 +500,7 @@ class SyncModeController {
       const badge = document.createElement('div');
       badge.className = 'cl-tap-badge';
       badge.textContent = i + 1;
-      badge.title = t('syncPoint') + ' ' + (i + 1) + ' — ' + this.formatTime(m.time) + ' (Click = Delete)';
+      badge.title = 'نقطه ' + (i + 1) + ' — ' + this.formatTime(m.time) + ' (کلیک = حذف)';
       badge.addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); if (i >= 0 && i < ss.clMarkers.length) { ss.clMarkers.splice(i, 1); this.edRenderClMarkers(); this.edUpdateClCount(); } });
       mk.appendChild(badge); overlay.appendChild(mk);
     });
@@ -617,7 +617,7 @@ class SyncModeController {
       this.renderSyncLyrics(); this.edSaveSong();
     };
     if (this.$('syncResetBtn')) this.$('syncResetBtn').onclick = () => {
-      if (!confirm(t('clearSyncTimesConfirm'))) return;
+      if (!confirm('تمام زمان‌های سینک پاک شود؟')) return;
       state.history.push(JSON.stringify(this.songState.getSyncTimes())); state.redoHistory = [];
       this.songState.replaceSyncTimes([]); state.cursor = 0;
       this.renderSyncLyrics(); this.edSaveSong();

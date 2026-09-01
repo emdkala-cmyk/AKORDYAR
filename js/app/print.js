@@ -13,7 +13,7 @@
  */
 function printSong() {
   const song = window.EditorRuntimeAdapter?.getSong?.() || null;
-  if (!song) { toast(t('songNotOpen')); return; }
+  if (!song) { toast('ابتدا یک ترانه باز کنید'); return; }
   if (printSong._active) return;
   printSong._active = true;
 
@@ -22,7 +22,7 @@ function printSong() {
     const chordLayerEl = $('chordLayer');
     const editorWrapEl = $('editorWrap');
     if (!editorEl || !chordLayerEl || !editorWrapEl) {
-      toast(t('songNotOpen'));
+      toast('خطا در دسترسی به ادیتور');
       printSong._active = false;
       return;
     }
@@ -174,7 +174,7 @@ function printSong() {
         }
       } catch (e) {
         console.error('[Print] Error:', e);
-        toast(t('printError'));
+        toast('خطا در چاپ');
         if (pc && pc.parentNode) pc.parentNode.removeChild(pc);
         printSong._active = false;
       }
@@ -185,7 +185,7 @@ function printSong() {
 
   } catch (e) {
     console.error('[Print] Error building content:', e);
-    toast(t('printError'));
+    toast('خطا در آماده‌سازی چاپ');
     const px = document.getElementById('printContainer');
     if (px && px.parentNode) px.parentNode.removeChild(px);
     printSong._active = false;

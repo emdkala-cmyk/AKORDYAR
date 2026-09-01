@@ -20,7 +20,6 @@
       setAllSongs = () => {},
       now = () => new Date().toISOString(),
       toast = () => {},
-      t = globalScope.t || (k => k),
       logError = (...args) => console.error(...args)
     } = context;
 
@@ -30,11 +29,11 @@
       try {
         const song = getAllSongs().find(item => String(item.id) === String(id));
         if (!song || song.deletedAt) {
-          toast(t('songNotFoundSingle'));
+          toast('ترانه یافت نشد');
           setLoading(false);
           return;
         }
-        toast(t('loading'));
+        toast('در حال باز کردن ترانه...');
         ensureSongParsed(song);
         if (getCurrentSong() && hasUnsavedChanges()) {
           const shouldSave = await confirmUnsaved();
@@ -51,10 +50,10 @@
           allSongs[index].lastOpenedAt = now();
           setAllSongs(allSongs);
         }
-        toast(t('projectLoaded') + (loadedSong?.title || t('untitled')));
+        toast('پروژه لود شد: ' + (loadedSong?.title || 'بدون نام'));
       } catch (error) {
         logError('Archive load error:', error);
-        toast(t('audioLoadFailed') + (error.message || t('unknown')));
+        toast('خطا در لود ترانه: ' + (error.message || 'خطای ناشناخته'));
       } finally {
         setLoading(false);
       }

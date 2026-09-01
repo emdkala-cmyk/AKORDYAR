@@ -132,7 +132,7 @@
 
       const track = (daw.tracks || []).find(item => item.id === clip.trackId);
       if (track?.locked) {
-        toast(t('trackLocked'));
+        toast('ترک قفل است');
         return;
       }
 

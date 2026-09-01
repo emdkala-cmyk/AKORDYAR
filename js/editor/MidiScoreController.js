@@ -25,8 +25,7 @@
     musicXmlRenderer = globalScope.ScoreRenderer || globalScope.MusicXmlScoreRenderer,
     scoreRenderer = globalScope.ScoreRenderer || musicXmlRenderer,
     transposeService = globalScope.ScoreTransposeService,
-    scorePlayheadService = globalScope.EditorScorePlayheadService,
-    t = key => globalScope.t?.(key) ?? key
+    scorePlayheadService = globalScope.EditorScorePlayheadService
   } = {}) {
     if (!importService?.create) {
       throw new TypeError('ScoreController requires MidiScoreImportService');
@@ -125,7 +124,7 @@
         changed = true;
       }
       if (!changed) {
-        toast(t('importHintFirst'));
+        toast('ابتدا یک فایل MIDI یا MusicXML وارد کنید');
         return false;
       }
       song.liveScoreSettings = {
@@ -232,8 +231,8 @@
       const syncButton = documentRef.createElement('button');
       syncButton.type = 'button';
       syncButton.className = 'midi-score-part-btn midi-score-sync-btn';
-      syncButton.textContent = t('syncWithProjectKey');
-      syncButton.title = t('syncScoreTranspose');
+      syncButton.textContent = '🎼 همگام‌سازی با گام پروژه';
+      syncButton.title = 'ترنسپوز نت‌های همه سازها و بازسازی علامت گام در ابتدای میزان‌ها';
       syncButton.addEventListener('click', syncScoresToProjectKey);
       partsElement.appendChild(syncButton);
 
@@ -242,9 +241,9 @@
         chordToggle.type = 'button';
         chordToggle.className = 'midi-score-part-btn midi-score-chord-toggle';
         const visible = chordVisibility(selectedPartId, currentScore);
-        chordToggle.textContent = `${t('chords')}: ${visible ? t('on') : t('off')}`;
+        chordToggle.textContent = `آکوردها: ${visible ? 'روشن' : 'خاموش'}`;
         chordToggle.setAttribute('aria-pressed', String(visible));
-        chordToggle.title = t('toggleScoreChords');
+        chordToggle.title = 'نمایش یا مخفی‌کردن آکوردها روی میزان‌ها';
         chordToggle.addEventListener('click', () => {
           setChordVisibility(selectedPartId, !chordVisibility(selectedPartId, musicXmlScore()));
         });
@@ -265,10 +264,10 @@
 
       const playheadSelect = documentRef.createElement('select');
       playheadSelect.className = 'midi-score-playhead-mode-select';
-      playheadSelect.setAttribute('aria-label', t('playheadMode'));
+      playheadSelect.setAttribute('aria-label', 'حالت پلی‌هد');
       [
-        { value: 'line', label: t('playheadLine') },
-        { value: 'measure', label: t('playheadHighlight') }
+        { value: 'line', label: 'پلی‌هد: خط' },
+        { value: 'measure', label: 'پلی‌هد: هایلایت میزان' }
       ].forEach(optionData => {
         const option = documentRef.createElement('option');
         option.value = optionData.value;
@@ -293,7 +292,7 @@
         qrButton.type = 'button';
         qrButton.className = 'midi-score-part-btn midi-score-qr-btn';
         qrButton.textContent = 'QR';
-        qrButton.title = t('showPartQR');
+        qrButton.title = 'نمایش QR اختصاصی همین پارت';
         qrButton.setAttribute('aria-label', `QR ${part.name || part.id}`);
         qrButton.addEventListener('click', event => {
           event.stopPropagation();
@@ -317,26 +316,28 @@
 
       partsElement?.replaceChildren();
       if (meta) {
-        meta.textContent = t('importMultiPartHint');
+        meta.textContent = 'ابتدا یک فایل چندپارتی MIDI یا MusicXML وارد کنید';
       }
       viewer.replaceChildren();
       const state = documentRef.createElement('div');
       state.className = 'midi-score-empty-state';
       const title = documentRef.createElement('strong');
-      title.textContent = t('scoreReaderReady');
+      title.textContent = 'محیط نت‌خوان آماده است';
       const description = documentRef.createElement('p');
-      description.textContent = t('importMultiPartDesc');
+      description.textContent =
+        'پس از ورود فایل، هر ساز به‌صورت یک تب جدا نمایش داده می‌شود؛ ' +
+        'با انتخاب تب، نت همان ساز را می‌بینید.';
       const actions = documentRef.createElement('div');
       actions.className = 'midi-score-empty-actions';
       const midiButton = documentRef.createElement('button');
       midiButton.type = 'button';
       midiButton.className = 'midi-score-action';
-      midiButton.textContent = t('importMultiPartMidi');
+      midiButton.textContent = '📥 ورود MIDI چندپارتی';
       midiButton.addEventListener('click', openImporter);
       const xmlButton = documentRef.createElement('button');
       xmlButton.type = 'button';
       xmlButton.className = 'midi-score-action';
-      xmlButton.textContent = t('importMultiPartXml');
+      xmlButton.textContent = '📄 ورود MusicXML چندپارتی';
       xmlButton.addEventListener('click', openMusicXmlImporter);
       actions.append(midiButton, xmlButton);
       state.append(title, description, actions);
@@ -481,7 +482,7 @@
             const message = documentRef.createElement('div');
             message.className = 'score-render-error';
             message.setAttribute('role', 'alert');
-            message.textContent = `خطا در نمایش استاندارد MusicXML: ${error?.message || t('osmdRenderFailed')}`;
+            message.textContent = `خطا در نمایش استاندارد MusicXML: ${error?.message || 'رندر OSMD ناموفق بود'}`;
             root.replaceChildren(message);
             console.error('[ScoreRenderer] OSMD render failed:', error);
           });

@@ -265,13 +265,13 @@ function renderQuickSearchList(songs, container) {
   if (!container) return;
   
   if (songs.length === 0) {
-    container.innerHTML = '<div class="qsp-empty">' + t('songNotFound') + '</div>';
+    container.innerHTML = '<div class="qsp-empty">ترانه‌ای یافت نشد</div>';
     return;
   }
   
   container.innerHTML = songs.map(s => `
     <button class="qsp-item" data-command="quickSearchLoadSong" data-song-id="${searchEscapeHtml(String(s.id))}">
-      <div class="qsp-item-title">${searchEscapeHtml(s.title || t('untitled'))}</div>
+      <div class="qsp-item-title">${searchEscapeHtml(s.title || 'بدون نام')}</div>
       <div class="qsp-item-artist">${searchEscapeHtml(s.artist || '')}</div>
     </button>
   `).join('');
@@ -282,7 +282,7 @@ function quickSearchLoadSong(id) {
   const songs = quickSearchArchiveCall('getAllSongs') || [];
   const s = songs.find(x => String(x.id) === String(id));
   if (!s || s.deletedAt) {
-    toast(t('songNotFoundSingle'));
+    toast('ترانه یافت نشد');
     return;
   }
   

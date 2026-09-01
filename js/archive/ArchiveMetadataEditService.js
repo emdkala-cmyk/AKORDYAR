@@ -50,7 +50,6 @@
       renderArtists = () => {},
       updateActiveFilters = () => {},
       toast = () => {},
-      t = globalScope.t || (k => k),
       now = () => new Date().toISOString(),
       OptionCtor = globalScope.Option,
       metadata = globalScope.SongMetadata
@@ -87,12 +86,12 @@
     function save() {
       const id = getEditSongId();
       if (!id) return;
-      pushUndo(t('editProperties'));
+      pushUndo('ویرایش مشخصات');
       const songs = getAllSongs();
       const song = songs.find(item => String(item.id) === String(id));
       if (!song) return;
 
-      song.title = getElement('aeTitle').value.trim() || t('untitled');
+      song.title = getElement('aeTitle').value.trim() || 'بدون نام';
       song.artist = getElement('aeArtist').value.trim();
       song.artistKey = artistKey(song.artist);
       song.album = getElement('aeAlbum').value.trim();
@@ -116,7 +115,7 @@
       render();
       renderArtists();
       updateActiveFilters();
-      toast(t('propertiesUpdated'));
+      toast('مشخصات به‌روزرسانی شد');
     }
 
     return Object.freeze({ open, close, save });

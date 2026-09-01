@@ -75,9 +75,9 @@
       const root = document.createElement('div');
       root.id = 'akord-sync-panel';
       root.setAttribute('role', 'button');
-      root.setAttribute('aria-label', t('groupSharing'));
+      root.setAttribute('aria-label', 'اشتراک‌گذاری گروه‌نوازی');
       root.tabIndex = 0;
-      root.title = t('groupSharing');
+      root.title = 'اشتراک‌گذاری گروه‌نوازی';
       root.style.cssText = [
         'position:fixed', 'left:14px', 'top:14px', 'z-index:99999',
         'width:36px', 'height:36px', 'max-height:calc(100vh - 20px)',
@@ -101,7 +101,7 @@
           <details id="akord-sync-part-details" class="live-score-qr-details">
             <summary>نمایش QR اختصاصی سازها</summary>
             <label class="live-score-qr-part-label" for="akord-sync-part-select">انتخاب ساز</label>
-            <select id="akord-sync-part-select" class="live-score-qr-part-select" aria-label=t('selectInstrument')></select>
+            <select id="akord-sync-part-select" class="live-score-qr-part-select" aria-label="انتخاب ساز"></select>
             <div id="akord-sync-part-url" class="live-score-qr-part-url"></div>
             <div id="akord-sync-part-qr-grid" class="live-score-qr-grid"></div>
           </details>
@@ -372,7 +372,7 @@
       partSelectEl.disabled = qrPayloads.length === 0;
       if (!qrPayloads.length) {
         const option = document.createElement('option');
-        option.textContent = t('noInstrumentAvailable');
+        option.textContent = 'سازی برای انتخاب وجود ندارد';
         partSelectEl.appendChild(option);
       }
     }
@@ -476,7 +476,7 @@
         }
         const ipsEl = el('akord-sync-ips');
         if (ipsEl && info.lanIps && info.lanIps.length > 1) {
-          ipsEl.textContent = t('otherAddresses') + info.lanIps.join(' , ');
+          ipsEl.textContent = 'آدرس‌های دیگر: ' + info.lanIps.join(' , ');
         } else if (ipsEl) {
           ipsEl.textContent = '';
         }
@@ -491,7 +491,7 @@
         statusEl.textContent = `✅ متصل — ${slaveCount || 0} گوشی وصل شده`;
         statusEl.style.color = '#4ade80';
       } else {
-        statusEl.textContent = t('connectingToSync');
+        statusEl.textContent = '⏳ در حال اتصال به سرور سینک…';
         statusEl.style.color = '#fbbf24';
       }
     }
@@ -501,7 +501,7 @@
       const row = document.createElement('div');
       row.id = 'peer-' + peer.id;
       row.style.cssText = 'padding:4px 6px;margin:3px 0;border-radius:6px;background:#f3f4f6;display:flex;justify-content:space-between;color:#111827;';
-      row.innerHTML = `<span>${peer.name || t('phone')}${peer.partId ? ` · ${peer.partId}` : ''}</span><span>${peer.ip || ''}</span>`;
+      row.innerHTML = `<span>${peer.name || 'گوشی'}${peer.partId ? ` · ${peer.partId}` : ''}</span><span>${peer.ip || ''}</span>`;
       listEl.appendChild(row);
     }
 

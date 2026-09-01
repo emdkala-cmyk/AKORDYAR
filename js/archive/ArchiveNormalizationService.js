@@ -113,7 +113,6 @@
   }
 
   function create(options = {}) {
-    const t = options.t || globalScope.t || (k => k);
     const schemaVersion = options.schemaVersion ?? 1;
     const generateId = typeof options.generateId === 'function'
       ? options.generateId
@@ -126,7 +125,7 @@
       const timestamp = now();
       const output = { ...data };
       output.id = String(data.id || generateId());
-      output.title = data.title || t('untitled');
+      output.title = data.title || 'بدون نام';
       output.artist = data.artist || '';
       output.album = data.album || '';
       output.key = data.key || 'C';

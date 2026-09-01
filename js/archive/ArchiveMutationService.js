@@ -27,7 +27,6 @@
       resetSearchCache,
       escapeHtml = value => String(value ?? ''),
       toast,
-      t = globalScope.t || (k => k),
       now = () => new Date().toISOString()
     } = context;
 
@@ -45,7 +44,7 @@
     async function bulkTrash() {
       if (!selectedIds.size) return;
       const ok = await confirm(
-        t('moveToTrash'),
+        'انتقال به سطل زباله',
         `${selectedIds.size} ترانه به سطل زباله منتقل شود؟`,
         'انتقال'
       );
@@ -81,12 +80,12 @@
       const song = findSong(id, songs);
       if (!song) return;
       const ok = await confirm(
-        t('moveToTrash'),
-        `ترانه «${escapeHtml(song.title || t('untitled'))}» به سطل زباله منتقل شود؟`,
+        'انتقال به سطل زباله',
+        `ترانه «${escapeHtml(song.title || 'بدون نام')}» به سطل زباله منتقل شود؟`,
         'انتقال'
       );
       if (!ok) return;
-      pushUndo(t('moveToTrash'));
+      pushUndo('انتقال به سطل زباله');
       song.deletedAt = now();
       setAllSongs(songs);
       refresh();
@@ -94,7 +93,7 @@
     }
 
     async function restore(id) {
-      pushUndo(t('restore'));
+      pushUndo('بازیابی');
       const songs = getAllSongs();
       const song = findSong(id, songs);
       if (song) {
@@ -111,13 +110,13 @@
       const song = findSong(id, songs);
       if (!song) return;
       const ok = await confirm(
-        t('permanentDelete'),
-        `<strong>⚠️ این عمل غیرقابل بازگشت است!</strong><br>ترانه «${escapeHtml(song.title || t('untitled'))}» برای همیشه حذف خواهد شد.`,
-        t('permanentDelete'),
+        'حذف دائمی',
+        `<strong>⚠️ این عمل غیرقابل بازگشت است!</strong><br>ترانه «${escapeHtml(song.title || 'بدون نام')}» برای همیشه حذف خواهد شد.`,
+        'حذف دائمی',
         true
       );
       if (!ok) return;
-      pushUndo(t('permanentDelete'));
+      pushUndo('حذف دائمی');
       const index = songs.findIndex(item => String(item.id) === String(id));
       if (index > -1) songs.splice(index, 1);
       setAllSongs(songs);
@@ -143,7 +142,7 @@
       if (!song) return;
       const copy = clone(song);
       copy.id = generateId();
-      copy.title = (copy.title || t('untitled')) + ' (کپی)';
+      copy.title = (copy.title || 'بدون نام') + ' (کپی)';
       copy.createdAt = now();
       copy.updatedAt = now();
       copy.lastOpenedAt = null;

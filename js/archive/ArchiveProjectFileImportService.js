@@ -63,7 +63,6 @@
       saveSong = () => {},
       renderAll = () => {},
       toast = () => {},
-      t = globalScope.t || (k => k),
       logError = (...args) => console.error(...args),
       getGlobal = () => globalScope
     } = context;
@@ -96,7 +95,7 @@
       try {
         if (file?._projectFilePath) setProjectFilePath(file._projectFilePath);
         else clearProjectFilePath();
-        toast(t('loadingProject'));
+        toast('در حال لود پروژه...');
         const data = JSON.parse(await file.text());
         if (!data || typeof data !== 'object') throw new Error('Invalid');
 
@@ -216,11 +215,11 @@
         saveState();
         saveSong();
         renderAll();
-        toast(t('projectLoaded') + file.name);
+        toast('پروژه لود شد: ' + file.name);
         return { ok: true, song };
       } catch (error) {
         logError(error);
-        toast(t('fileLoadError'));
+        toast('خطا در لود فایل!');
         return { ok: false, error };
       }
     }

@@ -33,23 +33,23 @@
   }
 
   const GENRE_LABELS = Object.freeze({
-    sad: globalScope.t?.('sad') ?? 'sad',
-    happy: globalScope.t?.('happy') ?? 'happy',
-    heavy: globalScope.t?.('heavy') ?? 'heavy',
-    'heavy-6-8': globalScope.t?.('heavy68') ?? '6/8 سنگین',
-    '6/8 سنگین': globalScope.t?.('heavy68') ?? '6/8 سنگین',
-    romantic: globalScope.t?.('love') ?? 'love',
-    energetic: globalScope.t?.('energetic') ?? 'energetic',
-    calm: globalScope.t?.('calm') ?? 'calm',
-    epic: globalScope.t?.('epic') ?? 'epic',
-    pop: globalScope.t?.('pop') ?? 'pop',
-    rock: globalScope.t?.('rock') ?? 'rock',
-    jazz: globalScope.t?.('jazz') ?? 'jazz',
-    classical: globalScope.t?.('classical') ?? 'classical',
-    folk: globalScope.t?.('traditional') ?? 'traditional',
-    electronic: globalScope.t?.('electronic') ?? 'electronic',
-    hiphop: globalScope.t?.('hipHop') ?? 'هیپ‌هاپ',
-    other: globalScope.t?.('other') ?? 'other'
+    sad: 'غمگین',
+    happy: 'شاد',
+    heavy: 'سنگین',
+    'heavy-6-8': '6/8 سنگین',
+    '6/8 سنگین': '6/8 سنگین',
+    romantic: 'عاشقانه',
+    energetic: 'انرژیک',
+    calm: 'آرام',
+    epic: 'حماسی',
+    pop: 'پاپ',
+    rock: 'راک',
+    jazz: 'جاز',
+    classical: 'کلاسیک',
+    folk: 'سنتی',
+    electronic: 'الکترونیک',
+    hiphop: 'هیپ‌هاپ',
+    other: 'سایر'
   });
 
   function create(context = {}) {
@@ -58,13 +58,12 @@
       requestFrame = callback =>
         (globalScope.requestAnimationFrame || (cb => globalScope.setTimeout(cb, 0)))(callback),
       escapeHtml = value => String(value ?? ''),
-      syncSelectAll = () => {},
-      t = key => globalScope.t?.(key) ?? key
+      syncSelectAll = () => {}
     } = context;
 
     function renderEmpty(list, { query, isTrash, currentTab }) {
       list.innerHTML =
-        `<div class="archive-empty"><div class="archive-empty-icon">${isTrash ? '🗑' : '🎵'}</div>${query ? t('noResults') : isTrash ? t('trashEmpty') : currentTab === 'fav' ? t('noFavorites') : t('archiveEmpty')}</div>`;
+        `<div class="archive-empty"><div class="archive-empty-icon">${isTrash ? '🗑' : '🎵'}</div>${query ? 'نتیجه‌ای یافت نشد' : isTrash ? 'سطل زباله خالی است' : currentTab === 'fav' ? 'ترانه‌ای در علاقه‌مندی نیست' : 'آرشیو خالی است'}</div>`;
     }
 
     function renderTable(list, songs, options) {
@@ -76,10 +75,10 @@
       let headerHtml = '<table class="archive-table archive-table-header"><thead><tr>';
       if (selectMode) {
         headerHtml +=
-          `<th style="width:36px;"><input type="checkbox" class="arch-select-all-cb archive-card-check" data-action="archSelectAll" aria-label="${t('selectAll')}"></th>`;
+          '<th style="width:36px;"><input type="checkbox" class="arch-select-all-cb archive-card-check" data-action="archSelectAll" aria-label="انتخاب همه"></th>';
       }
       headerHtml +=
-        `<th>${t('title')}</th><th>${t('artist')}</th><th>${t('key')}</th><th>BPM</th><th>${t('meter')}</th><th>${t('date')}</th><th>${t('actions')}</th></tr></thead></table>`;
+        '<th>عنوان</th><th>خواننده</th><th>گام</th><th>BPM</th><th>میزان</th><th>تاریخ</th><th>عملیات</th></tr></thead></table>';
 
       let bodyHtml =
         '<div class="archive-table-body"><table class="archive-table archive-table-body-inner"><tbody>';
@@ -98,9 +97,9 @@
             `<td style="width:36px;"><input type="checkbox" class="archive-card-check" data-action="archToggleSelect" data-song-id="${escapeHtml(song.id)}" ${selected ? 'checked' : ''} aria-label="انتخاب"></td>`;
         }
         bodyHtml +=
-          `<td style="font-weight:700;">${escapeHtml(song.title || t('untitled'))}</td><td>${escapeHtml(song.artist || '—')}</td><td style="color:#FFA500;font-weight:700;font-family:JetBrains Mono,monospace;">${keyLabel}</td><td style="color:#FF6BA8;">${song.tempo || song.bpm || '—'}</td><td>${escapeHtml(getDisplayTimeSignature(song) || '—')}</td><td style="font-size:0.72rem;color:var(--text-secondary);">${dateLabel}</td>`;
+          `<td style="font-weight:700;">${escapeHtml(song.title || 'بدون نام')}</td><td>${escapeHtml(song.artist || '—')}</td><td style="color:#FFA500;font-weight:700;font-family:JetBrains Mono,monospace;">${keyLabel}</td><td style="color:#FF6BA8;">${song.tempo || song.bpm || '—'}</td><td>${escapeHtml(getDisplayTimeSignature(song) || '—')}</td><td style="font-size:0.72rem;color:var(--text-secondary);">${dateLabel}</td>`;
         bodyHtml +=
-          `<td><div class="at-actions"><button data-arch-action="open" data-song-id="${song.id}" title="${t('open')}" aria-label="${t('open')}">▶</button> <button data-arch-action="menu" data-song-id="${song.id}" title="${t('more')}" aria-label="${t('more')}">⋯</button></div></td></tr>`;
+          `<td><div class="at-actions"><button data-arch-action="open" data-song-id="${song.id}" title="بازکردن" aria-label="بازکردن">▶</button> <button data-arch-action="menu" data-song-id="${song.id}" title="بیشتر" aria-label="بیشتر">⋯</button></div></td></tr>`;
       }
       bodyHtml += '</tbody></table></div>';
       list.innerHTML = headerHtml + bodyHtml;
@@ -154,7 +153,7 @@
         card.setAttribute('role', 'button');
         card.setAttribute(
           'aria-label',
-          (song.title || t('untitled')) + ' ' + (song.artist || '')
+          (song.title || 'بدون نام') + ' ' + (song.artist || '')
         );
 
         let inner = '';
@@ -163,25 +162,25 @@
             `<input type="checkbox" class="archive-card-check" data-action="archToggleSelect" data-song-id="${escapeHtml(song.id)}" ${selectedIds.has(song.id) ? 'checked' : ''} aria-label="انتخاب">`;
         }
         inner +=
-          `<div class="archive-card-body"><div class="archive-card-top"><div class="archive-card-title">${escapeHtml(song.title || t('untitled'))}</div></div><div class="archive-card-artist">${escapeHtml(song.artist || '—')}</div>`;
+          `<div class="archive-card-body"><div class="archive-card-top"><div class="archive-card-title">${escapeHtml(song.title || 'بدون نام')}</div></div><div class="archive-card-artist">${escapeHtml(song.artist || '—')}</div>`;
         if (tags.length) inner += `<div class="archive-card-meta">${tags.join('')}</div>`;
         if (dateLabel) {
           inner +=
-            `<div class="archive-card-date">${trashed ? t('deletedLabel') : ''}${dateLabel}</div>`;
+            `<div class="archive-card-date">${trashed ? 'حذف شده: ' : ''}${dateLabel}</div>`;
         }
         inner += '</div><div class="archive-card-actions">';
         inner +=
-          `<button data-arch-action="fav" data-song-id="${song.id}" class="btn-fav ${song.favorite ? 'is-fav' : ''}" title="${song.favorite ? t('removeFavorite') : t('addFavorite')}" aria-label="${t('favorite')}" type="button">${song.favorite ? '⭐' : '☆'}</button>`;
+          `<button data-arch-action="fav" data-song-id="${song.id}" class="btn-fav ${song.favorite ? 'is-fav' : ''}" title="${song.favorite ? 'حذف از علاقه‌مندی' : 'افزودن به علاقه‌مندی'}" aria-label="علاقه‌مندی" type="button">${song.favorite ? '⭐' : '☆'}</button>`;
         if (trashed) {
           inner +=
-            `<button data-arch-action="restore" data-song-id="${song.id}" class="btn-load" title="${t('restore')}" aria-label="${t('restore')}" type="button">♻️</button>`;
+            `<button data-arch-action="restore" data-song-id="${song.id}" class="btn-load" title="بازیابی" aria-label="بازیابی" type="button">♻️</button>`;
           inner +=
-            `<button data-arch-action="permanent-delete" data-song-id="${song.id}" class="btn-del" title="${t('permanentDelete')}" aria-label="${t('permanentDelete')}" type="button">✕</button>`;
+            `<button data-arch-action="permanent-delete" data-song-id="${song.id}" class="btn-del" title="حذف دائمی" aria-label="حذف دائمی" type="button">✕</button>`;
         } else {
           inner +=
-            `<button data-arch-action="open" data-song-id="${song.id}" class="btn-load"title="${t('open')}" aria-label="${t('open')}" type="button">▶</button>`;
+            `<button data-arch-action="open" data-song-id="${song.id}" class="btn-load" title="بازکردن" aria-label="بازکردن" type="button">▶</button>`;
           inner +=
-            `<button data-arch-action="menu" data-song-id="${song.id}" class="btn-menu" title="${t('more')}" aria-label="${t('more')}" type="button">⋯</button>`;
+            `<button data-arch-action="menu" data-song-id="${song.id}" class="btn-menu" title="بیشتر" aria-label="بیشتر" type="button">⋯</button>`;
         }
         inner += '</div>';
         card.innerHTML = inner;

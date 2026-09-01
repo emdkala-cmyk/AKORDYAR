@@ -17,8 +17,7 @@
     renderArrSongsList = () => {},
     saveCurrentArranger = () => {},
     exportArranger = () => {},
-    toast = () => {},
-    t = globalScope.t || (k => k)
+    toast = () => {}
   } = {}) {
     function switchArrTab(tab) {
       documentRef?.querySelectorAll?.('.arr-tab')
@@ -46,7 +45,7 @@
     function exportCurrentArranger() {
       const editingArr = getEditingArr?.();
       if (!editingArr) {
-        toast?.(t('noPlaylistEditing'));
+        toast?.('⚠ هیچ پلی‌لیستی در حال ویرایش نیست');
         return;
       }
       saveCurrentArranger?.();
