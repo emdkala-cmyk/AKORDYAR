@@ -39,10 +39,14 @@
         }
 
         const element = documentRef.createElement('div');
+        const isDragPreview =
+          daw.drag?.type === 'move' &&
+          daw.drag.items?.some(item => item.id === clip.id);
         element.className =
           'clip' +
           (clip.type === 'chord' ? ' chord-clip' : ' audio-clip') +
-          (daw.selectedIds?.has?.(clip.id) ? ' selected' : '');
+          (daw.selectedIds?.has?.(clip.id) ? ' selected' : '') +
+          (isDragPreview ? ' drag-preview' : '');
         element.dataset.clipId = clip.id;
         element.style.left = timeToX(clip.start) + 'px';
         element.style.width = Math.max(30, timeToX(clip.duration)) + 'px';

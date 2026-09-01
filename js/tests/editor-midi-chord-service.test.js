@@ -17,10 +17,21 @@ assert.equal(major.type, 'maj');
 assert.equal(major.tension, '');
 assert.equal(major.bass, 'None');
 
+const invertedMajor = service.identifyChord([64, 67, 72]);
+assert.equal(invertedMajor.root, 'C');
+assert.equal(invertedMajor.type, 'maj');
+assert.equal(invertedMajor.bass, 'None');
+assert.equal(service.formatChordName(invertedMajor), 'C');
+
 const minor = service.identifyChord([57, 60, 64]);
 assert.equal(minor.root, 'A');
 assert.equal(minor.type, 'min');
 assert.equal(minor.bass, 'None');
+
+const invertedMinor = service.identifyChord([60, 65, 68]);
+assert.equal(invertedMinor.root, 'F');
+assert.equal(invertedMinor.type, 'min');
+assert.equal(invertedMinor.bass, 'None');
 
 const diminished = service.identifyChord([60, 63, 66]);
 assert.equal(diminished.root, 'C');

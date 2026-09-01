@@ -51,6 +51,7 @@ const service = Drag.create({
 
 assert.equal(service.update({ clientX: 30, clientY: 4, target: laneTarget }), true);
 assert.equal(daw.clips[0].start, 3);
+assert.equal(daw.clips[0].trackId, 't2');
 assert.deepEqual(calls, [['fit', 10]]);
 assert.equal(service.finish(), true);
 assert.equal(daw.clips[0].trackId, 't2');

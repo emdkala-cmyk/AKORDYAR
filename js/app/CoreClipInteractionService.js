@@ -245,6 +245,67 @@
       documentRef?.removeEventListener?.('mouseup', onWarpDragEnd);
     }
 
+    function buildClipDragItems(clipId, clip, daw, edge) {
+      if (edge) {
+        return [{
+          id: clipId,
+          origStart: clip.start,
+          origDur: clip.duration,
+          origOffset: clip.offset,
+          origTrackId: clip.trackId
+        }];
+      }
+
+      return selectedClips()
+        .map(item => ({
+          id: item.id,
+          origStart: item.start,
+          origDur: item.duration,
+          origOffset: item.offset,
+          origTrackId: item.trackId
+        }))
+        .concat(
+          (daw.sections || [])
+            .filter(section => getSelectedSectionIds(daw).has(section.id))
+            .map(section => ({
+              id: section.id,
+              origStart: section.start,
+              origDuration: section.duration,
+              origOffset: 0,
+              _isSection: true
+            }))
+        );
+    }
+
+    function beginClipDrag(
+      clipId,
+      clip,
+      event,
+      daw,
+      edge,
+      pendingSelectionToggle = null
+    ) {
+      const drag = {
+        type: edge ? 'resize' : 'move',
+        edge,
+        primaryId: clipId,
+        startX: event.clientX,
+        startY: event.clientY,
+        hasMoved: false,
+        items: buildClipDragItems(clipId, clip, daw, edge)
+      };
+      if (pendingSelectionToggle) {
+        drag.pendingSelectionToggle = pendingSelectionToggle;
+      }
+      daw.drag = drag;
+      startPointerDrag(
+        getElement('tl-inner') || event.currentTarget,
+        event,
+        onDocMouseMove,
+        onDocMouseUp
+      );
+    }
+
     /* ============================================================
        CLIP POINTER DOWN — main entry point
        ============================================================ */
@@ -343,6 +404,8 @@
         return;
       }
 
+      const edge = event.target?.dataset?.edge || null;
+
       if (event.altKey) {
         const selected = selectedClips();
         if (!selected.find(item => item.id === clipId)) {
@@ -374,6 +437,8 @@
           type: 'move', edge: null,
           primaryId: dragItems[0]?.id,
           startX: event.clientX,
+          startY: event.clientY,
+          hasMoved: false,
           items: dragItems
         };
         renderAll();
@@ -385,7 +450,18 @@
       }
 
       if (event.ctrlKey || event.metaKey) {
-        toggleClip(clipId, { render: true });
+        const wasSelected = daw.selectedIds.has(clipId);
+        if (!wasSelected) {
+          toggleClip(clipId, { render: false });
+        }
+        beginClipDrag(
+          clipId,
+          clip,
+          event,
+          daw,
+          edge,
+          wasSelected ? { clipId } : null
+        );
         return;
       }
 
@@ -394,40 +470,7 @@
         selectAll([clipId]);
       }
 
-      const edge = event.target?.dataset?.edge || null;
-      const dragItems = edge
-        ? [{
-            id: clipId,
-            origStart: clip.start,
-            origDur: clip.duration,
-            origOffset: clip.offset,
-            origTrackId: clip.trackId
-          }]
-        : selectedClips()
-            .map(item => ({
-              id: item.id,
-              origStart: item.start,
-              origDur: item.duration,
-              origOffset: item.offset,
-              origTrackId: item.trackId
-            }))
-            .concat(
-              (daw.sections || [])
-                .filter(section => selectedSectionIds.has(section.id))
-                .map(section => ({ id: section.id, origStart: section.start, origDuration: section.duration, origOffset: 0, _isSection: true }))
-            );
-
-      daw.drag = {
-        type: edge ? 'resize' : 'move',
-        edge,
-        primaryId: clipId,
-        startX: event.clientX,
-        items: dragItems
-      };
-      startPointerDrag(
-        getElement('tl-inner') || event.currentTarget,
-        event, onDocMouseMove, onDocMouseUp
-      );
+      beginClipDrag(clipId, clip, event, daw, edge);
     }
 
     /* ---- Marquee ---- */
@@ -496,7 +539,15 @@
         onWarpDragEnd();
         return;
       }
+      const drag = daw?.drag;
       clipDragService.finish();
+      if (
+        drag?.pendingSelectionToggle &&
+        !drag.hasMoved
+      ) {
+        toggleClip(drag.pendingSelectionToggle.clipId, { render: false });
+        renderClips();
+      }
       if (daw.marquee) {
         daw.marquee = null;
         const box = getElement('marquee');

@@ -166,6 +166,34 @@ assert.ok(calls.includes('schedule'));
 assert.ok(calls.includes('render-all'));
 assert.equal(events.filter(item => item[0] === 'remove').length, 2);
 
+daw.clips[0].trackId = 't1';
+daw.clips[0].start = 1;
+daw.clips[0]._clickTimer = null;
+daw.selectedIds = new Set(['c1']);
+service.onClipMouseDown({
+  button: 0,
+  ctrlKey: true,
+  clientX: 10,
+  clientY: 8,
+  currentTarget: clipElement,
+  target: clipElement,
+  stopPropagation() {},
+  preventDefault() {}
+});
+assert.equal(daw.drag.type, 'move');
+service.onDocMouseMove({
+  clientX: 50,
+  clientY: 48,
+  target: laneTarget,
+  ctrlKey: true
+});
+assert.equal(daw.clips[0].start, 1);
+assert.equal(daw.clips[0].trackId, 't2');
+service.onDocMouseUp();
+assert.equal(daw.drag, null);
+assert.equal(daw.clips[0].start, 1);
+assert.equal(daw.clips[0].trackId, 't2');
+
 service.onClipMouseDown({
   button: 0,
   shiftKey: true,

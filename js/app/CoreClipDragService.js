@@ -70,7 +70,46 @@
       return audioTrackIds(daw).indexOf(trackId);
     }
 
+    function ensureDragOrigins(daw) {
+      daw?.drag?.items?.forEach(item => {
+        if (item._isSection || item.origTrackId != null) return;
+        item.origTrackId = getClip(item.id)?.trackId || null;
+      });
+    }
+
+    function restoreOriginalTrackAssignments(daw) {
+      daw?.drag?.items?.forEach(item => {
+        if (item._isSection) return;
+        const clip = getClip(item.id);
+        if (clip && item.origTrackId != null) {
+          clip.trackId = item.origTrackId;
+        }
+      });
+    }
+
+    function isCrossLaneDrop(daw) {
+      const primaryItem = daw?.drag?.items?.find(
+        item => !item._isSection && item.id === daw.drag.primaryId
+      );
+      const originalTrackId =
+        primaryItem?.origTrackId || getClip(primaryItem?.id)?.trackId;
+      return Boolean(
+        dragOverLaneTrackId &&
+        originalTrackId &&
+        originalTrackId !== dragOverLaneTrackId
+      );
+    }
+
+    function shouldLockTimelinePosition(event, daw) {
+      return Boolean(
+        (event?.ctrlKey || event?.metaKey) &&
+        isCrossLaneDrop(daw)
+      );
+    }
+
     function updateDragOverLane(event, daw) {
+      ensureDragOrigins(daw);
+      restoreOriginalTrackAssignments(daw);
       const pointerTarget =
         documentRef?.elementFromPoint?.(event.clientX, event.clientY) ||
         event.target;
@@ -94,16 +133,20 @@
       dragOverLaneTrackIndex = audioTrackIds(daw).indexOf(laneTrackId);
     }
 
-    function updateMoveDrag(delta, daw) {
+    function updateMoveDrag(delta, daw, event) {
+      const lockTimelinePosition = shouldLockTimelinePosition(event, daw);
       daw.drag.items.forEach(item => {
         const target = item._isSection
           ? (daw.sections || []).find(section => section.id === item.id)
           : getClip(item.id);
         if (!target) return;
         const clip = !item._isSection ? getClip(item.id) : null;
+        const requestedStart = lockTimelinePosition
+          ? item.origStart
+          : item.origStart + delta;
         target.start = Math.max(
           0,
-          roundMs(snapWithSnapPoint(item.origStart + delta, clip))
+          roundMs(snapWithSnapPoint(requestedStart, clip))
         );
         if (clip?.warpMarkers) {
           // Warp markers ride along with the audio content; apply the shift
@@ -234,11 +277,24 @@
     function update(event) {
       const daw = getDAW();
       if (!daw?.drag) return false;
+      ensureDragOrigins(daw);
 
       const delta = xToTime(event.clientX - daw.drag.startX);
       if (daw.drag.type === 'move') {
         updateDragOverLane(event, daw);
-        updateMoveDrag(delta, daw);
+        updateMoveDrag(delta, daw, event);
+        applyGroupTrackDrop(daw);
+        const verticalDelta = Number.isFinite(Number(event.clientY)) &&
+          Number.isFinite(Number(daw.drag.startY))
+          ? event.clientY - daw.drag.startY
+          : 0;
+        if (
+          Math.abs(delta) > 0.001 ||
+          Math.abs(verticalDelta) > 3 ||
+          isCrossLaneDrop(daw)
+        ) {
+          daw.drag.hasMoved = true;
+        }
       } else if (daw.drag.type === 'resize') {
         updateResizeDrag(delta, daw);
       }
@@ -248,9 +304,12 @@
     function finish() {
       const daw = getDAW();
       if (!daw?.drag) return false;
+      ensureDragOrigins(daw);
 
       if (daw.drag.type === 'move' && dragOverLaneTrackId) {
         applyGroupTrackDrop(daw);
+      } else if (daw.drag.type === 'move') {
+        restoreOriginalTrackAssignments(daw);
       }
       // Moved/resized warped clips need a fresh stretched buffer so
       // playback keeps matching the new marker layout.

@@ -87,7 +87,11 @@ const chordClip = {
 };
 const daw = {
   clips: [audioClip, chordClip],
-  selectedIds: new Set(['chord-1'])
+  selectedIds: new Set(['chord-1']),
+  drag: {
+    type: 'move',
+    items: [{ id: 'audio-1' }]
+  }
 };
 const calls = [];
 
@@ -113,6 +117,7 @@ assert.equal(laneAudio.children.length, 1);
 assert.equal(laneChord.children.length, 1);
 assert.equal(laneAudio.children[0].style.left, '100px');
 assert.equal(laneAudio.children[0].style.width, '200px');
+assert.match(laneAudio.children[0].className, /drag-preview/);
 assert.match(laneChord.children[0].className, /selected/);
 assert.deepEqual(calls.slice(0, 2), [['wave', 'audio-1'], 'sections']);
 
