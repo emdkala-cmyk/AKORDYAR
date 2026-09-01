@@ -268,6 +268,7 @@
     onSetLoopB = () => {},
     onTogglePlayheadMode = () => {},
     onToggleMetronome = () => {},
+    onToggleSnap = () => {},
     onToggleRecording = () => {},
     onToggleSelectedTrackHeight = () => {},
     onZoomHorizontal = () => {},
@@ -436,6 +437,11 @@
       }
 
       if (!editable && !isChordModalOpen()) {
+        if (getShortcutMatch(event, 'toggleSnap')) {
+          event.preventDefault?.();
+          onToggleSnap(event);
+          return true;
+        }
         if (getShortcutMatch(event, 'zoomVOut')) {
           event.preventDefault?.();
           onZoomVertical(false, event);

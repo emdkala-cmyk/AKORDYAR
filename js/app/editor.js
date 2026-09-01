@@ -2465,6 +2465,7 @@ if ($('edDoBoth')) {
           setLoopB: () => setLoopB(),
           togglePlayheadMode: () => togglePlayheadMode(),
           toggleMetronome: () => toggleMetronome(),
+          toggleSnap: () => editorCoreApi.toggleSnap?.(),
           toggleRecording: () => toggleRec(),
           toggleSelectedTrackHeight: () => toggleSelectedTrackHeight(),
           zoomHorizontal: direction => zoomTimelineHorizontal(direction),

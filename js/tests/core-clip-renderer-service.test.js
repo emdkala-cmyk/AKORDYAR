@@ -49,6 +49,7 @@ laneAudio.emptyHint = hint;
 const laneChord = createElement('section');
 const storageBar = createElement();
 const storageText = createElement();
+const dragGuide = createElement();
 const documentRef = {
   querySelectorAll(selector) {
     return selector === '.clip' ? [existingClip] : [];
@@ -63,7 +64,8 @@ const documentRef = {
 };
 documentRef.getElementById = id => ({
   storageInfoBar: storageBar,
-  storageText
+  storageText,
+  'clip-drag-guide': dragGuide
 }[id] || null);
 
 const audioClip = {
@@ -90,6 +92,7 @@ const daw = {
   selectedIds: new Set(['chord-1']),
   drag: {
     type: 'move',
+    primaryId: 'audio-1',
     items: [{ id: 'audio-1' }]
   }
 };
@@ -119,6 +122,9 @@ assert.equal(laneAudio.children[0].style.left, '100px');
 assert.equal(laneAudio.children[0].style.width, '200px');
 assert.match(laneAudio.children[0].className, /drag-preview/);
 assert.match(laneChord.children[0].className, /selected/);
+assert.equal(dragGuide.style.display, 'block');
+assert.equal(dragGuide.style.left, '100px');
+assert.equal(dragGuide.dataset.clipId, 'audio-1');
 assert.deepEqual(calls.slice(0, 2), [['wave', 'audio-1'], 'sections']);
 
 const audioElement = laneAudio.children[0];
@@ -140,7 +146,11 @@ assert.ok(calls.some(call => call[0] === 'chord-editor'));
 
 calls.length = 0;
 audioClip.waveUrl = 'cached-wave';
+daw.drag = null;
+daw.selectedIds.clear();
+daw.selectedTrackId = null;
 runtime.render({ preserveWaveforms: true });
 assert.deepEqual(calls, ['sections']);
+assert.equal(dragGuide.style.display, 'none');
 
 console.log('CoreClipRendererService tests passed');

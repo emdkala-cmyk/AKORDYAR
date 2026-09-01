@@ -170,6 +170,7 @@
           onSetLoopB: action('setLoopB'),
           onTogglePlayheadMode: action('togglePlayheadMode'),
           onToggleMetronome: action('toggleMetronome'),
+          onToggleSnap: action('toggleSnap'),
           onToggleRecording: action('toggleRecording'),
           onToggleSelectedTrackHeight: action('toggleSelectedTrackHeight'),
           onZoomHorizontal: zoomIn =>

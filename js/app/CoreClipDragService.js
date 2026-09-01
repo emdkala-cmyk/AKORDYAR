@@ -25,8 +25,8 @@
     getFreeWarpService = () => null
   } = {}) {
     // Snap-to-snapPoint: when snap is ON, align the clip's snapPoint to the grid
-    function snapWithSnapPoint(newStart, clip) {
-      if (!isSnapEnabled()) return newStart;
+    function snapWithSnapPoint(newStart, clip, snapEnabled = isSnapEnabled()) {
+      if (!snapEnabled) return newStart;
       const snapOffset = clip?.snapPointOffset || 0;
       if (snapOffset <= 0) return snapTime(newStart);
       // snap the snapPoint position, not the clip start
@@ -135,6 +135,8 @@
 
     function updateMoveDrag(delta, daw, event) {
       const lockTimelinePosition = shouldLockTimelinePosition(event, daw);
+      const snapEnabled =
+        isSnapEnabled() && !(event?.ctrlKey || event?.metaKey);
       daw.drag.items.forEach(item => {
         const target = item._isSection
           ? (daw.sections || []).find(section => section.id === item.id)
@@ -146,7 +148,7 @@
           : item.origStart + delta;
         target.start = Math.max(
           0,
-          roundMs(snapWithSnapPoint(requestedStart, clip))
+          roundMs(snapWithSnapPoint(requestedStart, clip, snapEnabled))
         );
         if (clip?.warpMarkers) {
           // Warp markers ride along with the audio content; apply the shift

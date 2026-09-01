@@ -305,6 +305,8 @@
 .clip .warp-marker.dragging { opacity: 1; border-left-color: #EF4444; filter: drop-shadow(0 0 6px #EF4444); }
 .clip.warp-dragging { box-shadow: 0 0 0 2px #F59E0B, 0 0 14px rgba(245,158,11,0.45); z-index: 26; }
 .clip .hitpoint-marker { position: absolute; top: 0; bottom: 0; width: 0; border-left: 1px dashed rgba(0,242,254,0.95); z-index: 24; pointer-events: none; opacity: 0.9; filter: drop-shadow(0 0 3px rgba(0,242,254,0.7)); }
+.clip-drag-guide { position: absolute; top: 0; bottom: 0; width: 2px; background: rgba(255,255,255,0.82); box-shadow: 0 0 8px rgba(255,255,255,0.45); z-index: 28; pointer-events: none; display: none; }
+.clip-drag-guide::before { content: ''; position: absolute; top: 0; left: -5px; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 8px solid rgba(255,255,255,0.9); }
 
 /* ===== Warp Tool Cursor ===== */
 .warp-cursor .track-lane { cursor: crosshair; }

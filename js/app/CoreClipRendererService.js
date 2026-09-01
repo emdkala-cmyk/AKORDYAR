@@ -20,6 +20,44 @@
     let warpMode = false;
     function setWarpMode(active) { warpMode = active; }
     function getWarpMode() { return warpMode; }
+
+    function isSelectedClip(daw, clipId) {
+      return daw.selectedIds?.has?.(clipId) ||
+        (Array.isArray(daw.selectedIds) && daw.selectedIds.includes(clipId));
+    }
+
+    function getDragGuideClip(daw) {
+      const clips = Array.isArray(daw.clips) ? daw.clips : [];
+      const primaryId =
+        daw.drag?.type === 'move' ? daw.drag.primaryId : null;
+      const primary = clips.find(clip => clip.id === primaryId);
+      if (primary) return primary;
+
+      const selected = clips.filter(clip => isSelectedClip(daw, clip.id));
+      if (selected.length === 1) return selected[0];
+
+      const selectedTrackClips = clips.filter(
+        clip => clip.trackId === daw.selectedTrackId
+      );
+      return selectedTrackClips.length === 1
+        ? selectedTrackClips[0]
+        : null;
+    }
+
+    function renderDragGuide(daw) {
+      const guide = documentRef.getElementById?.('clip-drag-guide');
+      if (!guide?.style) return;
+      const clip = getDragGuideClip(daw);
+      const start = Number(clip?.start);
+      if (!clip || !Number.isFinite(start)) {
+        guide.style.display = 'none';
+        guide.dataset.clipId = '';
+        return;
+      }
+      guide.style.display = 'block';
+      guide.style.left = `${timeToX(start)}px`;
+      guide.dataset.clipId = clip.id;
+    }
     function render(options = {}) {
       const preserveWaveforms = options.preserveWaveforms === true;
       documentRef.querySelectorAll('.clip').forEach(element => element.remove());
@@ -135,6 +173,7 @@
         element.addEventListener('pointerdown', event => onClipMouseDown(event));
         lane.appendChild(element);
       });
+      renderDragGuide(daw);
       renderSections?.();
     }
 

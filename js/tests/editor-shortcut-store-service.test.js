@@ -16,9 +16,16 @@ const storage = {
 };
 
 const store = ShortcutStoreService.create({ storage });
-assert.equal(store.shortcutDefaults.length, 40);
+assert.equal(store.shortcutDefaults.length, 41);
 
 store.loadShortcuts();
+assert.deepEqual(store.getShortcut('toggleSnap'), {
+  code: 'KeyJ',
+  ctrl: false,
+  shift: false,
+  alt: false
+});
+assert.equal(store.getShortcut('zoomVOut').code, 'KeyN');
 assert.deepEqual(store.getShortcut('play'), {
   code: 'KeyP',
   ctrl: true,
@@ -35,6 +42,20 @@ assert.equal(
   store.matchShortcut(
     { code: 'KeyP', ctrlKey: false, metaKey: false, shiftKey: false },
     'play'
+  ),
+  false
+);
+assert.equal(
+  store.matchShortcut(
+    { code: 'KeyJ', ctrlKey: false, metaKey: false, shiftKey: false },
+    'toggleSnap'
+  ),
+  true
+);
+assert.equal(
+  store.matchShortcut(
+    { code: 'KeyS', ctrlKey: false, metaKey: false, shiftKey: false },
+    'toggleSnap'
   ),
   false
 );

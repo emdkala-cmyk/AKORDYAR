@@ -3,9 +3,14 @@ require('../app/CoreClipDragService.js');
 const Drag = global.CoreClipDragService;
 
 const calls = [];
+let snapEnabled = false;
 const laneTarget = {
   closest: () => ({ dataset: { trackId: 't2' } })
 };
+const sameLaneTarget = {
+  closest: () => ({ dataset: { trackId: 't1' } })
+};
+let pointerTarget = laneTarget;
 const daw = {
   tracks: [
     { id: 't1', type: 'audio' },
@@ -37,11 +42,12 @@ const daw = {
   }
 };
 const service = Drag.create({
-  documentRef: { elementFromPoint: () => laneTarget },
+  documentRef: { elementFromPoint: () => pointerTarget },
   getDAW: () => daw,
   getClip: id => daw.clips.find(clip => clip.id === id),
   xToTime: value => value / 10,
-  snapTime: value => value,
+  snapTime: value => Math.round(value * 2) / 2,
+  isSnapEnabled: () => snapEnabled,
   roundMs: value => Math.round(value * 100) / 100,
   ensureTimelineFits: value => calls.push(['fit', value]),
   saveState: () => calls.push('save'),
@@ -97,6 +103,64 @@ assert.equal(service.finish(), true);
 assert.equal(daw.clips[0].trackId, 't2');
 assert.equal(daw.clips[1].trackId, 't3');
 
+daw.clips[0].trackId = 't1';
+daw.clips[0].start = 1;
+daw.drag = {
+  type: 'move',
+  edge: null,
+  primaryId: 'c1',
+  startX: 10,
+  items: [{
+    id: 'c1',
+    origStart: 1,
+    origDur: 2,
+    origOffset: 0,
+    origTrackId: 't1'
+  }]
+};
+pointerTarget = sameLaneTarget;
+snapEnabled = true;
+assert.equal(
+  service.update({
+    clientX: 23,
+    clientY: 4,
+    target: sameLaneTarget,
+    ctrlKey: true
+  }),
+  true
+);
+assert.equal(daw.clips[0].start, 2.3);
+assert.equal(daw.clips[0].trackId, 't1');
+assert.equal(service.finish(), true);
+
+daw.clips[0].trackId = 't1';
+daw.clips[0].start = 1;
+daw.drag = {
+  type: 'move',
+  edge: null,
+  primaryId: 'c1',
+  startX: 10,
+  items: [{
+    id: 'c1',
+    origStart: 1,
+    origDur: 2,
+    origOffset: 0,
+    origTrackId: 't1'
+  }]
+};
+assert.equal(
+  service.update({
+    clientX: 23,
+    clientY: 4,
+    target: sameLaneTarget,
+    ctrlKey: false
+  }),
+  true
+);
+assert.equal(daw.clips[0].start, 2.5);
+assert.equal(service.finish(), true);
+
+pointerTarget = laneTarget;
 daw.clips[0].trackId = 't1';
 daw.clips[0].start = 1;
 daw.clips[0].duration = 2;

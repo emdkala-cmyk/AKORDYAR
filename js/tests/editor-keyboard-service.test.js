@@ -56,6 +56,7 @@ const service = KeyboardService.create({
   hasSelectedChordLineClip: () => true,
   getShortcutMatch: (event, id) => shortcutStore.matchShortcut(event, id),
   onTogglePlay: () => calls.push('play'),
+  onToggleSnap: () => calls.push('snap'),
   isSequentialChordingActive: () => false,
   onQuantizeSelectedChords: () => calls.push('quantize'),
   onMoveSelectedChords: direction => calls.push(`move:${direction}`),
@@ -97,16 +98,21 @@ assert.equal(q.prevented, true);
 assert.equal(q.stopped, true);
 assert.deepEqual(calls, ['play', 'quantize']);
 
+const j = keyEvent('KeyJ');
+service.handleGlobalKeydown(j);
+assert.equal(j.prevented, true);
+assert.deepEqual(calls, ['play', 'quantize', 'snap']);
+
 const right = keyEvent('ArrowRight');
 windowRef.dispatch(right);
 assert.equal(right.prevented, true);
-assert.deepEqual(calls, ['play', 'quantize', 'move:right']);
+assert.deepEqual(calls, ['play', 'quantize', 'snap', 'move:right']);
 
 const inputRight = keyEvent('ArrowRight', {
   target: { tagName: 'INPUT' }
 });
 windowRef.dispatch(inputRight);
-assert.deepEqual(calls, ['play', 'quantize', 'move:right']);
+assert.deepEqual(calls, ['play', 'quantize', 'snap', 'move:right']);
 
 const editorTextChild = keyEvent('Space', {
   target: {
@@ -119,7 +125,7 @@ const editorTextChild = keyEvent('Space', {
 });
 assert.equal(service.handleGlobalKeydownCapture(editorTextChild), false);
 assert.equal(editorTextChild.prevented, false);
-assert.deepEqual(calls, ['play', 'quantize', 'move:right']);
+assert.deepEqual(calls, ['play', 'quantize', 'snap', 'move:right']);
 
 const editorTextKeyOnly = keyEvent('', {
   key: ' ',
@@ -133,7 +139,7 @@ const editorTextKeyOnly = keyEvent('', {
 });
 assert.equal(service.handleGlobalKeydownCapture(editorTextKeyOnly), false);
 assert.equal(editorTextKeyOnly.prevented, false);
-assert.deepEqual(calls, ['play', 'quantize', 'move:right']);
+assert.deepEqual(calls, ['play', 'quantize', 'snap', 'move:right']);
 
 const activeEditor = {
   tagName: 'DIV',
@@ -146,20 +152,20 @@ const bodySpace = keyEvent('', {
 });
 assert.equal(service.handleGlobalKeydownCapture(bodySpace), false);
 assert.equal(bodySpace.prevented, false);
-assert.deepEqual(calls, ['play', 'quantize', 'move:right']);
+assert.deepEqual(calls, ['play', 'quantize', 'snap', 'move:right']);
 windowRef.document.activeElement = null;
 
 const del = keyEvent('Delete');
 windowRef.dispatch(del);
 assert.equal(del.prevented, true);
-assert.deepEqual(calls, ['play', 'quantize', 'move:right', 'delete']);
+assert.deepEqual(calls, ['play', 'quantize', 'snap', 'move:right', 'delete']);
 
 const selectSpace = keyEvent('Space', {
   target: { tagName: 'SELECT' }
 });
 assert.equal(service.handleGlobalKeydownCapture(selectSpace), true);
 assert.equal(selectSpace.prevented, true);
-assert.deepEqual(calls, ['play', 'quantize', 'move:right', 'delete', 'play']);
+assert.deepEqual(calls, ['play', 'quantize', 'snap', 'move:right', 'delete', 'play']);
 
 service.destroy();
 assert.equal(service.isBound(), false);
