@@ -52,93 +52,10 @@
     let sliderCardCount = 0;
     let artistContextTarget = null;
     const sliderRadius = 460;
-
-    // --- New Artists Carousel ---
+    const EMPTY_SLOTS = 21;
+    let currentRing = 0; // 0 = artists, 1 = empty slots
     const newArtists = new Set();
-    let newArtistsAngle = 0;
-    let newArtistsPaused = false;
-    let newArtistsPage = 0;
-    const NEW_VISIBLE = 5;
-    const NEW_RADIUS = 250;
-
-    function addNewArtist(artistName) {
-      const key = artistKey(artistName);
-      if (key && !newArtists.has(key)) {
-        newArtists.add(key);
-        renderNewArtistsCarousel();
-      }
-    }
-
-    function renderNewArtistsCarousel() {
-      const section = getElement('newArtistsSection');
-      const container = getElement('newArtistsContainer');
-      if (!section || !container) return;
-
-      if (newArtists.size === 0) {
-        section.style.display = 'none';
-        return;
-      }
-
-      section.style.display = '';
-      container.innerHTML = '';
-      const keys = Array.from(newArtists);
-      const totalPages = Math.ceil(keys.length / NEW_VISIBLE);
-      if (newArtistsPage >= totalPages) newArtistsPage = 0;
-
-      const startIdx = newArtistsPage * NEW_VISIBLE;
-      const pageKeys = keys.slice(startIdx, startIdx + NEW_VISIBLE);
-      const angleStep = 360 / Math.max(pageKeys.length, 1);
-
-      pageKeys.forEach((key, index) => {
-        const card = documentRef.createElement('div');
-        card.className = 'new-artist-card';
-        const color = avatarColor(key);
-        const initials = getInitials(key);
-        const image = getArtistImage(key);
-        const avatar = image
-          ? `<img src="${image}" alt="${escapeHtml(key)}" loading="lazy">`
-          : `<div class="avatar-initials" style="background:${color}">${initials}</div>`;
-        card.innerHTML = `<div class="artist-card-avatar">${avatar}</div>`;
-        card.style.transform = `rotateX(${angleStep * index}deg) translateZ(${NEW_RADIUS}px)`;
-        card.onclick = () => {
-          setArtistFilter(key);
-          render();
-          updateActiveFilters();
-        };
-        container.appendChild(card);
-      });
-
-      newArtistsAngle = 0;
-      container.style.transform = 'rotateX(0deg)';
-
-      const countLabel = getElement('newArtistCountLabel');
-      if (countLabel) {
-        countLabel.textContent = totalPages > 1
-          ? `(${newArtists.size} · ${newArtistsPage + 1}/${totalPages})`
-          : `(${newArtists.size})`;
-      }
-
-      const prevBtn = getElement('newArtistsPrevBtn');
-      const nextBtn = getElement('newArtistsNextBtn');
-      if (prevBtn) prevBtn.disabled = totalPages <= 1;
-      if (nextBtn) nextBtn.disabled = totalPages <= 1;
-    }
-
-    function slideNewArtists(direction) {
-      const keys = Array.from(newArtists);
-      const totalPages = Math.ceil(keys.length / NEW_VISIBLE);
-      const newPage = newArtistsPage + direction;
-      if (newPage < 0 || newPage >= totalPages) return;
-      newArtistsPage = newPage;
-      renderNewArtistsCarousel();
-    }
-
-    function dismissNewArtists() {
-      newArtists.clear();
-      newArtistsPage = 0;
-      const section = getElement('newArtistsSection');
-      if (section) section.style.display = 'none';
-    }
+    const EMPTY_SLOT_COLOR = 'rgba(255,46,147,0.15)';
 
     function buildArtistList() {
       const songs = getAllSongs().filter(song => !song.deletedAt);
@@ -322,6 +239,47 @@
       stopAutoScroll();
       container.classList.remove('slider-running', 'slider-paused');
       container.innerHTML = '';
+
+      // Ring 1: Empty slots for new artists
+      if (currentRing === 1) {
+        const newArtistKeys = Array.from(newArtists);
+        for (let i = 0; i < EMPTY_SLOTS; i++) {
+          const slot = documentRef.createElement('div');
+          const filledArtist = newArtistKeys[i];
+          if (filledArtist) {
+            slot.className = 'artist-card-slot filled';
+            const color = avatarColor(filledArtist);
+            const initials = getInitials(filledArtist);
+            const image = getArtistImage(filledArtist);
+            const avatar = image
+              ? `<img src="${image}" alt="${escapeHtml(filledArtist)}" loading="lazy">`
+              : `<div class="avatar-initials" style="background:${color}">${initials}</div>`;
+            slot.innerHTML = `<div class="artist-card-avatar">${avatar}</div><span class="artist-card-tooltip">${escapeHtml(filledArtist)}</span>`;
+            slot.onclick = () => {
+              setArtistFilter(filledArtist);
+              currentRing = 0;
+              render();
+              updateRingNav();
+              updateActiveFilters();
+            };
+          } else {
+            slot.className = 'artist-card-slot';
+            slot.innerHTML = `<span>＋</span>`;
+          }
+          container.appendChild(slot);
+        }
+        requestFrame(() => {
+          positionCards3D();
+          startAutoScroll();
+        });
+        const countLabel = getElement('artistCountLabel');
+        if (countLabel) countLabel.textContent = `( خالی: ${EMPTY_SLOTS - newArtistKeys.length} / ${EMPTY_SLOTS} )`;
+        updateSliderNav();
+        updateRingNav();
+        return;
+      }
+
+      // Ring 0: Normal artist cards
       const currentFilter = getArtistFilter();
       const allCard = documentRef.createElement('div');
       allCard.className = 'artist-card' + (!currentFilter ? ' active' : '');
@@ -414,6 +372,38 @@
       const countLabel = getElement('artistCountLabel');
       if (countLabel) countLabel.textContent = `(${filtered.length} خواننده)`;
       updateSliderNav();
+    }
+
+    function addNewArtist(artistName) {
+      const key = artistKey(artistName);
+      if (key && !newArtists.has(key)) {
+        newArtists.add(key);
+      }
+    }
+
+    function switchRing(direction) {
+      const newRing = currentRing + direction;
+      if (newRing < 0 || newRing > 1) return;
+      currentRing = newRing;
+      stopAutoScroll();
+      sliderAngle = 0;
+      const container = getElement('artistSliderContainer');
+      if (container) {
+        container.style.transition = 'transform 0.5s ease';
+        container.style.transform = 'rotateY(0deg)';
+      }
+      filterArtists();
+      updateRingNav();
+      globalScope.setTimeout(() => {
+        if (container) container.style.transition = '';
+      }, 550);
+    }
+
+    function updateRingNav() {
+      const upBtn = getElement('artistRingUpBtn');
+      const downBtn = getElement('artistRingDownBtn');
+      if (upBtn) upBtn.disabled = currentRing === 0;
+      if (downBtn) downBtn.disabled = currentRing === 1;
     }
 
     function renderArtists() {
@@ -536,24 +526,20 @@
         }
       }
 
-      // New Artists navigation
-      const naPrevBtn = getElement('newArtistsPrevBtn');
-      const naNextBtn = getElement('newArtistsNextBtn');
-      const naDismissBtn = getElement('newArtistsDismiss');
-      if (naPrevBtn && !naPrevBtn._archBound) {
-        naPrevBtn._archBound = true;
-        naPrevBtn.addEventListener('click', () => slideNewArtists(-1));
+      // Ring navigation buttons
+      const ringUpBtn = getElement('artistRingUpBtn');
+      const ringDownBtn = getElement('artistRingDownBtn');
+      if (ringUpBtn && !ringUpBtn._archBound) {
+        ringUpBtn._archBound = true;
+        ringUpBtn.addEventListener('click', () => switchRing(-1));
       }
-      if (naNextBtn && !naNextBtn._archBound) {
-        naNextBtn._archBound = true;
-        naNextBtn.addEventListener('click', () => slideNewArtists(1));
-      }
-      if (naDismissBtn && !naDismissBtn._archBound) {
-        naDismissBtn._archBound = true;
-        naDismissBtn.addEventListener('click', dismissNewArtists);
+      if (ringDownBtn && !ringDownBtn._archBound) {
+        ringDownBtn._archBound = true;
+        ringDownBtn.addEventListener('click', () => switchRing(1));
       }
 
       resetAutoScroll();
+      updateRingNav();
     }
 
     return Object.freeze({
@@ -573,9 +559,7 @@
       toggleFullscreen,
       bindArtistSection,
       addNewArtist,
-      renderNewArtistsCarousel,
-      slideNewArtists,
-      dismissNewArtists
+      switchRing
     });
   }
 

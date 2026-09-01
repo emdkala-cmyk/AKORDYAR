@@ -21,7 +21,6 @@
       renderArtists,
       openArchive,
       toast,
-      addNewArtistToCarousel = () => {},
       now = () => new Date().toISOString(),
       t = globalScope.t || (k => k)
     } = context;
@@ -42,7 +41,6 @@
       let added = 0;
       let updated = 0;
       let errors = 0;
-      const existingArtists = new Set(existing.map(s => (s.artist || '').toLowerCase().trim()));
 
       for (const record of records) {
         try {
@@ -64,12 +62,6 @@
             if (!song.id) song.id = generateId();
             existing.unshift(song);
             added++;
-            // Track new artist for carousel
-            const artistName = (song.artist || '').toLowerCase().trim();
-            if (artistName && !existingArtists.has(artistName)) {
-              existingArtists.add(artistName);
-              addNewArtistToCarousel?.(song.artist);
-            }
           }
         } catch (_) {
           errors++;

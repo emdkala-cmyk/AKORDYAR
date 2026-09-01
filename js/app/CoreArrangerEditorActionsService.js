@@ -17,7 +17,8 @@
     renderArrSongsList = () => {},
     saveCurrentArranger = () => {},
     exportArranger = () => {},
-    toast = () => {}
+    toast = () => {},
+    t = globalScope.t || (k => k)
   } = {}) {
     function switchArrTab(tab) {
       documentRef?.querySelectorAll?.('.arr-tab')
