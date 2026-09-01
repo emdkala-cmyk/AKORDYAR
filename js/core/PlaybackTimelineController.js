@@ -192,6 +192,27 @@
         daw.voices.set(voiceKey, { source, gain });
       };
 
+      /* ---- Warp-aware time remap helper ---- */
+      const FreeWarp = globalScope.FreeWarpEngine;
+      const warpService = globalScope.AkordyarCoreApi?.getFreeWarpService?.();
+      function warpMediaOffset(clip, timelineT) {
+        if (!clip.warpMarkers || clip.warpMarkers.length < 3 || !FreeWarp) {
+          return clip.offset + (timelineT - clip.start);
+        }
+        const srcT = FreeWarp.timelineToSource(timelineT, clip.warpMarkers);
+        if (srcT == null) return clip.offset + (timelineT - clip.start);
+        return srcT;
+      }
+      function warpPlayDur(clip, tlStart, tlEnd) {
+        if (!clip.warpMarkers || clip.warpMarkers.length < 3 || !FreeWarp) {
+          return tlEnd - tlStart;
+        }
+        const srcStart = FreeWarp.timelineToSource(tlStart, clip.warpMarkers);
+        const srcEnd = FreeWarp.timelineToSource(tlEnd, clip.warpMarkers);
+        if (srcStart == null || srcEnd == null) return tlEnd - tlStart;
+        return Math.abs(srcEnd - srcStart);
+      }
+
       daw.clips.forEach(clip => {
         if (clip.type === 'chord') return;
         const clipEnd = clip.start + clip.duration;
@@ -204,12 +225,14 @@
           const currentEnd = hasLoop ? Math.min(clipEnd, daw.loopB) : clipEnd;
           if (currentEnd > Math.max(nowT, clip.start)) {
             const when = local < 0 ? scheduleStartAudio + (-local) : scheduleStartAudio;
-            const mediaOffset = local < 0 ? clip.offset : clip.offset + local;
+            const tlOrigin = Math.max(nowT, clip.start);
+            const mediaOffset = local < 0 ? clip.offset : warpMediaOffset(clip, nowT);
+            const playDur = warpPlayDur(clip, tlOrigin, currentEnd);
             scheduleClipSegment(
               clip,
               when,
               mediaOffset,
-              currentEnd - Math.max(nowT, clip.start),
+              playDur,
               clip.id
             );
           }
@@ -225,8 +248,8 @@
             scheduleClipSegment(
               clip,
               loopBoundaryAudio + (loopSegmentStart - daw.loopA),
-              clip.offset + (loopSegmentStart - clip.start),
-              loopSegmentEnd - loopSegmentStart,
+              warpMediaOffset(clip, loopSegmentStart),
+              warpPlayDur(clip, loopSegmentStart, loopSegmentEnd),
               `${clip.id}@loop`
             );
           }

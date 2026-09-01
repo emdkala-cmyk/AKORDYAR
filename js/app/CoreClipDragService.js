@@ -20,8 +20,20 @@
     refreshClipWaveImage = () => {},
     saveState = () => {},
     scheduleAllFromPlayhead = () => {},
-    renderAll = () => {}
+    renderAll = () => {},
+    isSnapEnabled = () => false,
+    getFreeWarpService = () => null
   } = {}) {
+    // Snap-to-snapPoint: when snap is ON, align the clip's snapPoint to the grid
+    function snapWithSnapPoint(newStart, clip) {
+      if (!isSnapEnabled()) return newStart;
+      const snapOffset = clip?.snapPointOffset || 0;
+      if (snapOffset <= 0) return snapTime(newStart);
+      // snap the snapPoint position, not the clip start
+      const snapPointTime = newStart + snapOffset;
+      const snappedGrid = snapTime(snapPointTime);
+      return snappedGrid - snapOffset;
+    }
     let dragOverLaneTrackId = null;
 
     function updateDragOverLane(event, daw) {
@@ -48,9 +60,10 @@
           ? (daw.sections || []).find(section => section.id === item.id)
           : getClip(item.id);
         if (!target) return;
+        const clip = !item._isSection ? getClip(item.id) : null;
         target.start = Math.max(
           0,
-          roundMs(snapTime(item.origStart + delta))
+          roundMs(snapWithSnapPoint(item.origStart + delta, clip))
         );
         ensureTimelineFits(
           target.start + (target.duration || item.origDur) + 5

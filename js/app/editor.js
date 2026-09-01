@@ -2598,6 +2598,15 @@ if ($('edDoBoth')) {
       toggleArrangerMarkers: () => toggleArrangerMarkers(),
       togglePlayheadMode: () => togglePlayheadMode(),
       toggleSnap: () => toggleSnap(),
+      toggleWarp: () => {
+        const coreApi = window.AkordyarCoreApi;
+        const current = coreApi?.isWarpMode?.() || false;
+        const next = !current;
+        coreApi?.setWarpMode?.(next);
+        document.getElementById('warpToolBtn')?.classList?.toggle('warp-active', next);
+        document.getElementById('tl-inner')?.classList?.toggle('warp-mode-active', next);
+        toast(next ? 'Warp Tool فعال شد' : 'Warp Tool غیرفعال شد');
+      },
       showQuantize: () => showQuantizeModal(),
       toggleColorTool: (_, element) => toggleColorTool(element.dataset.value),
       selectColor: (_, element) => selectColor(element.value),

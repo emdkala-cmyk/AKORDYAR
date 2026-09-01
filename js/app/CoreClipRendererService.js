@@ -14,8 +14,12 @@
     getClipFilePath = () => '',
     onClipMouseDown = () => {},
     openTimelineChordEditor = () => {},
-    renderSections = () => {}
+    renderSections = () => {},
+    getFreeWarpService = () => null
   } = {}) {
+    let warpMode = false;
+    function setWarpMode(active) { warpMode = active; }
+    function getWarpMode() { return warpMode; }
     function render(options = {}) {
       const preserveWaveforms = options.preserveWaveforms === true;
       documentRef.querySelectorAll('.clip').forEach(element => element.remove());
@@ -46,8 +50,24 @@
         if (clip.type !== 'chord') {
           element.style.background =
             `linear-gradient(180deg, ${clip.color}bb, ${clip.color}88)`;
+          // Snap point indicator
+          const snapOffset = clip.snapPointOffset || 0;
+          const snapMarkerHtml = snapOffset > 0
+            ? `<div class="snap-marker" style="left:${timeToX(snapOffset)}px" title="Snap: ${snapOffset.toFixed(2)}s"></div>`
+            : '';
+          // Warp markers
+          let warpHtml = '';
+          if (clip.warpMarkers && clip.warpMarkers.length > 2) {
+            const clipStart = clip.start;
+            const clipDur = clip.sourceDuration || clip.duration;
+            for (const wm of clip.warpMarkers) {
+              if (wm.id === '_start' || wm.id === '_end') continue;
+              const wmX = timeToX(wm.timelineTime - clipStart);
+              warpHtml += `<div class="warp-marker" data-marker-id="${wm.id}" style="left:${wmX}px" title="Warp: ${wm.timelineTime.toFixed(2)}s"></div>`;
+            }
+          }
           element.innerHTML =
-            `<img class="clip-wave" alt="" draggable="false" ${clip.waveUrl ? `src="${clip.waveUrl}"` : ''}><div class="clip-title">${clip.name}</div><div class="resize-handle left" data-edge="left"></div><div class="resize-handle right" data-edge="right"></div>`;
+            `<img class="clip-wave" alt="" draggable="false" ${clip.waveUrl ? `src="${clip.waveUrl}"` : ''}><div class="clip-title">${clip.name}</div>${snapMarkerHtml}${warpHtml}<div class="resize-handle left" data-edge="left"></div><div class="resize-handle right" data-edge="right"></div>`;
           element.addEventListener('mouseenter', () => {
             const filePath = getClipFilePath(clip);
             if (!filePath) return;
@@ -87,7 +107,7 @@
       renderSections?.();
     }
 
-    return Object.freeze({ render });
+    return Object.freeze({ render, setWarpMode, getWarpMode });
   }
 
   const service = Object.freeze({ create });

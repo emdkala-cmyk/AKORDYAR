@@ -193,6 +193,37 @@ function customPrompt(message, defaultValue = '') {
     });
     coreGridQuantizeRuntime.bindModalDismiss();
 
+    /* ---- Free Warp Service ---- */
+    const coreFreeWarpRuntime =
+      globalScope.CoreFreeWarpService?.create?.({
+        getDAW: () => coreGetRuntimeDAW(),
+        getClip: clipId => getClip(clipId),
+        getTransportState: () => editorTransportState,
+        snapTime: (...args) => snapTime(...args),
+        isSnapEnabled: () => isSnapEnabled(),
+        roundMs: value => roundMs(value),
+        saveState: (...args) => saveState(...args),
+        renderAll: (...args) => renderAll(...args),
+        renderClips: (...args) => renderClips(...args),
+        refreshClipWaveImage: (...args) => refreshClipWaveImage(...args),
+        toast: (...args) => toast(...args)
+      });
+    if (coreFreeWarpRuntime) {
+      corePublicApi.publish({
+        setSnapPoint: coreFreeWarpRuntime.setSnapPoint,
+        getSnapPoint: coreFreeWarpRuntime.getSnapPoint,
+        getSnapPointTime: coreFreeWarpRuntime.getSnapPointTime,
+        insertWarpMarker: coreFreeWarpRuntime.insertWarpMarker,
+        removeWarpMarker: coreFreeWarpRuntime.removeWarpMarker,
+        moveWarpMarker: coreFreeWarpRuntime.moveWarpMarker,
+        getSourceTime: coreFreeWarpRuntime.getSourceTime,
+        getWarpedDuration: coreFreeWarpRuntime.getWarpedDuration,
+        setWarpMode: coreFreeWarpRuntime.setWarpMode,
+        isWarpMode: coreFreeWarpRuntime.isWarpMode,
+        getFreeWarpService: () => coreFreeWarpRuntime
+      });
+    }
+
     const coreTransportRuntime =
       globalScope.CoreTransportService?.create?.({
         getDAW: () => coreGetRuntimeDAW(),

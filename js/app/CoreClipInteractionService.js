@@ -3,8 +3,6 @@
  *
  * Owns clip pointer events and marquee selection. Drag/resize mutations are
  * delegated to CoreClipDragService.
- * The service keeps the existing DAW state contract while allowing core.js
- * to provide only the runtime dependencies and public bridge.
  */
 (function attachCoreClipInteractionService(globalScope) {
   'use strict';
@@ -87,7 +85,7 @@
         renderAll
       });
     if (!clipDragService) throw new Error(
-      'CoreClipDragService باید قبل از CoreClipInteractionService بارگذاری شود.'
+      'CoreClipDragService must be loaded before CoreClipInteractionService.'
     );
 
     function getSelectedSectionIds(daw) {
@@ -101,7 +99,6 @@
       const marquee = getDAW()?.marquee;
       const trackId = String(marquee?.trackId ?? '');
       if (!trackId) return [];
-
       const lane = Array.from(
         documentRef?.querySelectorAll?.('.track-lane') || []
       ).find(element => String(element.dataset?.trackId ?? '') === trackId);
@@ -110,6 +107,126 @@
         : [];
     }
 
+    /* ============================================================
+       WARP MODE — anchor-based time stretch interaction
+       ============================================================ */
+    function getWarpService() {
+      return globalScope.AkordyarCoreApi?.getFreeWarpService?.() || null;
+    }
+    function isWarpMode() {
+      return globalScope.AkordyarCoreApi?.isWarpMode?.() === true;
+    }
+
+    /**
+     * Find the nearest user-created warp marker to a click position.
+     * Uses pixel proximity, not exact click-on-element.
+     * Returns { marker, index } or null.
+     */
+    function findNearestWarpMarker(clip, clientX, clipElement) {
+      const warp = getWarpService();
+      if (!warp) return null;
+      const markers = warp.getWarpMarkers(clip.id);
+      if (markers.length <= 2) return null; // only _start and _end
+      const clipRect = clipElement?.getBoundingClientRect?.();
+      if (!clipRect) return null;
+      const clipDuration = clip.sourceDuration || clip.duration;
+      const clipWidthPx = clipRect.width;
+      const HIT_PX = 24; // half-width of the ::after hit area
+      let best = null;
+      let bestDist = Infinity;
+      for (let i = 0; i < markers.length; i++) {
+        const wm = markers[i];
+        if (wm.id === '_start' || wm.id === '_end') continue;
+        const wmPx = clipRect.left +
+          ((wm.timelineTime - clip.start) / clipDuration) * clipWidthPx;
+        const dist = Math.abs(clientX - wmPx);
+        if (dist < bestDist && dist < HIT_PX) {
+          bestDist = dist;
+          best = { marker: wm, index: i };
+        }
+      }
+      return best;
+    }
+
+    /**
+     * Start a warp drag: attach document-level mousemove/mouseup.
+     * The drag state lives on daw.drag so other handlers can see it.
+     */
+    function startWarpDrag(clip, markerId, origTime, clientX, clipElement) {
+      const daw = getDAW();
+      const clipRect = clipElement?.getBoundingClientRect?.();
+      const clipDuration = clip.sourceDuration || clip.duration;
+      daw.drag = {
+        type: 'warp',
+        clipId: clip.id,
+        markerId: markerId,
+        startX: clientX,
+        origTimelineTime: origTime,
+        clipStart: clip.start,
+        clipDuration: clipDuration,
+        clipWidthPx: clipRect ? clipRect.width : 100
+      };
+      documentRef.addEventListener('mousemove', onWarpDragMove);
+      documentRef.addEventListener('mouseup', onWarpDragEnd);
+    }
+
+    function onWarpDragMove(event) {
+      const daw = getDAW();
+      const drag = daw?.drag;
+      if (!drag || drag.type !== 'warp') return;
+      const warp = getWarpService();
+      if (!warp) return;
+      const clip = getClip(drag.clipId);
+      if (!clip) return;
+
+      // Convert pixel delta to time delta
+      const pxDelta = event.clientX - drag.startX;
+      let newTime = drag.origTimelineTime + xToTime(pxDelta);
+
+      // Clamp: must stay between previous and next anchor markers
+      const markers = warp.getWarpMarkers(drag.clipId);
+      const idx = markers.findIndex(m => m.id === drag.markerId);
+      if (idx > 0) {
+        const prevTime = markers[idx - 1].timelineTime + 0.005;
+        newTime = Math.max(prevTime, newTime);
+      }
+      if (idx < markers.length - 1) {
+        const nextTime = markers[idx + 1].timelineTime - 0.005;
+        newTime = Math.min(nextTime, newTime);
+      }
+
+      // Snap to grid if enabled
+      const snapEnabled = globalScope.AkordyarCoreApi?.isSnapEnabled?.();
+      if (snapEnabled) {
+        newTime = snapTime(newTime);
+      }
+
+      // Move the marker (no saveState during drag — only on drop)
+      warp.moveWarpMarker(drag.clipId, drag.markerId, newTime);
+      // Re-render to show marker position update
+      renderClips();
+
+      // Show dragging class on the marker element
+      const markerEl = documentRef.querySelector(
+        `.clip[data-clip-id="${drag.clipId}"] .warp-marker[data-marker-id="${drag.markerId}"]`
+      );
+      if (markerEl) markerEl.classList.add('dragging');
+    }
+
+    function onWarpDragEnd() {
+      const daw = getDAW();
+      if (daw?.drag?.type === 'warp') {
+        daw.drag = null;
+        saveState();
+        renderClips();
+      }
+      documentRef?.removeEventListener?.('mousemove', onWarpDragMove);
+      documentRef?.removeEventListener?.('mouseup', onWarpDragEnd);
+    }
+
+    /* ============================================================
+       CLIP POINTER DOWN — main entry point
+       ============================================================ */
     function onClipMouseDown(event) {
       if (event.button !== 0) return;
 
@@ -132,33 +249,66 @@
 
       const track = (daw.tracks || []).find(item => item.id === clip.trackId);
       if (track?.locked) {
-        toast('ترک قفل است');
+        toast('Track is locked');
         return;
       }
 
       clearChordSelection();
 
+      /* ---- WARP MODE ---- */
+      if (isWarpMode() && clip.type === 'audio') {
+        const warp = getWarpService();
+        if (!warp) return;
+
+        warp.ensureWarpMarkers(clip.id);
+        const clipElement = event.currentTarget;
+
+        // Try to find nearest existing warp marker within hit area
+        const nearest = findNearestWarpMarker(clip, event.clientX, clipElement);
+
+        if (nearest) {
+          // Start dragging the existing marker
+          startWarpDrag(
+            clip,
+            nearest.marker.id,
+            nearest.marker.timelineTime,
+            event.clientX,
+            clipElement
+          );
+          return;
+        }
+
+        // No marker nearby — insert a new one at click position
+        const clipRect = clipElement?.getBoundingClientRect?.();
+        if (clipRect) {
+          const clipDuration = clip.sourceDuration || clip.duration;
+          const relX = event.clientX - clipRect.left;
+          const clickTime = clip.start + (relX / clipRect.width) * clipDuration;
+          warp.insertWarpMarker(clip.id, clickTime);
+          renderClips();
+        }
+        return;
+      }
+
+      /* ---- NORMAL MODE (select, move, resize) ---- */
       const now = Date.now();
       const dx = Math.abs(event.clientX - (clip._clickX || 0));
       const dy = Math.abs(event.clientY - (clip._clickY || 0));
       if (
         clip._clickTimer &&
         (now - (clip._clickTime || 0)) < 350 &&
-        dx < 5 &&
-        dy < 5
+        dx < 5 && dy < 5
       ) {
         clearTimer?.(clip._clickTimer);
         clip._clickTimer = null;
         if (clip.type === 'chord') openTimelineChordEditor(clip.id);
         return;
       }
-
       clip._clickX = event.clientX;
       clip._clickY = event.clientY;
       clip._clickTime = now;
       clip._clickTimer = globalScope.setTimeout?.(
-        () => { clip._clickTimer = null; },
-        350
+        () => { clip._clickTimer = null; }, 350
       );
 
       if (event.shiftKey) {
@@ -171,7 +321,6 @@
         if (!selected.find(item => item.id === clipId)) {
           selectClips([clipId], { render: false });
         }
-
         const duplicates = selectedClips();
         const newIds = [];
         const dragItems = [];
@@ -192,11 +341,9 @@
             origOffset: newClip.offset
           });
         });
-
         selectClips(newIds, { render: false });
         daw.drag = {
-          type: 'move',
-          edge: null,
+          type: 'move', edge: null,
           primaryId: dragItems[0]?.id,
           startX: event.clientX,
           items: dragItems
@@ -204,9 +351,7 @@
         renderAll();
         startPointerDrag(
           getElement('tl-inner') || event.currentTarget,
-          event,
-          onDocMouseMove,
-          onDocMouseUp
+          event, onDocMouseMove, onDocMouseUp
         );
         return;
       }
@@ -223,30 +368,14 @@
 
       const edge = event.target?.dataset?.edge || null;
       const dragItems = edge
-        ? [{
-            id: clipId,
-            origStart: clip.start,
-            origDur: clip.duration,
-            origOffset: clip.offset
-          }]
+        ? [{ id: clipId, origStart: clip.start, origDur: clip.duration, origOffset: clip.offset }]
         : selectedClips()
-          .map(item => ({
-            id: item.id,
-            origStart: item.start,
-            origDur: item.duration,
-            origOffset: item.offset
-          }))
-          .concat(
-            (daw.sections || [])
-              .filter(section => selectedSectionIds.has(section.id))
-              .map(section => ({
-                id: section.id,
-                origStart: section.start,
-                origDur: section.duration,
-                origOffset: 0,
-                _isSection: true
-              }))
-          );
+            .map(item => ({ id: item.id, origStart: item.start, origDur: item.duration, origOffset: item.offset }))
+            .concat(
+              (daw.sections || [])
+                .filter(section => selectedSectionIds.has(section.id))
+                .map(section => ({ id: section.id, origStart: section.start, origDuration: section.duration, origOffset: 0, _isSection: true }))
+            );
 
       daw.drag = {
         type: edge ? 'resize' : 'move',
@@ -257,19 +386,16 @@
       };
       startPointerDrag(
         getElement('tl-inner') || event.currentTarget,
-        event,
-        onDocMouseMove,
-        onDocMouseUp
+        event, onDocMouseMove, onDocMouseUp
       );
     }
 
+    /* ---- Marquee ---- */
     function intersects(element, x1, y1, x2, y2, innerRect) {
       const rect = element.getBoundingClientRect();
       const cx1 = rect.left - innerRect.left;
       const cy1 = rect.top - innerRect.top;
-      const cx2 = cx1 + rect.width;
-      const cy2 = cy1 + rect.height;
-      return !(cx2 < x1 || cx1 > x2 || cy2 < y1 || cy1 > y2);
+      return !(cx1 + rect.width < x1 || cx1 > x2 || cy1 + rect.height < y1 || cy1 > y2);
     }
 
     function updateMarquee(event, daw) {
@@ -286,39 +412,36 @@
         box.style.width = `${x2 - x1}px`;
         box.style.height = `${y2 - y1}px`;
       }
-
       const inner = getElement('tl-inner');
       if (!inner?.getBoundingClientRect) return;
       const innerRect = inner.getBoundingClientRect();
       const clipIds = [];
       getMarqueeLaneElements('.clip').forEach(element => {
         const clip = getClip(element.dataset?.clipId);
-        if (
-          clip &&
-          intersects(element, x1, y1, x2, y2, innerRect)
-        ) {
+        if (clip && intersects(element, x1, y1, x2, y2, innerRect)) {
           clipIds.push(element.dataset.clipId);
         }
       });
       selectClips(clipIds, { render: false });
-
       const sectionIds = [];
       getMarqueeLaneElements('.section-tag').forEach(element => {
         const section = (daw.sections || []).find(
           item => item.id === element.dataset?.sectionId
         );
-        if (
-          section &&
-          intersects(element, x1, y1, x2, y2, innerRect)
-        ) {
+        if (section && intersects(element, x1, y1, x2, y2, innerRect)) {
           sectionIds.push(element.dataset.sectionId);
         }
       });
       selectSections(sectionIds, { render: false });
     }
 
+    /* ---- Global document handlers ---- */
     function onDocMouseMove(event) {
       const daw = getDAW();
+      if (daw?.drag?.type === 'warp') {
+        onWarpDragMove(event);
+        return;
+      }
       if (clipDragService.update(event)) {
         renderRuler();
         renderClips();
@@ -329,6 +452,10 @@
 
     function onDocMouseUp() {
       const daw = getDAW();
+      if (daw?.drag?.type === 'warp') {
+        onWarpDragEnd();
+        return;
+      }
       clipDragService.finish();
       if (daw.marquee) {
         daw.marquee = null;

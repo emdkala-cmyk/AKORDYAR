@@ -416,6 +416,7 @@
         <div style="width:1px;height:20px;background:var(--border-subtle);margin:0 4px;"></div>
         <button class="tl-tool-btn" id="playheadModeBtn" data-action="togglePlayheadMode" title="Playhead Mode: Page Scroll / Center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="22"/><polyline points="8 6 12 2 16 6"/><polyline points="8 18 12 22 16 18"/></svg></button>
         <button class="tl-snap-btn active" id="snapBtn" data-action="toggleSnap" title="Snap (S)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 3L3 21"/><path d="M21 3v7"/><path d="M21 3h-7"/></svg></button>
+        <button class="tl-tool-btn" id="warpToolBtn" data-action="toggleWarp" title="Warp Tool (W)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h2c2 0 3-2 5-2s3 2 5 2 3-2 5-2"/><path d="M4 6h2c2 0 3 2 5 2s3-2 5-2 3 2 5 2"/><path d="M4 18h2c2 0 3-2 5-2s3 2 5 2 3-2 5-2"/></svg></button>
         <button class="tl-tool-btn" data-action="showQuantize" title="Quantize"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg></button>
         <div class="color-tool-group">
           <button class="color-tool-btn" id="colorBrushBtn" data-action="toggleColorTool" data-value="brush" title="Paint Brush (C)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg></button>
@@ -1284,6 +1285,8 @@
  <script src="js/app/CoreAudioImportService.js"></script>
  <script src="js/app/CoreClipEditService.js"></script>
  <script src="js/app/CoreSelectionService.js"></script>
+<script src="js/core/FreeWarpEngine.js"></script>
+<script src="js/app/CoreFreeWarpService.js"></script>
 <script src="js/app/CoreClipDragService.js"></script>
 <script src="js/app/CoreClipInteractionService.js"></script>
 <script src="js/app/CoreTimelineRuntimeService.js"></script>

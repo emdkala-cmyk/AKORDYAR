@@ -44,7 +44,8 @@
     { id: 'tapTempo', label: 'ضربه تمپو', code: 'KeyT', ctrl: false, shift: false, alt: false },
     { id: 'quantizeChords', label: 'کوانتیز آکوردها', code: 'KeyQ', ctrl: false, shift: false, alt: false },
     { id: 'stop', label: 'توقف', code: 'Backspace', ctrl: true, shift: false, alt: false },
-    { id: 'goEnd', label: 'رفتن به انتها', code: 'End', ctrl: false, shift: false, alt: false }
+    { id: 'goEnd', label: 'رفتن به انتها', code: 'End', ctrl: false, shift: false, alt: false },
+    { id: 'toggleWarp', label: 'ابزار Warp', code: 'KeyW', ctrl: false, shift: false, alt: false }
   ].map(Object.freeze));
 
   const KEY_NAMES = Object.freeze({
