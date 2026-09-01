@@ -328,6 +328,7 @@
       const clipId = event.currentTarget?.dataset?.clipId;
       const clip = getClip(clipId);
       if (!clip) return;
+      if (clip.trackId) daw.selectedTrackId = clip.trackId;
 
       const track = (daw.tracks || []).find(item => item.id === clip.trackId);
       if (track?.locked) {

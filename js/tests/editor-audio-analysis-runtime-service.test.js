@@ -17,7 +17,11 @@ function buildWorld() {
 
   const fakeBuffer = { sampleRate: 44100, duration: 16 };
   const daw = {
-    tracks: [{ id: 't0', type: 'chord' }, { id: 't1', type: 'audio' }],
+    tracks: [
+      { id: 't0', type: 'chord' },
+      { id: 't1', type: 'audio' },
+      { id: 't2', type: 'audio' }
+    ],
     clips: [
       {
         id: 'clip_a',
@@ -25,10 +29,21 @@ function buildWorld() {
         trackId: 't1',
         bufferKey: 'bk_a',
         duration: 16
+      },
+      {
+        id: 'clip_b',
+        type: 'audio',
+        trackId: 't2',
+        bufferKey: 'bk_b',
+        duration: 40
       }
     ],
-    bufferCache: new Map([['bk_a', fakeBuffer]]),
-    selectedIds: new Set(['clip_a'])
+    bufferCache: new Map([
+      ['bk_a', fakeBuffer],
+      ['bk_b', { sampleRate: 44100, duration: 40 }]
+    ]),
+    selectedIds: new Set(['clip_a']),
+    selectedTrackId: 't1'
   };
 
   const song = {
@@ -118,6 +133,18 @@ function buildWorld() {
 /* ---------------- tempo ---------------- */
 
 (async () => {
+  {
+    const world = buildWorld();
+    const resolved = await world.service.resolveAnalysisBuffer();
+    assert.equal(resolved.clip.id, 'clip_a', 'analysis uses selected audio lane');
+    world.daw.selectedTrackId = 't0';
+    assert.equal(
+      await world.service.resolveAnalysisBuffer(),
+      null,
+      'analysis requires an audio track to be selected'
+    );
+  }
+
   {
     const world = buildWorld();
     await world.service.detectTempo();

@@ -54,6 +54,7 @@
       Promise.resolve(null),
     getClipFilePath = (...args) =>
       '',
+    openChordLineImporter = () => {},
     openChordEditor = (...args) =>
       undefined,
     editorAction = () => undefined,
@@ -163,6 +164,7 @@
       translate,
       openFileForTrack: (...args) =>
         coreAction('openFileForTrack', ...args),
+      openChordLineImporter,
       openIconPicker: track => trackSetup.openIconPicker(track),
       updateTrackMix: (...args) =>
         coreAction('updateTrackMix', ...args),

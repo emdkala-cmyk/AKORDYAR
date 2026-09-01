@@ -90,13 +90,20 @@
 
     function pickClip(daw) {
       const clips = audioClips(daw);
-      if (!clips.length) return null;
+      const selectedTrack = daw?.tracks?.find(
+        track => track.id === daw.selectedTrackId
+      );
+      if (selectedTrack?.type !== 'audio') return null;
+      const laneClips = clips.filter(
+        clip => clip.trackId === selectedTrack.id
+      );
       const selected = daw.selectedIds
-        ? clips.filter(clip => daw.selectedIds.has(clip.id))
+        ? laneClips.filter(clip => daw.selectedIds.has(clip.id))
         : [];
       if (selected.length) return selected[0];
-      return clips.reduce((longest, clip) =>
-        (clip.duration || 0) > (longest?.duration || 0) ? clip : longest, clips[0]);
+      return laneClips.reduce((longest, clip) =>
+        (clip.duration || 0) > (longest?.duration || 0) ? clip : longest,
+      laneClips[0]);
     }
 
     function bufferForClip(daw, clip) {

@@ -26,6 +26,7 @@
     toast = () => {},
     translate = value => value,
     openFileForTrack = () => {},
+    openChordLineImporter = () => {},
     openIconPicker = () => {},
     updateTrackMix = () => {},
     scheduleAllFromPlayhead = () => {},
@@ -147,6 +148,32 @@
               <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="8"/></svg>
             </button>
           `;
+
+          const addChordLineButton = (dataKey, title, label, mode) => {
+            const button = document.createElement('button');
+            button.className = 't-btn';
+            button.dataset[dataKey] = '';
+            button.title = title;
+            button.style.fontSize = '0.7rem';
+            button.textContent = label;
+            button.addEventListener('click', event => {
+              event.stopPropagation();
+              openChordLineImporter(mode);
+            });
+            header.insertBefore(button, header.querySelector('[data-lock]'));
+          };
+          addChordLineButton(
+            'chordImport',
+            'ورود MIDI/XML آکورد',
+            '📥',
+            'file'
+          );
+          addChordLineButton(
+            'chordPaste',
+            'ورود XML از کلیپ‌بورد',
+            '📋',
+            'clipboard'
+          );
 
           header.querySelector('[data-rec]')?.addEventListener('click', event => {
             event.stopPropagation();
@@ -492,6 +519,39 @@
           };
           startPointerDrag(lane, event, onDocumentMouseMove, onDocumentMouseUp);
         });
+        if (track.type === 'chord') {
+          lane.addEventListener('dragover', event => {
+            const types = Array.from(event.dataTransfer?.types || []);
+            const hasFile = Boolean(event.dataTransfer?.files?.length) ||
+              types.includes('Files');
+            const hasText = types.includes('text/plain') ||
+              types.includes('text/xml') ||
+              types.includes('text/uri-list');
+            if (!hasFile && !hasText) return;
+            event.preventDefault();
+            if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+            lane.classList.add('chord-drop-target');
+          });
+          lane.addEventListener('dragleave', () => {
+            lane.classList.remove('chord-drop-target');
+          });
+          lane.addEventListener('drop', event => {
+            event.preventDefault();
+            event.stopPropagation();
+            lane.classList.remove('chord-drop-target');
+            const file = event.dataTransfer?.files?.[0];
+            if (file) {
+              openChordLineImporter('drop', file);
+              return;
+            }
+            const text =
+              event.dataTransfer?.getData?.('text/xml') ||
+              event.dataTransfer?.getData?.('text/plain') ||
+              event.dataTransfer?.getData?.('text/uri-list') ||
+              '';
+            if (text.trim()) openChordLineImporter('drop', text);
+          });
+        }
 
         const grid = document.createElement('canvas');
         grid.className = 'lane-grid';

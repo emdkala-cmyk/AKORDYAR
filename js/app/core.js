@@ -875,6 +875,8 @@ function isHistoryApplying() {
           globalScope.AkordyarEditorApi?.getClipFilePath?.(...args) || '',
         openChordEditor: (...args) =>
           globalScope.AkordyarEditorApi?.openChordEditor?.(...args),
+        openChordLineImporter: (...args) =>
+          corePublicApi.get('openChordLineImporter')?.(...args),
         editorAction: (name, ...args) =>
           globalScope.AkordyarEditorApi?.[name]?.(...args),
         coreAction: (name, ...args) =>
@@ -1277,15 +1279,32 @@ function applyState(stateStr) {
           corePopupRuntime?.syncChordLinePopup?.(...args),
         saveState: () => saveState(),
         renderAll: () => renderAll(),
-        toast: message => toast(message)
+        toast: message => toast(message),
+        saveSong: () => edSaveSong(),
+        saveCurrentVersion: () =>
+          globalScope.AkordyarEditorApi?.saveCurrentVersion?.(),
+        scheduleAllFromPlayhead: () => scheduleAllFromPlayhead(),
+        ensureTimelineFits: (...args) => ensureTimelineFits(...args),
+        uid: prefix => uid(prefix),
+        roundMs: value => roundMs(value),
+        colors: COLORS,
+        getFileInput: () => $('chord-line-file-input'),
+        parser: globalScope.MidiFileParser,
+        chordService: globalScope.EditorMidiChordService?.create?.(),
+        navigatorRef: globalScope.navigator,
+        logger: console
       });
     if (!coreChordLineSyncRuntime) {
       throw new Error(
         'CoreChordLineSyncService باید قبل از app/core.js بارگذاری شود.'
       );
     }
-    const { syncChordLineFromLyrics } = coreChordLineSyncRuntime;
+    const {
+      syncChordLineFromLyrics,
+      bindChordLineFileInput
+    } = coreChordLineSyncRuntime;
     corePublicApi.publish(coreChordLineSyncRuntime);
+    bindChordLineFileInput();
     const coreMovableWindowRuntime =
       globalScope.CoreMovableWindowBridgeService?.create?.({
         documentRef: document,
