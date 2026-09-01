@@ -193,6 +193,16 @@ function customPrompt(message, defaultValue = '') {
     });
     coreGridQuantizeRuntime.bindModalDismiss();
 
+    /* ---- Warp Audio Renderer (pitch-preserving WSOLA stretch) ---- */
+    const coreWarpAudioRenderer =
+      globalScope.WarpAudioRendererService?.create?.({
+        ensureAudioCtx: (...args) => ensureAudioCtx(...args),
+        getBuffer: clip =>
+          coreGetRuntimeDAW().bufferCache?.get?.(clip?.bufferKey) || null,
+        FreeWarp: globalScope.FreeWarpEngine,
+        logger: console
+      });
+
     /* ---- Free Warp Service ---- */
     const coreFreeWarpRuntime =
       globalScope.CoreFreeWarpService?.create?.({
@@ -206,6 +216,9 @@ function customPrompt(message, defaultValue = '') {
         renderAll: (...args) => renderAll(...args),
         renderClips: (...args) => renderClips(...args),
         refreshClipWaveImage: (...args) => refreshClipWaveImage(...args),
+        scheduleAllFromPlayhead: (...args) =>
+          scheduleAllFromPlayhead(...args),
+        getWarpAudioRenderer: () => coreWarpAudioRenderer,
         toast: (...args) => toast(...args)
       });
     if (coreFreeWarpRuntime) {
@@ -218,6 +231,9 @@ function customPrompt(message, defaultValue = '') {
         moveWarpMarker: coreFreeWarpRuntime.moveWarpMarker,
         getSourceTime: coreFreeWarpRuntime.getSourceTime,
         getWarpedDuration: coreFreeWarpRuntime.getWarpedDuration,
+        commitWarp: coreFreeWarpRuntime.commitWarp,
+        renderWarpAudio: coreFreeWarpRuntime.renderWarpAudio,
+        getWarpedAudioBuffer: coreFreeWarpRuntime.getWarpedAudioBuffer,
         setWarpMode: coreFreeWarpRuntime.setWarpMode,
         isWarpMode: coreFreeWarpRuntime.isWarpMode,
         getFreeWarpService: () => coreFreeWarpRuntime

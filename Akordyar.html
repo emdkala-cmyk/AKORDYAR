@@ -416,7 +416,8 @@
         <div style="width:1px;height:20px;background:var(--border-subtle);margin:0 4px;"></div>
         <button class="tl-tool-btn" id="playheadModeBtn" data-action="togglePlayheadMode" title="Playhead Mode: Page Scroll / Center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="22"/><polyline points="8 6 12 2 16 6"/><polyline points="8 18 12 22 16 18"/></svg></button>
         <button class="tl-snap-btn active" id="snapBtn" data-action="toggleSnap" title="Snap (S)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 3L3 21"/><path d="M21 3v7"/><path d="M21 3h-7"/></svg></button>
-        <button class="tl-tool-btn" id="warpToolBtn" data-action="toggleWarp" title="Warp Tool (W)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h2c2 0 3-2 5-2s3 2 5 2 3-2 5-2"/><path d="M4 6h2c2 0 3 2 5 2s3-2 5-2 3 2 5 2"/><path d="M4 18h2c2 0 3-2 5-2s3 2 5 2 3-2 5-2"/></svg></button>
+        <button class="tl-tool-btn" id="warpToolBtn" data-action="toggleWarp" title="Warp Tool (W)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h2c2 0 3-2 5-2s3 2 5 2 3-2 5-2"/><path d="M4 6h2c2 0 3 2 5 2s3 2 5 2 3-2 5-2"/><path d="M4 18h2c2 0 3-2 5-2s3 2 5 2 3-2 5-2"/></svg></button>
+        <button class="tl-tool-btn hitpoint-tool-btn" id="hitpointBtn" data-action="openHitpoints" title="Calculate Hitpoints">⚡ HP</button>
         <button class="tl-tool-btn" data-action="showQuantize" title="Quantize"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg></button>
         <div class="color-tool-group">
           <button class="color-tool-btn" id="colorBrushBtn" data-action="toggleColorTool" data-value="brush" title="Paint Brush (C)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg></button>
@@ -565,6 +566,52 @@
         <div class="settings-foot">
           <button class="settings-btn" data-action="resetSettings">بازنشانی</button>
           <button class="settings-btn primary" data-action="closeSettings">تأیید</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-overlay hitpoint-overlay" id="hitpointModal" tabindex="-1" data-inline-actions aria-hidden="true">
+      <div class="hitpoint-panel mv-window" role="dialog" aria-modal="true" aria-labelledby="hitpointTitle">
+        <div class="hitpoint-head mv-head">
+          <div>
+            <div class="hitpoint-title" id="hitpointTitle">⚡ Hitpoints / AudioWarp</div>
+            <div class="hitpoint-clip-name" id="hitpointClipName">کلیپ صوتی انتخاب نشده</div>
+          </div>
+          <button class="hitpoint-close" type="button" data-action="closeHitpoints" title="بستن">✕</button>
+        </div>
+        <div class="hitpoint-body">
+          <div class="hitpoint-summary-row">
+            <span id="hitpointSummary">هنوز Hitpoint محاسبه نشده است.</span>
+            <strong><span id="hitpointCount">0</span> HP</strong>
+          </div>
+          <label class="hitpoint-field">
+            <span>Threshold <output id="hitpointThresholdValue">18%</output></span>
+            <input id="hitpointThreshold" type="range" min="0" max="1" step="0.01" value="0.18" data-action="setHitpointThreshold">
+          </label>
+          <label class="hitpoint-field">
+            <span>Intensity <output id="hitpointIntensityValue">5%</output></span>
+            <input id="hitpointIntensity" type="range" min="0" max="1" step="0.01" value="0.05" data-action="setHitpointIntensity">
+          </label>
+          <label class="hitpoint-field">
+            <span>Minimum Length <output id="hitpointMinimumLengthValue">0.08 ثانیه</output></span>
+            <input id="hitpointMinimumLength" type="range" min="0" max="1" step="0.01" value="0.08" data-action="setHitpointMinimumLength">
+          </label>
+          <label class="hitpoint-check">
+            <input id="hitpointShowInput" type="checkbox" checked data-action="toggleHitpointVisibility">
+            نمایش Hitpoint روی موج صدا
+          </label>
+          <label class="hitpoint-check">
+            <input id="hitpointSnapInput" type="checkbox" data-action="toggleHitpointSnap">
+            هنگام ساخت Warp Marker به Grid بچسبان
+          </label>
+          <div class="hitpoint-status" id="hitpointStatus" aria-live="polite"></div>
+        </div>
+        <div class="hitpoint-foot">
+          <button class="hitpoint-btn" type="button" data-action="clearHitpoints">پاک کردن</button>
+          <div class="hitpoint-foot-main">
+            <button class="hitpoint-btn primary hitpoint-run-control" type="button" data-action="calculateHitpoints">Calculate</button>
+            <button class="hitpoint-btn warp hitpoint-run-control" type="button" data-action="createWarpMarkersFromHitpoints">ساخت Warp Markers</button>
+          </div>
         </div>
       </div>
     </div>
@@ -1286,6 +1333,8 @@
  <script src="js/app/CoreClipEditService.js"></script>
  <script src="js/app/CoreSelectionService.js"></script>
 <script src="js/core/FreeWarpEngine.js"></script>
+<script src="js/core/HitpointAnalysisEngine.js"></script>
+<script src="js/core/WarpAudioRendererService.js"></script>
 <script src="js/app/CoreFreeWarpService.js"></script>
 <script src="js/app/CoreClipDragService.js"></script>
 <script src="js/app/CoreClipInteractionService.js"></script>
@@ -1315,6 +1364,7 @@
 <script src="js/app/core.js"></script>
  <script src="js/core/AudioAnalysisEngine.js?v=20260901-1"></script>
 <script src="js/editor/EditorAudioAnalysisRuntimeService.js?v=20260901-1"></script>
+<script src="js/editor/EditorHitpointRuntimeService.js?v=20260901-1"></script>
 <script src="js/app/editor.js?v=20260828-14"></script>
  <script src="js/app/print.js"></script>
  <script src="js/app/search.js"></script>

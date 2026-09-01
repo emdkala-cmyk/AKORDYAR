@@ -128,6 +128,10 @@
     <tr><td>js/editor/EditorAudioStorageService.js</td><td>~12KB</td><td>~300</td><td>ذخیره و بازیابی audio blob</td></tr>
     <tr><td>js/archive/ArchiveStorageService.js</td><td>~4KB</td><td>~100</td><td>ذخیرهٔ آرشیو با IndexedDB و fallback کنترل‌شده</td></tr>
     <tr><td>js/core/TransportSchedulingService.js</td><td>~9KB</td><td>~230</td><td>زمان‌بندی transport و مترونوم</td></tr>
+    <tr><td>js/core/HitpointAnalysisEngine.js</td><td>~18KB</td><td>~550</td><td>spectral flux + energy onset و فیلتر Hitpoint</td></tr>
+    <tr><td>js/core/FreeWarpEngine.js</td><td>~8KB</td><td>~270</td><td>نگاشت piecewise بین source و timeline</td></tr>
+    <tr><td>js/core/WarpAudioRendererService.js</td><td>~14KB</td><td>~390</td><td>رندر WSOLA/OLA غیرمخرب برای پخش Warp</td></tr>
+    <tr><td>js/editor/EditorHitpointRuntimeService.js</td><td>~14KB</td><td>~460</td><td>اتصال UI، ذخیره و تبدیل Hitpoint به Warp Marker</td></tr>
     <tr><td>js/songDocumentModel.js</td><td>5KB</td><td>151</td><td>مدل سند آهنگ</td></tr>
     <tr><td>js/sharedEngine.js</td><td>8KB</td><td>214</td><td>موتور مشترک نمایش</td></tr>
     <tr><td>js/playerViewRenderer.js</td><td>9KB</td><td>208</td><td>رندر نمای پخشکننده</td></tr>
@@ -158,7 +162,8 @@
   <h3>شیء DAW</h3>
   <pre><code>DAW = {
   tracks: [{ id, name, icon, type, muted, solo, vol, pan, transpose, locked }],
-  clips:  [{ id, type:'audio'|'chord', trackId, name, start, duration, offset, sourceDuration, color, bufferKey, _peaks, waveUrl, _embedded, _originalBlob }],
+  clips:  [{ id, type:'audio'|'chord', trackId, name, start, duration, offset, sourceDuration, color, bufferKey, _peaks, waveUrl, _embedded, _originalBlob,
+             hitpoints, hitpointSettings, hitpointAnalysis, hitpointsVisible, warpMarkers }],
   sections: [{ id, trackId, label, start, duration, color }],
   playhead, isPlaying, isScrubbing, pxPerSecond, laneHeight, timelineDuration,
   audioCtx, masterGain, voices, bufferCache, waveCache, loopEnabled, loopA, loopB,
@@ -187,6 +192,14 @@
     <li><code>decodeFileToBuffer(file)</code>: <code>decodeAudioData</code> برای ساخت AudioBuffer.</li>
     <li><code>peaksFromBuffer(buffer, 2000)</code>: استخراج آرایه peak برای waveform.</li>
     <li><code>drawWaveToCanvas(peaks, w, h)</code> → <code>refreshClipWaveImage(clip)</code>: رندر waveform به dataURL.</li>
+  </ul>
+  <h3>Hitpoints و Free Warp</h3>
+  <ul>
+    <li><code>HitpointAnalysisEngine.calculateHitpoints(buffer, options)</code>: تحلیل mono، طیف، spectral flux و افزایش انرژی؛ خروجی شامل <code>sourceSample</code> و <code>sourceTime</code> است.</li>
+    <li><code>threshold</code>، <code>intensity</code> و <code>minimumLength</code> به‌ترتیب قله، شدت و فاصلهٔ حداقل Hitpointها را کنترل می‌کنند.</li>
+    <li><code>FreeWarpEngine</code> نگاشت قطعه‌ای <code>sourceTime ↔ timelineTime</code> را نگه می‌دارد؛ تغییر یک marker فقط دو segment مجاور را تغییر می‌دهد.</li>
+    <li><code>WarpAudioRendererService</code> فایل اصلی را تغییر نمی‌دهد و برای پخش، بافر کش‌شدهٔ زمان‌کشیده می‌سازد.</li>
+    <li>دکمهٔ <code>⚡ HP</code> پنل تحلیل را باز می‌کند؛ <code>ساخت Warp Markers</code> Hitpointهای فعال را به markerهای قابل‌کشیدن تبدیل می‌کند.</li>
   </ul>
   <h3>Transpose</h3>
   <p>با <code>source.playbackRate.value = Math.pow(2, semitones/12)</code> پیادهسازی شده (بدون تغییر pitch- preserving — سرعت هم عوض میشود).</p>

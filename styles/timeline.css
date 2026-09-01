@@ -302,6 +302,8 @@
 .clip .warp-marker::after { content: ''; position: absolute; top: 0; bottom: 0; left: -12px; width: 24px; cursor: ew-resize; }
 .clip .warp-marker:hover { opacity: 1; border-left-width: 3px; filter: drop-shadow(0 0 4px #F97316); }
 .clip .warp-marker.dragging { opacity: 1; border-left-color: #EF4444; filter: drop-shadow(0 0 6px #EF4444); }
+.clip.warp-dragging { box-shadow: 0 0 0 2px #F59E0B, 0 0 14px rgba(245,158,11,0.45); z-index: 26; }
+.clip .hitpoint-marker { position: absolute; top: 0; bottom: 0; width: 0; border-left: 1px dashed rgba(0,242,254,0.95); z-index: 24; pointer-events: none; opacity: 0.9; filter: drop-shadow(0 0 3px rgba(0,242,254,0.7)); }
 
 /* ===== Warp Tool Cursor ===== */
 .warp-cursor .track-lane { cursor: crosshair; }
@@ -374,6 +376,8 @@
 .tl-tool-btn.rec-btn.rec-on { background: #DC2626; border-color: #F87171; box-shadow: 0 0 10px rgba(239,68,68,0.7); animation: rec-pulse 1s infinite; }
 .tl-tool-btn.warp-active { background: #B45309; color: #FDE68A; border-color: #F59E0B; box-shadow: 0 0 8px rgba(245,158,11,0.5); }
 .tl-tool-btn.warp-active:hover { background: #D97706; }
+.tl-tool-btn.hitpoint-tool-btn { color: #67E8F9; border-color: rgba(34,211,238,0.65); font-weight: 800; }
+.tl-tool-btn.hitpoint-tool-btn:hover { background: rgba(34,211,238,0.16); border-color: #22D3EE; }
 .warp-mode-active .clip.audio-clip { cursor: crosshair; }
 .warp-mode-active .clip.audio-clip .clip-wave { pointer-events: none; }
 .rec-live-clip { border-color: #F87171 !important; background: rgba(239,68,68,0.18) !important; cursor: default !important; }

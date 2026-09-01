@@ -82,7 +82,10 @@
         refreshClipWaveImage,
         saveState,
         scheduleAllFromPlayhead,
-        renderAll
+        renderAll,
+        isSnapEnabled: () =>
+          globalScope.AkordyarCoreApi?.isSnapEnabled?.() ?? false,
+        getFreeWarpService: () => getWarpService()
       });
     if (!clipDragService) throw new Error(
       'CoreClipDragService must be loaded before CoreClipInteractionService.'
@@ -129,7 +132,7 @@
       if (markers.length <= 2) return null; // only _start and _end
       const clipRect = clipElement?.getBoundingClientRect?.();
       if (!clipRect) return null;
-      const clipDuration = clip.sourceDuration || clip.duration;
+      const clipDuration = clip.duration; // element width maps clip.duration
       const clipWidthPx = clipRect.width;
       const HIT_PX = 24; // half-width of the ::after hit area
       let best = null;
@@ -149,21 +152,25 @@
     }
 
     /**
-     * Start a warp drag: attach document-level mousemove/mouseup.
-     * The drag state lives on daw.drag so other handlers can see it.
+     * Start a warp drag: freeze the neighbouring anchors and attach
+     * document-level mousemove/mouseup.  The drag state lives on daw.drag
+     * so other handlers can see it.
      */
-    function startWarpDrag(clip, markerId, origTime, clientX, clipElement) {
+    function startWarpDrag(clip, markerId, markers, index, clientX, clipElement) {
       const daw = getDAW();
       const clipRect = clipElement?.getBoundingClientRect?.();
-      const clipDuration = clip.sourceDuration || clip.duration;
+      // Golden rule: the previous/next anchors are frozen for the whole
+      // drag — not one millisecond of their audio may move.
       daw.drag = {
         type: 'warp',
         clipId: clip.id,
-        markerId: markerId,
+        markerId,
         startX: clientX,
-        origTimelineTime: origTime,
+        origTimelineTime: markers[index].timelineTime,
+        prevAnchorTime: markers[index - 1]?.timelineTime ?? clip.start,
+        nextAnchorTime: markers[index + 1]?.timelineTime ?? clip.start + clip.duration,
         clipStart: clip.start,
-        clipDuration: clipDuration,
+        clipDuration: clip.duration,
         clipWidthPx: clipRect ? clipRect.width : 100
       };
       documentRef.addEventListener('mousemove', onWarpDragMove);
@@ -183,42 +190,56 @@
       const pxDelta = event.clientX - drag.startX;
       let newTime = drag.origTimelineTime + xToTime(pxDelta);
 
-      // Clamp: must stay between previous and next anchor markers
-      const markers = warp.getWarpMarkers(drag.clipId);
-      const idx = markers.findIndex(m => m.id === drag.markerId);
-      if (idx > 0) {
-        const prevTime = markers[idx - 1].timelineTime + 0.005;
-        newTime = Math.max(prevTime, newTime);
-      }
-      if (idx < markers.length - 1) {
-        const nextTime = markers[idx + 1].timelineTime - 0.005;
-        newTime = Math.min(nextTime, newTime);
-      }
+      // Clamp: must stay strictly between the frozen anchor markers
+      newTime = Math.min(
+        drag.nextAnchorTime - 0.005,
+        Math.max(drag.prevAnchorTime + 0.005, newTime)
+      );
 
-      // Snap to grid if enabled
+      // Live magnetic snap while dragging
       const snapEnabled = globalScope.AkordyarCoreApi?.isSnapEnabled?.();
       if (snapEnabled) {
         newTime = snapTime(newTime);
       }
 
-      // Move the marker (no saveState during drag — only on drop)
+      // Move the marker — segment A stretches while segment B compresses
       warp.moveWarpMarker(drag.clipId, drag.markerId, newTime);
-      // Re-render to show marker position update
-      renderClips();
 
-      // Show dragging class on the marker element
+      // Elastic waveform preview: redraw the peaks through the new warp
+      // mapping so the stretch is visible under the cursor while dragging.
+      refreshClipWaveImage(clip);
+      renderClips({ preserveWaveforms: true });
+
       const markerEl = documentRef.querySelector(
         `.clip[data-clip-id="${drag.clipId}"] .warp-marker[data-marker-id="${drag.markerId}"]`
       );
       if (markerEl) markerEl.classList.add('dragging');
+      const clipEl = documentRef.querySelector(
+        `.clip[data-clip-id="${drag.clipId}"]`
+      );
+      if (clipEl) clipEl.classList.add('warp-dragging');
     }
 
     function onWarpDragEnd() {
       const daw = getDAW();
-      if (daw?.drag?.type === 'warp') {
+      const drag = daw?.drag;
+      if (drag?.type === 'warp') {
         daw.drag = null;
-        saveState();
-        renderClips();
+        const warp = getWarpService();
+        const clip = getClip(drag.clipId);
+        if (warp && clip) {
+          // Snap the dropped marker to the grid, persist, redraw the
+          // warped waveform and re-render the stretched audio buffer.
+          const markers = warp.getWarpMarkers(drag.clipId);
+          const current = markers.find(m => m.id === drag.markerId);
+          warp.commitWarp(drag.clipId, {
+            markerId: drag.markerId,
+            timelineTime: current ? current.timelineTime : null
+          });
+        } else {
+          saveState();
+          renderClips();
+        }
       }
       documentRef?.removeEventListener?.('mousemove', onWarpDragMove);
       documentRef?.removeEventListener?.('mouseup', onWarpDragEnd);
@@ -262,28 +283,34 @@
 
         warp.ensureWarpMarkers(clip.id);
         const clipElement = event.currentTarget;
+        const markers = warp.getWarpMarkers(clip.id);
 
         // Try to find nearest existing warp marker within hit area
         const nearest = findNearestWarpMarker(clip, event.clientX, clipElement);
 
         if (nearest) {
-          // Start dragging the existing marker
+          if (event.altKey) {
+            // Alt+click removes the marker
+            warp.removeWarpMarker(clip.id, nearest.marker.id);
+            return;
+          }
+          // Start dragging the existing marker (anchors freeze inside)
           startWarpDrag(
             clip,
             nearest.marker.id,
-            nearest.marker.timelineTime,
+            markers,
+            nearest.index,
             event.clientX,
             clipElement
           );
           return;
         }
 
-        // No marker nearby — insert a new one at click position
+        // No marker nearby — insert a new one at the click position
         const clipRect = clipElement?.getBoundingClientRect?.();
         if (clipRect) {
-          const clipDuration = clip.sourceDuration || clip.duration;
           const relX = event.clientX - clipRect.left;
-          const clickTime = clip.start + (relX / clipRect.width) * clipDuration;
+          const clickTime = clip.start + (relX / clipRect.width) * clip.duration;
           warp.insertWarpMarker(clip.id, clickTime);
           renderClips();
         }

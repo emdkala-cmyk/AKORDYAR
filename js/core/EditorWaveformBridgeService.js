@@ -27,7 +27,8 @@
       getWaveCache,
       documentRef,
       clamp,
-      timeToX
+      timeToX,
+      freeWarpEngine: globalScope.FreeWarpEngine || null
     });
 
     return Object.freeze({

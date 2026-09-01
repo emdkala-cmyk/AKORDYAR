@@ -20,12 +20,15 @@
   /**
    * Build a default two-marker set covering [0, duration].
    * clipStart is the timeline position of the clip.
+   * sourceOffset shifts the mapped source window for trimmed clips:
+   * the clip exposes [offset, offset + duration] of the source buffer.
    */
-  function defaultMarkers(clipStart, duration, snapPointOffset) {
+  function defaultMarkers(clipStart, duration, snapPointOffset, sourceOffset) {
     const sp = Number(snapPointOffset) || 0;
+    const src0 = Math.max(0, Number(sourceOffset) || 0);
     return [
-      { id: '_start', sourceTime: 0, timelineTime: clipStart, pinned: true },
-      { id: '_end',   sourceTime: duration, timelineTime: clipStart + duration, pinned: true }
+      { id: '_start', sourceTime: src0, timelineTime: clipStart, pinned: true },
+      { id: '_end',   sourceTime: src0 + duration, timelineTime: clipStart + duration, pinned: true }
     ];
   }
 
@@ -175,6 +178,72 @@
     );
   }
 
+  /**
+   * List warp segments with their stretch ratios.
+   * ratio = srcSpan / tlSpan  (>1 compression, <1 stretch).
+   */
+  function segments(markers) {
+    if (!markers || markers.length < 2) return [];
+    const out = [];
+    for (let i = 0; i < markers.length - 1; i += 1) {
+      const a = markers[i];
+      const b = markers[i + 1];
+      const tlSpan = b.timelineTime - a.timelineTime;
+      const srcSpan = b.sourceTime - a.sourceTime;
+      out.push({
+        index: i,
+        srcStart: a.sourceTime,
+        srcEnd: b.sourceTime,
+        tlStart: a.timelineTime,
+        tlEnd: b.timelineTime,
+        ratio: tlSpan > 1e-9 ? srcSpan / tlSpan : 1
+      });
+    }
+    return out;
+  }
+
+  /**
+   * Compact fingerprint of a marker set for cache keys.
+   * Markers are rounded to 1ms so float jitter does not thrash caches.
+   */
+  function markersKey(markers) {
+    if (!markers || !markers.length) return 'none';
+    return markers
+      .map(m => `${m.id}:${Math.round(m.sourceTime * 1000)}:${Math.round(m.timelineTime * 1000)}`)
+      .join('|');
+  }
+
+  /**
+   * Does this marker set actually warp (any segment ratio != 1)?
+   */
+  function isWarped(markers) {
+    if (!markers || markers.length < 2) return false;
+    return segments(markers).some(seg => Math.abs(seg.ratio - 1) > 1e-4);
+  }
+
+  /**
+   * Resample a full-source peaks array through the warp mapping so the
+   * drawn waveform reflects the stretched/compressed timeline layout.
+   * Output bucket i covers timeline position tl at fraction i/buckets of
+   * [tlStart, tlEnd]; its value is the source peak at timelineToSource(tl).
+   */
+  function resamplePeaksThroughWarp(peaks, sourceDuration, markers, buckets) {
+    if (!markers || markers.length < 2 || !peaks || !peaks.length) return peaks;
+    const n = Math.max(2, Math.floor(buckets) || 2);
+    const out = new Float32Array(n);
+    const tlStart = markers[0].timelineTime;
+    const tlEnd = markers[markers.length - 1].timelineTime;
+    const tlSpan = tlEnd - tlStart;
+    const dur = Math.max(1e-9, Number(sourceDuration) || 1e-9);
+    for (let i = 0; i < n; i += 1) {
+      const t = tlSpan > 1e-9 ? tlStart + (i / (n - 1)) * tlSpan : tlStart;
+      const src = timelineToSource(t, markers);
+      const idx = clamp(Math.floor((src / dur) * peaks.length), 0, peaks.length - 1);
+      out[i] = peaks[idx] || 0;
+    }
+    return out;
+  }
+
   const engine = Object.freeze({
     defaultMarkers,
     sortMarkers,
@@ -186,6 +255,10 @@
     effectiveDuration,
     stretchRatioAt,
     applyWarpDrag,
+    segments,
+    markersKey,
+    isWarped,
+    resamplePeaksThroughWarp,
     clamp
   });
 

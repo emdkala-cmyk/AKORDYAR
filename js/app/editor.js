@@ -164,6 +164,46 @@ const editorAudioAnalysisRuntime =
     colors: COLORS,
     toast: (...args) => toast(...args)
   });
+
+function syncEditorWarpModeUi(active) {
+  document.getElementById('warpToolBtn')?.classList?.toggle(
+    'warp-active',
+    Boolean(active)
+  );
+  document.getElementById('tl-inner')?.classList?.toggle(
+    'warp-mode-active',
+    Boolean(active)
+  );
+}
+
+const editorHitpointRuntime =
+  window.EditorHitpointRuntimeService?.create?.({
+    engine: window.HitpointAnalysisEngine,
+    FreeWarp: window.FreeWarpEngine,
+    getDAW: () => editorGetRuntimeDAW(),
+    getSelectedClips: () => editorCoreApi.selectedClips?.() || [],
+    getClip: clipId => editorCoreApi.getClip?.(clipId) || null,
+    getBuffer: clip =>
+      editorGetRuntimeDAW()?.bufferCache?.get?.(
+        clip?.bufferKey || clip?.id
+      ) || null,
+    restoreAudio: async () =>
+      getEditorAudioRecoveryService()?.restoreSongAudio?.(
+        getCurrentEditorSong()
+      ) || { loaded: 0 },
+    decodeFileToBuffer,
+    getWarpService: () => editorCoreApi.getFreeWarpService?.() || null,
+    snapTime: value => editorCoreApi.snapTime?.(value) ?? value,
+    saveState: (...args) => saveState(...args),
+    saveSong: (...args) => edSaveSong(...args),
+    refreshClipWaveImage: (...args) => refreshClipWaveImage(...args),
+    renderClips: (...args) => renderClips(...args),
+    getElement: id => $(id),
+    toast: (...args) => toast(...args),
+    setWarpMode: active => editorCoreApi.setWarpMode?.(active),
+    syncWarpMode: active => syncEditorWarpModeUi(active),
+    logger: console
+  });
 let edSelectedChords = [];
 let editorColorToolService = null;
 let editorKeyCommandController = null;
@@ -2603,10 +2643,31 @@ if ($('edDoBoth')) {
         const current = coreApi?.isWarpMode?.() || false;
         const next = !current;
         coreApi?.setWarpMode?.(next);
-        document.getElementById('warpToolBtn')?.classList?.toggle('warp-active', next);
-        document.getElementById('tl-inner')?.classList?.toggle('warp-mode-active', next);
+        syncEditorWarpModeUi(next);
         toast(next ? 'Warp Tool فعال شد' : 'Warp Tool غیرفعال شد');
       },
+      openHitpoints: () =>
+        editorHitpointRuntime?.openPanel?.({ calculate: true }),
+      calculateHitpoints: () =>
+        editorHitpointRuntime?.calculateForSelection?.(),
+      closeHitpoints: () => editorHitpointRuntime?.closePanel?.(),
+      setHitpointThreshold: (_, element) =>
+        editorHitpointRuntime?.setSetting?.('threshold', element?.value),
+      setHitpointIntensity: (_, element) =>
+        editorHitpointRuntime?.setSetting?.('intensity', element?.value),
+      setHitpointMinimumLength: (_, element) =>
+        editorHitpointRuntime?.setSetting?.(
+          'minimumLength',
+          element?.value
+        ),
+      toggleHitpointVisibility: (_, element) =>
+        editorHitpointRuntime?.setVisibility?.(element?.checked),
+      toggleHitpointSnap: () => {},
+      createWarpMarkersFromHitpoints: () =>
+        editorHitpointRuntime?.createWarpMarkersFromHitpoints?.({
+          snapToGrid: Boolean(document.getElementById('hitpointSnapInput')?.checked)
+        }),
+      clearHitpoints: () => editorHitpointRuntime?.clearHitpoints?.(),
       showQuantize: () => showQuantizeModal(),
       toggleColorTool: (_, element) => toggleColorTool(element.dataset.value),
       selectColor: (_, element) => selectColor(element.value),

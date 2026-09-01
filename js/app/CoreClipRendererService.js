@@ -41,7 +41,7 @@
         const element = documentRef.createElement('div');
         element.className =
           'clip' +
-          (clip.type === 'chord' ? ' chord-clip' : '') +
+          (clip.type === 'chord' ? ' chord-clip' : ' audio-clip') +
           (daw.selectedIds?.has?.(clip.id) ? ' selected' : '');
         element.dataset.clipId = clip.id;
         element.style.left = timeToX(clip.start) + 'px';
@@ -59,15 +59,42 @@
           let warpHtml = '';
           if (clip.warpMarkers && clip.warpMarkers.length > 2) {
             const clipStart = clip.start;
-            const clipDur = clip.sourceDuration || clip.duration;
             for (const wm of clip.warpMarkers) {
               if (wm.id === '_start' || wm.id === '_end') continue;
               const wmX = timeToX(wm.timelineTime - clipStart);
               warpHtml += `<div class="warp-marker" data-marker-id="${wm.id}" style="left:${wmX}px" title="Warp: ${wm.timelineTime.toFixed(2)}s"></div>`;
             }
           }
+          let hitpointHtml = '';
+          if (
+            clip.hitpointsVisible !== false &&
+            Array.isArray(clip.hitpoints) &&
+            clip.hitpoints.length
+          ) {
+            const warpEngine = globalScope.FreeWarpEngine;
+            const markers = warpEngine && clip.warpMarkers?.length >= 2
+              ? warpEngine.sortMarkers(clip.warpMarkers)
+              : null;
+            const sourceStart = Number(clip.offset) || 0;
+            for (const hitpoint of clip.hitpoints) {
+              if (hitpoint?.enabled === false) continue;
+              const sourceTime = Number.isFinite(Number(hitpoint.sourceTime))
+                ? Number(hitpoint.sourceTime)
+                : sourceStart;
+              const timelineTime = markers
+                ? warpEngine.sourceToTimeline(sourceTime, markers)
+                : clip.start + sourceTime - sourceStart;
+              if (!Number.isFinite(timelineTime)) continue;
+              const markerX = timeToX(timelineTime - clip.start);
+              const strength = Math.round(
+                Math.max(0, Math.min(1, Number(hitpoint.strength) || 0)) * 100
+              );
+              hitpointHtml +=
+                `<div class="hitpoint-marker" style="left:${markerX}px" title="Hitpoint ${strength}%"></div>`;
+            }
+          }
           element.innerHTML =
-            `<img class="clip-wave" alt="" draggable="false" ${clip.waveUrl ? `src="${clip.waveUrl}"` : ''}><div class="clip-title">${clip.name}</div>${snapMarkerHtml}${warpHtml}<div class="resize-handle left" data-edge="left"></div><div class="resize-handle right" data-edge="right"></div>`;
+            `<img class="clip-wave" alt="" draggable="false" ${clip.waveUrl ? `src="${clip.waveUrl}"` : ''}><div class="clip-title">${clip.name}</div>${snapMarkerHtml}${hitpointHtml}${warpHtml}<div class="resize-handle left" data-edge="left"></div><div class="resize-handle right" data-edge="right"></div>`;
           element.addEventListener('mouseenter', () => {
             const filePath = getClipFilePath(clip);
             if (!filePath) return;

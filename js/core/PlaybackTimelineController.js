@@ -32,6 +32,7 @@
       lastActiveChordId: null,
       lastActiveChordName: null
     };
+    const kickedWarpRenders = new Set();
     const nodes = {};
     const getRenderNodes = () => {
       if (!nodes.main) {
@@ -166,10 +167,10 @@
         Number.isFinite(daw.loopA) &&
         Number.isFinite(daw.loopB) &&
         daw.loopB - daw.loopA > 1e-6;
-      const scheduleClipSegment = (clip, when, mediaOffset, playDur, voiceKey) => {
+      const scheduleClipSegment = (clip, when, mediaOffset, playDur, voiceKey, bufferOverride = null) => {
         const tr = daw.tracks.find(t => t.id === clip.trackId);
         if (tr && (tr.muted || (daw.tracks.some(t => t.solo) && !tr.solo))) return;
-        const buffer = daw.bufferCache.get(clip.bufferKey);
+        const buffer = bufferOverride || daw.bufferCache.get(clip.bufferKey);
         if (!buffer || mediaOffset >= buffer.duration - 0.0005) return;
         playDur = Math.min(playDur, buffer.duration - mediaOffset);
         if (playDur <= 0.005 || !tr?._pannerNode) return;
@@ -217,6 +218,24 @@
         if (clip.type === 'chord') return;
         const clipEnd = clip.start + clip.duration;
         const local = nowT - clip.start;
+        // Warped clips play from a pre-rendered, pitch-preserved stretched
+        // buffer whose timeline is identical to the arrange timeline, so
+        // marker positions, grid and metronome stay locked together.
+        let warpedBuffer = warpService
+          ? warpService.getWarpedAudioBuffer(clip)
+          : null;
+        // Lazy kick: clips warped in a previous session (project reload)
+        // get their stretched buffer rendered on first playback touch.
+        if (
+          !warpedBuffer &&
+          warpService?.renderWarpAudio &&
+          !kickedWarpRenders.has(clip.id) &&
+          clip.warpMarkers &&
+          clip.warpMarkers.length > 2
+        ) {
+          kickedWarpRenders.add(clip.id);
+          warpService.renderWarpAudio(clip.id, { reschedule: true });
+        }
         if (
           !loopOnly &&
           local < clip.duration &&
@@ -226,15 +245,20 @@
           if (currentEnd > Math.max(nowT, clip.start)) {
             const when = local < 0 ? scheduleStartAudio + (-local) : scheduleStartAudio;
             const tlOrigin = Math.max(nowT, clip.start);
-            const mediaOffset = local < 0 ? clip.offset : warpMediaOffset(clip, nowT);
-            const playDur = warpPlayDur(clip, tlOrigin, currentEnd);
-            scheduleClipSegment(
-              clip,
-              when,
-              mediaOffset,
-              playDur,
-              clip.id
-            );
+            if (warpedBuffer) {
+              scheduleClipSegment(
+                clip,
+                when,
+                Math.max(0, tlOrigin - clip.start),
+                currentEnd - tlOrigin,
+                clip.id,
+                warpedBuffer
+              );
+            } else {
+              const mediaOffset = local < 0 ? clip.offset : warpMediaOffset(clip, nowT);
+              const playDur = warpPlayDur(clip, tlOrigin, currentEnd);
+              scheduleClipSegment(clip, when, mediaOffset, playDur, clip.id);
+            }
           }
         }
         if (hasLoop) {
@@ -245,13 +269,24 @@
             loopSegmentEnd > loopSegmentStart &&
             loopBoundaryAudio > ctxNow + 1e-6
           ) {
-            scheduleClipSegment(
-              clip,
-              loopBoundaryAudio + (loopSegmentStart - daw.loopA),
-              warpMediaOffset(clip, loopSegmentStart),
-              warpPlayDur(clip, loopSegmentStart, loopSegmentEnd),
-              `${clip.id}@loop`
-            );
+            if (warpedBuffer) {
+              scheduleClipSegment(
+                clip,
+                loopBoundaryAudio + (loopSegmentStart - daw.loopA),
+                Math.max(0, loopSegmentStart - clip.start),
+                loopSegmentEnd - loopSegmentStart,
+                `${clip.id}@loop`,
+                warpedBuffer
+              );
+            } else {
+              scheduleClipSegment(
+                clip,
+                loopBoundaryAudio + (loopSegmentStart - daw.loopA),
+                warpMediaOffset(clip, loopSegmentStart),
+                warpPlayDur(clip, loopSegmentStart, loopSegmentEnd),
+                `${clip.id}@loop`
+              );
+            }
           }
         }
       });

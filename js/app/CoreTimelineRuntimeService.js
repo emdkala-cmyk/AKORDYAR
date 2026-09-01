@@ -247,6 +247,8 @@
         getClipInteractionRuntime()?.onClipMouseDown?.(...args),
       openTimelineChordEditor: (...args) =>
         chordEditor.openTimelineChordEditor(...args),
+      getFreeWarpService: () =>
+        globalScope.AkordyarCoreApi?.getFreeWarpService?.() || null,
       renderSections: () =>
         sectionBridge.getTimelineSectionRendererService()
           ?.renderSections?.()

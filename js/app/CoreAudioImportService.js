@@ -138,6 +138,7 @@
       const clip = {
         id: clipId,
         type: 'audio',
+        bufferKey: clipId,
         trackId,
         name: file.name.replace(/\.[^.]+$/, ''),
         fileName: file.name,

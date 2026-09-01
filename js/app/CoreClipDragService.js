@@ -34,6 +34,28 @@
       const snappedGrid = snapTime(snapPointTime);
       return snappedGrid - snapOffset;
     }
+
+    // Keep warp markers glued to the clip window: _start/_end re-pin to the
+    // clip bounds and interior markers follow the audio content shift.
+    function syncWarpMarkersToClip(clip, interiorShift = 0) {
+      if (!clip?.warpMarkers) return;
+      const srcDur = clip.sourceDuration || clip.duration;
+      const offset = Math.max(0, clip.offset || 0);
+      clip.warpMarkers = clip.warpMarkers.map(m => {
+        if (m.id === '_start') {
+          return { ...m, sourceTime: offset, timelineTime: clip.start };
+        }
+        if (m.id === '_end') {
+          return {
+            ...m,
+            sourceTime: Math.min(offset + clip.duration, srcDur),
+            timelineTime: clip.start + clip.duration
+          };
+        }
+        return { ...m, timelineTime: m.timelineTime + interiorShift };
+      });
+    }
+
     let dragOverLaneTrackId = null;
 
     function updateDragOverLane(event, daw) {
@@ -65,6 +87,18 @@
           0,
           roundMs(snapWithSnapPoint(item.origStart + delta, clip))
         );
+        if (clip?.warpMarkers) {
+          // Warp markers ride along with the audio content; apply the shift
+          // from the drag-origin snapshot so it never compounds per event.
+          if (!item._origWarpMarkers) {
+            item._origWarpMarkers = clip.warpMarkers.map(m => ({ ...m }));
+          }
+          const shift = target.start - item.origStart;
+          clip.warpMarkers = item._origWarpMarkers.map(m => ({
+            ...m,
+            timelineTime: m.timelineTime + shift
+          }));
+        }
         ensureTimelineFits(
           target.start + (target.duration || item.origDur) + 5
         );
@@ -87,7 +121,10 @@
           0.03,
           maxDur
         );
-        if (clip.type === 'audio') refreshClipWaveImage(clip);
+        if (clip.type === 'audio') {
+          syncWarpMarkersToClip(clip, 0);
+          refreshClipWaveImage(clip);
+        }
         return;
       }
 
@@ -126,6 +163,10 @@
         clip.start = roundMs(newStart);
         clip.offset = roundMs(newOffset);
         clip.duration = roundMs(newDuration);
+        if (clip.warpMarkers) {
+          // the clip head moved — interior markers follow the audio
+          syncWarpMarkersToClip(clip, clip.start - item.origStart);
+        }
         refreshClipWaveImage(clip);
       }
     }
@@ -153,6 +194,18 @@
           const clip = getClip(item.id);
           if (clip && !item._isSection) {
             clip.trackId = dragOverLaneTrackId;
+          }
+        });
+      }
+      // Moved/resized warped clips need a fresh stretched buffer so
+      // playback keeps matching the new marker layout.
+      const warpService = getFreeWarpService?.();
+      if (warpService) {
+        daw.drag.items.forEach(item => {
+          if (item._isSection) return;
+          const clip = getClip(item.id);
+          if (clip?.type === 'audio' && clip.warpMarkers) {
+            warpService.renderWarpAudio(item.id, { reschedule: true });
           }
         });
       }

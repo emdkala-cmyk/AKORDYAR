@@ -3,7 +3,8 @@
  *
  * Manages warp markers on audio clips, warp tool mode, and multi-track
  * phase-locked warping.  Integrates FreeWarpEngine (pure math) with
- * the DAW runtime state.
+ * the DAW runtime state and WarpAudioRendererService (pitch-preserving
+ * time stretch used for playback).
  *
  * Data model extension on each AudioClip:
  *   clip.snapPointOffset  — seconds from clip start to the sync anchor
@@ -13,6 +14,7 @@
   'use strict';
 
   const WARP_TOOL_MODE = 'warp';
+  const MIN_SEGMENT = 0.01; // seconds — minimum distance between markers
 
   function create({
     getDAW = () => null,
@@ -25,7 +27,9 @@
     renderAll = () => {},
     renderClips = () => {},
     refreshClipWaveImage = () => {},
+    scheduleAllFromPlayhead = () => {},
     toast = () => {},
+    getWarpAudioRenderer = () => null,
     uid = prefix => `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
     FreeWarp = globalScope.FreeWarpEngine
   } = {}) {
@@ -64,18 +68,59 @@
     /* ---- warp markers ---- */
 
     /**
-     * Ensure a clip has a warpMarkers array with default start/end markers.
+     * Ensure a clip has a warpMarkers array whose _start/_end markers track
+     * the clip bounds.  For trimmed clips the mapped source window is
+     * [clip.offset, clip.offset + clip.duration].  Interior markers follow
+     * the audio content when the clip moves.
      */
     function ensureWarpMarkers(clipId) {
       const clip = getClip(clipId);
       if (!clip || clip.type !== 'audio') return;
+      const srcDur = clip.sourceDuration || clip.duration;
+      const offset = Math.max(0, clip.offset || 0);
+
       if (!clip.warpMarkers) {
         clip.warpMarkers = FreeWarp.defaultMarkers(
           clip.start,
-          clip.sourceDuration || clip.duration,
-          clip.snapPointOffset || 0
+          clip.duration,
+          clip.snapPointOffset || 0,
+          offset
         );
+        return;
       }
+
+      const markers = FreeWarp.sortMarkers(clip.warpMarkers);
+      const startM = markers.find(m => m.id === '_start');
+      const endM = markers.find(m => m.id === '_end');
+      if (!startM || !endM) {
+        clip.warpMarkers = FreeWarp.defaultMarkers(
+          clip.start,
+          clip.duration,
+          clip.snapPointOffset || 0,
+          offset
+        );
+        return;
+      }
+
+      // clip moved since markers were last synced → shift content markers
+      const delta = clip.start - startM.timelineTime;
+      if (Math.abs(delta) > 1e-9) {
+        markers.forEach(m => { m.timelineTime += delta; });
+      }
+      // re-pin bounds to the current clip window (handles resizes too)
+      startM.sourceTime = offset;
+      startM.timelineTime = clip.start;
+      endM.sourceTime = Math.min(offset + clip.duration, srcDur);
+      endM.timelineTime = clip.start + clip.duration;
+
+      // keep interior markers strictly inside the bounds
+      const lo = clip.start + MIN_SEGMENT;
+      const hi = clip.start + clip.duration - MIN_SEGMENT;
+      markers.forEach(m => {
+        if (m.id === '_start' || m.id === '_end') return;
+        m.timelineTime = Math.min(hi, Math.max(lo, m.timelineTime));
+      });
+      clip.warpMarkers = FreeWarp.sortMarkers(markers);
     }
 
     /**
@@ -89,7 +134,7 @@
 
     /**
      * Insert a warp marker at a timeline position.
-     * sourceTime is computed from existing markers via inverse mapping.
+     * sourceTime is computed from existing markers via the warp mapping.
      */
     function insertWarpMarker(clipId, timelineTime) {
       const clip = getClip(clipId);
@@ -97,11 +142,8 @@
       ensureWarpMarkers(clipId);
 
       const markers = FreeWarp.sortMarkers(clip.warpMarkers);
-      const srcTime = FreeWarp.sourceToTimeline(timelineTime, markers);
-      // sourceToTimeline gives us the source position for the given timeline position
-      // But we actually want the inverse: given a timeline position, what source time does it map to?
-      // The function name is confusing — let me use timelineToSource instead
       const sourceTime = FreeWarp.timelineToSource(timelineTime, markers);
+      if (sourceTime == null) return null;
 
       const id = `wm_${uid('w')}`;
       clip.warpMarkers = FreeWarp.insertMarker(markers, id, sourceTime, timelineTime, false);
@@ -119,12 +161,14 @@
       clip.warpMarkers = FreeWarp.removeMarker(clip.warpMarkers, markerId);
       saveState();
       renderClips();
+      renderWarpAudio(clipId, { reschedule: true });
     }
 
     /**
-     * Move a warp marker to a new timeline position.
-     * If snap is on, the position is snapped to grid.
-     * For multi-track: applies the same stretch ratio to all selected clips.
+     * Move a warp marker to a new timeline position (live during drag).
+     * Neighbouring markers stay frozen, so segment A stretches while
+     * segment B compresses — the classic 3-marker anchor behaviour.
+     * No saveState/renderClips here — the caller drives the drag loop.
      */
     function moveWarpMarker(clipId, markerId, newTimelineTime) {
       const clip = getClip(clipId);
@@ -134,10 +178,9 @@
       const dragIdx = markers.findIndex(m => m.id === markerId);
       if (dragIdx < 0) return;
 
-      // Caller handles snap before calling — just apply the drag
       clip.warpMarkers = FreeWarp.applyWarpDrag(markers, dragIdx, newTimelineTime, null);
 
-      // Multi-track: apply same stretch ratio to all selected clips
+      // Multi-track: apply same stretch delta to all selected clips
       const daw = getDAW();
       if (daw?.selectedIds && daw.selectedIds.size > 1) {
         const srcMarker = markers[dragIdx];
@@ -147,7 +190,6 @@
           applyGroupWarpDelta(clipId, delta);
         }
       }
-      // No saveState/renderClips here — caller does that on drag end
     }
 
     /**
@@ -179,6 +221,68 @@
         ...m,
         timelineTime: m.timelineTime + delta
       }));
+    }
+
+    /* ---- commit + audio rendering ---- */
+
+    /**
+     * Kick (or reuse) a warped-buffer render for the clip's current
+     * markers.  When done, refresh the waveform and — when requested —
+     * reschedule playback so the audible stretch matches the grid.
+     */
+    function renderWarpAudio(clipId, { reschedule = false } = {}) {
+      const renderer = getWarpAudioRenderer?.();
+      const clip = getClip(clipId);
+      if (!renderer || !clip || clip.type !== 'audio') return;
+      ensureWarpMarkers(clipId);
+      renderer.ensureWarpedBuffer(clip, {
+        onDone: buffer => {
+          refreshClipWaveImage(clip);
+          renderClips({ preserveWaveforms: true });
+          if (reschedule && buffer && getDAW()?.isPlaying) {
+            scheduleAllFromPlayhead();
+          }
+        }
+      });
+    }
+
+    /**
+     * Commit a warp drag: optionally snap the dragged marker to the grid,
+     * persist state, redraw the warped waveform and re-render warped audio
+     * so playback stays locked to the metronome/grid.
+     */
+    function commitWarp(clipId, { markerId = null, timelineTime = null } = {}) {
+      const clip = getClip(clipId);
+      if (!clip || clip.type !== 'audio') return;
+      ensureWarpMarkers(clipId);
+
+      if (markerId && Number.isFinite(Number(timelineTime))) {
+        const markers = FreeWarp.sortMarkers(clip.warpMarkers);
+        const idx = markers.findIndex(m => m.id === markerId);
+        if (idx > 0) {
+          clip.warpMarkers = FreeWarp.applyWarpDrag(
+            markers,
+            idx,
+            timelineTime,
+            isSnapEnabled() ? snapTime : null
+          );
+        }
+      }
+
+      saveState();
+      refreshClipWaveImage(clip);
+      renderClips({ preserveWaveforms: true });
+      renderWarpAudio(clipId, { reschedule: true });
+    }
+
+    /**
+     * Warped AudioBuffer for playback (null until rendered / when the
+     * marker set does not warp anything).
+     */
+    function getWarpedAudioBuffer(clip) {
+      const renderer = getWarpAudioRenderer?.();
+      if (!renderer) return null;
+      return renderer.getWarpedBuffer(clip);
     }
 
     /**
@@ -233,6 +337,10 @@
       shiftWarpMarkers,
       getSourceTime,
       getWarpedDuration,
+      // commit + audio
+      commitWarp,
+      renderWarpAudio,
+      getWarpedAudioBuffer,
       // mode
       setWarpMode,
       isWarpMode,

@@ -164,4 +164,85 @@ const Engine = require('../core/FreeWarpEngine.js');
   assert.equal(m[1].timelineTime, 2.25, 'snapped to 2.25');
 }
 
+/* 17) defaultMarkers with sourceOffset (trimmed clip) */
+{
+  const m = Engine.defaultMarkers(2.0, 3.0, 0, 1.5);
+  assert.equal(m.length, 2, 'offset markers count');
+  assert.equal(m[0].sourceTime, 1.5, 'start source includes offset');
+  assert.equal(m[0].timelineTime, 2.0, 'start timeline');
+  assert.equal(m[1].sourceTime, 4.5, 'end source = offset + duration');
+  assert.equal(m[1].timelineTime, 5.0, 'end timeline');
+}
+
+/* 18) segments — three-marker anchor layout */
+{
+  const m = [
+    { id: '_start', sourceTime: 0, timelineTime: 0, pinned: true },
+    { id: 'w1', sourceTime: 2, timelineTime: 3, pinned: false },
+    { id: '_end', sourceTime: 4, timelineTime: 5, pinned: true }
+  ];
+  const segs = Engine.segments(m);
+  assert.equal(segs.length, 2, 'two segments');
+  assert.equal(segs[0].srcStart, 0, 'seg1 srcStart');
+  assert.equal(segs[0].srcEnd, 2, 'seg1 srcEnd');
+  assert.equal(segs[0].tlStart, 0, 'seg1 tlStart');
+  assert.equal(segs[0].tlEnd, 3, 'seg1 tlEnd');
+  assert.ok(Math.abs(segs[0].ratio - 2 / 3) < 1e-9, 'seg1 ratio (stretch)');
+  assert.ok(Math.abs(segs[1].ratio - 1) < 1e-9, 'seg2 ratio (identity)');
+  assert.deepEqual(Engine.segments(null), [], 'null segments');
+  assert.deepEqual(Engine.segments([{ id: 'a', sourceTime: 0, timelineTime: 0 }]), [], 'single marker');
+}
+
+/* 19) markersKey — stable for equal sets, distinct after edits */
+{
+  const a = Engine.defaultMarkers(0, 4, 0);
+  const b = Engine.defaultMarkers(0, 4, 0);
+  assert.equal(Engine.markersKey(a), Engine.markersKey(b), 'equal sets → equal key');
+  const c = Engine.insertMarker(a, 'w1', 2, 2.5, false);
+  assert.notEqual(Engine.markersKey(a), Engine.markersKey(c), 'edited set → different key');
+  // 1ms rounding keeps jitter from thrashing the cache
+  const jittered = c.map(m => ({ ...m, timelineTime: m.timelineTime + 0.0004 }));
+  assert.equal(Engine.markersKey(c), Engine.markersKey(jittered), 'sub-ms jitter → same key');
+  assert.equal(Engine.markersKey(null), 'none', 'null key');
+}
+
+/* 20) isWarped */
+{
+  assert.equal(Engine.isWarped(Engine.defaultMarkers(0, 4, 0)), false, 'identity not warped');
+  assert.equal(Engine.isWarped(null), false, 'null not warped');
+  const warped = [
+    { id: '_start', sourceTime: 0, timelineTime: 0, pinned: true },
+    { id: '_end', sourceTime: 4, timelineTime: 2, pinned: true }
+  ];
+  assert.equal(Engine.isWarped(warped), true, 'compressed set is warped');
+}
+
+/* 21) resamplePeaksThroughWarp — identity */
+{
+  const peaks = Float32Array.from([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+  const identity = Engine.defaultMarkers(0, 10, 0);
+  const out = Engine.resamplePeaksThroughWarp(peaks, 10, identity, 10);
+  assert.equal(out.length, 10, 'identity bucket count');
+  for (let i = 0; i < 10; i += 1) {
+    assert.equal(out[i], peaks[i], `identity bucket ${i}`);
+  }
+}
+
+/* 22) resamplePeaksThroughWarp — 2x compression */
+{
+  const peaks = Float32Array.from([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+  const compressed = [
+    { id: '_start', sourceTime: 0, timelineTime: 0, pinned: true },
+    { id: '_end', sourceTime: 10, timelineTime: 5, pinned: true }
+  ];
+  const out = Engine.resamplePeaksThroughWarp(peaks, 10, compressed, 6);
+  assert.equal(out.length, 6, 'compressed bucket count');
+  assert.equal(out[0], peaks[0], 't=0 → src 0');
+  // 6 buckets over 5s: bucket i sits at t=i → source 2i
+  assert.equal(out[2], peaks[4], 't=2 → src 4');
+  assert.equal(out[3], peaks[6], 't=3 → src 6');
+  // last bucket sits at t=5 → source 10 → clamped to last peak
+  assert.equal(out[5], peaks[9], 'end clamps to last peak');
+}
+
 console.log('free-warp-engine.test.js — all assertions passed.');

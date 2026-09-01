@@ -34,6 +34,14 @@
         typeof deps.timeToX === 'function'
           ? deps.timeToX
           : (value) => value;
+
+      // Optional warp engine — when a clip carries warp markers the drawn
+      // peaks are resampled through the piecewise warp mapping so the
+      // waveform visually stretches with the markers.
+      this.freeWarpEngine =
+        deps.freeWarpEngine ||
+        global.FreeWarpEngine ||
+        null;
     }
 
     async decodeFileToBuffer(file) {
@@ -172,6 +180,46 @@
 
       const full = clip._peaks;
 
+      const w = Math.max(
+        8,
+        this.timeToX(clip.duration)
+      );
+
+      const waveCache = this.getWaveCache();
+
+      /* ---- warped path: resample peaks through the warp mapping ---- */
+      const engine = this.freeWarpEngine;
+      const markers = engine && clip.warpMarkers && clip.warpMarkers.length >= 2
+        ? engine.sortMarkers(clip.warpMarkers)
+        : null;
+      if (markers && engine.isWarped(markers)) {
+        const buckets = Math.min(
+          4000,
+          Math.max(64, Math.round(w))
+        );
+        const warpedPeaks = engine.resamplePeaksThroughWarp(
+          full,
+          clip.sourceDuration,
+          markers,
+          buckets
+        );
+        const warpKey = `${clip.id}:warp:${engine.markersKey(markers)}:${Math.round(w)}`;
+        if (waveCache && waveCache.has(warpKey)) {
+          clip.waveUrl = waveCache.get(warpKey);
+          return;
+        }
+        clip.waveUrl = this.drawWaveToCanvas(
+          warpedPeaks,
+          w,
+          52
+        );
+        if (waveCache) {
+          waveCache.set(warpKey, clip.waveUrl);
+        }
+        return;
+      }
+
+      /* ---- linear path (no active warp) ---- */
       const sourceDuration = Math.max(
         1e-6,
         clip.sourceDuration
@@ -198,14 +246,8 @@
 
       const slice = full.slice(i0, i1 + 1);
 
-      const w = Math.max(
-        8,
-        this.timeToX(clip.duration)
-      );
-
       const key = `${clip.id}:${i0}:${i1}:${Math.round(w)}`;
 
-      const waveCache = this.getWaveCache();
       if (waveCache && waveCache.has(key)) {
         clip.waveUrl = waveCache.get(key);
         return;

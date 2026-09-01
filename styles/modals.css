@@ -102,3 +102,30 @@
 .settings-btn { padding: 7px 16px; border-radius: 8px; border: 1px solid var(--ctrl-border); background: #1F2736; color: var(--text-primary); font-size: 0.8rem; font-weight: 700; cursor: pointer; }
 .settings-btn:hover { background: #2D3748; border-color: var(--accent-teal); }
 .settings-btn.primary { background: var(--accent-teal); color: #000; border-color: var(--accent-teal); }
+
+/* ===== Hitpoints / AudioWarp Window ===== */
+.hitpoint-overlay { z-index: 2700; align-items: flex-start; justify-content: flex-end; padding: 76px 22px 22px; background: rgba(0,0,0,0.42); }
+.hitpoint-panel { width: min(94vw, 390px); max-height: calc(100vh - 98px); display: flex; flex-direction: column; overflow: hidden; background: #131826; border: 1px solid rgba(34,211,238,0.72); border-radius: 14px; box-shadow: 0 14px 50px rgba(0,0,0,0.78), 0 0 22px rgba(34,211,238,0.1); direction: rtl; }
+.hitpoint-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; background: linear-gradient(180deg,#1C2333,#161B26); border-bottom: 1px solid var(--border-subtle); cursor: grab; user-select: none; }
+.hitpoint-head:active { cursor: grabbing; }
+.hitpoint-title { color: #67E8F9; font-size: 0.95rem; font-weight: 800; }
+.hitpoint-clip-name { max-width: 280px; overflow: hidden; color: var(--text-secondary); font-size: 0.72rem; text-overflow: ellipsis; white-space: nowrap; }
+.hitpoint-close { width: 27px; height: 27px; border: 1px solid #4A5568; border-radius: 6px; background: #2D3748; color: #fff; cursor: pointer; }
+.hitpoint-close:hover { border-color: #22D3EE; background: rgba(34,211,238,0.16); }
+.hitpoint-body { display: flex; flex-direction: column; gap: 14px; overflow-y: auto; padding: 15px; }
+.hitpoint-summary-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 10px; border: 1px solid var(--border-subtle); border-radius: 8px; background: rgba(255,255,255,0.035); color: var(--text-secondary); font-size: 0.75rem; }
+.hitpoint-summary-row strong { flex: 0 0 auto; color: #67E8F9; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; }
+.hitpoint-field { display: flex; flex-direction: column; gap: 7px; color: var(--text-secondary); font-size: 0.76rem; }
+.hitpoint-field span { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.hitpoint-field output { color: #E2E8F0; font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; }
+.hitpoint-field input[type=range] { width: 100%; height: 5px; accent-color: #22D3EE; cursor: pointer; direction: ltr; }
+.hitpoint-check { display: flex; align-items: center; gap: 8px; color: var(--text-primary); font-size: 0.78rem; cursor: pointer; }
+.hitpoint-check input { width: 16px; height: 16px; accent-color: #22D3EE; cursor: pointer; }
+.hitpoint-status { display: none; padding: 8px 10px; border: 1px solid rgba(34,211,238,0.35); border-radius: 7px; background: rgba(34,211,238,0.08); color: #A5F3FC; font-size: 0.75rem; line-height: 1.6; }
+.hitpoint-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 15px; border-top: 1px solid var(--border-subtle); background: #10141e; }
+.hitpoint-foot-main { display: flex; gap: 7px; }
+.hitpoint-btn { padding: 7px 11px; border: 1px solid var(--ctrl-border); border-radius: 7px; background: #1F2736; color: var(--text-primary); font-size: 0.74rem; font-weight: 700; cursor: pointer; }
+.hitpoint-btn:hover { border-color: #22D3EE; background: #263449; }
+.hitpoint-btn:disabled { cursor: wait; opacity: 0.55; }
+.hitpoint-btn.primary { border-color: #22D3EE; background: #0E7490; color: #ECFEFF; }
+.hitpoint-btn.warp { border-color: #F59E0B; background: #92400E; color: #FEF3C7; }
