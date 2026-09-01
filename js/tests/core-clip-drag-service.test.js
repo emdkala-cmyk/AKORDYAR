@@ -9,7 +9,8 @@ const laneTarget = {
 const daw = {
   tracks: [
     { id: 't1', type: 'audio' },
-    { id: 't2', type: 'audio' }
+    { id: 't2', type: 'audio' },
+    { id: 't3', type: 'audio' }
   ],
   clips: [{
     id: 'c1',
@@ -55,6 +56,45 @@ assert.equal(service.finish(), true);
 assert.equal(daw.clips[0].trackId, 't2');
 assert.equal(daw.drag, null);
 assert.deepEqual(calls, [['fit', 10], 'save', 'schedule', 'render']);
+
+const secondClip = {
+  id: 'c2',
+  type: 'audio',
+  trackId: 't2',
+  start: 3,
+  duration: 2,
+  offset: 0,
+  sourceDuration: 10
+};
+daw.clips.push(secondClip);
+daw.clips[0].trackId = 't1';
+daw.clips[0].start = 1;
+daw.drag = {
+  type: 'move',
+  edge: null,
+  primaryId: 'c1',
+  startX: 10,
+  items: [
+    {
+      id: 'c1',
+      origStart: 1,
+      origDur: 2,
+      origOffset: 0,
+      origTrackId: 't1'
+    },
+    {
+      id: 'c2',
+      origStart: 3,
+      origDur: 2,
+      origOffset: 0,
+      origTrackId: 't2'
+    }
+  ]
+};
+assert.equal(service.update({ clientX: 20, clientY: 4, target: laneTarget }), true);
+assert.equal(service.finish(), true);
+assert.equal(daw.clips[0].trackId, 't2');
+assert.equal(daw.clips[1].trackId, 't3');
 
 daw.clips[0].trackId = 't1';
 daw.clips[0].start = 1;

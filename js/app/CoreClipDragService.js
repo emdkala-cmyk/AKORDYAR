@@ -57,6 +57,18 @@
     }
 
     let dragOverLaneTrackId = null;
+    let dragOverLaneTrackIndex = null;
+
+    function audioTrackIds(daw) {
+      return (daw?.tracks || [])
+        .filter(track => track?.type === 'audio')
+        .map(track => track.id);
+    }
+
+    function trackIndexForClip(item, daw) {
+      const trackId = item?.origTrackId || getClip(item?.id)?.trackId;
+      return audioTrackIds(daw).indexOf(trackId);
+    }
 
     function updateDragOverLane(event, daw) {
       const pointerTarget =
@@ -65,6 +77,7 @@
       const targetLane = pointerTarget?.closest?.('.track-lane');
       if (!targetLane) {
         dragOverLaneTrackId = null;
+        dragOverLaneTrackIndex = null;
         return;
       }
 
@@ -72,8 +85,13 @@
       const targetTrack = (daw.tracks || []).find(
         track => track.id === laneTrackId
       );
-      dragOverLaneTrackId =
-        targetTrack?.type === 'audio' ? laneTrackId : null;
+      if (targetTrack?.type !== 'audio') {
+        dragOverLaneTrackId = null;
+        dragOverLaneTrackIndex = null;
+        return;
+      }
+      dragOverLaneTrackId = laneTrackId;
+      dragOverLaneTrackIndex = audioTrackIds(daw).indexOf(laneTrackId);
     }
 
     function updateMoveDrag(delta, daw) {
@@ -171,6 +189,48 @@
       }
     }
 
+    function applyGroupTrackDrop(daw) {
+      if (
+        !daw?.drag ||
+        daw.drag.type !== 'move' ||
+        dragOverLaneTrackIndex == null
+      ) {
+        return;
+      }
+
+      const trackIds = audioTrackIds(daw);
+      const clipItems = daw.drag.items.filter(item => !item._isSection);
+      if (!clipItems.length) return;
+
+      const primaryItem = clipItems.find(
+        item => item.id === daw.drag.primaryId
+      ) || clipItems[0];
+      const primaryIndex = trackIndexForClip(primaryItem, daw);
+      if (primaryIndex < 0) return;
+
+      const originalIndices = clipItems
+        .map(item => trackIndexForClip(item, daw))
+        .filter(index => index >= 0);
+      if (!originalIndices.length) return;
+
+      const desiredDelta = dragOverLaneTrackIndex - primaryIndex;
+      const minimumDelta = -Math.min(...originalIndices);
+      const maximumDelta =
+        trackIds.length - 1 - Math.max(...originalIndices);
+      const trackDelta = clamp(
+        desiredDelta,
+        minimumDelta,
+        Math.max(minimumDelta, maximumDelta)
+      );
+
+      clipItems.forEach(item => {
+        const clip = getClip(item.id);
+        const originalIndex = trackIndexForClip(item, daw);
+        const destination = trackIds[originalIndex + trackDelta];
+        if (clip && destination) clip.trackId = destination;
+      });
+    }
+
     function update(event) {
       const daw = getDAW();
       if (!daw?.drag) return false;
@@ -190,12 +250,7 @@
       if (!daw?.drag) return false;
 
       if (daw.drag.type === 'move' && dragOverLaneTrackId) {
-        daw.drag.items.forEach(item => {
-          const clip = getClip(item.id);
-          if (clip && !item._isSection) {
-            clip.trackId = dragOverLaneTrackId;
-          }
-        });
+        applyGroupTrackDrop(daw);
       }
       // Moved/resized warped clips need a fresh stretched buffer so
       // playback keeps matching the new marker layout.
@@ -210,6 +265,7 @@
         });
       }
       dragOverLaneTrackId = null;
+      dragOverLaneTrackIndex = null;
       daw.drag = null;
       saveState();
       if (daw.isPlaying) scheduleAllFromPlayhead();

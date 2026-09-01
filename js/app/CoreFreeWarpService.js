@@ -132,6 +132,89 @@
       return clip ? FreeWarp.sortMarkers(clip.warpMarkers) : [];
     }
 
+    function getSelectedAudioClipIds(primaryClipId) {
+      const daw = getDAW();
+      const clipIds = new Set([primaryClipId]);
+      const selectedIds = daw?.selectedIds;
+      if (selectedIds?.forEach) {
+        selectedIds.forEach(selectedId => {
+          const selectedClip = getClip(selectedId);
+          if (selectedClip?.type === 'audio') clipIds.add(selectedId);
+        });
+      }
+      return [...clipIds];
+    }
+
+    function getGroupMarker(
+      clip,
+      primaryMarkers,
+      primaryMarkerId,
+      primaryMarkerIndex
+    ) {
+      if (!clip || !primaryMarkers?.length) return null;
+      ensureWarpMarkers(clip.id);
+      let markers = FreeWarp.sortMarkers(clip.warpMarkers);
+      let markerIndex = markers.findIndex(
+        marker => marker.id === primaryMarkerId
+      );
+      if (markerIndex > 0 && markerIndex < markers.length - 1) {
+        return { markers, markerIndex };
+      }
+
+      const groupMarkerId = `group_${primaryMarkerId}`;
+      markerIndex = markers.findIndex(marker => marker.id === groupMarkerId);
+      if (markerIndex > 0 && markerIndex < markers.length - 1) {
+        return { markers, markerIndex };
+      }
+
+      if (
+        primaryMarkerIndex > 0 &&
+        primaryMarkerIndex < primaryMarkers.length - 1 &&
+        primaryMarkerIndex < markers.length - 1
+      ) {
+        return { markers, markerIndex: primaryMarkerIndex };
+      }
+
+      const primaryMarker = primaryMarkers[primaryMarkerIndex];
+      const primaryStart = primaryMarkers[0];
+      const primaryEnd = primaryMarkers[primaryMarkers.length - 1];
+      if (!primaryMarker || !primaryStart || !primaryEnd) return null;
+
+      const sourceSpan = primaryEnd.sourceTime - primaryStart.sourceTime;
+      const timelineSpan =
+        primaryEnd.timelineTime - primaryStart.timelineTime;
+      const sourceRatio = sourceSpan > 1e-9
+        ? (primaryMarker.sourceTime - primaryStart.sourceTime) / sourceSpan
+        : timelineSpan > 1e-9
+          ? (primaryMarker.timelineTime - primaryStart.timelineTime) / timelineSpan
+          : 0.5;
+      const normalizedRatio = Math.min(
+        0.99,
+        Math.max(0.01, Number.isFinite(sourceRatio) ? sourceRatio : 0.5)
+      );
+      const targetStart = markers[0];
+      const targetEnd = markers[markers.length - 1];
+      const sourceTime =
+        targetStart.sourceTime +
+        normalizedRatio * (targetEnd.sourceTime - targetStart.sourceTime);
+      const timelineTime =
+        targetStart.timelineTime +
+        normalizedRatio * (targetEnd.timelineTime - targetStart.timelineTime);
+
+      markers = FreeWarp.insertMarker(
+        markers,
+        groupMarkerId,
+        sourceTime,
+        timelineTime,
+        false
+      );
+      clip.warpMarkers = markers;
+      markerIndex = markers.findIndex(marker => marker.id === groupMarkerId);
+      return markerIndex > 0 && markerIndex < markers.length - 1
+        ? { markers, markerIndex }
+        : null;
+    }
+
     /**
      * Insert a warp marker at a timeline position.
      * sourceTime is computed from existing markers via the warp mapping.
@@ -172,7 +255,8 @@
      */
     function moveWarpMarker(clipId, markerId, newTimelineTime) {
       const clip = getClip(clipId);
-      if (!clip || !clip.warpMarkers) return;
+      if (!clip || clip.type !== 'audio') return;
+      ensureWarpMarkers(clipId);
 
       const markers = FreeWarp.sortMarkers(clip.warpMarkers);
       const dragIdx = markers.findIndex(m => m.id === markerId);
@@ -180,34 +264,51 @@
 
       clip.warpMarkers = FreeWarp.applyWarpDrag(markers, dragIdx, newTimelineTime, null);
 
-      // Multi-track: apply same stretch delta to all selected clips
-      const daw = getDAW();
-      if (daw?.selectedIds && daw.selectedIds.size > 1) {
-        const srcMarker = markers[dragIdx];
-        const newMarker = clip.warpMarkers.find(m => m.id === markerId);
-        if (srcMarker && newMarker) {
-          const delta = newMarker.timelineTime - srcMarker.timelineTime;
-          applyGroupWarpDelta(clipId, delta);
-        }
+      const sourceMarker = markers[dragIdx];
+      const movedMarker = clip.warpMarkers.find(m => m.id === markerId);
+      if (sourceMarker && movedMarker) {
+        const delta = movedMarker.timelineTime - sourceMarker.timelineTime;
+        applyGroupWarpDelta(
+          clipId,
+          delta,
+          markers,
+          markerId,
+          dragIdx
+        );
       }
     }
 
     /**
      * Apply the same warp ratio to all selected clips (phase-locked).
      */
-    function applyGroupWarpDelta(primaryClipId, delta) {
-      const daw = getDAW();
-      if (!daw?.selectedIds) return;
+    function applyGroupWarpDelta(
+      primaryClipId,
+      delta,
+      primaryMarkers,
+      primaryMarkerId,
+      primaryMarkerIndex
+    ) {
+      if (!Number.isFinite(delta) || Math.abs(delta) < 1e-12) return;
 
-      for (const cid of daw.selectedIds) {
-        if (cid === primaryClipId) continue;
-        const clip = getClip(cid);
-        if (!clip || clip.type !== 'audio' || !clip.warpMarkers) continue;
-        // Shift all non-pinned markers by the same time delta
-        clip.warpMarkers = clip.warpMarkers.map(m =>
-          m.pinned ? m : { ...m, timelineTime: m.timelineTime + delta }
+      getSelectedAudioClipIds(primaryClipId).forEach(selectedClipId => {
+        if (selectedClipId === primaryClipId) return;
+        const clip = getClip(selectedClipId);
+        const groupMarker = getGroupMarker(
+          clip,
+          primaryMarkers,
+          primaryMarkerId,
+          primaryMarkerIndex
         );
-      }
+        if (!groupMarker) return;
+        const currentMarker = groupMarker.markers[groupMarker.markerIndex];
+        clip.warpMarkers = FreeWarp.applyWarpDrag(
+          groupMarker.markers,
+          groupMarker.markerIndex,
+          currentMarker.timelineTime + delta,
+          null
+        );
+        refreshClipWaveImage(clip);
+      });
     }
 
     /**
@@ -230,19 +331,47 @@
      * markers.  When done, refresh the waveform and — when requested —
      * reschedule playback so the audible stretch matches the grid.
      */
-    function renderWarpAudio(clipId, { reschedule = false } = {}) {
+    function renderWarpAudio(
+      clipId,
+      { reschedule = false, onDone = null } = {}
+    ) {
       const renderer = getWarpAudioRenderer?.();
       const clip = getClip(clipId);
-      if (!renderer || !clip || clip.type !== 'audio') return;
+      if (!renderer || !clip || clip.type !== 'audio') {
+        onDone?.(null);
+        return;
+      }
       ensureWarpMarkers(clipId);
       renderer.ensureWarpedBuffer(clip, {
         onDone: buffer => {
           refreshClipWaveImage(clip);
           renderClips({ preserveWaveforms: true });
+          onDone?.(buffer);
           if (reschedule && buffer && getDAW()?.isPlaying) {
             scheduleAllFromPlayhead();
           }
         }
+      });
+    }
+
+    function renderWarpGroupAudio(clipIds, { reschedule = false } = {}) {
+      const renderer = getWarpAudioRenderer?.();
+      if (!renderer) return;
+      const audioClipIds = clipIds.filter(clipId => {
+        const clip = getClip(clipId);
+        return clip?.type === 'audio';
+      });
+      if (!audioClipIds.length) return;
+
+      let pending = audioClipIds.length;
+      const onDone = () => {
+        pending -= 1;
+        if (pending === 0 && reschedule && getDAW()?.isPlaying) {
+          scheduleAllFromPlayhead();
+        }
+      };
+      audioClipIds.forEach(clipId => {
+        renderWarpAudio(clipId, { onDone });
       });
     }
 
@@ -255,24 +384,55 @@
       const clip = getClip(clipId);
       if (!clip || clip.type !== 'audio') return;
       ensureWarpMarkers(clipId);
+      const groupClipIds = getSelectedAudioClipIds(clipId);
+      const primaryMarkers = FreeWarp.sortMarkers(clip.warpMarkers);
+      let primaryMarkerIndex = -1;
+      let warpDelta = 0;
 
       if (markerId && Number.isFinite(Number(timelineTime))) {
-        const markers = FreeWarp.sortMarkers(clip.warpMarkers);
-        const idx = markers.findIndex(m => m.id === markerId);
-        if (idx > 0) {
+        primaryMarkerIndex = primaryMarkers.findIndex(
+          marker => marker.id === markerId
+        );
+        if (
+          primaryMarkerIndex > 0 &&
+          primaryMarkerIndex < primaryMarkers.length - 1
+        ) {
+          const oldTimelineTime =
+            primaryMarkers[primaryMarkerIndex].timelineTime;
           clip.warpMarkers = FreeWarp.applyWarpDrag(
-            markers,
-            idx,
+            primaryMarkers,
+            primaryMarkerIndex,
             timelineTime,
             isSnapEnabled() ? snapTime : null
           );
+          const committedMarker = clip.warpMarkers.find(
+            marker => marker.id === markerId
+          );
+          if (committedMarker) {
+            warpDelta =
+              committedMarker.timelineTime - oldTimelineTime;
+          }
+          if (Math.abs(warpDelta) > 1e-12) {
+            applyGroupWarpDelta(
+              clipId,
+              warpDelta,
+              primaryMarkers,
+              markerId,
+              primaryMarkerIndex
+            );
+          }
         }
       }
 
+      groupClipIds.forEach(selectedClipId => {
+        const selectedClip = getClip(selectedClipId);
+        if (!selectedClip || selectedClip.type !== 'audio') return;
+        ensureWarpMarkers(selectedClipId);
+        refreshClipWaveImage(selectedClip);
+      });
       saveState();
-      refreshClipWaveImage(clip);
       renderClips({ preserveWaveforms: true });
-      renderWarpAudio(clipId, { reschedule: true });
+      renderWarpGroupAudio(groupClipIds, { reschedule: true });
     }
 
     /**

@@ -365,7 +365,8 @@
             id: newClip.id,
             origStart: newClip.start,
             origDur: newClip.duration,
-            origOffset: newClip.offset
+            origOffset: newClip.offset,
+            origTrackId: newClip.trackId
           });
         });
         selectClips(newIds, { render: false });
@@ -395,9 +396,21 @@
 
       const edge = event.target?.dataset?.edge || null;
       const dragItems = edge
-        ? [{ id: clipId, origStart: clip.start, origDur: clip.duration, origOffset: clip.offset }]
+        ? [{
+            id: clipId,
+            origStart: clip.start,
+            origDur: clip.duration,
+            origOffset: clip.offset,
+            origTrackId: clip.trackId
+          }]
         : selectedClips()
-            .map(item => ({ id: item.id, origStart: item.start, origDur: item.duration, origOffset: item.offset }))
+            .map(item => ({
+              id: item.id,
+              origStart: item.start,
+              origDur: item.duration,
+              origOffset: item.offset,
+              origTrackId: item.trackId
+            }))
             .concat(
               (daw.sections || [])
                 .filter(section => selectedSectionIds.has(section.id))
