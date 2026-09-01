@@ -51,7 +51,8 @@ const ArchiveConfirmService = require('../archive/ArchiveConfirmService.js');
   );
 
   const secondConfirmation = service.open('دوم', 'پیام دوم');
-  assert.equal(elements.get('archConfirmOk').textContent, 'تأیید');
+  const okText = elements.get('archConfirmOk').textContent;
+  assert.ok(okText === 'تأیید' || okText === 'confirmBtn', `Expected 'تأیید' or 'confirmBtn', got '${okText}'`);
   assert.equal(elements.get('archConfirmOk').className, 'confirm-ok');
   service.close(false);
   assert.equal(await secondConfirmation, false);

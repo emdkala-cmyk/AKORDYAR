@@ -113,6 +113,7 @@
   }
 
   function create(options = {}) {
+    const t = options.t || globalScope.t || (k => k);
     const schemaVersion = options.schemaVersion ?? 1;
     const generateId = typeof options.generateId === 'function'
       ? options.generateId

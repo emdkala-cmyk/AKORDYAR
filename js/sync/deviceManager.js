@@ -75,7 +75,7 @@
       const root = document.createElement('div');
       root.id = 'akord-sync-panel';
       root.setAttribute('role', 'button');
-      root.setAttribute('aria-label', 'اشتراک‌گذاری گروه‌نوازی');
+      root.setAttribute('aria-label', t('groupSharing'));
       root.tabIndex = 0;
       root.title = t('groupSharing');
       root.style.cssText = [

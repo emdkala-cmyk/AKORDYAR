@@ -265,7 +265,7 @@ function renderQuickSearchList(songs, container) {
   if (!container) return;
   
   if (songs.length === 0) {
-    container.innerHTML = '<div class="qsp-empty">ترانه‌ای یافت نشد</div>';
+    container.innerHTML = '<div class="qsp-empty">' + t('songNotFound') + '</div>';
     return;
   }
   
@@ -282,7 +282,7 @@ function quickSearchLoadSong(id) {
   const songs = quickSearchArchiveCall('getAllSongs') || [];
   const s = songs.find(x => String(x.id) === String(id));
   if (!s || s.deletedAt) {
-    toast('ترانه یافت نشد');
+    toast(t('songNotFoundSingle'));
     return;
   }
   

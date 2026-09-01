@@ -5,7 +5,7 @@
  * DOM contract and the global `archConfirm`/`archConfirmResolve` bridge intact.
  */
 (function attachArchiveConfirmService(globalScope) {
-  function create({ getElement } = {}) {
+  function create({ getElement, t = globalScope.t || (k => k) } = {}) {
     const resolveElement = getElement || (id => {
       if (typeof globalScope.$ === 'function') return globalScope.$(id);
       return globalScope.document?.getElementById(id);

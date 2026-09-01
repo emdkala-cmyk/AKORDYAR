@@ -13,7 +13,8 @@
       documentRef = globalScope.document,
       BlobCtor = globalScope.Blob,
       URLRef = globalScope.URL,
-      toast = () => {}
+      toast = () => {},
+      t = globalScope.t || (k => k)
     } = context;
 
     function escapeXml(value) {
@@ -60,7 +61,7 @@
     async function exportXml() {
       const song = getSong();
       if (!song) {
-        toast('ترانه‌ای باز نیست');
+        toast(t('noSongOpen'));
         return;
       }
       syncMetadata(song);
@@ -83,7 +84,7 @@
           const writable = await handle.createWritable();
           await writable.write(blob);
           await writable.close();
-          toast('خروجی XML ذخیره شد');
+          toast(t('saved'));
           return;
         } catch (error) {
           if (error?.name === 'AbortError') return;
@@ -96,7 +97,7 @@
       anchor.download = filename;
       anchor.click();
       URLRef.revokeObjectURL(url);
-      toast('خروجی XML ذخیره شد');
+      toast(t('saved'));
     }
 
     return Object.freeze({ exportXml });

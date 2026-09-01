@@ -42,9 +42,9 @@
           </div>
           <div class="song-meta">
             ${song.artist ? '<span>🎤 ' + song.artist + '</span>' : ''}
-            ${key ? '<span>🎵 گام: ' + key + '</span>' : ''}
-            ${rhythm ? '<span>🥁 ریتم: ' + rhythm + '</span>' : ''}
-            <span>♯ تغییر گام: ${transpose}</span>
+            ${key ? '<span>' + t('key') + ': ' + key + '</span>' : ''}
+            ${rhythm ? '<span>' + t('rhythm') + ': ' + rhythm + '</span>' : ''}
+            <span>' + t('transposeAll') + ': ${transpose}</span>
           </div>
           ${
             setting.notes

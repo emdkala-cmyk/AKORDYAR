@@ -30,7 +30,8 @@
       renderArchive,
       renderArtists,
       toast,
-      now = () => new Date()
+      now = () => new Date(),
+      t = globalScope.t || (k => k)
     } = context;
 
     function dateStamp() {
@@ -136,7 +137,7 @@
     function exportAll() {
       const songs = getAllSongs().filter(song => !song.deletedAt);
       if (!songs.length) {
-        toast?.('آرشیو خالی است');
+        toast?.(t('archiveEmpty'));
         return null;
       }
       const data = songs.map(cloneWithoutAudio);

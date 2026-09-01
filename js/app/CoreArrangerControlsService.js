@@ -42,7 +42,7 @@
       const editingArr = getEditingArr?.();
       if (!editingArr) return;
       const value = await customPrompt(
-        'تغییر گام برای همه آهنگ‌ها (مثلاً 2 یا -3):',
+        t('transposeAllPrompt'),
         '0'
       );
       if (value === null) return;

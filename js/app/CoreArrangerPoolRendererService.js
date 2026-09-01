@@ -44,7 +44,7 @@
       if (!available.length) {
         box.innerHTML =
           `<div style="padding:14px;color:var(--text-secondary);font-size:13px;">${
-            query ? 'نتیجه‌ای یافت نشد' : translate('allInSetlist')
+            query ? t('noResults') : t('allInSetlist')
           }</div>`;
         return;
       }

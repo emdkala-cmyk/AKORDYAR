@@ -43,7 +43,7 @@
     { id: 'toggleTimeline', label: 'نمایش/مخفی خط زمانی', code: 'ArrowDown', ctrl: true, shift: true, alt: false },
     { id: 'tapTempo', label: 'ضربه تمپو', code: 'KeyT', ctrl: false, shift: false, alt: false },
     { id: 'quantizeChords', label: 'کوانتیز آکوردها', code: 'KeyQ', ctrl: false, shift: false, alt: false },
-    { id: 'stop', label: 'توقف', code: 'Backspace', ctrl: true, shift: false, alt: false },
+    { id: 'stop', label: 'stop', code: 'Backspace', ctrl: true, shift: false, alt: false },
     { id: 'goEnd', label: 'رفتن به انتها', code: 'End', ctrl: false, shift: false, alt: false }
   ].map(Object.freeze));
 

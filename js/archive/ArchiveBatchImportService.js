@@ -21,7 +21,8 @@
       renderArtists,
       openArchive,
       toast,
-      now = () => new Date().toISOString()
+      now = () => new Date().toISOString(),
+      t = globalScope.t || (k => k)
     } = context;
 
     function refreshArchive() {

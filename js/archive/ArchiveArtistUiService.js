@@ -30,6 +30,7 @@
       pickArtistImage = () => {},
       removeArtistImage = () => {},
       toast = () => {},
+      t = globalScope.t || (k => k),
       getSectionCollapsed = () => false,
       setSectionCollapsed = () => {},
       getFullscreen = () => false,
@@ -205,11 +206,11 @@
       } else if (action === 'remove-image') {
         removeArtistImage(normalizedName);
         refreshArtists();
-        toast('تصویر خواننده حذف شد');
+        toast(t('deleted'));
       } else if (action === 'reset-image') {
         removeArtistImage(normalizedName);
         refreshArtists();
-        toast('تصویر به حالت پیش‌فرض بازگشت');
+        toast(t('resetPhoto'));
       }
     }
 

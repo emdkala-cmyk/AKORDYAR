@@ -130,7 +130,7 @@
           if (!song) return;
           const lyricsChords = songState.getChords(song);
           if (lyricsChords.length === 0) {
-            toast('هیچ آکوردی در Lyrics Chord وجود ندارد.');
+            toast(t('noChordsInLyricsDot'));
             return;
           }
           const lyricsChordsInSyncOrder = [...lyricsChords].sort((a, b) => {
@@ -139,7 +139,7 @@
           });
           const currentChordLineClips = songState.getChordLineClips(song);
           if (currentChordLineClips.length === 0) {
-            toast('برای همگام‌سازی، ابتدا حداقل یک آکورد در Chord Line ایجاد کنید.');
+            toast(t('syncNeedsChordsDot'));
             return;
           }
           const appliedCount = Math.min(
@@ -153,9 +153,9 @@
           songState.markChordLineSynced(song);
           syncChordLinePopup();
           if (lyricsChordsInSyncOrder.length > currentChordLineClips.length) {
-            toast(`فقط ${appliedCount} آکورد اول Lyrics روی ${currentChordLineClips.length} آکورد موجود در Chord Line اعمال شد.`);
+            toast(t('syncNeedsChordsDot'));
           } else {
-            toast(`✔ Chord Line با موفقیت از Lyrics Chord همگام شد (${appliedCount} آکورد).`);
+            toast(t('syncComplete'));
           }
         };
       }
@@ -187,7 +187,7 @@
           const songState = getSongState();
           const clips = songState?.getChordLineClips?.() || [];
           if (clips.length === 0) {
-            toast('آکوردی برای کپی وجود ندارد');
+            toast(t('noChordsToCopy'));
             return;
           }
           const currentTranspose = songState.getTranspose();
@@ -195,12 +195,12 @@
             .map(ch => ch.name ? transposeChord(ch.name, currentTranspose) : '')
             .filter(Boolean);
           if (chordNames.length === 0) {
-            toast('آکوردی برای کپی وجود ندارد');
+            toast(t('noChordsToCopy'));
             return;
           }
           navigatorRef?.clipboard?.writeText?.(chordNames.join(' ')).then(
-            () => toast('✔ ' + chordNames.length + ' آکورد کپی شد'),
-            () => toast('خطا در کپی')
+            () => toast(t('chordsCopied') + ' (' + chordNames.length + ')'),
+            () => toast(t('copyError'))
           );
         };
       }

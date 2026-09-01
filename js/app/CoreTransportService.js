@@ -292,11 +292,7 @@
       const state = readTransportState();
       state.returnToStartOnPause = !state.returnToStartOnPause;
       updateReturnToStartButton();
-      toast(
-        state.returnToStartOnPause
-          ? 'برگشت به ابتدا فعال شد'
-          : 'برگشت به ابتدا غیرفعال شد'
-      );
+      toast(t('playbackStarted'));
     }
 
     function setPlayButtonColor(color) {
@@ -565,7 +561,7 @@
         stopAllVoices();
         if (readTransportState().metroTimer) stopMetronome();
         setPlayButtonColor('var(--accent-cyan-glow)');
-        toast('🔢 شمارش: ' + transportState.countInBars + ' میزان');
+        toast(t('countInBars') + transportState.countInBars + t('bars'));
 
         const scheduledCountIn = countInScheduler.start({
           bars: transportState.countInBars,
@@ -581,7 +577,7 @@
         });
         if (scheduledCountIn) return;
 
-        toast('مترونوم در دسترس نیست؛ پخش بدون کانتین شروع شد');
+        toast(t('metronomeNotAvailableDetailed'));
       }
 
       beginPlayback();

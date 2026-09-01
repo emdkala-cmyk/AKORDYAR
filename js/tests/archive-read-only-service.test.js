@@ -86,7 +86,7 @@ async function run() {
     logError: () => {}
   });
   await errorService.loadReadOnly('error');
-  assert.ok(toasts.some(message => message.includes('خطا در لود ترانه')));
+  assert.ok(toasts.some(message => message.includes('خطا در لود ترانه') || message.includes('audioLoadFailed')), 'Expected error toast');
 
   console.log('ArchiveReadOnlyService tests passed');
 }

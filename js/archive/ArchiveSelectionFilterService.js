@@ -19,7 +19,8 @@
       setArtistFilter,
       renderArtists,
       updateActiveFilters,
-      filterIds = ['filterSig', 'filterGenre', 'filterTempo', 'filterKey', 'filterSort']
+      filterIds = ['filterSig', 'filterGenre', 'filterTempo', 'filterKey', 'filterSort'],
+      t = globalScope.t || (k => k)
     } = context;
 
     function updateBulkControls() {

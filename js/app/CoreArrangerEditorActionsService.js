@@ -45,7 +45,7 @@
     function exportCurrentArranger() {
       const editingArr = getEditingArr?.();
       if (!editingArr) {
-        toast?.('⚠ هیچ پلی‌لیستی در حال ویرایش نیست');
+        toast?.(t('noPlaylistEditing'));
         return;
       }
       saveCurrentArranger?.();

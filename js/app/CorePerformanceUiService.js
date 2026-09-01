@@ -55,7 +55,7 @@
       const keyElement = getElement('perfSongKey');
       if (keyElement) {
         keyElement.innerHTML =
-          `${keyName} ${keyMode === 'maj' ? 'ماژور' : 'مینور'} ` +
+          `${keyName} ${keyMode === 'maj' ? t('major') : t('minor')} ` +
           `${transpose ? `<span class="perf-trans">(${transpose > 0 ? '+' : ''}${transpose})</span>` : ''}`;
       }
       setText('perfTransVal', transpose > 0 ? '+' + transpose : String(transpose));

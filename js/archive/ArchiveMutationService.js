@@ -27,6 +27,7 @@
       resetSearchCache,
       escapeHtml = value => String(value ?? ''),
       toast,
+      t = globalScope.t || (k => k),
       now = () => new Date().toISOString()
     } = context;
 
@@ -44,7 +45,7 @@
     async function bulkTrash() {
       if (!selectedIds.size) return;
       const ok = await confirm(
-        'انتقال به سطل زباله',
+        t('moveToTrash'),
         `${selectedIds.size} ترانه به سطل زباله منتقل شود؟`,
         'انتقال'
       );
@@ -80,12 +81,12 @@
       const song = findSong(id, songs);
       if (!song) return;
       const ok = await confirm(
-        'انتقال به سطل زباله',
+        t('moveToTrash'),
         `ترانه «${escapeHtml(song.title || t('untitled'))}» به سطل زباله منتقل شود؟`,
         'انتقال'
       );
       if (!ok) return;
-      pushUndo('انتقال به سطل زباله');
+      pushUndo(t('moveToTrash'));
       song.deletedAt = now();
       setAllSongs(songs);
       refresh();
@@ -93,7 +94,7 @@
     }
 
     async function restore(id) {
-      pushUndo('بازیابی');
+      pushUndo(t('restore'));
       const songs = getAllSongs();
       const song = findSong(id, songs);
       if (song) {
@@ -110,13 +111,13 @@
       const song = findSong(id, songs);
       if (!song) return;
       const ok = await confirm(
-        'حذف دائمی',
+        t('permanentDelete'),
         `<strong>⚠️ این عمل غیرقابل بازگشت است!</strong><br>ترانه «${escapeHtml(song.title || t('untitled'))}» برای همیشه حذف خواهد شد.`,
-        'حذف دائمی',
+        t('permanentDelete'),
         true
       );
       if (!ok) return;
-      pushUndo('حذف دائمی');
+      pushUndo(t('permanentDelete'));
       const index = songs.findIndex(item => String(item.id) === String(id));
       if (index > -1) songs.splice(index, 1);
       setAllSongs(songs);

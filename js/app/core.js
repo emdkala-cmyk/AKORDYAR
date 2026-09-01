@@ -1261,7 +1261,7 @@ function applyState(stateStr) {
       coreGetRuntimeDAW().playheadMode = coreGetRuntimeDAW().playheadMode === 'page' ? 'center' : 'page';
       const btn = $('playheadModeBtn');
       if (btn) btn.classList.toggle('ph-center', coreGetRuntimeDAW().playheadMode === 'center');
-      toast(coreGetRuntimeDAW().playheadMode === 'center' ? 'پلی‌هدر ثابت در مرکز' : 'اسکرول صفحه‌ای');
+      toast(coreGetRuntimeDAW().playheadMode === 'center' ? t('playheadFixedCenter') : t('scrollPaged'));
     }
 
     const corePopupWindowRuntime =

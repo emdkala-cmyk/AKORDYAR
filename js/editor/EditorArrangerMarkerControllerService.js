@@ -185,7 +185,7 @@
         toggle.setAttribute('aria-pressed', String(enabled));
         toggle.title = enabled
           ? 'غیرفعال‌سازی A/B ارنجر'
-          : 'فعال‌سازی A/B ارنجر';
+          : t('toggleArrangerAB');
       }
       if (controls) controls.style.display = enabled ? 'flex' : 'none';
       [rulerOverlay, timelineOverlay].forEach(element => {

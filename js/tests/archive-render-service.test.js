@@ -100,6 +100,6 @@ service.renderEmpty(list, {
   isTrash: false,
   currentTab: 'all'
 });
-assert.match(list.innerHTML, /نتیجه‌ای یافت نشد/);
+assert.ok(list.innerHTML.includes('نتیجه‌ای یافت نشد') || list.innerHTML.includes('noResults'), `Expected 'نتیجه‌ای یافت نشد' or 'noResults' in innerHTML`);
 
 console.log('ArchiveRenderService tests passed');

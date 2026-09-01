@@ -33,32 +33,30 @@
           const data = JSON.parse(text);
 
           if (!data || (!data.items && !data.songs)) {
-            toast('❌ فایل معتبر نیست — فرمت پلی‌لیست نیست');
+            toast(t('invalidPlaylistFormat'));
             return;
           }
 
           const supportedVersions = [1, '1.0', 2, '2.0'];
           if (data.version && !supportedVersions.includes(data.version)) {
-            toast(`❌ نسخه فایل (${data.version}) پشتیبانی نمی‌شود.`);
+            toast(t('unsupportedFileVersion') || `❌ File version (${data.version}) not supported.`);
             return;
           }
 
           let baseName = data.name || file.name.replace(/\.json$/i, '');
           if (!baseName || !baseName.trim()) {
-            toast('❌ نام پلی‌لیست در فایل خالی است.');
+            toast(t('playlistNameEmpty'));
             return;
           }
           baseName = baseName.trim();
 
           if (playlistNameExists(baseName)) {
-            toast(
-              `⚠ پلی‌لیستی با نام «${baseName}» از قبل وجود دارد.\nبرای ورود این فایل، ابتدا نام پلی‌لیست را در فایل خروجی یا در پروژه‌ی مبدا تغییر دهید.`
-            );
+            toast(t('playlistNameExists'));
             return;
           }
 
           if (!Array.isArray(data.items)) {
-            toast('❌ آرایه‌ی items در فایل معتبر نیست.');
+            toast(t('invalidItemsArray'));
             return;
           }
 
@@ -67,7 +65,7 @@
             const songId =
               item && typeof item === 'object' ? item.songId : item;
             if (!songId) {
-              toast(`❌ آیتم شماره ${index + 1} فاقد songId معتبر است.`);
+              toast(t('invalidItemsArray') + ' #' + (index + 1));
               return;
             }
           }
@@ -108,12 +106,10 @@
           setEditingArr(newArr);
           renderArrangerManager();
           openArrEditor();
-          toast(
-            `✅ پلی‌لیست «${newArr.name}» بارگذاری شد (${newArr.items.length} آهنگ${importedSongsCount > 0 ? `، ${importedSongsCount} آهنگ جدید` : ''})`
-          );
+          toast(t('playlistCreated'));
         } catch (error) {
           logger.error('[Import] Error:', error);
-          toast('❌ خطا در بارگذاری فایل: ' + error.message);
+          toast(t('fileLoadError') + ' ' + error.message);
         }
       };
       input.click();

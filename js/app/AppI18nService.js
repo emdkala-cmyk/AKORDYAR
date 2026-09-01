@@ -311,7 +311,19 @@
       focusModeOn: 'حالت تمرکز — فقط متن ترانه', focusModeOff: 'حالت عادی',
       metronomeOn: 'مترونوم روشن', metronomeOff: 'مترونوم خاموش',
       midiConnected: 'MIDI متصل شد', midiDisconnected: 'MIDI قطع شد',
-      midiError: 'خطا در اتصال MIDI', midiNotSupported: 'مرورگر از MIDI پشتیبانی نمی‌کند'
+      midiError: 'خطا در اتصال MIDI', midiNotSupported: 'مرورگر از MIDI پشتیبانی نمی‌کند',
+      playheadFixedCenter: 'پلی‌هدر ثابت در مرکز', scrollPaged: 'اسکرول صفحه‌ای',
+      transposeAllPrompt: 'تغییر گام برای همه آهنگ‌ها (مثلاً 2 یا -3):',
+      newPlaylistNamePrompt: 'نام پلی‌لیست جدید:', untitledPlaylist: 'پلی‌لیست بدون نام',
+      snapEnabled: 'اسنپ فعال شد', snapDisabled: 'اسنپ غیرفعال شد',
+      pressKeyHint: '...کلید را بزنید', saved: 'ذخیره شد',
+      songNotFoundSingle: 'ترانه یافت نشد', propertiesUpdated: 'مشخصات به‌روزرسانی شد',
+      readOnlyDisabled: 'حالت فقط‌خواندنی غیرفعال شد', fontColon: 'فونت:',
+      noChordsInLyricsDot: 'هیچ آکوردی در Lyrics Chord وجود ندارد.',
+      syncNeedsChordsDot: 'برای همگام‌سازی، ابتدا حداقل یک آکورد در Chord Line ایجاد کنید.',
+      noPlaylistEditing: '⚠ هیچ پلی‌لیستی در حال ویرایش نیست',
+      playlistCreated: '✅ پلی‌لیست ساخته شد', playlistSaved: '✅ پلی‌لیست ذخیره شد',
+      playlistNameExists: '⚠ پلی‌لیستی با نام وجود دارد.', exportedOk: '✅ اکسپورت شد:'
     }),
     en: Object.freeze({
       project: 'Project', archive: 'Song Archive', newSong: 'New Song', saveSong: 'Save Song', arranger: 'Track Arranger', print: 'Print',
@@ -596,7 +608,19 @@
       playbackStopped: 'Playback stopped',
       playbackStarted: 'Playback started',
       loopAToggled: 'Loop A toggled',
-      loopBToggled: 'Loop B toggled'
+      loopBToggled: 'Loop B toggled',
+      playheadFixedCenter: 'Playhead fixed at center', scrollPaged: 'Paged scroll',
+      transposeAllPrompt: 'Transpose all songs (e.g. 2 or -3):',
+      newPlaylistNamePrompt: 'New playlist name:', untitledPlaylist: 'Untitled Playlist',
+      snapEnabled: 'Snap enabled', snapDisabled: 'Snap disabled',
+      pressKeyHint: '...press a key', saved: 'Saved',
+      songNotFoundSingle: 'Song not found', propertiesUpdated: 'Properties updated',
+      readOnlyDisabled: 'Read-only mode disabled', fontColon: 'Font:',
+      noChordsInLyricsDot: 'No chords in Lyrics Chord.',
+      syncNeedsChordsDot: 'For sync, first create at least one chord in Chord Line.',
+      noPlaylistEditing: '⚠ No playlist is being edited',
+      playlistCreated: '✅ Playlist created', playlistSaved: '✅ Playlist saved',
+      playlistNameExists: '⚠ A playlist with this name already exists.', exportedOk: '✅ Exported:'
     })
   });
 

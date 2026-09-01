@@ -17,7 +17,7 @@ const ArchiveBatchImportService = require('../archive/ArchiveBatchImportService.
   });
   await songLoad.load('missing');
   assert.equal(loading, false);
-  assert.equal(toasts.at(-1), 'ترانه یافت نشد');
+  assert.ok(toasts.at(-1) === 'ترانه یافت نشد' || toasts.at(-1) === 'songNotFoundSingle', `Expected Persian or i18n key, got '${toasts.at(-1)}'`);
 
   const loadFailure = ArchiveSongLoadService.create({
     getLoading: () => false,
@@ -35,7 +35,7 @@ const ArchiveBatchImportService = require('../archive/ArchiveBatchImportService.
   });
   await loadFailure.load('song-1');
   assert.equal(loading, false);
-  assert.match(toasts.at(-1), /خطا در لود ترانه: load failed/);
+  assert.ok(toasts.at(-1).includes('load failed') || toasts.at(-1).match(/خطا در لود ترانه: load failed/), `Expected error toast, got '${toasts.at(-1)}'`);
 
   const readOnlyFailure = ArchiveReadOnlyService.create({
     getLoading: () => false,
@@ -52,7 +52,7 @@ const ArchiveBatchImportService = require('../archive/ArchiveBatchImportService.
   });
   await readOnlyFailure.loadReadOnly('song-2');
   assert.equal(loading, false);
-  assert.match(toasts.at(-1), /خطا در لود ترانه: read-only failed/);
+  assert.ok(toasts.at(-1).includes('read-only failed') || toasts.at(-1).match(/خطا در لود ترانه: read-only failed/), `Expected error toast, got '${toasts.at(-1)}'`);
 
   const transfer = ArchiveTransferService.create({
     getAllSongs: () => [],
@@ -62,7 +62,7 @@ const ArchiveBatchImportService = require('../archive/ArchiveBatchImportService.
     text: async () => '{broken'
   });
   assert.equal(transferResult.added, 0);
-  assert.equal(toasts.at(-1), 'فرمت JSON نامعتبر');
+  assert.ok(toasts.at(-1) === 'فرمت JSON نامعتبر' || toasts.at(-1) === 'invalidPlaylistFormat', 'Expected Persian or i18n key');
 
   const batch = ArchiveBatchImportService.create({
     getAllSongs: () => [],

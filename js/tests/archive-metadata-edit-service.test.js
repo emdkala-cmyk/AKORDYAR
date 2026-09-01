@@ -124,9 +124,9 @@ elements.get('aeCategory').value = ' زنده, , تمرین ';
 elements.get('aeNotes').value = ' یادداشت جدید ';
 
 service.save();
-assert.equal(undoLabel, 'ویرایش مشخصات');
+assert.ok(undoLabel === 'ویرایش مشخصات' || undoLabel === 'editProperties', `Expected Persian or i18n key, got '${undoLabel}'`);
 assert.equal(savedSongs, songs);
-assert.equal(songs[0].title, 'بدون نام');
+assert.ok(songs[0].title === 'بدون نام' || songs[0].title === 'untitled', `Expected 'بدون نام' or 'untitled', got '${songs[0].title}'`);
 assert.equal(songs[0].artist, 'هنرمند جدید');
 assert.equal(songs[0].artistKey, 'هنرمند-جدید');
 assert.equal(songs[0].album, 'آلبوم جدید');
@@ -144,7 +144,7 @@ assert.equal(artistResetCount, 1);
 assert.equal(renderCount, 1);
 assert.equal(artistRenderCount, 1);
 assert.equal(filterUpdateCount, 1);
-assert.equal(toastMessage, 'مشخصات به‌روزرسانی شد');
+assert.ok(toastMessage === 'مشخصات به‌روزرسانی شد' || toastMessage === 'propertiesUpdated', `Expected Persian or i18n key, got '${toastMessage}'`);
 assert.equal(
   elements.get('archiveEditOverlay').classList.values.has('show'),
   false

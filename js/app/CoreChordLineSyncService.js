@@ -33,13 +33,13 @@
       const songState = getSongState();
       const song = songState?.currentSong?.();
       if (!song) {
-        toast('سندی برای سینک وجود ندارد');
+        toast(t('noDocumentForSync'));
         return;
       }
 
       const lyricsChords = songState.getChords(song);
       if (lyricsChords.length === 0) {
-        toast('هیچ آکوردی در Lyrics Chord وجود ندارد.');
+        toast(t('noChordsInLyricsDot'));
         return;
       }
 
@@ -58,9 +58,7 @@
         : [];
 
       if (currentChordLineClips.length === 0) {
-        toast(
-          'برای همگام‌سازی، ابتدا حداقل یک آکورد در Chord Line ایجاد کنید.'
-        );
+        toast(t('syncNeedsChordsDot'));
         return;
       }
 
@@ -78,13 +76,9 @@
       renderAll();
 
       if (lyricsChordsInSyncOrder.length > currentChordLineClips.length) {
-        toast(
-          `فقط ${appliedCount} آکورد اول Lyrics روی ${currentChordLineClips.length} آکورد موجود در Chord Line اعمال شد.`
-        );
+        toast(t('syncNeedsChordsDot'));
       } else {
-        toast(
-          `✔ Chord Line با موفقیت از Lyrics Chord همگام شد (${appliedCount} آکورد).`
-        );
+        toast(t('syncComplete'));
       }
     }
 

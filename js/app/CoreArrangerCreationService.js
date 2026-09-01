@@ -21,16 +21,16 @@
     async function createNewArranger() {
       const arrangers = getArrangers?.() || [];
       const name = await prompt(
-        'نام پلی‌لیست جدید:',
-        'پلی‌لیست ' + (arrangers.length + 1)
+        t('newPlaylistNamePrompt'),
+        t('newPlaylist') + ' ' + (arrangers.length + 1)
       );
       if (name === null) return;
 
       const trimmedName =
-        String(name).trim() || 'پلی‌لیست ' + (arrangers.length + 1);
+        String(name).trim() || t('newPlaylist') + ' ' + (arrangers.length + 1);
       if (playlistNameExists?.(trimmedName)) {
         toast?.(
-          `⚠ پلی‌لیستی با نام «${trimmedName}» از قبل وجود دارد. نام دیگری انتخاب کنید.`
+          t('playlistNameExists')
         );
         return createNewArranger();
       }
@@ -49,7 +49,7 @@
       setEditingArr?.(arr);
       renderArrangerManager?.();
       openArrEditor?.();
-      toast?.(`✅ پلی‌لیست «${arr.name}» ساخته شد`);
+      toast?.(t('playlistCreated'));
     }
 
     return Object.freeze({ createNewArranger });

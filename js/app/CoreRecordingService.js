@@ -224,7 +224,7 @@
           : daw.playhead;
       const duration = Math.max(0.05, end - start);
       if (!blob || blob.size < 500) {
-        toast('ضبط خالی بود');
+        toast(t('emptyRecording'));
         return;
       }
 
@@ -259,10 +259,10 @@
           try {
             await saveAudioBlobToDB(bufferKey, blob, 'recording.webm');
           } catch (_) {}
-          toast('✓ ضبط ذخیره شد');
+          toast(t('recordingSaved'));
         } catch (error) {
           logger.error?.(error);
-          toast('خطا در ذخیره‌ی ضبط');
+          toast(t('recordingSaveError'));
         }
       })();
     }
@@ -276,7 +276,7 @@
         !navigatorRef?.mediaDevices ||
         !navigatorRef.mediaDevices.getUserMedia
       ) {
-        toast('ضبط صدا در این محیط پشتیبانی نمی‌شود');
+        toast(t('recordingNotSupported'));
         return;
       }
 
@@ -288,7 +288,7 @@
         });
       } catch (error) {
         logger.error?.(error);
-        toast('دسترسی به میکروفن/ورودی صوتی رد شد');
+        toast(t('micAccessDenied'));
         return;
       }
 
@@ -334,7 +334,7 @@
           recorder.start(250);
         } catch (error) {
           logger.error?.(error);
-          toast('خطا در شروع ضبط');
+          toast(t('recordingStartError'));
           daw.isRecording = false;
           cleanupRecResources();
           return;
@@ -343,7 +343,7 @@
         renderAll();
         updateRecUI();
         if (!daw.isPlaying) startTransport();
-        toast('● ضبط شروع شد — برای توقف R را بزنید');
+        toast(t('recordingStarted'));
 
         const tickRecWave = () => {
           if (!daw.isRecording) {
@@ -366,7 +366,7 @@
         daw.recRafId = requestAnimationFrameRef(tickRecWave);
       } catch (error) {
         logger.error?.(error);
-        toast('خطا در راه‌اندازی ضبط');
+        toast(t('recordingInitError'));
         daw.isRecording = false;
         cleanupRecResources();
       }

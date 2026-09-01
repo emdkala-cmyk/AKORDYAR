@@ -24,7 +24,8 @@
       loadAudioFromHardDrive = async () => null,
       getIsElectron = () => false,
       getGlobal = () => globalScope,
-      toast = () => {}
+      toast = () => {},
+      t = globalScope.t || (k => k)
     } = context;
 
     async function restoreEmbeddedAudio(song, daw, audioClips) {

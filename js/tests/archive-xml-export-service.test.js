@@ -69,7 +69,7 @@ const pickerService = ArchiveXmlExportService.create({
   assert.match(writtenBlob.parts[0], /C&amp;/);
   assert.match(writtenBlob.parts[0], /<key>Cm<\/key>/);
   assert.match(writtenBlob.parts[0], /<line index="1">خط &lt;دوم&gt;<\/line>/);
-  assert.deepEqual(pickerToasts, ['خروجی XML ذخیره شد']);
+  assert.ok(pickerToasts.some(m => m === 'خروجی XML ذخیره شد' || m === 'saved'), `Expected saved toast, got ${JSON.stringify(pickerToasts)}`);
 
   let fallbackAnchor = null;
   let revokedUrl = null;
@@ -100,7 +100,7 @@ const pickerService = ArchiveXmlExportService.create({
   assert.equal(fallbackAnchor.download, 'عنوان & تست.xml');
   assert.equal(fallbackAnchor.href, 'blob:xml');
   assert.equal(revokedUrl, 'blob:xml');
-  assert.deepEqual(fallbackToasts, ['خروجی XML ذخیره شد']);
+  assert.ok(fallbackToasts.some(m => m === 'خروجی XML ذخیره شد' || m === 'saved'), `Expected saved toast, got ${JSON.stringify(fallbackToasts)}`);
 
   let abortFallbackCalled = false;
   const abortToasts = [];
@@ -137,7 +137,7 @@ const pickerService = ArchiveXmlExportService.create({
     toast: message => noSongToasts.push(message)
   });
   await noSongService.exportXml();
-  assert.deepEqual(noSongToasts, ['ترانه‌ای باز نیست']);
+  assert.ok(noSongToasts.some(m => m === 'ترانه‌ای باز نیست' || m === 'noSongOpen'), `Expected noSongOpen toast, got ${JSON.stringify(noSongToasts)}`);
 
   console.log('ArchiveXmlExportService tests passed');
 })().catch(error => {

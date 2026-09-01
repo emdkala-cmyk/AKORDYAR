@@ -363,7 +363,7 @@
         if (typeof create !== 'function') {
           throw new Error('ArchiveConfirmService is not loaded. Check script order.');
         }
-        _archiveConfirmService = create({ getElement: id => $(id) });
+        _archiveConfirmService = create({ getElement: id => $(id), t: window.t || (k => k) });
       }
       return _archiveConfirmService;
     }
@@ -517,6 +517,7 @@
           pickArtistImage: archPickArtistImage,
           removeArtistImage: archRemoveArtistImage,
           toast,
+          t: window.t || (k => k),
           getSectionCollapsed: () => _archState.artistSectionCollapsed,
           setSectionCollapsed: value => {
             _archState.artistSectionCollapsed = value;
@@ -738,7 +739,7 @@
           prepareSong: ensureSongParsed,
           normalizeSong: archNormalize,
           confirmImport: count => archConfirm(
-            'ورودی آرشیو',
+            t('importArchive'),
             `فایل حاوی ${count} ترانه است. آیا با آرشیو فعلی ادغام شود؟`,
             'ادغام'
           ),
@@ -1058,7 +1059,7 @@
     function archEditSave() { return getArchiveMetadataEditService().save(); }
 
     // --- Refresh ---
-    function archRefresh() { archResetSearchCache(); _archState.artistCache=null; archMigrate(edGetAllSongs()); archRender(); archRenderArtists(); toast('آرشیو تازه‌سازی شد'); }
+    function archRefresh() { archResetSearchCache(); _archState.artistCache=null; archMigrate(edGetAllSongs()); archRender(); archRenderArtists(); toast(t('refresh')); }
 
     // ===== ARTIST SLIDER SYSTEM =====
 
@@ -1093,7 +1094,8 @@
           getDefaultArtists: getArchiveDefaultArtists,
           artistKey: archArtistKey,
           refreshArtists: archRenderArtists,
-          toast
+          toast,
+          t: window.t || (k => k)
         });
       }
       return _archiveArtistImageService;
@@ -1263,7 +1265,7 @@ archiveSaveState();
       if (getArchiveEditorApi().exportProjectFull) {
         return archiveEditorExportProjectFull();
       }
-      toast('سرویس خروجی پروژه هنوز آماده نیست');
+      toast(t('exportServiceNotReady'));
     }
 
     async function edExportXML() {
@@ -1330,7 +1332,7 @@ archiveSaveState();
         if (nativeImport.status === 'error') {
           const error = nativeImport.error;
           console.error('[Project Import] Native file load failed:', error);
-          toast('خطا در باز کردن فایل پروژه: ' + (error?.message || error));
+          toast(t('fileLoadError') + (error?.message || error));
         }
         return;
       }

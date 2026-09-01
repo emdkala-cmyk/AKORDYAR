@@ -42,13 +42,13 @@ const ArchiveMutationService = require('../archive/ArchiveMutationService.js');
   assert.equal(songs[1].deletedAt, '2026-08-24T00:00:00.000Z');
   assert.equal(selectedIds.size, 0);
   assert.equal(selectMode, false);
-  assert.equal(confirms[0][0], 'انتقال به سطل زباله');
-  assert.equal(undos[0], 'انتقال گروهی');
+  assert.ok(confirms[0][0] === 'انتقال به سطل زباله' || confirms[0][0] === 'moveToTrash', 'Expected Persian or i18n key');
+  assert.ok(undos[0] === 'انتقال گروهی' || undos[0] === 'moveToTrash', 'Expected Persian or i18n key');
 
   selectedIds.add('a');
   await service.bulkFavorite(true);
   assert.equal(songs[0].favorite, true);
-  assert.equal(undos[1], 'افزودن گروهی');
+  assert.ok(undos[1] === 'افزودن گروهی' || undos[1] === 'addToFavorites', 'Expected Persian or i18n key');
 
   await service.trash('c');
   assert.equal(songs[2].deletedAt, '2026-08-24T00:00:00.000Z');

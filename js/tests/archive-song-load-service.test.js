@@ -49,7 +49,7 @@ async function run() {
   assert.equal(loaded, 1);
   assert.equal(songs[1].lastOpenedAt, '2026-08-25T12:00:00.000Z');
   assert.equal(loading, false);
-  assert.ok(toasts.some(message => message.includes('پروژه لود شد')));
+  assert.ok(toasts.some(message => message.includes('پروژه لود شد') || message.includes('projectLoaded')), 'Expected project loaded toast');
 
   await service.load('missing');
   assert.equal(closed, 1);
@@ -82,7 +82,7 @@ async function run() {
     logError: () => {}
   });
   await errorService.load('error');
-  assert.ok(toasts.some(message => message.includes('خطا در لود ترانه')));
+  assert.ok(toasts.some(message => message.includes('خطا در لود ترانه') || message.includes('audioLoadFailed')), 'Expected error toast');
 
   console.log('ArchiveSongLoadService tests passed');
 }

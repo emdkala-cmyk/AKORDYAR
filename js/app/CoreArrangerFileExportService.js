@@ -16,7 +16,7 @@
   } = {}) {
     async function exportArranger(arr) {
       if (!arr) {
-        toast('⚠ پلی‌لیست نامعتبر');
+        toast(t('invalidPlaylist'));
         return;
       }
 
@@ -30,7 +30,7 @@
       const exportData = {
         type: 'akordyar-playlist',
         version: '1.0',
-        name: arr.name || 'پلی‌لیست',
+        name: arr.name || t('newPlaylist'),
         items: arr.items,
         crossfade: arr.crossfade || 0,
         pauseBetween: !!arr.pauseBetween,
@@ -57,10 +57,10 @@
           const writable = await handle.createWritable();
           await writable.write(json);
           await writable.close();
-          toast(`✅ اکسپورت شد: ${fileName}`);
+          toast(t('exportedOk') + ' ' + fileName);
         } catch (error) {
           if (error.name !== 'AbortError') {
-            toast('خطا در اکسپورت: ' + error.message);
+            toast(t('exportError') + error.message);
           }
         }
         return;
@@ -73,7 +73,7 @@
       anchor.download = fileName;
       anchor.click();
       urlRef.revokeObjectURL(url);
-      toast(`✅ اکسپورت شد: ${fileName}`);
+      toast(t('exportedOk') + ' ' + fileName);
     }
 
     return Object.freeze({ exportArranger });

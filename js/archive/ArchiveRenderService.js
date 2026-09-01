@@ -33,23 +33,23 @@
   }
 
   const GENRE_LABELS = Object.freeze({
-    sad: globalScope.t?.('sad') ?? 'غمگین',
-    happy: globalScope.t?.('happy') ?? 'شاد',
-    heavy: globalScope.t?.('heavy') ?? 'سنگین',
+    sad: globalScope.t?.('sad') ?? 'sad',
+    happy: globalScope.t?.('happy') ?? 'happy',
+    heavy: globalScope.t?.('heavy') ?? 'heavy',
     'heavy-6-8': globalScope.t?.('heavy68') ?? '6/8 سنگین',
     '6/8 سنگین': globalScope.t?.('heavy68') ?? '6/8 سنگین',
-    romantic: globalScope.t?.('love') ?? 'عاشقانه',
-    energetic: globalScope.t?.('energetic') ?? 'انرژیک',
-    calm: globalScope.t?.('calm') ?? 'آرام',
-    epic: globalScope.t?.('epic') ?? 'حماسی',
-    pop: globalScope.t?.('pop') ?? 'پاپ',
-    rock: globalScope.t?.('rock') ?? 'راک',
-    jazz: globalScope.t?.('jazz') ?? 'جاز',
-    classical: globalScope.t?.('classical') ?? 'کلاسیک',
-    folk: globalScope.t?.('traditional') ?? 'سنتی',
-    electronic: globalScope.t?.('electronic') ?? 'الکترونیک',
+    romantic: globalScope.t?.('love') ?? 'love',
+    energetic: globalScope.t?.('energetic') ?? 'energetic',
+    calm: globalScope.t?.('calm') ?? 'calm',
+    epic: globalScope.t?.('epic') ?? 'epic',
+    pop: globalScope.t?.('pop') ?? 'pop',
+    rock: globalScope.t?.('rock') ?? 'rock',
+    jazz: globalScope.t?.('jazz') ?? 'jazz',
+    classical: globalScope.t?.('classical') ?? 'classical',
+    folk: globalScope.t?.('traditional') ?? 'traditional',
+    electronic: globalScope.t?.('electronic') ?? 'electronic',
     hiphop: globalScope.t?.('hipHop') ?? 'هیپ‌هاپ',
-    other: globalScope.t?.('other') ?? 'سایر'
+    other: globalScope.t?.('other') ?? 'other'
   });
 
   function create(context = {}) {
