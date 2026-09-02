@@ -84,27 +84,35 @@
           <button class="ed-btn" id="edToggleAccidental" title="تبدیل آکوردهای دیز به بمل یا برعکس">♯/♭</button>
         </div>
         <div class="ed-sep"></div>
-        <div class="ed-font-tools" data-toolbar-group="fonts">
         <div class="ed-grp ed-toolbar-group ed-text-tools" data-toolbar-group="text">
           <label data-i18n="textLabel">متن:</label>
-          <input type="number" id="edTextSize" value="23" min="10" max="48">
-          <select id="edTextFont"><option selected>Vazirmatn</option><option>Vazirmatn Thin</option><option>Vazirmatn Bold</option><option>Vazirmatn Black</option><option>BArshia</option><option>BFarnaz</option><option>BJadid</option><option>BZar</option><option>BZar Bold</option><option>Lalezar</option><option>Mada</option><option>Rubik</option><option>JetBrains Mono</option></select>
+          <details class="ed-font-tools" id="edFontTools" data-toolbar-group="fonts">
+            <summary class="ed-font-toggle" title="تنظیم فونت و اندازه شعر و آکورد">فونت و اندازه</summary>
+            <div class="ed-font-tools-panel">
+              <div class="ed-font-row">
+                <label>شعر:</label>
+                <input type="number" id="edTextSize" value="23" min="10" max="48" aria-label="اندازه شعر">
+                <select id="edTextFont" aria-label="فونت شعر"><option selected>Vazirmatn</option><option>Vazirmatn Thin</option><option>Vazirmatn Bold</option><option>Vazirmatn Black</option><option>BArshia</option><option>BFarnaz</option><option>BJadid</option><option>BZar</option><option>BZar Bold</option><option>Lalezar</option><option>Mada</option><option>Rubik</option><option>JetBrains Mono</option></select>
+              </div>
+              <div class="ed-font-row">
+                <label>آکورد:</label>
+                <input type="number" id="edChordSize" value="23" min="8" max="36" aria-label="اندازه آکورد">
+                <select id="edChordFont" aria-label="فونت آکورد"><option selected>JetBrains Mono</option><option>Courier New</option><option>Fira Code</option><option>Source Code Pro</option><option>Consolas</option><option>monospace</option><option>Cairo</option><option>Rubik</option><option>Mada</option><option>Sahel</option></select>
+              </div>
+            </div>
+          </details>
           <button class="ed-btn active" id="edTextBold"><b>B</b></button>
           <button class="ed-btn" id="edAlignRight" title="راست‌چین">⇥</button>
           <button class="ed-btn active" id="edAlignCenter" title="وسط‌چین">↔</button>
           <button class="ed-btn" id="edAlignLeft" title="چپ‌چین">⇤</button>
         </div>
         <div class="ed-grp ed-toolbar-group ed-chord-tools" data-toolbar-group="chord">
-          <label data-i18n="chordLabel">آکورد:</label>
-          <input type="number" id="edChordSize" value="23" min="8" max="36">
-          <select id="edChordFont"><option selected>JetBrains Mono</option><option>Courier New</option><option>Fira Code</option><option>Source Code Pro</option><option>Consolas</option><option>monospace</option><option>Cairo</option><option>Rubik</option><option>Mada</option><option>Sahel</option></select>
           <button class="ed-btn" id="edSizeLockBtn" data-action="sizeLock" title="قفل اندازه متن و آکورد (تغییر همزمان)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg></button>
           <button class="ed-btn active" id="edToggleChords" title="نمایش/مخفی آکورد در ادیتور"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></button>
           <button class="ed-btn" id="edRandomTextColor" data-action="lineColorText" title="رنگ رندوم متن سطر به سطر (Alt+Click = ریست)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></button>
           <button class="ed-btn" id="edRandomChordColor" data-action="lineColorChord" title="رنگ رندوم آکورد سطر به سطر (Alt+Click = ریست)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/><path d="M12 8v4"/><path d="M10 10l4 2"/></svg></button>
-         </div>
-         </div>
-         <div class="ed-sep"></div>
+          </div>
+          <div class="ed-sep"></div>
          <div class="ed-grp ed-toolbar-group" id="edSeqGroup" data-toolbar-group="sequence">
           <label data-i18n="seqLabel">ترتیبی:</label>
           <div class="ed-seg" id="edSeqModeSeg" title="انتخاب حالت آکوردگذاری">
@@ -118,7 +126,12 @@
             <button class="ed-btn" id="edSeqNext" title="بعدی"><span class="ui-icon" data-icon="chevron-right" aria-hidden="true"></span></button>
           </div>
           <div class="ed-seg-inner" id="edSeqChordTools" style="display:none;">
-            <span style="font-size:11px;color:#718096;margin-right:6px;">برای سینک و ترانسپوز، دکمه کورد لاین را بزنید</span>
+            <button class="ed-btn" id="edClStart" title="شروع/توقف نشانه‌گذاری روی تایم‌لاین">⏺</button>
+            <span class="ed-cl-count" id="edClCount" title="تعداد نقاط ثبت‌شده"></span>
+            <button class="ed-btn" id="edClUndo" title="حذف آخرین نقطه">↶</button>
+            <button class="ed-btn" id="edClClear" title="حذف همه نقاط">×</button>
+            <button class="ed-btn" id="edClApply" title="ساخت آکوردها روی کورد لاین">✓</button>
+            <span class="ed-seq-hint">پخش آهنگ، سپس برای هر تعویض آکورد کلید ۰ را بزنید</span>
           </div>
         </div>
          <div class="ed-sep"></div>

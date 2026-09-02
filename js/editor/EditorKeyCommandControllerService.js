@@ -271,6 +271,8 @@
 
       const host = element('headerCenterControls');
       if (!host || element('edAccidentalSel')) return;
+      const transposeGroup =
+        host.querySelector?.('.ed-transpose-tools') || host;
 
       const wrap = documentRef.createElement('div');
       wrap.className = 'ed-grp';
@@ -325,7 +327,7 @@
 
       wrap.appendChild(label);
       wrap.appendChild(select);
-      host.appendChild(wrap);
+      transposeGroup.appendChild(wrap);
     }
 
     function bind() {

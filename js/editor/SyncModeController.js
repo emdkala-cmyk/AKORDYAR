@@ -926,8 +926,6 @@ class SyncModeController {
     if (ss.clMode && ss.seqModeActive) this.edToggleSeqMode();
     if (!ss.clMode) { ss.clTapActive = false; const b = this.$('edClStart'); if (b) b.classList.remove('active'); }
     this.edRenderClMarkers();
-    // Open Chord Line popup when switching to chord mode
-    if (ss.clMode) this.openChordLinePopup();
   }
 
   edToggleClTap() {

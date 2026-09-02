@@ -419,7 +419,7 @@ test('edSetSeqMode: رفتن به حالت chord، حالت انتخاب نقط�
 
   assert.strictEqual(seqState.clMode, true);
   assert.strictEqual(seqState.seqModeActive, false); // از طریق edToggleSeqMode داخلی
-  assert.strictEqual(calls.openChordLinePopup, 1);
+  assert.strictEqual(calls.openChordLinePopup, 0);
 });
 
 test('edClUndoMarker و edClClearMarkers', () => {

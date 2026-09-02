@@ -29,14 +29,19 @@
     {
       key: 'text',
       label: 'تنظیمات متن',
-      selector: '#edTextSize, #edTextFont, #edTextBold, ' +
+      selector: '#edTextBold, ' +
         '#edAlignRight, #edAlignCenter, #edAlignLeft'
+    },
+    {
+      key: 'fonts',
+      label: 'Font and size',
+      selector: '#edTextSize, #edTextFont, #edChordSize, #edChordFont'
     },
     {
       key: 'chord',
       label: 'تنظیمات آکورد',
-      selector: '#edChordSize, #edChordFont, #edSizeLockBtn, ' +
-        '#edToggleChords, #edRandomTextColor, #edRandomChordColor'
+      selector: '#edSizeLockBtn, #edToggleChords, #edRandomTextColor, ' +
+        '#edRandomChordColor'
     },
     {
       key: 'sequence',
@@ -115,8 +120,8 @@
       const containers = new Set();
       items.forEach(target => {
         const container =
-          target.closest?.('.ed-grp') ||
           target.closest?.('.ed-font-tools') ||
+          target.closest?.('.ed-grp') ||
           target;
         if (container) containers.add(container);
       });
