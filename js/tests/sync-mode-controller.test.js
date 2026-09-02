@@ -83,6 +83,7 @@ function createController(overrides = {}) {
     edSaveSong: 0,
     pauseTransport: 0,
     startTransport: 0,
+    seekTransport: [],
     edRenderChords: 0,
     edCommit: 0,
     saveState: 0,
@@ -104,7 +105,9 @@ function createController(overrides = {}) {
     edSaveSong: () => { calls.edSaveSong++; },
     startTransport: () => { calls.startTransport++; },
     pauseTransport: () => { calls.pauseTransport++; },
-    seekTransport: () => {},
+    seekTransport: (time, keepPlaying, noSnap) => {
+      calls.seekTransport.push([time, keepPlaying, noSnap]);
+    },
     getProjectEnd: () => 100,
     getLyricPopup: () => null,
     getLyricOnlyPopup: () => null,
@@ -386,6 +389,46 @@ test('edClUndoMarker و edClClearMarkers', () => {
   controller.edClClearMarkers();
   assert.strictEqual(seqState.clMarkers.length, 0);
   assert.ok(calls.toast.includes('همه نقاط پاک شد'));
+});
+
+test('seekSyncLine: marker seeks playhead exactly', () => {
+  const { controller, state, edCur, calls } = createController();
+
+  edCur.lyrics = 'line one\nline two';
+  edCur.syncTimes = [1.25, 4.5];
+
+  assert.strictEqual(controller.seekSyncLine(1), true);
+  assert.strictEqual(state.cursor, 1);
+  assert.strictEqual(controller.syncEditLine, 1);
+  assert.deepStrictEqual(calls.seekTransport, [[4.5, false, true]]);
+});
+
+test('adjustSyncTimeFromWheel: adjusts by half a second and previews audio', () => {
+  const { controller, edCur, calls } = createController();
+
+  edCur.lyrics = 'line one';
+  edCur.syncTimes = [1];
+  controller.seekSyncLine(0);
+
+  let prevented = false;
+  let stopped = false;
+  const changed = controller.adjustSyncTimeFromWheel(0, {
+    deltaY: -1,
+    preventDefault() { prevented = true; },
+    stopPropagation() { stopped = true; }
+  });
+
+  assert.strictEqual(changed, true);
+  assert.strictEqual(edCur.syncTimes[0], 1.5);
+  assert.strictEqual(prevented, true);
+  assert.strictEqual(stopped, true);
+  assert.deepStrictEqual(calls.seekTransport, [
+    [1, false, true],
+    [1.5, true, true]
+  ]);
+  assert.strictEqual(calls.startTransport, 1);
+  assert.strictEqual(calls.edSaveSong, 1);
+  controller.cancelSyncPreview();
 });
 
 process.on('beforeExit', () => {
