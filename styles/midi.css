@@ -125,8 +125,21 @@ body.color-tool-eyedropper .chord { cursor: cell !important; }
 }
 .midi-score-part-btn:hover { border-color: #000; color: #000; }
 .midi-score-part-btn.active { border-color: #000; color: #fff; background: #000; }
-.midi-score-qr-btn { min-width: 42px; padding-inline: 8px; }
-.midi-score-qr-btn:hover { border-color: #2563eb; color: #1d4ed8; }
+.midi-score-qr-btn {
+  min-width: 36px;
+  width: 36px;
+  padding: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #2563eb;
+}
+.midi-score-qr-btn .ui-icon,
+.midi-score-qr-icon {
+  width: 17px;
+  height: 17px;
+}
+.midi-score-qr-btn:hover { border-color: #2563eb; color: #1d4ed8; background: #eff6ff; }
 .midi-score-playhead-mode-select {
   flex: 0 0 auto;
   min-height: 32px;

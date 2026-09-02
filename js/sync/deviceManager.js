@@ -80,10 +80,10 @@
       root.title = 'اشتراک‌گذاری گروه‌نوازی';
       root.style.cssText = [
         'position:fixed', 'left:14px', 'top:14px', 'z-index:99999',
-        'width:36px', 'height:36px', 'max-height:calc(100vh - 20px)',
+        'width:44px', 'height:44px', 'max-height:calc(100vh - 20px)',
         'background:rgba(19,28,43,0.78)', 'color:#E2E8F0',
-        'border:1px solid rgba(0,242,254,0.48)', 'border-radius:50%',
-        'font-family:Vazirmatn,sans-serif', 'font-size:13px', 'box-shadow:0 8px 30px rgba(0,0,0,0.5)',
+        'border:1px solid rgba(56,189,248,0.62)', 'border-radius:50%',
+        'font-family:Vazirmatn,sans-serif', 'font-size:13px', 'box-shadow:0 10px 30px rgba(0,0,0,0.46),0 0 0 4px rgba(56,189,248,0.06)',
         'backdrop-filter:blur(16px)', 'overflow:visible', 'direction:rtl',
         'transition:width .22s ease,height .22s ease,border-radius .22s ease,box-shadow .22s ease'
       ].join(';');
@@ -137,13 +137,7 @@
       if (headerEl) {
         headerEl.innerHTML = `
           <span id="akord-sync-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none"
-              stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="3" y="3" width="6" height="6"></rect>
-              <rect x="15" y="3" width="6" height="6"></rect>
-              <rect x="3" y="15" width="6" height="6"></rect>
-              <path d="M15 15h3v3h-3zM18 18h3v3h-3zM15 21h3"></path>
-            </svg>
+            ${globalScope.IconRegistry?.get?.('qr') || '<span>QR</span>'}
           </span>
           <span id="akord-sync-title">اشتراک‌گذاری گروه‌نوازی</span>
           <span id="akord-sync-toggle" aria-hidden="true">⌄</span>
@@ -152,7 +146,7 @@
           'display:flex', 'align-items:center', 'justify-content:center', 'gap:6px',
           'width:100%', 'height:100%', 'padding:6px', 'cursor:grab',
           'touch-action:none', 'user-select:none',
-          'color:#dffcff', 'background:linear-gradient(135deg,rgba(0,242,254,.22),rgba(255,46,147,.18))',
+          'color:#B9F8FF', 'background:linear-gradient(135deg,rgba(56,189,248,.2),rgba(139,92,246,.18))',
           'border-radius:inherit', 'transition:background .2s ease'
         ].join(';');
       }
@@ -194,9 +188,9 @@
         title.style.display = hidden ? 'inline' : 'none';
         toggle.style.display = hidden ? 'inline' : 'none';
         toggle.textContent = hidden ? '⌃' : '⌄';
-        root.style.width = hidden ? 'min(520px, calc(100vw - 20px))' : '36px';
-        root.style.height = hidden ? 'auto' : '36px';
-        root.style.maxHeight = hidden ? 'calc(100vh - 20px)' : '36px';
+        root.style.width = hidden ? 'min(520px, calc(100vw - 20px))' : '44px';
+        root.style.height = hidden ? 'auto' : '44px';
+        root.style.maxHeight = hidden ? 'calc(100vh - 20px)' : '44px';
         root.style.borderRadius = hidden ? '18px' : '50%';
         root.style.overflow = hidden ? 'hidden' : 'visible';
         root.style.boxShadow = hidden

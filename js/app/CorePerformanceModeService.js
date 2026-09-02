@@ -61,6 +61,13 @@
       getActiveElement?.()?.blur?.();
     }
 
+    function getPerformanceStart() {
+      const markers = getArrangerMarkers?.() || {};
+      if (markers.enabled !== true) return 0;
+      const start = Number(markers.start);
+      return Number.isFinite(start) ? Math.max(0, start) : 0;
+    }
+
     async function openPerfMode() {
       const editingArr = getEditingArr?.();
       if (!editingArr || !editingArr.items.length) {
@@ -95,7 +102,9 @@
       // Build and render the first song while transport is paused. Starting
       // before opening Player View made the popup appear several lines late.
       const shouldStartPlayback = !Boolean(editingArr.pauseBetween);
-      await loadArrSong(0, { startAt: 0, startPlayback: false });
+      // Let the song loader resolve the first song's own A/B boundary.
+      // An explicit startAt: 0 would override marker A for the first song.
+      await loadArrSong(0, { startPlayback: false });
       renderPerfUI();
       startPerfTimer();
       startBackgroundPreload();
@@ -105,8 +114,8 @@
         if (!state().perfModeActive) return;
         openLyricPopup();
         if (shouldStartPlayback && !getDAW?.()?.isPlaying) {
-          // The first Player View frame must always start from the song head.
-          seekTransport(0, false, true);
+          // Start the first song at arranger marker A, not at timeline zero.
+          seekTransport(getPerformanceStart(), false, true);
           ensureAudioCtx();
           startTransport();
         }
@@ -195,9 +204,8 @@
 
       ensureAudioCtx();
       if (daw.playhead <= 0) {
-        const markers = getArrangerMarkers() || {};
-        const start = state().arrPerformActive && markers.enabled === true
-          ? markers.start || 0
+        const start = state().arrPerformActive
+          ? getPerformanceStart()
           : 0;
         seekTransport(start, false, true);
       }
@@ -209,9 +217,8 @@
 
     function perfRestartSong() {
       blurActiveElement();
-      const markers = getArrangerMarkers() || {};
-      const start = state().arrPerformActive && markers.enabled === true
-        ? markers.start || 0
+      const start = state().arrPerformActive
+        ? getPerformanceStart()
         : 0;
       seekTransport(start, false, true);
       ensureAudioCtx();

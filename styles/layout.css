@@ -128,16 +128,26 @@
   font-size: 15px;
   line-height: 1;
 }
+.side-panel-layout-btn:focus {
+  outline: none;
+}
+.side-panel-layout-btn:focus-visible {
+  outline: 2px solid rgba(0, 242, 254, 0.72);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 3px rgba(0, 242, 254, 0.12);
+}
 .side-panel-layout-btn:hover,
 .side-panel-layout-btn.active {
   color: var(--accent-cyan-glow);
-  background: #263142;
+  background: rgba(38, 49, 66, 0.9);
   border-color: var(--accent-teal);
+  box-shadow: 0 4px 12px rgba(0, 242, 254, 0.1);
 }
 .side-panel-layout-btn.side-panel-drag-handle {
   cursor: move;
   font-size: 18px;
   touch-action: none;
+  color: #AAB7C8;
 }
 .side-panel-close-btn:hover {
   color: #fff;

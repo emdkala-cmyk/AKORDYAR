@@ -31,15 +31,68 @@
 #edSeqChordTools .ed-btn.active { background: #0E7490; color: #fff; border-color: #06B6D4; }
 
 /* ===== Editor Print Header ===== */
-#editorPrintHeader { position: relative; text-align: center; padding: 4px 12px 0; min-height: 46px; }
-#editorPrintHeader .eph-title { font-size: 20px; font-weight: bold; color: var(--text-primary); }
-#editorPrintHeader .eph-artist { min-height: 1.3em; font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+#editorPrintHeader {
+  position: relative;
+  text-align: center;
+  padding: 10px 16px 6px;
+  min-height: 58px;
+}
+#editorPrintHeader .eph-title {
+  font-size: 18px;
+  line-height: 1.45;
+  font-weight: 700;
+  color: #DDE7F2;
+  letter-spacing: 0.1px;
+}
+#editorPrintHeader .eph-artist {
+  min-height: 1.3em;
+  font-size: 11px;
+  color: #8190A3;
+  margin-top: 1px;
+}
 #editorPrintHeader .eph-key {
   position: absolute; top: 50%; right: 12px; transform: translateY(-50%);
   max-width: 30%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  padding: 4px 9px; border: 1px solid rgba(159,122,234,.32); border-radius: 7px;
-  background: rgba(159,122,234,.1); color: #C4B5FD; font-size: 12px; font-weight: 700;
+  min-height: 30px;
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px; border: 1px solid rgba(167,139,250,.38); border-radius: 9px;
+  background: linear-gradient(135deg, rgba(139,92,246,.16), rgba(59,130,246,.08));
+  color: #C4B5FD; font-size: 11px; font-weight: 700;
   direction: rtl;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.05);
+}
+
+#edSyncChordLineBtn {
+  min-height: 30px;
+  padding: 0 11px;
+  border: 1px solid rgba(0, 242, 254, 0.48) !important;
+  border-radius: 8px;
+  background: rgba(0, 242, 254, 0.07) !important;
+  color: #73EAF2 !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.05);
+  transition: background .15s ease, border-color .15s ease, transform .15s ease;
+}
+#edSyncChordLineBtn:hover {
+  background: rgba(0, 242, 254, 0.14) !important;
+  border-color: rgba(0, 242, 254, 0.78) !important;
+  transform: translateY(-1px);
+}
+
+#sendToArrangerBtn {
+  min-height: 32px;
+  border: 1px solid rgba(56, 189, 248, 0.52) !important;
+  border-radius: 8px;
+  background: linear-gradient(135deg, rgba(56,189,248,.12), rgba(63,184,175,.08)) !important;
+  color: #7DD3FC !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
+  transition: background .15s ease, border-color .15s ease, transform .15s ease, box-shadow .15s ease;
+}
+#sendToArrangerBtn:hover {
+  background: linear-gradient(135deg, rgba(56,189,248,.2), rgba(63,184,175,.14)) !important;
+  border-color: rgba(56, 189, 248, 0.82) !important;
+  box-shadow: 0 5px 16px rgba(56, 189, 248, 0.14);
+  transform: translateY(-1px);
 }
 
 /* ===== Editor Wrap & Editor ===== */

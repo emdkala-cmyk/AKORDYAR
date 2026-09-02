@@ -291,7 +291,8 @@
         const qrButton = documentRef.createElement('button');
         qrButton.type = 'button';
         qrButton.className = 'midi-score-part-btn midi-score-qr-btn';
-        qrButton.textContent = 'QR';
+        qrButton.innerHTML = globalScope.IconRegistry?.get?.('qr') || 'QR';
+        qrButton.querySelector('svg')?.classList.add('midi-score-qr-icon');
         qrButton.title = 'نمایش QR اختصاصی همین پارت';
         qrButton.setAttribute('aria-label', `QR ${part.name || part.id}`);
         qrButton.addEventListener('click', event => {
