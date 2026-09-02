@@ -49,8 +49,11 @@
     let sliderAnimFrame = null;
     let sliderResumeTimeout = null;
     let sliderCardCount = 0;
+    let sliderPageIndex = 0;
+    let sliderPageCount = 1;
     let artistContextTarget = null;
     const sliderRadius = 460;
+    const artistsPerPage = 20;
 
     function buildArtistList() {
       const songs = getAllSongs().filter(song => !song.deletedAt);
@@ -64,7 +67,8 @@
             displayName: defaultArtist.displayName,
             count: 0,
             lastDate: null,
-            favorite: !!defaultArtist.favorite
+            favorite: !!defaultArtist.favorite,
+            isCatalogArtist: true
           });
         }
       }
@@ -79,7 +83,8 @@
             displayName: matched ? matched.displayName : (raw || 'خواننده نامشخص'),
             count: 0,
             lastDate: null,
-            favorite: false
+            favorite: false,
+            isCatalogArtist: false
           });
         }
         const artist = artists.get(key);
@@ -90,6 +95,45 @@
       }
 
       return Array.from(artists.values()).sort((a, b) => b.count - a.count);
+    }
+
+    function getArtistQuery() {
+      const input = getElement('artistSearchInput');
+      return normalizeText(input?.value || '');
+    }
+
+    function getFilteredArtists() {
+      let cache = getArtistCache();
+      if (!cache) {
+        cache = buildArtistList();
+        setArtistCache(cache);
+      }
+      const query = getArtistQuery();
+      if (!query) return cache;
+      return cache.filter(artist =>
+        artist.normalizedName.includes(query) ||
+        normalizeText(artist.displayName).includes(query) ||
+        artist.aliases?.some(alias => normalizeText(alias).includes(query))
+      );
+    }
+
+    function buildArtistPages(artists, query = '') {
+      if (!query) {
+        const catalogArtists = artists.filter(artist => artist.isCatalogArtist);
+        const customArtists = artists.filter(artist => !artist.isCatalogArtist);
+        const pages = [];
+        if (catalogArtists.length) pages.push(catalogArtists.slice(0, artistsPerPage));
+        for (let index = 0; index < customArtists.length; index += artistsPerPage) {
+          pages.push(customArtists.slice(index, index + artistsPerPage));
+        }
+        return pages.length ? pages : [artists.slice(0, artistsPerPage)];
+      }
+
+      const pages = [];
+      for (let index = 0; index < artists.length; index += artistsPerPage) {
+        pages.push(artists.slice(index, index + artistsPerPage));
+      }
+      return pages;
     }
 
     function positionCards3D() {
@@ -148,18 +192,31 @@
     function updateSliderNav() {
       const previous = getElement('artistPrevBtn');
       const next = getElement('artistNextBtn');
-      if (previous) previous.disabled = false;
-      if (next) next.disabled = false;
+      const hasMultiplePages = sliderPageCount > 1;
+      if (previous) {
+        previous.disabled = !hasMultiplePages || sliderPageIndex <= 0;
+        previous.title = hasMultiplePages
+          ? `صفحهٔ قبلی (${sliderPageIndex}/${sliderPageCount})`
+          : 'صفحهٔ قبلی';
+      }
+      if (next) {
+        next.disabled = !hasMultiplePages || sliderPageIndex >= sliderPageCount - 1;
+        next.title = hasMultiplePages
+          ? `صفحهٔ بعدی (${sliderPageIndex + 2}/${sliderPageCount})`
+          : 'صفحهٔ بعدی';
+      }
     }
 
     function slide(direction) {
-      const step = 360 / Math.max(sliderCardCount, 1);
-      sliderAngle += direction * step;
-      sliderPaused = true;
-      globalScope.clearTimeout(sliderResumeTimeout);
-      sliderResumeTimeout = globalScope.setTimeout(() => {
-        sliderPaused = false;
-      }, 150);
+      if (sliderPageCount <= 1) return;
+      const nextPageIndex = Math.max(
+        0,
+        Math.min(sliderPageCount - 1, sliderPageIndex + (direction < 0 ? -1 : 1))
+      );
+      if (nextPageIndex === sliderPageIndex) return;
+      sliderPageIndex = nextPageIndex;
+      sliderAngle = 0;
+      filterArtists({ resetPage: false });
     }
 
     function handleWheel(event) {
@@ -213,7 +270,8 @@
       }
     }
 
-    function filterArtists() {
+    function filterArtists(options = {}) {
+      const { resetPage = true } = options;
       let cache = getArtistCache();
       if (!cache) {
         cache = buildArtistList();
@@ -221,6 +279,7 @@
       }
       const input = getElement('artistSearchInput');
       const query = normalizeText(input?.value || '');
+      if (resetPage) sliderPageIndex = 0;
       getElement('artistSearchClear')?.classList.toggle('show', !!input?.value);
       const filtered = query
         ? cache.filter(artist =>
@@ -235,6 +294,10 @@
       container.classList.remove('slider-running', 'slider-paused');
       container.innerHTML = '';
       const currentFilter = getArtistFilter();
+      const pages = buildArtistPages(filtered, query);
+      sliderPageCount = Math.max(pages.length, 1);
+      sliderPageIndex = Math.max(0, Math.min(sliderPageIndex, sliderPageCount - 1));
+      const visibleArtists = pages[sliderPageIndex] || [];
       const allCard = documentRef.createElement('div');
       allCard.className = 'artist-card' + (!currentFilter ? ' active' : '');
       allCard.tabIndex = 0;
@@ -253,13 +316,14 @@
       allCard.onkeydown = event => {
         if (event.key === 'Enter') allCard.onclick();
       };
-      container.appendChild(allCard);
-
-      for (const artist of filtered) {
+      for (const artist of visibleArtists) {
         const card = documentRef.createElement('div');
         const key = artist.normalizedName;
         const active = currentFilter === key;
-        card.className = 'artist-card' + (active ? ' active' : '');
+        card.className =
+          'artist-card' +
+          (artist.isCatalogArtist ? '' : ' artist-card-custom') +
+          (active ? ' active' : '');
         card.tabIndex = 0;
         card.setAttribute('role', 'option');
         card.setAttribute('aria-selected', active);
@@ -298,10 +362,10 @@
         container.appendChild(card);
       }
 
-      if (!filtered.length && query) {
+      if (!visibleArtists.length && query) {
         container.innerHTML = '<div class="artist-slider-empty">خواننده مورد نظر یافت نشد</div>';
       }
-      if (filtered.length) {
+      if (visibleArtists.length) {
         requestFrame(() => {
           positionCards3D();
           if (query) {
@@ -331,6 +395,7 @@
     function renderArtists() {
       const cache = buildArtistList();
       setArtistCache(cache);
+      sliderPageIndex = 0;
       filterArtists();
     }
 
@@ -452,6 +517,7 @@
 
     return Object.freeze({
       buildArtistList,
+      buildArtistPages,
       renderArtists,
       filterArtists,
       showArtistContext,
