@@ -20,7 +20,7 @@
     <div class="timeline-sep" id="timelineSep"></div>
     <aside class="sidebar panel" id="projectPanel" data-event-group="navigation">
       <div class="side-panel-layout-toolbar" id="projectPanelLayoutControls">
-        <button type="button" class="side-panel-layout-btn side-panel-drag-handle" id="projectPanelDragHandle" title="برای جابه‌جایی Project بکشید" aria-label="جابه‌جایی Project">⠿</button>
+        <button type="button" class="side-panel-layout-btn side-panel-drag-handle" id="projectPanelDragHandle" title="برای جابه‌جایی Project بکشید" aria-label="جابه‌جایی Project"><span class="ui-icon" data-icon="grip" aria-hidden="true"></span></button>
         <span class="side-panel-layout-title">PROJECT</span>
         <button type="button" class="side-panel-layout-btn" id="projectPanelFloatBtn" data-panel-layout-action="toggle-floating" title="شناور کردن پنجره Project" aria-label="شناور کردن پنجره Project" aria-pressed="false">↗</button>
         <button type="button" class="side-panel-layout-btn" id="projectPanelMaximizeBtn" data-panel-layout-action="toggle-maximize" title="بزرگ‌نمایی پنجره Project" aria-label="بزرگ‌نمایی پنجره Project" aria-pressed="false">□</button>
@@ -69,7 +69,7 @@
 
     <header class="topbar">
       <div class="header-center-controls" id="headerCenterControls" data-inline-actions style="flex-wrap:wrap; gap:4px;">
-        <div class="toolbar-drag-handle" id="toolbarDragHandle" title="بکش برای جابه‌جایی">⠿</div>
+        <div class="toolbar-drag-handle" id="toolbarDragHandle" title="بکش برای جابه‌جایی"><span class="ui-icon" data-icon="grip" aria-hidden="true"></span></div>
         <button class="toolbar-pin-btn" id="toolbarPinBtn" data-action="toolbarDock" title="جدا/اتصال (Undock/Dock)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 11l-4 4h14l-4-4"/><path d="M12 3v8"/><path d="M3 11h18"/></svg></button>
         <div class="ed-grp">
           <span id="edOrigKeyLabel" style="font-size:0.78rem;font-weight:700;color:#9F7AEA;padding:3px 8px;border-radius:6px;background:rgba(159,122,234,0.12);border:1px solid rgba(159,122,234,0.3);white-space:nowrap;cursor:pointer;" title="گام اورجینال آهنگ"></span>
@@ -143,9 +143,10 @@
 
     <main class="workspace" style="padding:10px 20px;">
       <section id="lyricEditorPanel" style="flex:1;display:flex;flex-direction:column;overflow:hidden;width:100%;max-width:1100px;margin:0 auto;min-height:0;">
-        <div id="editorPrintHeader" style="text-align:center;padding:8px 0 4px;">
-          <div class="eph-title" id="edPrintTitle" style="font-size:22px;font-weight:bold;color:var(--text-primary);">بدون نام</div>
-          <div class="eph-sub" id="edPrintSub" style="font-size:12px;color:var(--text-secondary);margin-top:2px;">گام: C</div>
+        <div id="editorPrintHeader">
+          <div class="eph-title" id="edPrintTitle">بدون نام</div>
+          <div class="eph-artist" id="edPrintArtist"></div>
+          <div class="eph-key" id="edPrintKey">گام: C</div>
         </div>
         <div id="editorWrap" style="flex:1;overflow:auto;position:relative;background:rgba(255,255,255,0.01);border:1px solid var(--border-subtle);border-radius:10px;">
           <div id="editor" contenteditable="true" spellcheck="false" style="position:relative;z-index:2;outline:none;padding:30px 20px 20px;line-height:2.6;min-height:200px;white-space:pre-wrap;color:var(--accent-teal);direction:rtl;text-align:center;unicode-bidi:plaintext;font-size:20px;font-weight:bold;"></div>
@@ -189,7 +190,7 @@
 
     <aside class="inspector panel" id="songPropertiesPanel" data-inline-actions>
       <div class="side-panel-layout-toolbar" id="songPropertiesPanelLayoutControls">
-        <button type="button" class="side-panel-layout-btn side-panel-drag-handle" id="songPropertiesPanelDragHandle" title="برای جابه‌جایی Song Properties بکشید" aria-label="جابه‌جایی Song Properties">⠿</button>
+        <button type="button" class="side-panel-layout-btn side-panel-drag-handle" id="songPropertiesPanelDragHandle" title="برای جابه‌جایی Song Properties بکشید" aria-label="جابه‌جایی Song Properties"><span class="ui-icon" data-icon="grip" aria-hidden="true"></span></button>
         <span class="side-panel-layout-title">SONG PROPERTIES</span>
         <button type="button" class="side-panel-layout-btn" id="songPropertiesPanelFloatBtn" data-panel-layout-action="toggle-floating" title="شناور کردن پنجره Song Properties" aria-label="شناور کردن پنجره Song Properties" aria-pressed="false">↗</button>
         <button type="button" class="side-panel-layout-btn" id="songPropertiesPanelMaximizeBtn" data-panel-layout-action="toggle-maximize" title="بزرگ‌نمایی پنجره Song Properties" aria-label="بزرگ‌نمایی پنجره Song Properties" aria-pressed="false">□</button>

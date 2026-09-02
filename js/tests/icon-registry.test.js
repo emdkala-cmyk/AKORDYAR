@@ -5,6 +5,7 @@ for (const name of [
   'hitpoints',
   'mixer',
   'settings',
+  'grip',
   'import',
   'clipboard',
   'chevron-left',

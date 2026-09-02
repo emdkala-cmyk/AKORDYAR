@@ -1539,10 +1539,33 @@ function edBlankSong() {
             song: getCurrentEditorSong(),
             editor: $('editor'),
             printTitle: $('edPrintTitle'),
+            printArtist: $('edPrintArtist'),
+            printKey: $('edPrintKey'),
             printSub: $('edPrintSub'),
             statChordCount: $('statChordCount'),
             statLineCount: $('statLineCount'),
             titleFallback: t('untitled'),
+            buildArtist: song => song.artist || '',
+            buildKey: song => {
+              const displayKey = song.key || song.originalKey;
+              if (!displayKey) return '';
+              const keyStr =
+                displayKey + (song.keyMode === 'min' ? 'm' : '');
+              const keyText =
+                (currentLang === 'fa' ? 'گام: ' : 'Key: ') + keyStr;
+              const transposeText = song.transpose
+                ? (
+                    currentLang === 'fa'
+                      ? 'ترنسپوز '
+                      : 'Transpose '
+                  ) +
+                  (song.transpose > 0 ? '+' : '') +
+                  song.transpose
+                : null;
+              return [keyText, transposeText]
+                .filter(Boolean)
+                .join('  ·  ');
+            },
             buildSubtext: song => {
               const displayKey = song.key || song.originalKey;
               const keyStr =

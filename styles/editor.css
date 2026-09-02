@@ -31,13 +31,20 @@
 #edSeqChordTools .ed-btn.active { background: #0E7490; color: #fff; border-color: #06B6D4; }
 
 /* ===== Editor Print Header ===== */
-#editorPrintHeader { text-align: center; padding: 10px 0 4px; }
+#editorPrintHeader { position: relative; text-align: center; padding: 4px 12px 0; min-height: 46px; }
 #editorPrintHeader .eph-title { font-size: 20px; font-weight: bold; color: var(--text-primary); }
-#editorPrintHeader .eph-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+#editorPrintHeader .eph-artist { min-height: 1.3em; font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+#editorPrintHeader .eph-key {
+  position: absolute; top: 50%; right: 12px; transform: translateY(-50%);
+  max-width: 30%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  padding: 4px 9px; border: 1px solid rgba(159,122,234,.32); border-radius: 7px;
+  background: rgba(159,122,234,.1); color: #C4B5FD; font-size: 12px; font-weight: 700;
+  direction: rtl;
+}
 
 /* ===== Editor Wrap & Editor ===== */
 #editorWrap {
-  flex: 1; overflow: auto; position: relative; margin: 8px 12px; width: auto;
+  flex: 1; overflow: auto; position: relative; margin: 2px 12px 8px; width: auto;
   background: rgba(255,255,255,0.01); border: 1px solid var(--border-subtle); border-radius: 10px;
 }
 #editor {

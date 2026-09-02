@@ -73,6 +73,18 @@
         state.printTitle.textContent =
           song.title || state.titleFallback || 'بدون نام';
       }
+      if (state.printArtist) {
+        state.printArtist.textContent =
+          typeof state.buildArtist === 'function'
+            ? state.buildArtist(song)
+            : song.artist || '';
+      }
+      if (state.printKey) {
+        state.printKey.textContent =
+          typeof state.buildKey === 'function'
+            ? state.buildKey(song)
+            : '';
+      }
       if (state.printSub) {
         state.printSub.textContent =
           typeof state.buildSubtext === 'function'

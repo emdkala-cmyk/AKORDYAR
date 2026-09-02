@@ -33,12 +33,15 @@ vm.runInNewContext(source, context);
 
 const editor = element();
 const printTitle = element();
+const printArtist = element();
+const printKey = element();
 const printSub = element();
 const statChordCount = element();
 const statLineCount = element();
 const song = {
   title: 'Test',
   artist: 'Artist',
+  key: 'C',
   lyrics: 'خط اول\nخط دوم',
   chords: [{ name: 'C' }, { name: '' }],
   lineColors: ['red'],
@@ -56,10 +59,14 @@ const renderer = context.EditorLyricsRenderer.create({
     song,
     editor,
     printTitle,
+    printArtist,
+    printKey,
     printSub,
     statChordCount,
     statLineCount,
     titleFallback: 'Untitled',
+    buildArtist: current => current.artist,
+    buildKey: current => `Key: ${current.key}`,
     buildSubtext: current => current.artist
   })
 });
@@ -70,6 +77,8 @@ assert.equal(editor.children[0].textContent, 'خط اول');
 assert.equal(editor.children[0].style.color, 'red');
 assert.equal(editor.children[1].style.color, 'green');
 assert.equal(printTitle.textContent, 'Test');
+assert.equal(printArtist.textContent, 'Artist');
+assert.equal(printKey.textContent, 'Key: C');
 assert.equal(printSub.textContent, 'Artist');
 assert.equal(statChordCount.textContent, 1);
 assert.equal(statLineCount.textContent, 2);
