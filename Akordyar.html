@@ -110,10 +110,10 @@
             <button class="ed-btn ed-seg-btn" id="edSeqModeChord" title="کورد لاین: نمایش پاپ‌آپ چورد لاین (برای سینک و ترانسپوز)">کورد لاین</button>
           </div>
           <div class="ed-seg-inner" id="edSeqLyricsTools">
-            <button class="ed-btn" id="edSeqToggle" title="انتخاب نقاط">⚙️</button>
-            <button class="ed-btn" id="edSeqStart" title="شروع آکوردگذاری">🎵</button>
-            <button class="ed-btn" id="edSeqPrev" title="قبلی">◀</button>
-            <button class="ed-btn" id="edSeqNext" title="بعدی">▶</button>
+            <button class="ed-btn" id="edSeqToggle" title="انتخاب نقاط"><span class="ui-icon" data-icon="target" aria-hidden="true"></span></button>
+            <button class="ed-btn" id="edSeqStart" title="شروع آکوردگذاری"><span class="ui-icon" data-icon="play" aria-hidden="true"></span></button>
+            <button class="ed-btn" id="edSeqPrev" title="قبلی"><span class="ui-icon" data-icon="chevron-left" aria-hidden="true"></span></button>
+            <button class="ed-btn" id="edSeqNext" title="بعدی"><span class="ui-icon" data-icon="chevron-right" aria-hidden="true"></span></button>
           </div>
           <div class="ed-seg-inner" id="edSeqChordTools" style="display:none;">
             <span style="font-size:11px;color:#718096;margin-right:6px;">برای سینک و ترانسپوز، دکمه کورد لاین را بزنید</span>
@@ -133,11 +133,11 @@
         </div>
         <div class="ed-sep"></div>
         <div class="ed-grp">
-          <button class="ed-btn" id="edSyncChordLineBtn" data-action="syncChordLine" title="بروزرسانی Chord Line از Lyrics Chord" style="border-color:#00F2FE; color:#00F2BE;">🔄 سینک</button>
+            <button class="ed-btn" id="edSyncChordLineBtn" data-action="syncChordLine" title="بروزرسانی Chord Line از Lyrics Chord" style="border-color:#00F2FE; color:#00F2BE;"><span class="ui-icon icon-leading" data-icon="sync" aria-hidden="true"></span>سینک</button>
         </div>
       </div>
       <div data-inline-actions style="min-width: 120px; display:flex; align-items:center; gap:8px;">
-        <button class="ed-btn" id="sendToArrangerBtn" data-action="sendToArranger" title="ارسال به ارنجر ترک" style="font-size:0.78rem; font-weight:700; min-width:auto; padding:4px 10px; border-color:var(--accent-cyan-glow); color:var(--accent-cyan-glow);">🎼 ارسال به ارنجر</button>
+        <button class="ed-btn" id="sendToArrangerBtn" data-action="sendToArranger" title="ارسال به ارنجر ترک" style="font-size:0.78rem; font-weight:700; min-width:auto; padding:4px 10px; border-color:var(--accent-cyan-glow); color:var(--accent-cyan-glow);"><span class="ui-icon icon-leading" data-icon="send" aria-hidden="true"></span>ارسال به ارنجر</button>
       </div>
     </header>
 
@@ -417,7 +417,7 @@
         <button class="tl-tool-btn" id="playheadModeBtn" data-action="togglePlayheadMode" title="Playhead Mode: Page Scroll / Center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="22"/><polyline points="8 6 12 2 16 6"/><polyline points="8 18 12 22 16 18"/></svg></button>
         <button class="tl-snap-btn active" id="snapBtn" data-action="toggleSnap" title="Snap (J)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 3L3 21"/><path d="M21 3v7"/><path d="M21 3h-7"/></svg></button>
         <button class="tl-tool-btn" id="warpToolBtn" data-action="toggleWarp" title="Warp Tool (W)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h2c2 0 3-2 5-2s3 2 5 2 3-2 5-2"/><path d="M4 6h2c2 0 3 2 5 2s3 2 5 2 3-2 5-2"/><path d="M4 18h2c2 0 3-2 5-2s3 2 5 2 3-2 5-2"/></svg></button>
-        <button class="tl-tool-btn hitpoint-tool-btn" id="hitpointBtn" data-action="openHitpoints" title="Calculate Hitpoints">⚡ HP</button>
+        <button class="tl-tool-btn hitpoint-tool-btn" id="hitpointBtn" data-action="openHitpoints" title="Calculate Hitpoints"><span class="ui-icon icon-leading" data-icon="hitpoints" aria-hidden="true"></span>HP</button>
         <button class="tl-tool-btn" data-action="showQuantize" title="Quantize"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg></button>
         <div class="color-tool-group">
           <button class="color-tool-btn" id="colorBrushBtn" data-action="toggleColorTool" data-value="brush" title="Paint Brush (C)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg></button>
@@ -427,8 +427,8 @@
         <div class="color-quick-bar" id="colorQuickBar">
           <!-- quick swatches populated by JS -->
         </div>
-        <button class="tl-tool-btn" id="mixerBtn" data-action="toggleMixer" title="باز/بستن میکسر صدا">🎛 میکسر</button>
-        <button class="tl-tool-btn" data-action="openSettings" title="تنظیمات برنامه">⚙️ تنظیمات</button>
+        <button class="tl-tool-btn" id="mixerBtn" data-action="toggleMixer" title="باز/بستن میکسر صدا"><span class="ui-icon icon-leading" data-icon="mixer" aria-hidden="true"></span>میکسر</button>
+        <button class="tl-tool-btn" data-action="openSettings" title="تنظیمات برنامه"><span class="ui-icon icon-leading" data-icon="settings" aria-hidden="true"></span>تنظیمات</button>
         <div class="tl-zoom">
           <span>Zoom</span>
           <input type="range" min="5" max="260" value="70" id="zoom-range" data-action="setZoom">
@@ -505,8 +505,8 @@
     <!-- Mixer Window -->
     <div class="mixer-panel" id="mixerPanel" data-inline-actions>
       <div class="mixer-head">
-        <div class="mixer-title">🎛 میکسر صدا</div>
-        <button class="mixer-close" data-action="toggleMixer" title="بستن">✕</button>
+        <div class="mixer-title"><span class="ui-icon icon-leading" data-icon="mixer" aria-hidden="true"></span>میکسر صدا</div>
+        <button class="mixer-close" data-action="toggleMixer" title="بستن"><span class="ui-icon" data-icon="close" aria-hidden="true"></span></button>
       </div>
       <div class="mixer-channels" id="mixerChannels"></div>
     </div>
@@ -515,8 +515,8 @@
     <div class="modal-overlay settings-overlay" id="settingsModal" tabindex="-1" data-inline-actions>
       <div class="settings-panel mv-window">
         <div class="settings-head mv-head">
-          <div class="settings-title">⚙️ تنظیمات برنامه</div>
-          <button class="settings-close" data-action="closeSettings"><span class="ir-icon" data-ir="✕" aria-hidden="true"></span></button>
+          <div class="settings-title"><span class="ui-icon icon-leading" data-icon="settings" aria-hidden="true"></span>تنظیمات برنامه</div>
+          <button class="settings-close" data-action="closeSettings"><span class="ui-icon" data-icon="close" aria-hidden="true"></span></button>
         </div>
         <div class="settings-body">
           <div class="settings-group">
@@ -575,10 +575,10 @@
       <div class="hitpoint-panel mv-window" role="dialog" aria-modal="true" aria-labelledby="hitpointTitle">
         <div class="hitpoint-head mv-head">
           <div>
-            <div class="hitpoint-title" id="hitpointTitle">⚡ Hitpoints / AudioWarp</div>
+            <div class="hitpoint-title" id="hitpointTitle"><span class="ui-icon icon-leading" data-icon="hitpoints" aria-hidden="true"></span>Hitpoints / AudioWarp</div>
             <div class="hitpoint-clip-name" id="hitpointClipName">کلیپ صوتی انتخاب نشده</div>
           </div>
-          <button class="hitpoint-close" type="button" data-action="closeHitpoints" title="بستن">✕</button>
+          <button class="hitpoint-close" type="button" data-action="closeHitpoints" title="بستن"><span class="ui-icon" data-icon="close" aria-hidden="true"></span></button>
         </div>
         <div class="hitpoint-body">
           <div class="hitpoint-summary-row">
@@ -625,7 +625,7 @@
     hidden
     title="باز کردن تایم‌لاین"
     aria-label="باز کردن تایم‌لاین"
-  >🎛 تایم‌لاین</button>
+  ><span class="ui-icon icon-leading" data-icon="timeline" aria-hidden="true"></span>تایم‌لاین</button>
 
   <input type="file" id="audio-file-input" accept="audio/*,.mp3,.wav,.ogg,.m4a,.flac,.aac">
   <input type="file" id="midi-file-input" accept=".mid,.midi,audio/midi,audio/x-midi" style="display:none;">
@@ -661,11 +661,11 @@
           <div id="midiScoreMeta" class="midi-score-meta"></div>
         </div>
           <div class="midi-score-header-actions">
-            <button type="button" class="midi-score-action" data-action="midiScoreImport">📥 ورود MIDI</button>
-            <button type="button" class="midi-score-action" data-action="musicXmlScoreImport">📄 ورود MusicXML</button>
-            <button type="button" class="midi-score-action" data-action="midiScoreClear">🗑 حذف</button>
-            <button type="button" class="midi-score-action" data-action="musicXmlScoreClear">🗑 حذف MusicXML</button>
-          <button type="button" class="midi-score-close" data-action="midiScoreClose" aria-label="بستن">×</button>
+            <button type="button" class="midi-score-action" data-action="midiScoreImport"><span class="ui-icon icon-leading" data-icon="import" aria-hidden="true"></span>ورود MIDI</button>
+            <button type="button" class="midi-score-action" data-action="musicXmlScoreImport"><span class="ui-icon icon-leading" data-icon="file" aria-hidden="true"></span>ورود MusicXML</button>
+            <button type="button" class="midi-score-action" data-action="midiScoreClear"><span class="ui-icon icon-leading" data-icon="trash" aria-hidden="true"></span>حذف</button>
+            <button type="button" class="midi-score-action" data-action="musicXmlScoreClear"><span class="ui-icon icon-leading" data-icon="trash" aria-hidden="true"></span>حذف MusicXML</button>
+          <button type="button" class="midi-score-close" data-action="midiScoreClose" aria-label="بستن"><span class="ui-icon" data-icon="close" aria-hidden="true"></span></button>
         </div>
       </div>
       <div class="midi-score-body">
@@ -1519,9 +1519,10 @@
 </body>
 <script>
 (function(){
-  var els=document.querySelectorAll('.ir-icon[data-ir]');
+  var els=document.querySelectorAll('.ir-icon[data-ir], .ui-icon[data-icon]');
   for(var i=0;i<els.length;i++){
-    els[i].innerHTML=IconRegistry.get(els[i].getAttribute('data-ir'));
+    var iconName=els[i].getAttribute('data-icon') || els[i].getAttribute('data-ir');
+    els[i].innerHTML=IconRegistry.get(iconName);
   }
 })();
 </script>

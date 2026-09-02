@@ -121,7 +121,8 @@
 
 /* ===== Track Mixer ===== */
 .track-mixer { display: flex; gap: 3px; align-items: center; }
-.t-btn { width: 22px; height: 22px; border-radius: 4px; border: 1px solid var(--border-subtle); background: transparent; color: var(--text-secondary); font-size: 0.65rem; font-weight: 900; cursor: pointer; }
+.t-btn { width: 22px; height: 22px; border-radius: 4px; border: 1px solid var(--border-subtle); background: transparent; color: var(--text-secondary); font-size: 0.65rem; font-weight: 900; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; padding: 0; }
+.t-btn svg { display: block; width: 13px; height: 13px; }
 .t-btn.on { background: var(--accent-neon-pink); border-color: var(--accent-neon-pink); color: white; }
 .t-btn.on-solo { background: var(--accent-teal); border-color: var(--accent-teal); color: #000; }
 .t-btn.on-rec { background: #ff4c4c; border-color: #ff4c4c; color: #fff; animation: pulse 1.5s infinite; }

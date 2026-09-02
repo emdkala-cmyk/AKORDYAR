@@ -138,10 +138,10 @@
             <span class="t-icon" data-icon-pick="${track.id}" title="تغییر آیکون">${getIconSvg(track.icon)}</span>
             <span class="t-label">${track.name}</span>
             <div style="display:flex;gap:2px;align-items:center;">
-              <button class="t-btn" data-chord-ver-prev="" title="ورژن قبلی" style="font-size:0.55rem;">◀</button>
+              <button class="t-btn" data-chord-ver-prev="" title="ورژن قبلی" aria-label="ورژن قبلی">${getIconSvg('chevron-left')}</button>
               <span style="font-size:0.55rem;color:var(--accent-cyan-glow);min-width:46px;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center;font-family:'JetBrains Mono';cursor:pointer;" data-chord-ver-label="" title="دوبار کلیک برای تغییر نام ورژن">${song.chordVersions[currentVersion]?.name || `V${currentVersion + 1}`}</span>
-              <button class="t-btn" data-chord-ver-next="" title="ورژن بعدی" style="font-size:0.55rem;">▶</button>
-              <button class="t-btn" data-chord-ver-add="" title="ورژن جدید" style="font-size:0.55rem;">+</button>
+              <button class="t-btn" data-chord-ver-next="" title="ورژن بعدی" aria-label="ورژن بعدی">${getIconSvg('chevron-right')}</button>
+              <button class="t-btn" data-chord-ver-add="" title="ورژن جدید" aria-label="ورژن جدید">${getIconSvg('add')}</button>
             </div>
             <button class="t-btn ${track.locked ? 'on-lock' : ''}" data-lock="${track.id}" title="قفل">
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
@@ -151,13 +151,13 @@
             </button>
           `;
 
-          const addChordLineButton = (dataKey, title, label, mode) => {
+          const addChordLineButton = (dataKey, title, iconName, mode) => {
             const button = document.createElement('button');
             button.className = 't-btn';
             button.dataset[dataKey] = '';
             button.title = title;
-            button.style.fontSize = '0.7rem';
-            button.textContent = label;
+            button.setAttribute('aria-label', title);
+            button.innerHTML = getIconSvg(iconName);
             button.addEventListener('click', event => {
               event.stopPropagation();
               openChordLineImporter(mode);
@@ -167,13 +167,13 @@
           addChordLineButton(
             'chordImport',
             'ورود MIDI/XML آکورد',
-            '📥',
+            'import',
             'file'
           );
           addChordLineButton(
             'chordPaste',
             'ورود XML از کلیپ‌بورد',
-            '📋',
+            'clipboard',
             'clipboard'
           );
 
