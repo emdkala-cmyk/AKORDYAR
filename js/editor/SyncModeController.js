@@ -112,6 +112,7 @@ class SyncModeController {
 
     this.logger = logger || console;
     this.syncEditLine = null;
+    this.syncTimeInput = null;
     this.syncPreviewTimer = null;
     this.syncPreviewActive = false;
   }
@@ -125,22 +126,31 @@ class SyncModeController {
     return [];
   }
 
-  _scrollSyncRowIntoView(row) {
+  _scrollSyncRowIntoView(row, { center = false } = {}) {
     const box = this.$('syncLyrics');
     if (!box || !row) return;
 
     const rowTop = Number(row.offsetTop) || 0;
-    const rowBottom = rowTop + (Number(row.offsetHeight) || 0);
+    const rowHeight = Number(row.offsetHeight) || 0;
+    const rowBottom = rowTop + rowHeight;
     const scrollTop = Number(box.scrollTop) || 0;
     const boxHeight = Number(box.clientHeight) || 0;
     if (!boxHeight) return;
 
     const padding = 12;
     let nextScrollTop = null;
-    if (rowTop < scrollTop + padding) {
+    if (center) {
+      nextScrollTop = rowTop - boxHeight / 2 + rowHeight / 2;
+    } else if (rowTop < scrollTop + padding) {
       nextScrollTop = Math.max(0, rowTop - padding);
     } else if (rowBottom > scrollTop + boxHeight - padding) {
       nextScrollTop = Math.max(0, rowBottom - boxHeight + padding);
+    }
+
+    if (nextScrollTop !== null) {
+      const scrollHeight = Number(box.scrollHeight) || 0;
+      const maxScrollTop = Math.max(0, scrollHeight - boxHeight);
+      nextScrollTop = Math.min(maxScrollTop, Math.max(0, nextScrollTop));
     }
 
     if (nextScrollTop === null || Math.abs(nextScrollTop - scrollTop) < 1) return;
@@ -167,15 +177,19 @@ class SyncModeController {
       event.stopPropagation?.();
       this.seekSyncLine(li);
     };
-    row.onwheel = event => this.adjustSyncTimeFromWheel(li, event);
+    row.onwheel = event => {
+      if (event?.ctrlKey) this.adjustSyncTimeFromWheel(li, event);
+    };
 
     if (timeEl) {
       timeEl.ondblclick = event => {
         event.preventDefault?.();
         event.stopPropagation?.();
-        this.seekSyncLine(li);
+        this.editSyncTime(li, event);
       };
-      timeEl.onwheel = event => this.adjustSyncTimeFromWheel(li, event);
+      timeEl.onwheel = event => {
+        if (event?.ctrlKey) this.adjustSyncTimeFromWheel(li, event);
+      };
     }
   }
 
@@ -212,6 +226,26 @@ class SyncModeController {
     const m = Math.floor(t / 60);
     const s = (t % 60).toFixed(1);
     return `${String(m).padStart(2, '0')}:${String(s).padStart(4, '0')}`;
+  }
+
+  parseSyncTime(value) {
+    const normalized = String(value ?? '').trim().replace(',', '.');
+    if (!normalized) return NaN;
+
+    const parts = normalized.split(':');
+    let seconds = NaN;
+    if (parts.length === 1) {
+      seconds = Number(parts[0]);
+    } else if (parts.length === 2) {
+      seconds = Number(parts[0]) * 60 + Number(parts[1]);
+    } else if (parts.length === 3) {
+      seconds =
+        Number(parts[0]) * 3600 +
+        Number(parts[1]) * 60 +
+        Number(parts[2]);
+    }
+
+    return Number.isFinite(seconds) && seconds >= 0 ? seconds : NaN;
   }
 
   createSyncLineEl(line, li, time) {
@@ -312,6 +346,96 @@ class SyncModeController {
     }
   }
 
+  editSyncTime(li, event) {
+    if (typeof document === 'undefined') return false;
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+
+    const lines = this.songState.getLyrics().split('\n');
+    const numericLine = Number(li);
+    const lineIndex = Number.isFinite(numericLine)
+      ? Math.max(0, Math.min(Math.max(0, lines.length - 1), Math.floor(numericLine)))
+      : 0;
+
+    this.syncTimeInput?.finish?.(false);
+    this.syncEditLine = lineIndex;
+    this.selectSyncLine(lineIndex);
+
+    let row = null;
+    this._getSyncRows().forEach(candidate => {
+      if (Number(candidate.dataset?.li) === lineIndex) row = candidate;
+    });
+    const timeEl = row?.querySelector?.('.s-time');
+    if (!timeEl) return false;
+
+    const existingInput = timeEl.querySelector?.('.s-time-input');
+    if (existingInput) {
+      existingInput.focus?.();
+      existingInput.select?.();
+      return true;
+    }
+
+    const times = this.songState.getSyncTimes();
+    const daw = this.getDAW();
+    const existingTime = Number(times[lineIndex]);
+    const currentTime = Number.isFinite(existingTime)
+      ? existingTime
+      : (Number.isFinite(Number(daw?.playhead)) ? Number(daw.playhead) : 0);
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 's-time-input';
+    input.value = this.formatSyncTime(currentTime);
+    input.inputMode = 'decimal';
+    input.autocomplete = 'off';
+    input.spellcheck = false;
+    input.title = 'زمان را به صورت ثانیه یا دقیقه:ثانیه وارد کنید';
+
+    let finished = false;
+    const finish = commit => {
+      if (finished) return;
+      finished = true;
+      if (this.syncTimeInput?.input === input) this.syncTimeInput = null;
+      timeEl.classList?.remove('editing');
+
+      if (commit) {
+        const parsedTime = this.parseSyncTime(input.value);
+        if (Number.isFinite(parsedTime)) {
+          const nextTime = this.roundMs(parsedTime);
+          if (!Number.isFinite(existingTime) || nextTime !== existingTime) {
+            this.state.history.push(JSON.stringify(times));
+            this.state.redoHistory = [];
+            this.songState.setSyncTime(lineIndex, nextTime);
+            this.edSaveSong();
+          }
+          this.renderSyncLyrics();
+          const currentDaw = this.getDAW();
+          this.seekTransport(nextTime, Boolean(currentDaw?.isPlaying), true);
+          this.updateSyncHighlight();
+          return;
+        }
+      }
+
+      this.renderSyncLyrics();
+    };
+
+    input.onkeydown = keyEvent => {
+      if (keyEvent.key === 'Enter') {
+        keyEvent.preventDefault?.();
+        finish(true);
+      } else if (keyEvent.key === 'Escape') {
+        keyEvent.preventDefault?.();
+        finish(false);
+      }
+    };
+    input.onblur = () => finish(true);
+    timeEl.replaceChildren(input);
+    timeEl.classList?.add('editing');
+    this.syncTimeInput = { input, finish };
+    input.focus?.();
+    input.select?.();
+    return true;
+  }
+
   seekSyncLine(li) {
     const lines = this.songState.getLyrics().split('\n');
     const numericLine = Number(li);
@@ -371,12 +495,13 @@ class SyncModeController {
   }
 
   adjustSyncTimeFromWheel(lineIndex, event) {
-    if (this.syncEditLine !== lineIndex) return false;
+    if (!event?.ctrlKey) return false;
     const deltaY = Number(event?.deltaY);
     if (!Number.isFinite(deltaY) || deltaY === 0) return false;
 
     event.preventDefault?.();
     event.stopPropagation?.();
+    this.syncEditLine = lineIndex;
     const delta = deltaY < 0 ? 0.5 : -0.5;
     return this.adjustSyncTime(lineIndex, delta, { preview: true }) !== null;
   }
@@ -426,6 +551,7 @@ class SyncModeController {
   syncTap() {
     const state = this.state;
     if (!state.active) return;
+    this.syncTimeInput?.finish?.(false);
     const lines = this.songState.getLyrics().split('\n');
     if (state.cursor >= lines.length) return;
     const daw = this.getDAW();
@@ -552,7 +678,8 @@ class SyncModeController {
 
     // Update sync panel UI
     if (this.state.active) {
-      document.querySelectorAll('#syncLyrics .sline').forEach(el => {
+      const syncRows = this._getSyncRows();
+      syncRows.forEach(el => {
         const li = +el.dataset.li;
 
         const isPlaying = (li === activeLi);
@@ -566,6 +693,16 @@ class SyncModeController {
           el.classList.toggle('done', isDone);
         }
       });
+
+      if (changed && activeLi >= 0) {
+        let activeSyncRow = null;
+        syncRows.forEach(row => {
+          if (Number(row.dataset?.li) === activeLi) activeSyncRow = row;
+        });
+        if (activeSyncRow) {
+          this._scrollSyncRowIntoView(activeSyncRow, { center: true });
+        }
+      }
 
       const total = this.getProjectEnd();
       if (total > 0) {
@@ -594,6 +731,7 @@ class SyncModeController {
 
   enterSyncMode() {
     const state = this.state;
+    this.syncTimeInput?.finish?.(false);
     this.cancelSyncPreview();
     state.active = true;
     state.cursor = 0;
@@ -613,6 +751,7 @@ class SyncModeController {
 
   exitSyncMode() {
     const state = this.state;
+    this.syncTimeInput?.finish?.(false);
     this.cancelSyncPreview();
     state.active = false;
     this.syncEditLine = null;

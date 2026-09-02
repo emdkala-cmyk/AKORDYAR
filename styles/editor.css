@@ -102,6 +102,12 @@
 .sline.selected .s-time { background: var(--ctrl-accent-blue); color: #fff; }
 .sline.sync-time-editing { border-color: var(--accent-cyan-glow); box-shadow: 0 0 0 1px rgba(0,242,254,.28); }
 .sline.sync-time-editing .s-time { background: var(--accent-cyan-glow); color: #06131A; }
+.sline .s-time.editing { padding: 2px 4px; }
+.s-time-input {
+  width: 78px; border: 0; outline: none; border-radius: 4px;
+  background: rgba(0,0,0,.18); color: inherit; font: inherit;
+  text-align: center; direction: ltr; padding: 2px 3px;
+}
 
 /* ===== Editor Line Styles ===== */
 #editor .eline {

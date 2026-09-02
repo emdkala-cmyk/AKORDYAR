@@ -7,6 +7,7 @@ const assert = require('assert');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
+const { JSDOM } = require('jsdom');
 
 const SyncModeController = require('../editor/SyncModeController.js');
 
@@ -413,6 +414,7 @@ test('adjustSyncTimeFromWheel: adjusts by half a second and previews audio', () 
   let prevented = false;
   let stopped = false;
   const changed = controller.adjustSyncTimeFromWheel(0, {
+    ctrlKey: true,
     deltaY: -1,
     preventDefault() { prevented = true; },
     stopPropagation() { stopped = true; }
@@ -429,6 +431,101 @@ test('adjustSyncTimeFromWheel: adjusts by half a second and previews audio', () 
   assert.strictEqual(calls.startTransport, 1);
   assert.strictEqual(calls.edSaveSong, 1);
   controller.cancelSyncPreview();
+});
+
+test('adjustSyncTimeFromWheel: normal wheel keeps list scrolling native', () => {
+  const { controller, edCur } = createController();
+
+  edCur.lyrics = 'line one';
+  edCur.syncTimes = [1];
+  let prevented = false;
+
+  const changed = controller.adjustSyncTimeFromWheel(0, {
+    ctrlKey: false,
+    deltaY: -1,
+    preventDefault() { prevented = true; },
+    stopPropagation() {}
+  });
+
+  assert.strictEqual(changed, false);
+  assert.strictEqual(prevented, false);
+  assert.strictEqual(edCur.syncTimes[0], 1);
+});
+
+test('editSyncTime: double click opens keyboard input and Enter saves seconds', () => {
+  const previousDocument = global.document;
+  const dom = new JSDOM('<div id="syncLyrics"></div><span id="syncInfo"></span>');
+  global.document = dom.window.document;
+
+  try {
+    const elements = {
+      syncLyrics: dom.window.document.getElementById('syncLyrics'),
+      syncInfo: dom.window.document.getElementById('syncInfo')
+    };
+    const { controller, edCur, calls } = createController({
+      $: id => elements[id] || null
+    });
+
+    edCur.lyrics = 'line one';
+    edCur.syncTimes = [40];
+    controller.renderSyncLyrics();
+
+    const timeEl = elements.syncLyrics.querySelector('.s-time');
+    assert.strictEqual(controller.editSyncTime(0, {
+      preventDefault() {},
+      stopPropagation() {}
+    }), true);
+
+    const input = timeEl.querySelector('.s-time-input');
+    assert.ok(input);
+    input.value = '00:41.25';
+    input.onkeydown({
+      key: 'Enter',
+      preventDefault() {}
+    });
+
+    assert.strictEqual(edCur.syncTimes[0], 41.25);
+    assert.strictEqual(elements.syncLyrics.querySelector('.s-time-input'), null);
+    assert.strictEqual(calls.edSaveSong, 1);
+  } finally {
+    dom.window.close();
+    global.document = previousDocument;
+  }
+});
+
+test('updateSyncHighlight: active lyric scrolls within sync panel', () => {
+  const classes = new Set();
+  const activeRow = {
+    dataset: { li: '1' },
+    offsetTop: 180,
+    offsetHeight: 20,
+    classList: {
+      contains(name) { return classes.has(name); },
+      toggle(name, enabled) {
+        if (enabled) classes.add(name);
+        else classes.delete(name);
+      }
+    }
+  };
+  const syncLyrics = {
+    scrollTop: 0,
+    clientHeight: 100,
+    scrollHeight: 300,
+    querySelectorAll() { return [activeRow]; },
+    scrollTo({ top }) { this.scrollTop = top; }
+  };
+  const { controller, state, DAW, edCur } = createController({
+    $: id => id === 'syncLyrics' ? syncLyrics : null
+  });
+
+  state.active = true;
+  edCur.lyrics = 'line one\nline two';
+  edCur.syncTimes = [0, 5];
+  DAW.playhead = 5;
+  controller.updateSyncHighlight();
+
+  assert.strictEqual(syncLyrics.scrollTop, 140);
+  assert.strictEqual(classes.has('playing'), true);
 });
 
 process.on('beforeExit', () => {
