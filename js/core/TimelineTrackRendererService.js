@@ -37,6 +37,8 @@
     clearChordSelection = () => {},
     clearSelection = () => {},
     clientToTime = () => 0,
+    timeToX = value => value,
+    snapTime = value => value,
     customPrompt = async () => null,
     openChordEditor = () => {},
     uid = prefix => `${prefix}${Date.now()}`,
@@ -520,6 +522,36 @@
           startPointerDrag(lane, event, onDocumentMouseMove, onDocumentMouseUp);
         });
         if (track.type === 'chord') {
+          const chordDropGuide = document.createElement('div');
+          chordDropGuide.className = 'chord-drop-guide';
+          chordDropGuide.setAttribute('aria-hidden', 'true');
+          let chordDropTime = null;
+
+          const hideChordDropGuide = () => {
+            chordDropTime = null;
+            chordDropGuide.style.display = 'none';
+            chordDropGuide.dataset.time = '';
+            chordDropGuide.dataset.timeLabel = '';
+            lane.classList.remove('chord-drop-target');
+          };
+
+          const updateChordDropGuide = clientX => {
+            const rawTime = Number(clientToTime(clientX));
+            if (!Number.isFinite(rawTime)) return null;
+            const snappedTime = Number(snapTime(rawTime));
+            const time = Math.max(
+              0,
+              Number.isFinite(snappedTime) ? snappedTime : rawTime
+            );
+            chordDropTime = time;
+            chordDropGuide.style.left = `${timeToX(time)}px`;
+            chordDropGuide.dataset.time = String(time);
+            chordDropGuide.dataset.timeLabel = `${time.toFixed(2)}s`;
+            chordDropGuide.style.display = 'block';
+            lane.classList.add('chord-drop-target');
+            return time;
+          };
+
           lane.addEventListener('dragover', event => {
             const types = Array.from(event.dataTransfer?.types || []);
             const hasFile = Boolean(event.dataTransfer?.files?.length) ||
@@ -530,18 +562,25 @@
             if (!hasFile && !hasText) return;
             event.preventDefault();
             if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
-            lane.classList.add('chord-drop-target');
+            updateChordDropGuide(event.clientX);
           });
-          lane.addEventListener('dragleave', () => {
-            lane.classList.remove('chord-drop-target');
+          lane.addEventListener('dragleave', event => {
+            if (event.relatedTarget && lane.contains?.(event.relatedTarget)) {
+              return;
+            }
+            hideChordDropGuide();
           });
           lane.addEventListener('drop', event => {
             event.preventDefault();
             event.stopPropagation();
-            lane.classList.remove('chord-drop-target');
+            const pointerTime = Number.isFinite(Number(event.clientX))
+              ? updateChordDropGuide(event.clientX)
+              : null;
+            const startTime = pointerTime ?? chordDropTime;
             const file = event.dataTransfer?.files?.[0];
             if (file) {
-              openChordLineImporter('drop', file);
+              openChordLineImporter('drop', file, startTime);
+              hideChordDropGuide();
               return;
             }
             const text =
@@ -549,8 +588,12 @@
               event.dataTransfer?.getData?.('text/plain') ||
               event.dataTransfer?.getData?.('text/uri-list') ||
               '';
-            if (text.trim()) openChordLineImporter('drop', text);
+            if (text.trim()) {
+              openChordLineImporter('drop', text, startTime);
+            }
+            hideChordDropGuide();
           });
+          lane.appendChild(chordDropGuide);
         }
 
         const grid = document.createElement('canvas');

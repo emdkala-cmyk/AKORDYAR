@@ -291,7 +291,32 @@
       });
     }
 
-    function replaceChordLine(events) {
+    function alignEventsToStart(events, startTime = null) {
+      if (
+        startTime == null ||
+        !Array.isArray(events) ||
+        !events.length
+      ) {
+        return events;
+      }
+      const targetStart = Number(startTime);
+      if (!Number.isFinite(targetStart)) return events;
+      const sourceStart = Number(events[0]?.start);
+      const offset = Math.max(0, targetStart) -
+        (Number.isFinite(sourceStart) ? sourceStart : 0);
+      return events.map(event => {
+        const sourceTime = Number(event?.start);
+        return {
+          ...event,
+          start: Math.max(
+            0,
+            (Number.isFinite(sourceTime) ? sourceTime : 0) + offset
+          )
+        };
+      });
+    }
+
+    function replaceChordLine(events, startTime = null) {
       const daw = getDAW();
       const chordTrack = daw?.tracks?.find(track => track.type === 'chord');
       if (!daw || !chordTrack || !Array.isArray(events) || !events.length) {
@@ -302,7 +327,8 @@
         return 0;
       }
 
-      const importedClips = events
+      const alignedEvents = alignEventsToStart(events, startTime);
+      const importedClips = alignedEvents
         .map((event, index) => {
           const start = Math.max(0, Number(event?.start) || 0);
           const duration = Math.max(0.03, Number(event?.duration) || 0.03);
@@ -346,7 +372,7 @@
         /xml/i.test(String(file?.type || ''));
     }
 
-    async function importChordLineFile(file) {
+    async function importChordLineFile(file, startTime = null) {
       if (!file) return 0;
       try {
         let events;
@@ -369,7 +395,7 @@
           toast('هیچ آکورد قابل تشخیصی در فایل پیدا نشد.');
           return 0;
         }
-        const count = replaceChordLine(events);
+        const count = replaceChordLine(events, startTime);
         toast(`✔ ${count} آکورد در Chord Line وارد شد.`);
         return count;
       } catch (error) {
@@ -379,14 +405,14 @@
       }
     }
 
-    async function importChordLineText(text) {
+    async function importChordLineText(text, startTime = null) {
       try {
         const events = parseCubaseChordXml(text, projectTempo());
         if (!events.length) {
           toast('هیچ آکوردی در XML کیوبیس پیدا نشد.');
           return 0;
         }
-        const count = replaceChordLine(events);
+        const count = replaceChordLine(events, startTime);
         toast(`✔ ${count} آکورد در Chord Line وارد شد.`);
         return count;
       } catch (error) {
@@ -411,12 +437,16 @@
       }
     }
 
-    function openChordLineImporter(mode = 'file', payload = null) {
+    function openChordLineImporter(
+      mode = 'file',
+      payload = null,
+      startTime = null
+    ) {
       if (mode === 'drop') {
         if (payload && typeof payload.arrayBuffer === 'function') {
-          importChordLineFile(payload);
+          importChordLineFile(payload, startTime);
         } else if (typeof payload === 'string') {
-          importChordLineText(payload);
+          importChordLineText(payload, startTime);
         }
         return true;
       }
@@ -528,6 +558,7 @@
       syncChordLineFromLyrics,
       parseCubaseChordXml,
       midiChordEvents,
+      alignEventsToStart,
       importChordLineFile,
       importChordLineText,
       importChordLineClipboard,

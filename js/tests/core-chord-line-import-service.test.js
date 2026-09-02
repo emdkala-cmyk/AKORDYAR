@@ -81,6 +81,22 @@ assert.deepEqual(
 );
 
 assert.deepEqual(
+  importedService.alignEventsToStart(
+    [
+      { name: 'Bb', start: 6, duration: 1 },
+      { name: 'Dm', start: 7, duration: 1 },
+      { name: 'Gm', start: 8, duration: 1 }
+    ],
+    10
+  ),
+  [
+    { name: 'Bb', start: 10, duration: 1 },
+    { name: 'Dm', start: 11, duration: 1 },
+    { name: 'Gm', start: 12, duration: 1 }
+  ]
+);
+
+assert.deepEqual(
   importedService.midiChordEvents({
     division: { type: 'ppqn', ticksPerQuarter: 480 },
     tempoMap: { events: [{ bpm: 120 }] },

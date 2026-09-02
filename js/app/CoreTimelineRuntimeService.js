@@ -179,6 +179,8 @@
         editorAction('clearChordSelection', ...args),
       clearSelection: (...args) => coreAction('clearSelection', ...args),
       clientToTime: (...args) => geometry.clientToTime(...args),
+      timeToX: (...args) => geometry.timeToX(...args),
+      snapTime,
       openChordEditor,
       ensureTimelineFits,
       cutAtTime: (...args) => coreAction('cutAtTime', ...args),

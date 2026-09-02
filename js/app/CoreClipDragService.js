@@ -133,22 +133,111 @@
       dragOverLaneTrackIndex = audioTrackIds(daw).indexOf(laneTrackId);
     }
 
+    function getMoveDelta(delta, daw, event, snapEnabled) {
+      const items = Array.isArray(daw?.drag?.items) ? daw.drag.items : [];
+      const primaryItem =
+        items.find(item => item.id === daw.drag.primaryId) || items[0];
+      if (!primaryItem) return 0;
+      if (shouldLockTimelinePosition(event, daw)) return 0;
+
+      const primaryClip = primaryItem._isSection
+        ? null
+        : getClip(primaryItem.id);
+      const requestedStart = primaryItem.origStart + delta;
+      const snappedStart = snapWithSnapPoint(
+        requestedStart,
+        primaryClip,
+        snapEnabled
+      );
+      const safeStart = Number.isFinite(Number(snappedStart))
+        ? Number(snappedStart)
+        : requestedStart;
+      const minimumStart = Math.min(
+        ...items.map(item => Number(item.origStart))
+          .filter(Number.isFinite),
+        0
+      );
+      return Math.max(
+        -minimumStart,
+        safeStart - Number(primaryItem.origStart)
+      );
+    }
+
+    function clampChordMoveDelta(delta, daw) {
+      const items = Array.isArray(daw?.drag?.items) ? daw.drag.items : [];
+      const movingClips = items
+        .filter(item => !item._isSection)
+        .map(item => ({
+          item,
+          clip: getClip(item.id)
+        }));
+      if (
+        !movingClips.length ||
+        movingClips.length !== items.length ||
+        movingClips.some(({ clip }) => clip?.type !== 'chord')
+      ) {
+        return delta;
+      }
+
+      const movingIds = new Set(movingClips.map(({ clip }) => clip.id));
+      let minimumDelta = -Infinity;
+      let maximumDelta = Infinity;
+
+      movingClips.forEach(({ item, clip }) => {
+        const itemStart = Number(item.origStart);
+        const itemDuration = Math.max(
+          0.03,
+          Number(item.origDur ?? clip.duration) || 0.03
+        );
+        if (!Number.isFinite(itemStart)) return;
+
+        (daw.clips || [])
+          .filter(other =>
+            other?.type === 'chord' &&
+            other.trackId === clip.trackId &&
+            !movingIds.has(other.id)
+          )
+          .forEach(other => {
+            const otherStart = Number(other.start);
+            const otherDuration = Math.max(
+              0.03,
+              Number(other.duration) || 0.03
+            );
+            if (!Number.isFinite(otherStart)) return;
+            if (otherStart <= itemStart) {
+              minimumDelta = Math.max(
+                minimumDelta,
+                otherStart + otherDuration + 0.03 - itemStart
+              );
+            } else {
+              maximumDelta = Math.min(
+                maximumDelta,
+                otherStart - 0.03 - itemDuration - itemStart
+              );
+            }
+          });
+      });
+
+      if (minimumDelta > maximumDelta) return delta;
+      return Math.max(minimumDelta, Math.min(maximumDelta, delta));
+    }
+
     function updateMoveDrag(delta, daw, event) {
-      const lockTimelinePosition = shouldLockTimelinePosition(event, daw);
       const snapEnabled =
         isSnapEnabled() && !(event?.ctrlKey || event?.metaKey);
+      const moveDelta = clampChordMoveDelta(
+        getMoveDelta(delta, daw, event, snapEnabled),
+        daw
+      );
       daw.drag.items.forEach(item => {
         const target = item._isSection
           ? (daw.sections || []).find(section => section.id === item.id)
           : getClip(item.id);
         if (!target) return;
         const clip = !item._isSection ? getClip(item.id) : null;
-        const requestedStart = lockTimelinePosition
-          ? item.origStart
-          : item.origStart + delta;
         target.start = Math.max(
           0,
-          roundMs(snapWithSnapPoint(requestedStart, clip, snapEnabled))
+          roundMs(item.origStart + moveDelta)
         );
         if (clip?.warpMarkers) {
           // Warp markers ride along with the audio content; apply the shift
@@ -312,6 +401,31 @@
         applyGroupTrackDrop(daw);
       } else if (daw.drag.type === 'move') {
         restoreOriginalTrackAssignments(daw);
+      }
+      if (daw.drag.type === 'move') {
+        const chordTrackIds = new Set(
+          daw.drag.items
+            .filter(item => !item._isSection)
+            .map(item => getClip(item.id))
+            .filter(clip => clip?.type === 'chord')
+            .map(clip => clip.trackId)
+        );
+        chordTrackIds.forEach(trackId => {
+          const ordered = (daw.clips || [])
+            .filter(clip => clip.type === 'chord' && clip.trackId === trackId)
+            .map((clip, index) => ({ clip, index }))
+            .sort((left, right) =>
+              Number(left.clip.start) - Number(right.clip.start) ||
+              left.index - right.index
+            )
+            .map(entry => entry.clip);
+          let index = 0;
+          daw.clips = (daw.clips || []).map(clip =>
+            clip.type === 'chord' && clip.trackId === trackId
+              ? ordered[index++]
+              : clip
+          );
+        });
       }
       // Moved/resized warped clips need a fresh stretched buffer so
       // playback keeps matching the new marker layout.

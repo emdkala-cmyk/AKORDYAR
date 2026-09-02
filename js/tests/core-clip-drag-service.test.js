@@ -183,4 +183,76 @@ assert.equal(daw.clips[0].offset, 0);
 assert.equal(daw.clips[0].duration, 2);
 assert.equal(service.finish(), true);
 
+const chordTrack = { id: 'tc', type: 'chord' };
+const chordLaneTarget = {
+  closest: () => ({ dataset: { trackId: chordTrack.id } })
+};
+const groupedChords = [
+  { id: 'chord-a', type: 'chord', trackId: 'tc', start: 0.1, duration: 0.2 },
+  { id: 'chord-b', type: 'chord', trackId: 'tc', start: 0.4, duration: 0.2 },
+  { id: 'chord-c', type: 'chord', trackId: 'tc', start: 0.7, duration: 0.2 }
+];
+daw.tracks.push(chordTrack);
+daw.clips.push(...groupedChords);
+daw.selectedIds = new Set(groupedChords.map(clip => clip.id));
+pointerTarget = chordLaneTarget;
+snapEnabled = true;
+daw.drag = {
+  type: 'move',
+  edge: null,
+  primaryId: 'chord-a',
+  startX: 10,
+  items: groupedChords.map(clip => ({
+    id: clip.id,
+    origStart: clip.start,
+    origDur: clip.duration,
+    origTrackId: clip.trackId
+  }))
+};
+assert.equal(
+  service.update({ clientX: 12, clientY: 4, target: chordLaneTarget }),
+  true
+);
+assert.deepEqual(
+  groupedChords.map(clip => clip.start),
+  [0.5, 0.8, 1.1]
+);
+assert.equal(service.finish(), true);
+
+const collisionTrack = { id: 'tc2', type: 'chord' };
+const collisionChords = [
+  { id: 'chord-prev', type: 'chord', trackId: 'tc2', start: 0, duration: 1 },
+  { id: 'chord-solo', type: 'chord', trackId: 'tc2', start: 1.5, duration: 0.5 },
+  { id: 'chord-next', type: 'chord', trackId: 'tc2', start: 3, duration: 1 }
+];
+daw.tracks.push(collisionTrack);
+daw.clips.push(...collisionChords);
+daw.selectedIds = new Set(['chord-solo']);
+pointerTarget = {
+  closest: () => ({ dataset: { trackId: collisionTrack.id } })
+};
+snapEnabled = false;
+daw.drag = {
+  type: 'move',
+  edge: null,
+  primaryId: 'chord-solo',
+  startX: 10,
+  items: [{
+    id: 'chord-solo',
+    origStart: 1.5,
+    origDur: 0.5,
+    origTrackId: collisionTrack.id
+  }]
+};
+assert.equal(
+  service.update({ clientX: 30, clientY: 4, target: pointerTarget }),
+  true
+);
+assert.equal(collisionChords[1].start, 2.47);
+assert.ok(
+  collisionChords[1].start + collisionChords[1].duration <
+    collisionChords[2].start
+);
+assert.equal(service.finish(), true);
+
 console.log('CoreClipDragService tests passed');
