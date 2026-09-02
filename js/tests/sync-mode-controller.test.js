@@ -477,6 +477,20 @@ test('handleSyncPanelWheel: Ctrl+wheel prevents panel scrolling', () => {
   controller.cancelSyncPreview();
 });
 
+test('sync panel scroll lock: Ctrl+wheel restores the original scroll position', () => {
+  const syncLyrics = { scrollTop: 44 };
+  const { controller } = createController({
+    $: id => id === 'syncLyrics' ? syncLyrics : null
+  });
+
+  controller._lockSyncPanelScroll();
+  syncLyrics.scrollTop = 180;
+  controller._restoreSyncPanelScroll();
+
+  assert.strictEqual(syncLyrics.scrollTop, 44);
+  controller._clearSyncPanelScrollLock();
+});
+
 test('editSyncTime: double click opens keyboard input and Enter saves seconds', () => {
   const previousDocument = global.document;
   const dom = new JSDOM('<div id="syncLyrics"></div><span id="syncInfo"></span>');

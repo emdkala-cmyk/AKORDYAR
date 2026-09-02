@@ -117,6 +117,10 @@ class SyncModeController {
     this.syncPreviewActive = false;
     this.syncPanelWheelTarget = null;
     this.syncPanelWheelHandler = null;
+    this.syncPanelScrollHandler = null;
+    this.syncPanelScrollLockTarget = null;
+    this.syncPanelScrollLockTop = null;
+    this.syncPanelScrollLockTimer = null;
   }
 
   _getSyncRows() {
@@ -131,6 +135,10 @@ class SyncModeController {
   _scrollSyncRowIntoView(row, { center = false } = {}) {
     const box = this.$('syncLyrics');
     if (!box || !row) return;
+    if (this._isSyncPanelScrollLocked()) {
+      this._restoreSyncPanelScroll();
+      return;
+    }
 
     const rowTop = Number(row.offsetTop) || 0;
     const rowHeight = Number(row.offsetHeight) || 0;
@@ -189,6 +197,49 @@ class SyncModeController {
     }
   }
 
+  _isSyncPanelScrollLocked() {
+    return Boolean(
+      this.syncPanelScrollLockTarget &&
+      Number.isFinite(this.syncPanelScrollLockTop)
+    );
+  }
+
+  _restoreSyncPanelScroll() {
+    if (!this._isSyncPanelScrollLocked()) return;
+    const target = this.syncPanelScrollLockTarget;
+    const lockedTop = this.syncPanelScrollLockTop;
+    if (Math.abs((Number(target.scrollTop) || 0) - lockedTop) >= 1) {
+      target.scrollTop = lockedTop;
+    }
+  }
+
+  _clearSyncPanelScrollLock() {
+    if (this.syncPanelScrollLockTimer !== null) {
+      clearTimeout(this.syncPanelScrollLockTimer);
+      this.syncPanelScrollLockTimer = null;
+    }
+    this.syncPanelScrollLockTarget = null;
+    this.syncPanelScrollLockTop = null;
+  }
+
+  _lockSyncPanelScroll() {
+    const target = this.$('syncLyrics') || this.syncPanelWheelTarget;
+    if (!target) return;
+
+    if (!this._isSyncPanelScrollLocked()) {
+      this.syncPanelScrollLockTarget = target;
+      this.syncPanelScrollLockTop = Number(target.scrollTop) || 0;
+    }
+    this._restoreSyncPanelScroll();
+
+    if (this.syncPanelScrollLockTimer !== null) {
+      clearTimeout(this.syncPanelScrollLockTimer);
+    }
+    this.syncPanelScrollLockTimer = setTimeout(() => {
+      this._clearSyncPanelScrollLock();
+    }, 600);
+  }
+
   handleSyncPanelWheel(event) {
     if (!event?.ctrlKey) return false;
 
@@ -197,8 +248,13 @@ class SyncModeController {
     if (!row || !Number.isFinite(lineIndex)) return false;
 
     event.preventDefault?.();
+    event.returnValue = false;
+    event.stopImmediatePropagation?.();
     event.stopPropagation?.();
-    return this.adjustSyncTimeFromWheel(lineIndex, event);
+    this._lockSyncPanelScroll();
+    const changed = this.adjustSyncTimeFromWheel(lineIndex, event);
+    this._restoreSyncPanelScroll();
+    return changed;
   }
 
   _syncPopupHighlight(popup) {
@@ -708,7 +764,11 @@ class SyncModeController {
           if (Number(row.dataset?.li) === activeLi) activeSyncRow = row;
         });
         if (activeSyncRow) {
-          this._scrollSyncRowIntoView(activeSyncRow, { center: true });
+          if (this._isSyncPanelScrollLocked()) {
+            this._restoreSyncPanelScroll();
+          } else {
+            this._scrollSyncRowIntoView(activeSyncRow, { center: true });
+          }
         }
       }
 
@@ -740,6 +800,7 @@ class SyncModeController {
   enterSyncMode() {
     const state = this.state;
     this.syncTimeInput?.finish?.(false);
+    this._clearSyncPanelScrollLock();
     this.cancelSyncPreview();
     state.active = true;
     state.cursor = 0;
@@ -760,6 +821,7 @@ class SyncModeController {
   exitSyncMode() {
     const state = this.state;
     this.syncTimeInput?.finish?.(false);
+    this._clearSyncPanelScrollLock();
     this.cancelSyncPreview();
     state.active = false;
     this.syncEditLine = null;
@@ -922,17 +984,30 @@ class SyncModeController {
         true
       );
     }
+    if (this.syncPanelWheelTarget && this.syncPanelScrollHandler) {
+      this.syncPanelWheelTarget.removeEventListener(
+        'scroll',
+        this.syncPanelScrollHandler
+      );
+    }
     if (syncLyrics?.addEventListener) {
       this.syncPanelWheelTarget = syncLyrics;
       this.syncPanelWheelHandler = event => this.handleSyncPanelWheel(event);
+      this.syncPanelScrollHandler = () => this._restoreSyncPanelScroll();
       syncLyrics.addEventListener(
         'wheel',
         this.syncPanelWheelHandler,
         { capture: true, passive: false }
       );
+      syncLyrics.addEventListener(
+        'scroll',
+        this.syncPanelScrollHandler,
+        { passive: true }
+      );
     } else {
       this.syncPanelWheelTarget = null;
       this.syncPanelWheelHandler = null;
+      this.syncPanelScrollHandler = null;
     }
     if (this.$('tab-sync')) this.$('tab-sync').onclick = () => {
       const tab = this.$('tab-sync');
