@@ -187,6 +187,51 @@ test('syncTap: مسیر پایان — toast، توقف پخش و ذخیره (ا
   assert.strictEqual(calls.edSaveSong, 1);
 });
 
+test('syncTap: هنگام پخش اسکرول پنل را برای جلوگیری از ماسک شدن خط ثابت نگه می‌دارد', () => {
+  const previousDocument = global.document;
+  const dom = new JSDOM('<div id="syncLyrics"></div><span id="syncInfo"></span>');
+  global.document = dom.window.document;
+
+  try {
+    const syncLyrics = dom.window.document.getElementById('syncLyrics');
+    const syncInfo = dom.window.document.getElementById('syncInfo');
+    Object.defineProperties(syncLyrics, {
+      clientHeight: { configurable: true, value: 100 },
+      scrollHeight: { configurable: true, value: 500 }
+    });
+    syncLyrics.scrollTop = 80;
+
+    const elements = { syncLyrics, syncInfo };
+    const { controller, state, DAW, edCur } = createController({
+      $: id => elements[id] || null
+    });
+
+    state.active = true;
+    state.cursor = 0;
+    DAW.isPlaying = true;
+    DAW.playhead = 4.25;
+    edCur.lyrics = 'line one\nline two';
+    edCur.syncTimes = [1, 8];
+    controller.renderSyncLyrics();
+
+    const rows = [...syncLyrics.children];
+    Object.defineProperty(rows[0], 'offsetTop', { configurable: true, value: 0 });
+    Object.defineProperty(rows[0], 'offsetHeight', { configurable: true, value: 40 });
+    Object.defineProperty(rows[1], 'offsetTop', { configurable: true, value: 160 });
+    Object.defineProperty(rows[1], 'offsetHeight', { configurable: true, value: 40 });
+    syncLyrics.scrollTop = 80;
+
+    controller.syncTap();
+    controller.updateSyncHighlight();
+
+    assert.strictEqual(syncLyrics.scrollTop, 80);
+    controller._clearSyncPanelScrollLock();
+  } finally {
+    dom.window.close();
+    global.document = previousDocument;
+  }
+});
+
 test('updateSyncHighlight: lastActiveLi از playhead و syncTimes محاسبه می‌شود', () => {
   const { controller, state, DAW, edCur } = createController();
 

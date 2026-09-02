@@ -209,7 +209,11 @@ class SyncModeController {
     const target = this.syncPanelScrollLockTarget;
     const lockedTop = this.syncPanelScrollLockTop;
     if (Math.abs((Number(target.scrollTop) || 0) - lockedTop) >= 1) {
-      target.scrollTop = lockedTop;
+      if (typeof target.scrollTo === 'function') {
+        target.scrollTo({ top: lockedTop, behavior: 'auto' });
+      } else {
+        target.scrollTop = lockedTop;
+      }
     }
   }
 
@@ -222,7 +226,7 @@ class SyncModeController {
     this.syncPanelScrollLockTop = null;
   }
 
-  _lockSyncPanelScroll() {
+  _lockSyncPanelScroll(duration = 600) {
     const target = this.$('syncLyrics') || this.syncPanelWheelTarget;
     if (!target) return;
 
@@ -230,14 +234,25 @@ class SyncModeController {
       this.syncPanelScrollLockTarget = target;
       this.syncPanelScrollLockTop = Number(target.scrollTop) || 0;
     }
+    if (typeof target.scrollTo === 'function') {
+      target.scrollTo({
+        top: this.syncPanelScrollLockTop,
+        behavior: 'auto'
+      });
+    } else {
+      target.scrollTop = this.syncPanelScrollLockTop;
+    }
     this._restoreSyncPanelScroll();
 
     if (this.syncPanelScrollLockTimer !== null) {
       clearTimeout(this.syncPanelScrollLockTimer);
     }
+    const lockDuration = Number.isFinite(Number(duration))
+      ? Math.max(1, Number(duration))
+      : 600;
     this.syncPanelScrollLockTimer = setTimeout(() => {
       this._clearSyncPanelScrollLock();
-    }, 600);
+    }, lockDuration);
   }
 
   handleSyncPanelWheel(event) {
@@ -615,10 +630,11 @@ class SyncModeController {
   syncTap() {
     const state = this.state;
     if (!state.active) return;
-    this.syncTimeInput?.finish?.(false);
     const lines = this.songState.getLyrics().split('\n');
     if (state.cursor >= lines.length) return;
     const daw = this.getDAW();
+    if (daw?.isPlaying) this._lockSyncPanelScroll(800);
+    this.syncTimeInput?.finish?.(false);
     const t = daw.playhead;
     state.history.push(JSON.stringify(this.songState.getSyncTimes()));
     state.redoHistory = [];
