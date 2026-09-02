@@ -140,6 +140,7 @@ const runtime = CorePerformanceModeService.create({
   assert.equal(elements.arrPerfOverlay.style.display, 'flex');
   assert.equal(elements.perfArrangerName.textContent, '🎤 اجرای تست');
   assert.ok(calls.includes('preload'));
+  assert.deepEqual(firstLoadOptions, { startPlayback: false });
   assert.equal(typeof scheduledPopup, 'function');
   scheduledPopup();
   assert.ok(calls.includes('lyric-popup'));
@@ -166,7 +167,10 @@ const runtime = CorePerformanceModeService.create({
 
   daw.playhead = 0;
   runtime.perfTogglePlay();
-  assert.ok(calls.some(call => Array.isArray(call) && call[0] === 'seek'));
+  assert.deepEqual(
+    calls.filter(call => Array.isArray(call) && call[0] === 'seek').at(-1),
+    ['seek', 1, false, true]
+  );
   assert.ok(calls.includes('start'));
   assert.equal(elements.perfPlayBtn.textContent, '⏸');
 
@@ -203,6 +207,17 @@ const runtime = CorePerformanceModeService.create({
   assert.equal(state.perfModeActive, false);
   assert.equal(elements.arrPerfOverlay.style.display, 'none');
   assert.ok(calls.some(call => Array.isArray(call) && call[0] === 'clear-timer'));
+
+  // Regression: opening Perform with automatic playback must use marker A.
+  editingArr.pauseBetween = false;
+  daw.isPlaying = false;
+  await runtime.openPerfMode();
+  scheduledPopup();
+  assert.deepEqual(
+    calls.filter(call => Array.isArray(call) && call[0] === 'seek').at(-1),
+    ['seek', 1, false, true]
+  );
+  runtime.perfStop();
 
   console.log('CorePerformanceModeService tests passed');
 })().catch(error => {
