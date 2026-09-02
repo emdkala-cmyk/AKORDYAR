@@ -300,8 +300,6 @@
 .lane-resize-handle.top { top: -3px; }
 .lane-resize-handle:hover, .lane-resize-handle.active { background: rgba(63,184,175,0.4); }
 .lane-grid { position: absolute; inset: 0; pointer-events: none; opacity: 0.6; background: transparent !important; z-index: 1; }
-.empty-lane-hint { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: rgba(113,128,150,0.45); font-size: 0.75rem; pointer-events: auto; z-index: 20; }
-.empty-lane-hint.section-hint { pointer-events: auto; cursor: pointer; background: rgba(63,184,175,0.08); z-index: 21; border: 1px dashed rgba(63,184,175,0.3); }
 
 /* ===== Clips ===== */
 .clip { position: absolute; top: 6px; height: calc(var(--lane-h) - 12px); border-radius: 7px; border: 1px solid rgba(255,255,255,0.2); background: #1a5f5a; box-shadow: 0 2px 8px rgba(0,0,0,0.35); cursor: grab; overflow: hidden; min-width: 4px; z-index: 20; }

@@ -614,6 +614,21 @@ function getMidiScoreController() {
 
     let timelineZoomFrame = 0;
     let pendingTimelineZoom = null;
+    let timelineZoomDetailTimer = 0;
+    let timelineZoomPreviewPps = null;
+
+    function scheduleTimelineZoomDetailRefresh() {
+      if (timelineZoomDetailTimer) {
+        window.clearTimeout(timelineZoomDetailTimer);
+      }
+      timelineZoomDetailTimer = window.setTimeout(() => {
+        timelineZoomDetailTimer = 0;
+        if (typeof editorCoreApi.refreshTimelineGeometry === 'function') {
+          editorCoreApi.refreshTimelineGeometry({ detail: true });
+        }
+        timelineZoomPreviewPps = null;
+      }, 90);
+    }
 
     function scheduleTimelineZoomRefresh() {
       if (timelineZoomFrame) return;
@@ -635,10 +650,14 @@ function getMidiScoreController() {
         }
 
         if (typeof editorCoreApi.refreshTimelineGeometry === 'function') {
-          editorCoreApi.refreshTimelineGeometry();
+          editorCoreApi.refreshTimelineGeometry({
+            detail: false,
+            previewBasePps: timelineZoomPreviewPps
+          });
         } else {
           renderAll({ preserveWaveforms: true });
         }
+        scheduleTimelineZoomDetailRefresh();
 
         if (scroll) {
           scroll.scrollLeft = Math.max(
@@ -665,6 +684,7 @@ function getMidiScoreController() {
         anchorTime = pendingTimelineZoom.anchorTime;
         relativeX = pendingTimelineZoom.relativeX;
       } else {
+        timelineZoomPreviewPps = oldPps;
         anchorTime = daw.playhead;
         if (typeof anchorClientX === 'number') {
           anchorTime = clientToTime(anchorClientX);

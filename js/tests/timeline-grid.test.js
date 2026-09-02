@@ -15,11 +15,16 @@ const gridSource = fs.readFileSync(
 const strokes = [];
 const context2d = {
   clearRect() {},
-  beginPath() {},
-  moveTo(x, y) { this._from = { x, y }; },
-  lineTo(x, y) { this._to = { x, y }; },
+  beginPath() { this._segments = []; },
+  moveTo(x, y) {
+    this._segments.push({ from: { x, y }, to: null });
+  },
+  lineTo(x, y) {
+    const segment = this._segments[this._segments.length - 1];
+    if (segment) segment.to = { x, y };
+  },
   stroke() {
-    strokes.push({ from: this._from, to: this._to });
+    strokes.push(...(this._segments || []));
   }
 };
 
@@ -126,6 +131,25 @@ assert.equal(
   ruler.children[0].style.cssText.includes('width:150px'),
   true,
   'ruler canvas must keep the same capped pixel width as lane grids'
+);
+
+strokes.length = 0;
+grid.renderRuler({
+  total: 2,
+  timeToX: time => time * 260,
+  tempo: 120,
+  timeSignature: '4/4',
+  pxPerSec: 260,
+  detail: false,
+  rulerEl: element('div'),
+  labelsEl: element('div'),
+  tlInnerEl: element('div'),
+  lanesEl: element('div')
+});
+assert.equal(
+  strokes.some(stroke => stroke.from?.y === 28 || stroke.from?.y === 24),
+  false,
+  'lightweight zoom rendering must defer subdivision and beat lines'
 );
 
 const closeRuler = element('div');

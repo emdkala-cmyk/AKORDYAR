@@ -196,6 +196,7 @@
     logger = globalScope.console || console
   } = {}) {
     let playStartPos = 0;
+    const TRANSPORT_START_LEAD = 0.08;
 
     function isTextEditingEvent(event) {
       if (!event) return false;
@@ -226,6 +227,30 @@
 
     function readArrangerState() {
       return getArrangerState?.() || {};
+    }
+
+    function getFutureTransportAudioTime(audioContext = null) {
+      const context = audioContext || ensureAudioCtx();
+      const currentAudioTime = Number(context?.currentTime);
+      return Number.isFinite(currentAudioTime)
+        ? currentAudioTime + TRANSPORT_START_LEAD
+        : null;
+    }
+
+    function resyncPlayingTransport() {
+      const daw = readDAW();
+      if (!daw?.isPlaying || daw.isScrubbing) return false;
+
+      const currentPlayhead = Number(getTransportPlayhead());
+      if (!Number.isFinite(currentPlayhead)) return false;
+
+      daw.playhead = currentPlayhead;
+      setTransportOrigin(
+        currentPlayhead,
+        getFutureTransportAudioTime()
+      );
+      scheduleAllFromPlayhead();
+      return true;
     }
 
     function getArrangerEnd() {
@@ -264,7 +289,12 @@
         ? playheadMath.clamp(nextTime, getProjectEnd())
         : Math.max(0, Math.min(nextTime, getProjectEnd()));
 
-      if (daw.isPlaying) setTransportOrigin(daw.playhead);
+      if (daw.isPlaying) {
+        setTransportOrigin(
+          daw.playhead,
+          getFutureTransportAudioTime()
+        );
+      }
       updatePlayheadUI();
 
       if (daw.isPlaying && !daw.isScrubbing) {
@@ -452,19 +482,32 @@
         const startTime = Number.isFinite(Number(daw.playhead))
           ? Math.max(0, Number(daw.playhead))
           : 0;
+        const requestedAudioStart = Number(transportStartAudioTime);
+        const hasRequestedAudioStart =
+          transportStartAudioTime != null &&
+          Number.isFinite(requestedAudioStart);
+        const currentAudioTime = Number(audioContext?.currentTime);
+        const audioStart = hasRequestedAudioStart
+          ? requestedAudioStart
+          : Number.isFinite(currentAudioTime)
+            ? currentAudioTime + TRANSPORT_START_LEAD
+            : null;
         // Anchor the clock before popup rAF loops can observe isPlaying.
-        setTransportOrigin(startTime, transportStartAudioTime);
+        setTransportOrigin(startTime, audioStart);
         daw.playhead = startTime;
         daw.isPlaying = true;
         publishPlaybackSync();
         setPlayButtonColor('var(--accent-neon-pink)');
-        scheduleAllFromPlayhead();
         setPerformancePlayButton('⏸');
 
         const transportState = readTransportState();
         if (transportState.metroActive && !transportState.metroTimer) {
           startMetronome();
         }
+        // The metronome and clip voices now share the same future audio
+        // origin. Schedule both after the origin is published so the first
+        // downbeat cannot be lost while the UI thread is busy.
+        scheduleAllFromPlayhead();
       };
 
       const tick = rafTimestamp => {
@@ -674,6 +717,7 @@
 
     return Object.freeze({
       seekTransport,
+      resyncPlayingTransport,
       updateReturnToStartButton,
       toggleReturnToStart,
       togglePlay,

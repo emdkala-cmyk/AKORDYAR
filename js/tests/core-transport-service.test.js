@@ -73,6 +73,7 @@ let arranger = {
   playbackPolicy: null
 };
 const calls = [];
+const audioContext = { currentTime: 10 };
 const documentRef = {
   body: { tagName: 'BODY' },
   documentElement: { tagName: 'HTML' },
@@ -85,7 +86,10 @@ const runtime = CoreTransportService.create({
   getElement: id => elements[id],
   documentRef,
   getTransportState: () => transportState,
-  ensureAudioCtx: () => calls.push('audio'),
+  ensureAudioCtx: () => {
+    calls.push('audio');
+    return audioContext;
+  },
   cancelCountIn: () => calls.push('cancel-count-in'),
   isCountInRunning: () => false,
   getProjectEnd: () => 20,
@@ -186,6 +190,23 @@ runtime.startTransport();
 assert.equal(daw.isPlaying, true);
 assert.equal(typeof rafCallback, 'function');
 assert.ok(calls.includes('audio'));
+assert.deepEqual(
+  calls.find(
+    call => Array.isArray(call) && call[0] === 'origin'
+  ),
+  ['origin', 2, 10.08],
+  'transport must publish one future AudioContext origin for playback layers'
+);
+
+daw._clockPlayhead = 3;
+assert.equal(runtime.resyncPlayingTransport(), true);
+assert.deepEqual(
+  calls.filter(
+    call => Array.isArray(call) && call[0] === 'origin'
+  ).at(-1),
+  ['origin', 3, 10.08],
+  'resync must keep the playhead and the next audio schedule on one origin'
+);
 
 daw.loopEnabled = true;
 daw.loopA = 5;

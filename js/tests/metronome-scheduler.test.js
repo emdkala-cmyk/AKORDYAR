@@ -345,6 +345,46 @@ tests.push(() => {
   passCount++;
 });
 
+// 4g. Restarting after a tempo change keeps the first future click on the
+// recalculated grid instead of inheriting the previous beat duration.
+tests.push(() => {
+  const { fakeCtx, service } = setup();
+  const timer = makeFakeTimer();
+  const sched = new MetronomeScheduler({
+    audioContextService: service,
+    getMeterConfig,
+    isStrongBeat: FakeMeter.isStrongBeat,
+    scheduleAheadTime: 0.1,
+    timer: timer.fn
+  });
+
+  fakeCtx.currentTime = 9.91;
+  sched.start({
+    bpm: 120,
+    timeSignature: '4/4',
+    startTime: 8,
+    playheadPosition: 2,
+    transportStartTime: 10
+  });
+  const firstRunCount = fakeCtx._oscs.length;
+  assert.equal(fakeCtx._oscs[firstRunCount - 1].startedAt, 10);
+
+  sched.stop();
+  fakeCtx.currentTime = 9.91;
+  sched.start({
+    bpm: 150,
+    timeSignature: '4/4',
+    startTime: 8,
+    playheadPosition: 2,
+    transportStartTime: 10
+  });
+  const secondRunStart = fakeCtx._oscs.length - 1;
+  assert.equal(fakeCtx._oscs[secondRunStart].startedAt, 10);
+  assert.equal(sched.getState().beatDuration, 0.4);
+  assert.equal(sched.getState().nextNoteTime, 10.4);
+  passCount++;
+});
+
 // 5. isAccent correctly detected via meter (strong beat = first beat of measure)
 tests.push(() => {
   const { fakeCtx, service } = setup();

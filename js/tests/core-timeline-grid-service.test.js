@@ -51,6 +51,7 @@ const service = TimelineGridService.create({
   renderClips: options => calls.push(['clips', options]),
   updatePlayheadUI: () => calls.push(['playhead']),
   refreshPopupTimeline: () => calls.push(['popup-timeline']),
+  resyncPlayingTransport: () => calls.push(['resync']),
   startMetronome: () => calls.push(['metronome'])
 });
 
@@ -95,11 +96,13 @@ assert.deepEqual(calls.slice(2).map(call => call[0]), [
   'clips',
   'playhead',
   'popup-timeline',
+  'resync',
   'metronome'
 ]);
 assert.equal(calls[3][1].total, 12);
 assert.equal(calls[3][1].timeSignature, '6/8');
 assert.deepEqual(calls[4][1], { preserveWaveforms: true });
+assert.equal(calls[7][0], 'resync');
 assert.equal(daw.timelineDuration, 18);
 
 console.log('CoreTimelineGridService tests passed');

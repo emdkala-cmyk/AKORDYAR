@@ -24,9 +24,11 @@
     renderClips = () => {},
     updatePlayheadUI = () => {},
     startMetronome = () => {},
+    resyncPlayingTransport = () => false,
     refreshPopupTimeline = () => {}
   } = {}) {
     function drawLaneGrid(canvas) {
+      const options = arguments[1] || {};
       if (!canvas || typeof timelineGrid?.drawLaneGrid !== 'function') {
         return;
       }
@@ -37,11 +39,13 @@
         timeToX,
         tempo: timing.tempo,
         timeSignature: timing.timeSignature,
-        pxPerSec: daw.pxPerSecond
+        pxPerSec: daw.pxPerSecond,
+        detail: options.detail !== false
       });
     }
 
     function renderRuler() {
+      const options = arguments[0] || {};
       if (typeof timelineGrid?.renderRuler !== 'function') return;
       const timing = getTimingContext() || {};
       const daw = getDAW() || {};
@@ -52,6 +56,7 @@
         tempo: timing.tempo,
         timeSignature: timing.timeSignature,
         pxPerSec: daw.pxPerSecond,
+        detail: options.detail !== false,
         rulerEl: getElement('timeline-ruler'),
         labelsEl: getElement('ruler-labels'),
         tlInnerEl: getElement('tl-inner'),
@@ -76,6 +81,7 @@
       updatePlayheadUI();
       refreshPopupTimeline();
       if (transportState.metroActive && getDAW()?.isPlaying) {
+        resyncPlayingTransport();
         startMetronome();
       }
     }

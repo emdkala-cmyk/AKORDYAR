@@ -322,6 +322,7 @@ function customPrompt(message, defaultValue = '') {
     }
     const {
       seekTransport,
+      resyncPlayingTransport,
       updateReturnToStartButton,
       toggleReturnToStart,
       togglePlay,
@@ -853,6 +854,8 @@ function isHistoryApplying() {
         getTransportState: () => editorTransportState,
         updatePlayheadUI: (...args) => updatePlayheadUI(...args),
         startMetronome: (...args) => startMetronome(...args),
+        resyncPlayingTransport: (...args) =>
+          resyncPlayingTransport(...args),
         getIsRecordingChords: () => isRecordingChords,
         setIsRecordingChords: value => {
           isRecordingChords = value;
@@ -1024,11 +1027,65 @@ function applyState(stateStr) {
       edRenderClMarkers();
     }
 
-    function refreshTimelineGeometry() {
-      renderRuler();
-      document.querySelectorAll('.lane-grid').forEach(canvas => {
-        drawLaneGrid(canvas);
+    function setTimelineGeometryWidth(width) {
+      const safeWidth = `${Math.max(1, Math.ceil(Number(width) || 0))}px`;
+      ['tl-inner', 'lanes-container', 'timeline-ruler'].forEach(id => {
+        const element = $(id);
+        if (element) element.style.width = safeWidth;
       });
+    }
+
+    function clearTimelineZoomPreview() {
+      const rulerCanvas = $('timeline-ruler')?.querySelector?.('canvas');
+      const rulerLabels = $('ruler-labels');
+      [rulerCanvas, rulerLabels].forEach(element => {
+        if (!element?.style) return;
+        element.style.transform = '';
+        element.style.transformOrigin = '';
+        element.style.willChange = '';
+      });
+      document.querySelectorAll('.lane-grid').forEach(canvas => {
+        canvas.style.transform = '';
+        canvas.style.transformOrigin = '';
+        canvas.style.willChange = '';
+      });
+    }
+
+    function refreshTimelineZoomPreview(previewBasePps) {
+      const daw = coreGetRuntimeDAW();
+      const currentPps = Number(daw.pxPerSecond) || 70;
+      const basePps = Number(previewBasePps) || currentPps;
+      const ratio = Math.max(0.01, currentPps / basePps);
+      const width = Math.max(
+        1,
+        Math.ceil(Number(timeToX(getProjectEnd())) || 0)
+      );
+      setTimelineGeometryWidth(width);
+
+      const applyPreviewTransform = element => {
+        if (!element?.style) return;
+        element.style.transformOrigin = 'left top';
+        element.style.transform = `scaleX(${ratio})`;
+        element.style.willChange = 'transform';
+      };
+
+      applyPreviewTransform($('ruler-labels'));
+      applyPreviewTransform($('timeline-ruler')?.querySelector?.('canvas'));
+      document.querySelectorAll('.lane-grid').forEach(applyPreviewTransform);
+    }
+
+    function refreshTimelineGeometry(options = {}) {
+      const detail = options.detail !== false;
+      if (detail) {
+        clearTimelineZoomPreview();
+        renderRuler({ detail: true });
+        document.querySelectorAll('.lane-grid').forEach(canvas => {
+          drawLaneGrid(canvas, { detail: true });
+        });
+        clearTimelineZoomPreview();
+      } else {
+        refreshTimelineZoomPreview(options.previewBasePps);
+      }
       refreshClipGeometry?.();
       renderLoopRegion();
       renderArrangerMarkers();

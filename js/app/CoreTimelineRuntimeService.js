@@ -38,6 +38,7 @@
     getTransportState = () => ({}),
     updatePlayheadUI = () => {},
     startMetronome = () => {},
+    resyncPlayingTransport = () => false,
     getIsRecordingChords = () => false,
     setIsRecordingChords = () => {},
     getIconRegistry = () => globalScope.IconRegistry,
@@ -212,6 +213,7 @@
       renderClips,
       updatePlayheadUI,
       startMetronome,
+      resyncPlayingTransport,
       refreshPopupTimeline
     });
 

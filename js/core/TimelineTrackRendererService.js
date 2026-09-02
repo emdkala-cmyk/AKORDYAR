@@ -604,22 +604,9 @@
           !daw.clips.some(clip => clip.trackId === track.id) &&
           !(track.type === 'section' && daw.sections.some(section => section.trackId === track.id))
         ) {
-          const hint = document.createElement('div');
-          hint.className = `empty-lane-hint${track.type === 'section' ? ' section-hint' : ''}`;
-          hint.textContent =
-            track.type === 'chord'
-              ? translate('clickHint')
-              : track.type === 'section'
-                ? 'دوبار کلیک برای ساخت بخش'
-                : translate('loadHint');
-          if (track.type === 'section') {
-            hint.addEventListener('dblclick', event => {
-              event.preventDefault();
-              event.stopPropagation();
-              createSectionAt(clientToTime(event.clientX), track.id);
-            });
-          }
-          lane.appendChild(hint);
+          // Empty lanes intentionally stay visually clean. Their existing
+          // interactions are handled by the lane itself (section lanes keep
+          // double-click creation above).
         }
 
         lanes.appendChild(lane);

@@ -166,6 +166,38 @@ var TimelineGrid = (function() {
     ctx.stroke();
   }
 
+  function drawVerticalLines(
+    ctx,
+    width,
+    xValues,
+    strokeStyle,
+    yStart,
+    yEnd,
+    lineLimit
+  ) {
+    if (!xValues || !xValues.length || lineLimit <= 0) return 0;
+
+    ctx.strokeStyle = strokeStyle;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+
+    var drawn = 0;
+    for (var index = 0; index < xValues.length && drawn < lineLimit; index++) {
+      var x = Number(xValues[index]);
+      if (!Number.isFinite(x)) continue;
+      if (x > width) break;
+      if (x < -1) continue;
+
+      var crispX = Math.round(x) + 0.5;
+      ctx.moveTo(crispX, yStart);
+      ctx.lineTo(crispX, yEnd);
+      drawn++;
+    }
+
+    if (drawn) ctx.stroke();
+    return drawn;
+  }
+
   function drawLaneGrid(canvas, opts) {
     opts = opts || {};
     if (!canvas || typeof canvas.getContext !== 'function') return;
@@ -178,6 +210,7 @@ var TimelineGrid = (function() {
     var bpm = opts.tempo || 120;
     var sig = opts.timeSignature || '4/4';
     var pxPerSec = opts.pxPerSec || 70;
+    var detail = opts.detail !== false;
     var width = Math.max(
       1,
       Math.min(Math.ceil(Number(timeToX(total)) || 0), MAX_CANVAS_WIDTH)
@@ -201,87 +234,74 @@ var TimelineGrid = (function() {
     var meter = window.Meter;
     var lineCount = 0;
 
-    function drawAt(time, style, yStart, yEnd) {
-      if (lineCount >= MAX_GRID_LINES) return false;
-      var x = Number(timeToX(time));
-      if (!Number.isFinite(x)) return true;
-      if (x > width) return false;
-      if (x >= -1) {
-        drawVerticalLine(ctx, x, yStart, yEnd, style, 1);
-        lineCount++;
-      }
-      return true;
+    function drawBatch(xValues, style) {
+      var drawn = drawVerticalLines(
+        ctx,
+        width,
+        xValues,
+        style,
+        0,
+        height,
+        MAX_GRID_LINES - lineCount
+      );
+      lineCount += drawn;
+      return drawn;
     }
 
     // Fine subdivisions are rendered first, so beat and bar accents remain
     // visible on top of them.
-    if (spec.showSubdivisions) {
+    if (detail && spec.showSubdivisions) {
       var subdivisionDuration =
         spec.beatDuration / spec.subdivisionsPerBeat;
+      var subdivisionXs = [];
       for (
         var subdivision = 1;
         subdivision * subdivisionDuration <= total + GRID_EPSILON &&
-        lineCount < MAX_GRID_LINES;
+        subdivisionXs.length < MAX_GRID_LINES;
         subdivision++
       ) {
         if (subdivision % spec.subdivisionsPerBeat === 0) continue;
-        if (
-          !drawAt(
-            subdivision * subdivisionDuration,
-            'rgba(148, 163, 184, 0.08)',
-            0,
-            height
-          )
-        ) {
-          break;
-        }
+        subdivisionXs.push(
+          Number(timeToX(subdivision * subdivisionDuration))
+        );
       }
+      drawBatch(subdivisionXs, 'rgba(148, 163, 184, 0.08)');
     }
 
-    if (spec.showBeats) {
+    if (detail && spec.showBeats) {
       var beatCount = Math.ceil(total / spec.beatDuration);
+      var strongBeatXs = [];
+      var weakBeatXs = [];
       for (
         var beatIndex = 1;
-        beatIndex <= beatCount && lineCount < MAX_GRID_LINES;
+        beatIndex <= beatCount &&
+        strongBeatXs.length + weakBeatXs.length < MAX_GRID_LINES;
         beatIndex++
       ) {
         if (beatIndex % spec.beatsPerBar === 0) continue;
-        var beatStyle = meter.isStrongBeat(
+        var beatX = Number(timeToX(beatIndex * spec.beatDuration));
+        var beatXs = meter.isStrongBeat(
           (beatIndex - 1) % spec.beatsPerBar,
           sig
         )
-          ? 'rgba(203, 213, 225, 0.18)'
-          : 'rgba(148, 163, 184, 0.13)';
-        if (
-          !drawAt(
-            beatIndex * spec.beatDuration,
-            beatStyle,
-            0,
-            height
-          )
-        ) {
-          break;
-        }
+          ? strongBeatXs
+          : weakBeatXs;
+        beatXs.push(beatX);
       }
+      drawBatch(weakBeatXs, 'rgba(148, 163, 184, 0.13)');
+      drawBatch(strongBeatXs, 'rgba(203, 213, 225, 0.18)');
     }
 
     var barCount = Math.ceil(total / spec.barDuration);
+    var barXs = [];
     for (
       var barIndex = 0;
-      barIndex <= barCount && lineCount < MAX_GRID_LINES;
+      barIndex <= barCount && barXs.length < MAX_GRID_LINES;
       barIndex += spec.barGridStep
     ) {
-      if (
-        !drawAt(
-          barIndex * spec.barDuration,
-          'rgba(226, 232, 240, 0.22)',
-          0,
-          height
-        )
-      ) {
-        break;
-      }
+      barXs.push(Number(timeToX(barIndex * spec.barDuration)));
     }
+    drawBatch(barXs, 'rgba(226, 232, 240, 0.22)');
   }
 
   function appendRulerLabel(labelsEl, text, x, className, fontSize, color, state) {
@@ -386,6 +406,7 @@ var TimelineGrid = (function() {
       config: config,
       pxPerSec: pxPerSec
     });
+    var detail = opts.detail !== false;
 
     if (
       !renderRuler._lastLog ||
@@ -428,42 +449,52 @@ var TimelineGrid = (function() {
     var barCount = Math.ceil(total / spec.barDuration);
 
     // Subdivision ticks — shortest marks at the bottom of the ruler.
-    if (spec.showSubdivisions) {
+    if (detail && spec.showSubdivisions) {
       var subdivisionDuration =
         spec.beatDuration / spec.subdivisionsPerBeat;
+      var subdivisionXs = [];
       for (
         var subdivision = 1;
-        subdivision * subdivisionDuration <= total + GRID_EPSILON;
+        subdivision * subdivisionDuration <= total + GRID_EPSILON &&
+        subdivisionXs.length < MAX_GRID_LINES;
         subdivision++
       ) {
         if (subdivision % spec.subdivisionsPerBeat === 0) continue;
-        var subdivisionX = Number(
-          timeToX(subdivision * subdivisionDuration)
-        );
-        if (subdivisionX > cappedWidth) break;
-        drawRulerTick(
-          rctx,
-          subdivisionX,
-          28,
-          'rgba(148, 163, 184, 0.38)'
+        subdivisionXs.push(
+          Number(timeToX(subdivision * subdivisionDuration))
         );
       }
+      drawVerticalLines(
+        rctx,
+        cappedWidth,
+        subdivisionXs,
+        'rgba(148, 163, 184, 0.38)',
+        28,
+        RULER_HEIGHT,
+        MAX_GRID_LINES
+      );
     }
 
     // Beat ticks — medium marks. At high zoom their labels use Cubase-like
     // bar.beat notation (for example 156.3 and 156.4).
-    if (spec.showBeats) {
+    if (detail && spec.showBeats) {
       var beatCount = Math.ceil(total / spec.beatDuration);
-      for (var beatIndex = 1; beatIndex <= beatCount; beatIndex++) {
+      var strongBeatXs = [];
+      var weakBeatXs = [];
+      for (
+        var beatIndex = 1;
+        beatIndex <= beatCount &&
+        weakBeatXs.length + strongBeatXs.length < MAX_GRID_LINES;
+        beatIndex++
+      ) {
         if (beatIndex % spec.beatsPerBar === 0) continue;
         var beatTime = beatIndex * spec.beatDuration;
         var beatX = Number(timeToX(beatTime));
-        if (beatX > cappedWidth) break;
         var beatWithinBar = (beatIndex - 1) % spec.beatsPerBar;
-        var beatStyle = window.Meter.isStrongBeat(beatWithinBar, sig)
-          ? 'rgba(203, 213, 225, 0.58)'
-          : 'rgba(148, 163, 184, 0.42)';
-        drawRulerTick(rctx, beatX, 24, beatStyle);
+        var beatXs = window.Meter.isStrongBeat(beatWithinBar, sig)
+          ? strongBeatXs
+          : weakBeatXs;
+        beatXs.push(beatX);
 
         if (spec.showBeatLabels) {
           var beatBar = Math.floor((beatIndex - 1) / spec.beatsPerBar) + 1;
@@ -479,25 +510,38 @@ var TimelineGrid = (function() {
           );
         }
       }
+      drawVerticalLines(
+        rctx,
+        cappedWidth,
+        weakBeatXs,
+        'rgba(148, 163, 184, 0.42)',
+        24,
+        RULER_HEIGHT,
+        MAX_GRID_LINES
+      );
+      drawVerticalLines(
+        rctx,
+        cappedWidth,
+        strongBeatXs,
+        'rgba(203, 213, 225, 0.58)',
+        24,
+        RULER_HEIGHT,
+        MAX_GRID_LINES
+      );
     }
 
     // Bar ticks and labels — strongest marks. When bars are narrower than the
     // readable threshold, both labels and strong lines use an adaptive
     // 1/2/4/8/... bar interval just like a DAW ruler.
+    var barXs = [];
     for (
       var barIndex = 0;
-      barIndex <= barCount;
+      barIndex <= barCount && barXs.length < MAX_GRID_LINES;
       barIndex += spec.barGridStep
     ) {
       var barStartTime = barIndex * spec.barDuration;
       var barX = Number(timeToX(barStartTime));
-      if (barX > cappedWidth) break;
-      drawRulerTick(
-        rctx,
-        barX,
-        19,
-        'rgba(226, 232, 240, 0.72)'
-      );
+      barXs.push(barX);
 
       if (barIndex % spec.majorBarStep === 0) {
         var barLabelX = Math.round(barX) + 0.5;
@@ -512,6 +556,15 @@ var TimelineGrid = (function() {
         );
       }
     }
+    drawVerticalLines(
+      rctx,
+      cappedWidth,
+      barXs,
+      'rgba(226, 232, 240, 0.72)',
+      19,
+      RULER_HEIGHT,
+      MAX_GRID_LINES
+    );
 
     labelState.defer = false;
     flushRulerLabels(labelsEl, labelState);
