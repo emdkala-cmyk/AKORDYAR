@@ -151,6 +151,7 @@
     documentRef = globalScope.document,
     isTextEditingEvent: isTextEditingEventRef = null,
     getTransportState = () => ({}),
+    getTimingContext = () => null,
     ensureAudioCtx = () => {},
     cancelCountIn = () => {},
     isCountInRunning = () => false,
@@ -223,6 +224,29 @@
 
     function readTransportState() {
       return getTransportState?.() || {};
+    }
+
+    function readTimingContext() {
+      let timing = {};
+      try {
+        timing = getTimingContext?.() || {};
+      } catch (_) {
+        timing = {};
+      }
+
+      const stateTempo = Number(timing.tempo);
+      const elementTempo = Number(getElement('edTempo')?.value);
+      const bpm = Number.isFinite(stateTempo) && stateTempo > 0
+        ? stateTempo
+        : Number.isFinite(elementTempo) && elementTempo > 0
+          ? elementTempo
+          : 120;
+      const timeSignature =
+        timing.timeSignature ||
+        getElement('edTimeSig')?.value ||
+        '4/4';
+
+      return { bpm, timeSignature };
     }
 
     function readArrangerState() {
@@ -589,47 +613,46 @@
 
       const beginTransport = () => {
         const transportState = readTransportState();
-      const countInScheduler = getCountInScheduler();
-      if (transportState.countInBars > 0 && countInScheduler) {
-        const bpm = parseInt(getElement('edTempo')?.value, 10) || 120;
-        const timeSignature = getElement('edTimeSig')?.value || '4/4';
-        const config = getTimeSignatureGridConfig(timeSignature, bpm);
-        alignPlayheadToNearestMeasure(config);
+        const countInScheduler = getCountInScheduler();
+        if (transportState.countInBars > 0 && countInScheduler) {
+          const { bpm, timeSignature } = readTimingContext();
+          const config = getTimeSignatureGridConfig(timeSignature, bpm);
+          alignPlayheadToNearestMeasure(config);
 
-        const daw = readDAW();
-        if (daw) {
-          daw.isPlaying = false;
-          daw.isScrubbing = false;
-          if (daw.rafId) {
-            cancelAnimationFrameRef(daw.rafId);
-            daw.rafId = null;
+          const daw = readDAW();
+          if (daw) {
+            daw.isPlaying = false;
+            daw.isScrubbing = false;
+            if (daw.rafId) {
+              cancelAnimationFrameRef(daw.rafId);
+              daw.rafId = null;
+            }
           }
+          stopAllVoices();
+          if (readTransportState().metroTimer) stopMetronome();
+          setPlayButtonColor('var(--accent-cyan-glow)');
+          toast('🔢 شمارش: ' + transportState.countInBars + ' میزان');
+
+          const scheduledCountIn = countInScheduler.start({
+            bars: transportState.countInBars,
+            bpm,
+            timeSignature,
+            soundType: getAppSettings().metroSound || 'classic',
+            onComplete: ({ endTime }) => {
+              beginPlayback(endTime);
+              const currentDaw = readDAW();
+              if (currentDaw?.rafId) cancelAnimationFrameRef(currentDaw.rafId);
+              if (currentDaw) currentDaw.rafId = requestAnimationFrameRef(tick);
+            }
+          });
+          if (scheduledCountIn) return;
+
+          toast('مترونوم در دسترس نیست؛ پخش بدون کانتین شروع شد');
         }
-        stopAllVoices();
-        if (readTransportState().metroTimer) stopMetronome();
-        setPlayButtonColor('var(--accent-cyan-glow)');
-        toast('🔢 شمارش: ' + transportState.countInBars + ' میزان');
 
-        const scheduledCountIn = countInScheduler.start({
-          bars: transportState.countInBars,
-          bpm,
-          timeSignature,
-          soundType: getAppSettings().metroSound || 'classic',
-          onComplete: ({ endTime }) => {
-            beginPlayback(endTime);
-            const currentDaw = readDAW();
-            if (currentDaw?.rafId) cancelAnimationFrameRef(currentDaw.rafId);
-            if (currentDaw) currentDaw.rafId = requestAnimationFrameRef(tick);
-          }
-        });
-        if (scheduledCountIn) return;
-
-        toast('مترونوم در دسترس نیست؛ پخش بدون کانتین شروع شد');
-      }
-
-      beginPlayback();
-      const daw = readDAW();
-      if (daw?.rafId) cancelAnimationFrameRef(daw.rafId);
+        beginPlayback();
+        const daw = readDAW();
+        if (daw?.rafId) cancelAnimationFrameRef(daw.rafId);
         if (daw) daw.rafId = requestAnimationFrameRef(tick);
       };
 

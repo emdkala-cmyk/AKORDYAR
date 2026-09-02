@@ -11,6 +11,10 @@ const state = {
   metroTimer: null,
   countInBars: 0
 };
+const timing = {
+  tempo: 96,
+  timeSignature: '3/4'
+};
 const daw = {
   playhead: 0.37,
   isPlaying: false
@@ -37,6 +41,7 @@ const scheduling = {
 const service = MetronomeService.create({
   getElement: id => elements[id],
   getTransportState: () => state,
+  getTimingContext: () => timing,
   getDAW: () => daw,
   getProjectEnd: () => 20,
   seekTransport: (...args) => calls.push(['seek', ...args]),
@@ -69,6 +74,16 @@ daw.isPlaying = true;
 service.toggleMetronome();
 assert.equal(state.metroActive, true);
 assert.equal(elements.metroToggleBtn.textContent, '🔊');
+assert.equal(calls.shift(), 'audio');
+assert.deepEqual(calls.shift(), ['start', {
+  bpm: 96,
+  timeSignature: '3/4',
+  sound: 'wood'
+}]);
+
+elements.edTempo.value = '50';
+elements.edTimeSig.value = '6/8';
+assert.equal(service.startMetronome(), true);
 assert.equal(calls.shift(), 'audio');
 assert.deepEqual(calls.shift(), ['start', {
   bpm: 96,

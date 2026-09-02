@@ -94,7 +94,8 @@ class MetronomeScheduler {
   * @param {number} [opts.bpm=120]
    * @param {string} [opts.timeSignature='4/4']
    * @param {number} [opts.startTime] — AudioContext time for beat 0
-   * @param {number} [opts.playheadPosition] — timeline position at transport start
+   * @param {number} [opts.playheadPosition] — legacy hint; the shared
+   *   AudioContext origin is authoritative when `transportStartTime` exists
    * @param {number} [opts.transportStartTime] — AudioContext time transport starts
   * @param {string} [opts.soundType='classic']
   * @returns {boolean} true when started
@@ -103,7 +104,6 @@ class MetronomeScheduler {
    bpm = 120,
    timeSignature = '4/4',
    startTime = null,
-   playheadPosition = null,
    transportStartTime = null,
    soundType = 'classic'
  } = {}) {
@@ -133,15 +133,25 @@ class MetronomeScheduler {
     // back to the current AudioContext time (beat 0 = now).
     this._startTime = Number.isFinite(startTime) ? startTime : ctx.currentTime;
 
-    // Calculate which beat the playhead is currently on so the first
-    // scheduled beat is the *next* grid point (never the past).
+    // The transport publishes one affine mapping:
+    //
+    //   audioTime = timelineZeroAudioTime + timelineTime
+    //
+    // When a future transport start is available, derive the timeline
+    // position from that mapping instead of trusting `playheadPosition`.
+    // The latter is a UI/state snapshot and can be one subdivision stale;
+    // using it as a second clock creates a fixed phase error after the first
+    // click. Every click below must remain on this one canonical grid.
     const nowCtx = ctx.currentTime;
+    const hasTransportOrigin = Number.isFinite(transportStartTime);
     const hasFutureTransportStart =
-      Number.isFinite(playheadPosition) &&
-      Number.isFinite(transportStartTime) &&
+      hasTransportOrigin &&
       transportStartTime > nowCtx + 1e-9;
+    const timelineAtTransportStart = hasTransportOrigin
+      ? Math.max(0, transportStartTime - this._startTime)
+      : null;
     const playheadNow = hasFutureTransportStart
-      ? Math.max(0, playheadPosition)
+      ? timelineAtTransportStart
       : Math.max(0, nowCtx - this._startTime);
     const beatRatio = playheadNow / this._beatDuration;
     const nearestBeat = Math.round(beatRatio);
@@ -150,18 +160,22 @@ class MetronomeScheduler {
       : beatRatio;
     this._currentBeat = Math.max(0, Math.ceil(normalizedRatio));
 
-    // The first note time is the AudioContext instant for the current beat.
-    // Clamp to `nowCtx` so we never schedule into the past.
-    this._nextNoteTime = hasFutureTransportStart
-      ? Math.max(
-          transportStartTime,
-          transportStartTime +
-            (this._currentBeat * this._beatDuration - playheadNow)
-        )
-      : Math.max(
-          nowCtx,
-          this._startTime + this._currentBeat * this._beatDuration
-        );
+    // Convert the integer beat index back through the same timeline-zero
+    // origin. Do not shift the phase to `nowCtx` or to a stale playhead
+    // snapshot. If a start is already in progress, skip historical grid
+    // points by index while preserving the exact beat phase.
+    const minimumAudioTime = hasFutureTransportStart
+      ? transportStartTime
+      : nowCtx;
+    let nextGridTime =
+      this._startTime + this._currentBeat * this._beatDuration;
+    const minimumTolerance = hasFutureTransportStart ? 1e-9 : 1e-6;
+    while (nextGridTime < minimumAudioTime - minimumTolerance) {
+      this._currentBeat += 1;
+      nextGridTime =
+        this._startTime + this._currentBeat * this._beatDuration;
+    }
+    this._nextNoteTime = nextGridTime;
     this._loopConfig = this._readLoopConfig();
     this._nextLoopBoundaryTime = null;
     if (this._loopConfig) {

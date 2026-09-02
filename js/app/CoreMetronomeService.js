@@ -11,6 +11,7 @@
   function create({
     getElement = id => globalScope.document?.getElementById?.(id),
     getTransportState = () => ({}),
+    getTimingContext = () => null,
     getDAW = () => globalScope.RuntimeStateAdapter?.getDAW?.() || {},
     getProjectEnd = () => Number.POSITIVE_INFINITY,
     seekTransport = () => {},
@@ -23,6 +24,29 @@
     ensureAudioCtx = () => {},
     getMetroSound = () => globalScope.APP_SETTINGS?.metroSound || 'classic'
   } = {}) {
+    function readTimingContext() {
+      let timing = {};
+      try {
+        timing = getTimingContext?.() || {};
+      } catch (_) {
+        timing = {};
+      }
+
+      const stateTempo = Number(timing.tempo);
+      const elementTempo = Number(getElement('edTempo')?.value);
+      const bpm = Number.isFinite(stateTempo) && stateTempo > 0
+        ? stateTempo
+        : Number.isFinite(elementTempo) && elementTempo > 0
+          ? elementTempo
+          : 120;
+      const timeSignature =
+        timing.timeSignature ||
+        getElement('edTimeSig')?.value ||
+        '4/4';
+
+      return { bpm, timeSignature };
+    }
+
     function alignPlayheadToNearestMeasure(config) {
       const daw = getDAW() || {};
       const current = Number.isFinite(daw.playhead) ? daw.playhead : 0;
@@ -62,9 +86,10 @@
       if (isCountInRunning()) cancelCountIn();
       if (!state.countInBars) return;
 
-      const bpm = parseInt(getElement('edTempo')?.value) || 120;
-      const sig = getElement('edTimeSig')?.value || '4/4';
-      alignPlayheadToNearestMeasure(getGridConfig(sig, bpm));
+      const { bpm, timeSignature } = readTimingContext();
+      alignPlayheadToNearestMeasure(
+        getGridConfig(timeSignature, bpm)
+      );
     }
 
     function toggleMetronome() {
@@ -77,15 +102,15 @@
 
     function startMetronome() {
       const state = getTransportState();
-      const bpm = parseInt(getElement('edTempo')?.value) || 120;
-      const timeSignature = getElement('edTimeSig')?.value || '4/4';
+      const timing = readTimingContext();
       ensureAudioCtx();
       const started = getSchedulingService()?.startMetronome?.({
-        bpm,
-        timeSignature,
+        bpm: timing.bpm,
+        timeSignature: timing.timeSignature,
         sound: getMetroSound() || 'classic'
       }) || false;
       state.metroTimer = started ? true : null;
+      return started;
     }
 
     function stopMetronome() {
@@ -96,11 +121,10 @@
     function checkMetronomeTick(playheadTime) {
       const state = getTransportState();
       if (!state.metroActive || !getDAW().isPlaying) return;
-      const bpm = parseInt(getElement('edTempo')?.value) || 120;
-      const timeSignature = getElement('edTimeSig')?.value || '4/4';
+      const timing = readTimingContext();
       return getSchedulingService()?.checkMetronomeTick?.(
         playheadTime,
-        { bpm, timeSignature }
+        timing
       ) || null;
     }
 

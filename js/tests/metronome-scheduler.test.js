@@ -385,6 +385,65 @@ tests.push(() => {
   passCount++;
 });
 
+// 4h. A stale UI playhead must never change the phase established by the
+// shared AudioContext origin. This is the regression for the one-subdivision
+// early clicks seen after the first downbeat.
+tests.push(() => {
+  const { fakeCtx, service } = setup();
+  const sched = new MetronomeScheduler({
+    audioContextService: service,
+    getMeterConfig,
+    isStrongBeat: FakeMeter.isStrongBeat,
+    scheduleAheadTime: 10,
+    timer: makeFakeTimer().fn
+  });
+
+  fakeCtx.currentTime = 10;
+  sched.start({
+    bpm: 50,
+    timeSignature: '4/4',
+    startTime: 8,
+    playheadPosition: 4.5,
+    transportStartTime: 12
+  });
+
+  assert.deepEqual(
+    fakeCtx._oscs.slice(0, 4).map(osc => Number(osc.startedAt.toFixed(9))),
+    [12.8, 14, 15.2, 16.4],
+    '4/4 clicks must use timelineZeroAudioTime, not a stale playhead'
+  );
+  passCount++;
+});
+
+// 4i. The same canonical-origin rule must hold for 6/8 and for the shorter
+// eighth-note beat duration used by that meter.
+tests.push(() => {
+  const { fakeCtx, service } = setup();
+  const sched = new MetronomeScheduler({
+    audioContextService: service,
+    getMeterConfig,
+    isStrongBeat: FakeMeter.isStrongBeat,
+    scheduleAheadTime: 10,
+    timer: makeFakeTimer().fn
+  });
+
+  fakeCtx.currentTime = 10;
+  sched.start({
+    bpm: 50,
+    timeSignature: '6/8',
+    startTime: 8,
+    playheadPosition: 2.2,
+    transportStartTime: 10
+  });
+
+  assert.deepEqual(
+    fakeCtx._oscs.slice(0, 4).map(osc => Number(osc.startedAt.toFixed(9))),
+    [10.4, 11, 11.6, 12.2],
+    '6/8 clicks must remain on the eighth-note grid'
+  );
+  passCount++;
+});
+
 // 5. isAccent correctly detected via meter (strong beat = first beat of measure)
 tests.push(() => {
   const { fakeCtx, service } = setup();

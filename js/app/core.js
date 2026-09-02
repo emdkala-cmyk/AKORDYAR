@@ -245,6 +245,8 @@ function customPrompt(message, defaultValue = '') {
         getDAW: () => coreGetRuntimeDAW(),
         getElement: id => $(id),
         getTransportState: () => editorTransportState,
+        getTimingContext: () =>
+          requireEditorSongStateService().getTimingContext(),
         ensureAudioCtx: (...args) => ensureAudioCtx(...args),
         cancelCountIn: (...args) => cancelCountIn(...args),
         isCountInRunning: (...args) => isCountInRunning(...args),
@@ -339,6 +341,8 @@ function customPrompt(message, defaultValue = '') {
       globalScope.CoreMetronomeService?.create?.({
         getElement: id => $(id),
         getTransportState: () => editorTransportState,
+        getTimingContext: () =>
+          requireEditorSongStateService().getTimingContext(),
         getDAW: () => coreGetRuntimeDAW(),
         getProjectEnd: () => getProjectEnd(),
         seekTransport: (...args) => seekTransport(...args),
