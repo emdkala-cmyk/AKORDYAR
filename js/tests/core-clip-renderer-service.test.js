@@ -43,6 +43,7 @@ function createElement(tagName = 'div') {
 }
 
 const existingClip = createElement();
+existingClip.dataset.clipId = 'audio-1';
 const hint = createElement();
 const laneAudio = createElement('section');
 laneAudio.emptyHint = hint;
@@ -50,6 +51,7 @@ const laneChord = createElement('section');
 const storageBar = createElement();
 const storageText = createElement();
 const dragGuide = createElement();
+let pixelsPerSecond = 100;
 const documentRef = {
   querySelectorAll(selector) {
     return selector === '.clip' ? [existingClip] : [];
@@ -101,7 +103,7 @@ const calls = [];
 const runtime = CoreClipRendererService.create({
   documentRef,
   getDAW: () => daw,
-  timeToX: value => value * 100,
+  timeToX: value => value * pixelsPerSecond,
   refreshClipWaveImage: clip => {
     calls.push(['wave', clip.id]);
     clip.waveUrl = 'data:image/png;base64,test';
@@ -152,5 +154,10 @@ daw.selectedTrackId = null;
 runtime.render({ preserveWaveforms: true });
 assert.deepEqual(calls, ['sections']);
 assert.equal(dragGuide.style.display, 'none');
+
+pixelsPerSecond = 200;
+assert.equal(runtime.refreshGeometry(), 1);
+assert.equal(existingClip.style.left, '200px');
+assert.equal(existingClip.style.width, '400px');
 
 console.log('CoreClipRendererService tests passed');

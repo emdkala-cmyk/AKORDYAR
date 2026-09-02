@@ -919,6 +919,7 @@ function isHistoryApplying() {
       handleTimingChange,
       getTimelineSectionRendererService,
       renderClips: renderTimelineClips,
+      refreshClipGeometry,
       waveformService
     } = coreTimelineRuntime;
 
@@ -947,7 +948,8 @@ function isHistoryApplying() {
       drawLaneGrid,
       renderRuler,
       handleTimingChange,
-      getTimelineSectionRendererService
+      getTimelineSectionRendererService,
+      refreshClipGeometry
     });
 
     function renderClips(options = {}) {
@@ -1021,6 +1023,19 @@ function applyState(stateStr) {
       renderTracks(); renderRuler(); renderClips(options); renderLoopRegion(); renderArrangerMarkers(); updatePlayheadUI(); updateHud();
       edRenderClMarkers();
     }
+
+    function refreshTimelineGeometry() {
+      renderRuler();
+      document.querySelectorAll('.lane-grid').forEach(canvas => {
+        drawLaneGrid(canvas);
+      });
+      refreshClipGeometry?.();
+      renderLoopRegion();
+      renderArrangerMarkers();
+      updatePlayheadUI();
+    }
+
+    corePublicApi.publish({ refreshTimelineGeometry });
 
     function updateHud() { $('clip-count').textContent = String(coreGetRuntimeDAW().clips.length + (coreGetRuntimeDAW().sections || []).length); }
 

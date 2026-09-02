@@ -10,13 +10,13 @@ var TimelineGrid = (function() {
   'use strict';
 
   var RULER_HEIGHT = 32;
-  var MAX_CANVAS_WIDTH = 20000;
+  var MAX_CANVAS_WIDTH = 50000;
   var MAX_GRID_LINES = 6000;
   var GRID_EPSILON = 1e-9;
-  var MIN_MAJOR_LABEL_SPACING = 42;
-  var MIN_BEAT_GRID_SPACING = 10;
-  var MIN_SUBDIVISION_GRID_SPACING = 7;
-  var BEAT_LABEL_SPACING = 56;
+  var MIN_MAJOR_LABEL_SPACING = 48;
+  var MIN_BEAT_GRID_SPACING = 18;
+  var MIN_SUBDIVISION_GRID_SPACING = 12;
+  var BEAT_LABEL_SPACING = 72;
   var MAJOR_BAR_STEPS = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512];
 
   function getTimeSignatureGridConfig(timeSignature, bpm) {
@@ -30,9 +30,6 @@ var TimelineGrid = (function() {
 
   function chooseMajorBarStep(pxPerBar) {
     var safePxPerBar = finitePositive(pxPerBar, 1);
-
-    // Once one bar has enough room for a readable label, show every bar.
-    if (safePxPerBar >= 18) return 1;
 
     for (var index = 0; index < MAJOR_BAR_STEPS.length; index++) {
       var step = MAJOR_BAR_STEPS[index];
@@ -345,7 +342,7 @@ var TimelineGrid = (function() {
 
   function drawRulerTick(ctx, x, yStart, style) {
     if (!Number.isFinite(x)) return;
-    var crispX = x + 0.5;
+    var crispX = Math.round(x) + 0.5;
     ctx.strokeStyle = style;
     ctx.lineWidth = 1;
     ctx.beginPath();
@@ -408,11 +405,15 @@ var TimelineGrid = (function() {
       renderRuler._lastLog = { sig: sig, bpm: bpm };
     }
 
+    var cappedWidth = Math.max(1, Math.min(width, MAX_CANVAS_WIDTH));
     var rulerCanvas = document.createElement('canvas');
     rulerCanvas.style.cssText =
-      'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;';
+      'position:absolute;left:0;top:0;width:' +
+      cappedWidth +
+      'px;height:' +
+      RULER_HEIGHT +
+      'px;pointer-events:none;';
     rulerEl.appendChild(rulerCanvas);
-    var cappedWidth = Math.max(1, Math.min(width, MAX_CANVAS_WIDTH));
     rulerCanvas.width = cappedWidth;
     rulerCanvas.height = RULER_HEIGHT;
     var rctx = rulerCanvas.getContext('2d');
@@ -466,10 +467,11 @@ var TimelineGrid = (function() {
 
         if (spec.showBeatLabels) {
           var beatBar = Math.floor((beatIndex - 1) / spec.beatsPerBar) + 1;
+          var beatLabelX = Math.round(beatX) + 0.5;
           appendRulerLabel(
             labelsEl,
             beatBar + '.' + (beatWithinBar + 2),
-            beatX,
+            beatLabelX,
             'beat',
             9,
             '#718096',
@@ -498,10 +500,11 @@ var TimelineGrid = (function() {
       );
 
       if (barIndex % spec.majorBarStep === 0) {
+        var barLabelX = Math.round(barX) + 0.5;
         appendRulerLabel(
           labelsEl,
           barIndex + 1,
-          barX,
+          barLabelX,
           'major',
           10,
           '#A0AEC0',

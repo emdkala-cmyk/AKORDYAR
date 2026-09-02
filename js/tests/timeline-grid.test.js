@@ -65,7 +65,7 @@ const mediumSpec = grid.getAdaptiveGridSpec({
 const detailedSpec = grid.getAdaptiveGridSpec({
   timeSignature: '4/4',
   bpm: 120,
-  pxPerSec: 70
+  pxPerSec: 120
 });
 const closeSpec = grid.getAdaptiveGridSpec({
   timeSignature: '4/4',
@@ -74,8 +74,9 @@ const closeSpec = grid.getAdaptiveGridSpec({
 });
 assert.equal(compactSpec.majorBarStep, 32);
 assert.equal(compactSpec.barGridStep, 32);
-assert.equal(mediumSpec.majorBarStep, 1);
-assert.equal(mediumSpec.showBeats, true);
+assert.equal(mediumSpec.majorBarStep, 2);
+assert.equal(mediumSpec.showBeats, false);
+assert.equal(mediumSpec.showSubdivisions, false);
 assert.equal(detailedSpec.showSubdivisions, true);
 assert.equal(closeSpec.showBeatLabels, true);
 assert.ok(
@@ -114,12 +115,17 @@ grid.renderRuler({
 
 const subBeatXs = strokes
   .filter(stroke => stroke.from?.y === 28)
-  .map(stroke => stroke.from.x - 0.5)
+  .map(stroke => stroke.from.x)
   .filter(x => x < 150);
 assert.deepEqual(
   subBeatXs,
-  [12.5, 37.5, 62.5, 87.5, 112.5, 137.5],
+  [13.5, 38.5, 63.5, 88.5, 113.5, 138.5],
   '6/8 ruler must render the eighth-note sub-grid inside every beat'
+);
+assert.equal(
+  ruler.children[0].style.cssText.includes('width:150px'),
+  true,
+  'ruler canvas must keep the same capped pixel width as lane grids'
 );
 
 const closeRuler = element('div');

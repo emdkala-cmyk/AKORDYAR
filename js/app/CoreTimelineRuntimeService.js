@@ -255,7 +255,10 @@
         globalScope.AkordyarCoreApi?.getFreeWarpService?.() || null,
       renderSections: () =>
         sectionBridge.getTimelineSectionRendererService()
-          ?.renderSections?.()
+          ?.renderSections?.(),
+      refreshSections: () =>
+        sectionBridge.getTimelineSectionRendererService()
+          ?.refreshGeometry?.()
     });
 
     return Object.freeze({
@@ -287,6 +290,8 @@
       handleTimingChange: grid.handleTimingChange,
       getTimelineSectionRendererService:
         sectionBridge.getTimelineSectionRendererService,
+      refreshClipGeometry: (...args) =>
+        clipRenderer?.refreshGeometry?.(...args),
       renderClips,
       decodeFileToBuffer: waveform.decodeFileToBuffer,
       peaksFromBuffer: waveform.peaksFromBuffer,

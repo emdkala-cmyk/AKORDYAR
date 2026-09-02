@@ -73,10 +73,14 @@ const grid = {
 };
 const sectionBridge = {
   getTimelineSectionRendererService: () => ({
-    renderSections: () => {}
+    renderSections: () => {},
+    refreshGeometry: () => {}
   })
 };
-const clipRenderer = { render: () => {} };
+const clipRenderer = {
+  render: () => {},
+  refreshGeometry: () => 'geometry-refreshed'
+};
 
 const runtime = TimelineRuntimeService.create({
   documentRef: {},
@@ -111,5 +115,6 @@ assert.equal(runtime.waveformService.id, 'waveform');
 assert.equal(runtime.decodeFileToBuffer('x'), 'decoded');
 assert.equal(runtime.renderClips({ preserveWaveforms: true }), undefined);
 assert.equal(runtime.getTimelineSectionRendererService().renderSections(), undefined);
+assert.equal(runtime.refreshClipGeometry(), 'geometry-refreshed');
 
 console.log('CoreTimelineRuntimeService tests passed');

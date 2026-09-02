@@ -15,6 +15,7 @@
     onClipMouseDown = () => {},
     openTimelineChordEditor = () => {},
     renderSections = () => {},
+    refreshSections = () => renderSections(),
     getFreeWarpService = () => null
   } = {}) {
     let warpMode = false;
@@ -58,6 +59,79 @@
       guide.style.left = `${timeToX(start)}px`;
       guide.dataset.clipId = clip.id;
     }
+
+    function getHitpointTimelineTime(clip, hitpoint) {
+      const warpEngine = globalScope.FreeWarpEngine;
+      const markers =
+        warpEngine && clip.warpMarkers?.length >= 2
+          ? warpEngine.sortMarkers(clip.warpMarkers)
+          : null;
+      const sourceStart = Number(clip.offset) || 0;
+      const sourceTime = Number.isFinite(Number(hitpoint?.sourceTime))
+        ? Number(hitpoint.sourceTime)
+        : sourceStart;
+      return markers
+        ? warpEngine.sourceToTimeline(sourceTime, markers)
+        : clip.start + sourceTime - sourceStart;
+    }
+
+    function toPixels(value) {
+      const pixels = Number(timeToX(Number(value) || 0));
+      return Number.isFinite(pixels) ? pixels : 0;
+    }
+
+    function updateClipGeometry(element, clip) {
+      element.style.left = `${toPixels(clip.start)}px`;
+      element.style.width = `${Math.max(30, toPixels(clip.duration))}px`;
+
+      if (clip.type === 'chord') return;
+
+      const snapMarker = element.querySelector?.('.snap-marker');
+      if (snapMarker?.style) {
+        snapMarker.style.left = `${toPixels(clip.snapPointOffset || 0)}px`;
+      }
+
+      const warpMarkers = new Map(
+        (clip.warpMarkers || [])
+          .filter(marker => marker?.id)
+          .map(marker => [marker.id, marker])
+      );
+      element.querySelectorAll?.('.warp-marker').forEach(marker => {
+        const warpMarker = warpMarkers.get(marker.dataset?.markerId);
+        if (!warpMarker?.timelineTime && warpMarker?.timelineTime !== 0) return;
+        marker.style.left =
+          `${toPixels(warpMarker.timelineTime - clip.start)}px`;
+      });
+
+      element.querySelectorAll?.('.hitpoint-marker').forEach(marker => {
+        const index = Number(marker.dataset?.hitpointIndex);
+        const hitpoint = Number.isInteger(index)
+          ? clip.hitpoints?.[index]
+          : null;
+        const timelineTime = getHitpointTimelineTime(clip, hitpoint);
+        if (!Number.isFinite(timelineTime)) return;
+        marker.style.left =
+          `${toPixels(timelineTime - clip.start)}px`;
+      });
+    }
+
+    function refreshGeometry() {
+      const daw = getDAW() || {};
+      const clipsById = new Map(
+        (daw.clips || []).map(clip => [clip.id, clip])
+      );
+      let updated = 0;
+      documentRef.querySelectorAll?.('.clip').forEach(element => {
+        const clip = clipsById.get(element.dataset?.clipId);
+        if (!clip) return;
+        updateClipGeometry(element, clip);
+        updated += 1;
+      });
+      renderDragGuide(daw);
+      refreshSections?.();
+      return updated;
+    }
+
     function render(options = {}) {
       const preserveWaveforms = options.preserveWaveforms === true;
       documentRef.querySelectorAll('.clip').forEach(element => element.remove());
@@ -113,26 +187,21 @@
             Array.isArray(clip.hitpoints) &&
             clip.hitpoints.length
           ) {
-            const warpEngine = globalScope.FreeWarpEngine;
-            const markers = warpEngine && clip.warpMarkers?.length >= 2
-              ? warpEngine.sortMarkers(clip.warpMarkers)
-              : null;
-            const sourceStart = Number(clip.offset) || 0;
-            for (const hitpoint of clip.hitpoints) {
+            for (
+              let hitpointIndex = 0;
+              hitpointIndex < clip.hitpoints.length;
+              hitpointIndex++
+            ) {
+              const hitpoint = clip.hitpoints[hitpointIndex];
               if (hitpoint?.enabled === false) continue;
-              const sourceTime = Number.isFinite(Number(hitpoint.sourceTime))
-                ? Number(hitpoint.sourceTime)
-                : sourceStart;
-              const timelineTime = markers
-                ? warpEngine.sourceToTimeline(sourceTime, markers)
-                : clip.start + sourceTime - sourceStart;
+              const timelineTime = getHitpointTimelineTime(clip, hitpoint);
               if (!Number.isFinite(timelineTime)) continue;
               const markerX = timeToX(timelineTime - clip.start);
               const strength = Math.round(
                 Math.max(0, Math.min(1, Number(hitpoint.strength) || 0)) * 100
               );
               hitpointHtml +=
-                `<div class="hitpoint-marker" style="left:${markerX}px" title="Hitpoint ${strength}%"></div>`;
+                `<div class="hitpoint-marker" data-hitpoint-index="${hitpointIndex}" style="left:${markerX}px" title="Hitpoint ${strength}%"></div>`;
             }
           }
           element.innerHTML =
@@ -177,7 +246,12 @@
       renderSections?.();
     }
 
-    return Object.freeze({ render, setWarpMode, getWarpMode });
+    return Object.freeze({
+      render,
+      refreshGeometry,
+      setWarpMode,
+      getWarpMode
+    });
   }
 
   const service = Object.freeze({ create });

@@ -612,22 +612,77 @@ function getMidiScoreController() {
       return getEditorArrangerRuntime()?.loadArrSong?.(idx, options);
     }
 
+    let timelineZoomFrame = 0;
+    let pendingTimelineZoom = null;
+
+    function scheduleTimelineZoomRefresh() {
+      if (timelineZoomFrame) return;
+      const scheduleFrame =
+        typeof window.requestAnimationFrame === 'function'
+          ? window.requestAnimationFrame.bind(window)
+          : callback => window.setTimeout(callback, 16);
+      timelineZoomFrame = scheduleFrame(() => {
+        timelineZoomFrame = 0;
+        const zoomRequest = pendingTimelineZoom;
+        pendingTimelineZoom = null;
+        if (!zoomRequest) return;
+
+        const scroll = $('tl-scroll');
+        const daw = editorGetRuntimeDAW();
+        if (scroll) {
+          const visibleTime = scroll.clientWidth / Math.max(0.01, daw.pxPerSecond);
+          ensureTimelineFits(visibleTime + 10);
+        }
+
+        if (typeof editorCoreApi.refreshTimelineGeometry === 'function') {
+          editorCoreApi.refreshTimelineGeometry();
+        } else {
+          renderAll({ preserveWaveforms: true });
+        }
+
+        if (scroll) {
+          scroll.scrollLeft = Math.max(
+            0,
+            timeToX(zoomRequest.anchorTime) - zoomRequest.relativeX
+          );
+        }
+      });
+    }
+
     function setZoom(pps, anchorClientX) {
-      const scroll = $('tl-scroll'); const oldPps = editorGetRuntimeDAW().pxPerSecond; const newPps = clamp(pps, 5, 260);
+      const scroll = $('tl-scroll');
+      const daw = editorGetRuntimeDAW();
+      const oldPps = daw.pxPerSecond;
+      const newPps = clamp(pps, 5, 260);
       if (Math.abs(newPps - oldPps) < 0.01) return;
-      if (editorGetRuntimeDAW().isPlaying && !editorGetRuntimeDAW().isScrubbing) {
-        editorGetRuntimeDAW().playhead = getTransportPlayhead();
+      if (daw.isPlaying && !daw.isScrubbing) {
+        daw.playhead = getTransportPlayhead();
       }
-      let anchorTime = editorGetRuntimeDAW().playhead; if (typeof anchorClientX === 'number') anchorTime = clientToTime(anchorClientX);
-      const rel = timeToX(anchorTime) - scroll.scrollLeft; editorGetRuntimeDAW().pxPerSecond = newPps; $('zoom-range').value = String(Math.round(newPps));
+
+      let anchorTime;
+      let relativeX;
+      if (pendingTimelineZoom) {
+        anchorTime = pendingTimelineZoom.anchorTime;
+        relativeX = pendingTimelineZoom.relativeX;
+      } else {
+        anchorTime = daw.playhead;
+        if (typeof anchorClientX === 'number') {
+          anchorTime = clientToTime(anchorClientX);
+        }
+        relativeX = timeToX(anchorTime) - scroll.scrollLeft;
+      }
+
+      daw.pxPerSecond = newPps;
+      $('zoom-range').value = String(Math.round(newPps));
       // خودکار بزرگ کردن تایم‌لاین بر اساس عرض صفحه نمایش
       const visibleTime = scroll.clientWidth / newPps;
       ensureTimelineFits(visibleTime + 10);
-      // Zoom changes clip geometry only. Rebuilding every waveform canvas here
-      // blocks the UI thread and starves the metronome scheduler; existing
-      // waveform images scale with the clip until an edit requires a refresh.
-      renderAll({ preserveWaveforms: true }); scroll.scrollLeft = Math.max(0, timeToX(anchorTime) - rel);
+      // Keep the anchor responsive immediately; the RAF pass applies the
+      // geometry after the timeline width has been updated.
+      scroll.scrollLeft = Math.max(0, timeToX(anchorTime) - relativeX);
       updateZoomFontScale();
+      pendingTimelineZoom = { anchorTime, relativeX };
+      scheduleTimelineZoomRefresh();
     }
 
     function getTimelineZoomAnchorX() {

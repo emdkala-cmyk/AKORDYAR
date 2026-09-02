@@ -10,7 +10,9 @@ const lane = {
 };
 const created = [];
 const documentRef = {
-  querySelectorAll: selector => selector === '.section-tag' ? [oldTag] : [],
+  querySelectorAll: selector => selector === '.section-tag'
+    ? [oldTag, ...created.filter(element => element.className === 'section-tag')]
+    : [],
   querySelector: () => lane,
   getElementById: () => ({ id: 'timeline-inner' }),
   createElement: tag => {
@@ -126,5 +128,11 @@ element._listeners.mousedown({
 });
 assert.equal(cleared, 7);
 assert.equal(element.contentEditable, 'true');
+
+element.contentEditable = 'false';
+daw.sections[0].start = 3;
+assert.equal(service.refreshGeometry(), 1);
+assert.equal(element.style.left, '30px');
+assert.equal(element.style.width, '50px');
 
 console.log('TimelineSectionRendererService tests passed');

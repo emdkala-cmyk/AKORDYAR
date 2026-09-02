@@ -221,7 +221,25 @@
       });
     }
 
-    return Object.freeze({ renderSections });
+    function refreshGeometry() {
+      const daw = getDAW() || {};
+      const sectionsById = new Map(
+        (daw.sections || []).map(section => [section.id, section])
+      );
+      let updated = 0;
+      documentRef?.querySelectorAll?.('.section-tag')
+        ?.forEach?.(element => {
+          const section = sectionsById.get(element.dataset?.sectionId);
+          if (!section) return;
+          element.style.left = `${timeToX(section.start)}px`;
+          element.style.width =
+            `${Math.max(50, timeToX(section.duration))}px`;
+          updated += 1;
+        });
+      return updated;
+    }
+
+    return Object.freeze({ renderSections, refreshGeometry });
   }
 
   const service = Object.freeze({ create });
