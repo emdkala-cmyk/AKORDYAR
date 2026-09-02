@@ -21,6 +21,23 @@
   border-radius: 4px;
 }
 .tl-toolbar { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; direction: ltr; }
+.tl-tool-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 30px;
+  padding: 2px 4px;
+  border: 1px solid rgba(255,255,255,0.055);
+  border-radius: 7px;
+  background: rgba(10,15,24,0.42);
+}
+.tl-core-group { border-color: rgba(63,184,175,0.18); }
+.tl-loop-group { border-color: rgba(100,180,255,0.18); }
+.tl-view-group { border-color: rgba(167,139,250,0.18); }
+.tl-color-group { border-color: rgba(255,184,107,0.18); }
+.tl-utility-group { border-color: rgba(56,189,248,0.18); }
+.tl-tool-group > .color-tool-group,
+.tl-tool-group > .color-quick-bar { display: inline-flex; align-items: center; gap: 4px; }
 .timeline-panel-layout-controls {
   display: inline-flex;
   align-items: center;

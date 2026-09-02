@@ -32,7 +32,8 @@
           sequenceActive,
           sequenceModeActive,
           sequencePoints = [],
-          sequenceCursor = 0
+          sequenceCursor = 0,
+          editorZoom = 1
         } = state;
 
         layer.innerHTML = '';
@@ -45,8 +46,9 @@
         const wrapRect = wrap.getBoundingClientRect();
         const scrollTop = wrap.scrollTop;
         const styles = song.styles || {};
-        const chordSize = styles.cSize || 23;
-        const gap = Math.max(10, chordSize * 0.6);
+        const zoom = Math.max(0.7, Math.min(1.5, Number(editorZoom) || 1));
+        const chordSize = (styles.cSize || 23) * zoom;
+        const gap = Math.max(10 * zoom, chordSize * 0.6);
         const chordColor = styles.cColor || '#e6aa28';
         const fontFamily = styles.cFont || 'JetBrains Mono';
         const isRTL = globalScope.getComputedStyle(editor).direction === 'rtl';

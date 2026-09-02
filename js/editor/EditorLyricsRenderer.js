@@ -49,8 +49,9 @@
         .replace(/\r\n?/g, '\n');
     }
 
-    function applyLineStyle(element, styles, color) {
-      element.style.fontSize = `${styles.tSize}px`;
+    function applyLineStyle(element, styles, color, zoom = 1) {
+      const safeZoom = Math.max(0.7, Math.min(1.5, Number(zoom) || 1));
+      element.style.fontSize = `${(styles.tSize || 20) * safeZoom}px`;
       element.style.color = color || styles.tColor;
       element.style.fontFamily = styles.tFont;
       element.style.fontWeight = styles.tBold ? 'bold' : 'normal';
@@ -64,10 +65,13 @@
       if (!song || !editor) return false;
 
       const styles = song.styles || {};
+      const zoom = Math.max(0.7, Math.min(1.5, Number(state.editorZoom) || 1));
       const lineColors = Array.isArray(song.lineColors)
         ? song.lineColors
         : [];
-      applyLineStyle(editor, styles, styles.tColor);
+      applyLineStyle(editor, styles, styles.tColor, zoom);
+      editor.style.zoom = '';
+      editor.style.padding = `${30 * zoom}px ${20 * zoom}px ${20 * zoom}px`;
 
       if (state.printTitle) {
         state.printTitle.textContent =
@@ -102,7 +106,8 @@
           applyLineStyle(
             element,
             styles,
-            lineColors[lineIndex]
+            lineColors[lineIndex],
+            zoom
           );
           element.textContent = line || '\u200B';
           fragment.appendChild(element);
@@ -115,7 +120,8 @@
           applyLineStyle(
             element,
             styles,
-            lineColors[lineIndex]
+            lineColors[lineIndex],
+            zoom
           );
         });
       }

@@ -11,6 +11,9 @@
   overflow-y: auto; max-height: 120px;
 }
 .ed-grp { display: flex; gap: 4px; align-items: center; padding: 3px 6px; border-radius: 8px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.04); }
+.ed-toolbar-group { flex: 0 0 auto; }
+.ed-font-tools { display: inline-flex; align-items: center; gap: 5px; padding: 2px; border: 1px solid rgba(255,255,255,0.06); border-radius: 9px; background: rgba(0,0,0,0.08); }
+.ed-font-tools > .ed-grp { border: 0; background: transparent; }
 .ed-grp label { font-size: 11px; color: #9CA3AF; white-space: nowrap; }
 .ed-grp input[type="number"] { width: 48px; height: 26px; background: #1F2937; border: 1px solid #4B5563; border-radius: 3px; color: #E5E7EB; font-size: 11px; text-align: center; padding: 0 4px; font-family: 'JetBrains Mono', monospace; }
 .ed-grp input[type="color"] { width: 22px; height: 22px; padding: 1px; cursor: pointer; border: 1px solid #4B5563; border-radius: 3px; background: transparent; }
@@ -45,22 +48,33 @@
   letter-spacing: 0.1px;
 }
 #editorPrintHeader .eph-artist {
+  position: absolute;
+  top: 8px;
+  right: 16px;
   min-height: 1.3em;
+  max-width: 32%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 11px;
-  color: #8190A3;
-  margin-top: 1px;
+  color: #AAB7C8;
+  margin-top: 0;
+  text-align: right;
+  direction: rtl;
 }
 #editorPrintHeader .eph-key {
-  position: absolute; top: 50%; right: 12px; transform: translateY(-50%);
-  max-width: 30%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  min-height: 30px;
-  display: inline-flex;
-  align-items: center;
-  padding: 4px 10px; border: 1px solid rgba(167,139,250,.38); border-radius: 9px;
-  background: linear-gradient(135deg, rgba(139,92,246,.16), rgba(59,130,246,.08));
+  position: absolute; top: 28px; right: 16px;
+  max-width: 32%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  min-height: 0;
+  display: block;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   color: #C4B5FD; font-size: 11px; font-weight: 700;
   direction: rtl;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.05);
+  text-align: right;
+  box-shadow: none;
 }
 
 #edSyncChordLineBtn {
@@ -100,6 +114,66 @@
   flex: 1; overflow: auto; position: relative; margin: 2px 12px 8px; width: auto;
   background: rgba(255,255,255,0.01); border: 1px solid var(--border-subtle); border-radius: 10px;
 }
+.editor-zoom-control {
+  position: sticky;
+  top: 8px;
+  right: 8px;
+  z-index: 8;
+  float: right;
+  width: 12px;
+  height: 94px;
+  margin: 8px 8px 0 0;
+  padding: 7px 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  direction: ltr;
+}
+.editor-zoom-label,
+.editor-zoom-control output { display: none; }
+.editor-zoom-control input[type="range"] {
+  width: 7px;
+  height: 94px;
+  writing-mode: vertical-lr;
+  direction: rtl;
+  appearance: none;
+  -webkit-appearance: none;
+  background: #303846;
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+.editor-zoom-control input[type="range"]::-webkit-slider-runnable-track {
+  width: 7px;
+  background: #303846;
+  border-radius: 2px;
+}
+.editor-zoom-control input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 7px;
+  height: 24px;
+  margin-top: 0;
+  border: 0;
+  border-radius: 2px;
+  background: #3B4352;
+  box-shadow: none;
+}
+.editor-zoom-control input[type="range"]::-moz-range-track {
+  width: 7px;
+  background: #303846;
+  border-radius: 2px;
+}
+.editor-zoom-control input[type="range"]::-moz-range-thumb {
+  width: 7px;
+  height: 24px;
+  border: 0;
+  border-radius: 2px;
+  background: #3B4352;
+}
+#editor { transform-origin: top center; }
 #editor {
   position: relative; z-index: 2; outline: none; padding: 30px 20px 20px; line-height: 2.6;
   min-height: 200px; white-space: pre-wrap; color: var(--accent-teal); direction: rtl; text-align: center;

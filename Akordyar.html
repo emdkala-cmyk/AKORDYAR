@@ -4,9 +4,9 @@
   <meta charset="UTF-8" />
   <title>App Achord - DAW Timeline Pro</title>
   <link rel="stylesheet" href="styles/base.css">
-  <link rel="stylesheet" href="styles/layout.css">
-  <link rel="stylesheet" href="styles/timeline.css">
-  <link rel="stylesheet" href="styles/editor.css">
+  <link rel="stylesheet" href="styles/layout.css?v=20260902-4">
+  <link rel="stylesheet" href="styles/timeline.css?v=20260902-4">
+  <link rel="stylesheet" href="styles/editor.css?v=20260902-4">
   <link rel="stylesheet" href="styles/arranger.css">
   <link rel="stylesheet" href="styles/archive.css">
   <link rel="stylesheet" href="styles/modals.css">
@@ -71,20 +71,21 @@
       <div class="header-center-controls" id="headerCenterControls" data-inline-actions style="flex-wrap:wrap; gap:4px;">
         <div class="toolbar-drag-handle" id="toolbarDragHandle" title="بکش برای جابه‌جایی"><span class="ui-icon" data-icon="grip" aria-hidden="true"></span></div>
         <button class="toolbar-pin-btn" id="toolbarPinBtn" data-action="toolbarDock" title="جدا/اتصال (Undock/Dock)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 11l-4 4h14l-4-4"/><path d="M12 3v8"/><path d="M3 11h18"/></svg></button>
-        <div class="ed-grp">
+        <div class="ed-grp ed-toolbar-group ed-key-tools" data-toolbar-group="key">
           <span id="edOrigKeyLabel" style="font-size:0.78rem;font-weight:700;color:#9F7AEA;padding:3px 8px;border-radius:6px;background:rgba(159,122,234,0.12);border:1px solid rgba(159,122,234,0.3);white-space:nowrap;cursor:pointer;" title="گام اورجینال آهنگ"></span>
           <select id="edKey"></select>
           <select id="edKeyMode"><option value="maj" data-i18n="major">ماژور</option><option value="min" data-i18n="minor">مینور</option></select>
         </div>
         <div class="ed-sep"></div>
-        <div class="ed-grp">
+        <div class="ed-grp ed-toolbar-group ed-transpose-tools" data-toolbar-group="transpose">
           <button class="ed-btn" id="edTransUp" title="دیز">♯</button>
           <span id="edTransVal" title="دوبار کلیک = ریست">0</span>
           <button class="ed-btn" id="edTransDown" title="بمل">♭</button>
           <button class="ed-btn" id="edToggleAccidental" title="تبدیل آکوردهای دیز به بمل یا برعکس">♯/♭</button>
         </div>
         <div class="ed-sep"></div>
-        <div class="ed-grp">
+        <div class="ed-font-tools" data-toolbar-group="fonts">
+        <div class="ed-grp ed-toolbar-group ed-text-tools" data-toolbar-group="text">
           <label data-i18n="textLabel">متن:</label>
           <input type="number" id="edTextSize" value="23" min="10" max="48">
           <select id="edTextFont"><option selected>Vazirmatn</option><option>Vazirmatn Thin</option><option>Vazirmatn Bold</option><option>Vazirmatn Black</option><option>BArshia</option><option>BFarnaz</option><option>BJadid</option><option>BZar</option><option>BZar Bold</option><option>Lalezar</option><option>Mada</option><option>Rubik</option><option>JetBrains Mono</option></select>
@@ -93,7 +94,7 @@
           <button class="ed-btn active" id="edAlignCenter" title="وسط‌چین">↔</button>
           <button class="ed-btn" id="edAlignLeft" title="چپ‌چین">⇤</button>
         </div>
-        <div class="ed-grp">
+        <div class="ed-grp ed-toolbar-group ed-chord-tools" data-toolbar-group="chord">
           <label data-i18n="chordLabel">آکورد:</label>
           <input type="number" id="edChordSize" value="23" min="8" max="36">
           <select id="edChordFont"><option selected>JetBrains Mono</option><option>Courier New</option><option>Fira Code</option><option>Source Code Pro</option><option>Consolas</option><option>monospace</option><option>Cairo</option><option>Rubik</option><option>Mada</option><option>Sahel</option></select>
@@ -101,9 +102,10 @@
           <button class="ed-btn active" id="edToggleChords" title="نمایش/مخفی آکورد در ادیتور"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></button>
           <button class="ed-btn" id="edRandomTextColor" data-action="lineColorText" title="رنگ رندوم متن سطر به سطر (Alt+Click = ریست)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></button>
           <button class="ed-btn" id="edRandomChordColor" data-action="lineColorChord" title="رنگ رندوم آکورد سطر به سطر (Alt+Click = ریست)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/><path d="M12 8v4"/><path d="M10 10l4 2"/></svg></button>
-        </div>
-        <div class="ed-sep"></div>
-        <div class="ed-grp" id="edSeqGroup">
+         </div>
+         </div>
+         <div class="ed-sep"></div>
+         <div class="ed-grp ed-toolbar-group" id="edSeqGroup" data-toolbar-group="sequence">
           <label data-i18n="seqLabel">ترتیبی:</label>
           <div class="ed-seg" id="edSeqModeSeg" title="انتخاب حالت آکوردگذاری">
             <button class="ed-btn ed-seg-btn active" id="edSeqModeLyrics" title="لایرس: نقطه‌گذاری روی متن با موس">لایرس</button>
@@ -119,20 +121,18 @@
             <span style="font-size:11px;color:#718096;margin-right:6px;">برای سینک و ترانسپوز، دکمه کورد لاین را بزنید</span>
           </div>
         </div>
-        <div class="ed-sep"></div>
-        <div class="ed-grp">
-          <button class="ed-btn" id="edUndoBtn">↩ Undo</button>
-          <button class="ed-btn" id="edRedoBtn">↪ Redo</button>
+         <div class="ed-sep"></div>
+         <div class="ed-grp ed-toolbar-group ed-editor-actions" data-toolbar-group="actions">
           <button class="ed-btn" id="edEditorLockBtn" data-action="editorLock" title="قفل ویرایشگر" style="font-size:0.85rem;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></button>
         </div>
         <div class="ed-sep"></div>
-        <div class="ed-grp">
+         <div class="ed-grp ed-toolbar-group ed-cleanup-tools" data-toolbar-group="cleanup">
           <button class="ed-btn" id="edRemoveAsterisks" title="حذف تمام کاراکترهای ستاره (*) از متن">✕ *</button>
           <button class="ed-btn" id="edReverseChords" title="برعکس کردن ترتیب آکورد هر خط">⇄ آکورد</button>
           <button class="ed-btn" id="edDoBoth" title="حذف ستاره‌ها + برعکس آکورد (به ترتیب)">✕+⇄</button>
         </div>
         <div class="ed-sep"></div>
-        <div class="ed-grp">
+         <div class="ed-grp ed-toolbar-group ed-sync-tools" data-toolbar-group="sync">
             <button class="ed-btn" id="edSyncChordLineBtn" data-action="syncChordLine" title="بروزرسانی Chord Line از Lyrics Chord" style="border-color:#00F2FE; color:#00F2BE;"><span class="ui-icon icon-leading" data-icon="sync" aria-hidden="true"></span>سینک</button>
         </div>
       </div>
@@ -149,6 +149,11 @@
           <div class="eph-key" id="edPrintKey">گام: C</div>
         </div>
         <div id="editorWrap" style="flex:1;overflow:auto;position:relative;background:rgba(255,255,255,0.01);border:1px solid var(--border-subtle);border-radius:10px;">
+          <div class="editor-zoom-control" id="editorZoomControl" title="بزرگ و کوچک‌نمایی همزمان شعر و آکورد">
+            <span class="editor-zoom-label">اندازه</span>
+            <input type="range" id="editorZoomRange" min="70" max="150" value="100" step="5" aria-label="بزرگ‌نمایی شعر و آکورد">
+            <output id="editorZoomValue">100%</output>
+          </div>
           <div id="editor" contenteditable="true" spellcheck="false" style="position:relative;z-index:2;outline:none;padding:30px 20px 20px;line-height:2.6;min-height:200px;white-space:pre-wrap;color:var(--accent-teal);direction:rtl;text-align:center;unicode-bidi:plaintext;font-size:20px;font-weight:bold;"></div>
           <div id="chordLayer" style="position:absolute;inset:0;z-index:3;pointer-events:none;overflow:visible;"></div>
         </div>
@@ -330,6 +335,7 @@
 
     <section class="timeline" id="timelinePanel">
       <div class="tl-toolbar" data-inline-actions>
+        <div class="tl-tool-group tl-core-group" data-timeline-group="edit">
         <div class="timeline-panel-layout-controls" id="timelinePanelLayoutControls">
           <button
             type="button"
@@ -402,7 +408,8 @@
         <button class="tl-tool-btn" data-action="copy" title="Copy (Ctrl+C)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
         <button class="tl-tool-btn" data-action="paste" title="Paste (Ctrl+V)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg></button>
         <button class="tl-tool-btn danger" data-action="delete" title="Delete (Del)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg></button>
-        <div style="width:1px;height:20px;background:var(--border-subtle);margin:0 4px;"></div>
+        </div>
+        <div class="tl-tool-group tl-loop-group" data-timeline-group="loop">
         <button class="tl-tool-btn" id="loopToggleBtn" data-action="toggleLoop" title="Loop ON/OFF (/)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg></button>
         <button class="tl-tool-btn" data-action="setLoopA" title="Set Loop A (I)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><polyline points="12 5 5 12 12 19"/></svg></button>
         <button class="tl-tool-btn" data-action="setLoopB" title="Set Loop B (O)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><polyline points="12 19 19 12 12 5"/></svg></button>
@@ -414,23 +421,29 @@
           <button class="tl-tool-btn arranger-marker-btn arranger-marker-b-btn" data-action="setArrangerB" title="تعیین تعویض ارنجر B">B</button>
           <button class="tl-tool-btn arranger-marker-btn arranger-marker-clear-btn" data-action="clearArrangerMarkers" title="پاک کردن markerهای ارنجر">×</button>
         </div>
-        <div style="width:1px;height:20px;background:var(--border-subtle);margin:0 4px;"></div>
+        </div>
+        <div class="tl-tool-group tl-view-group" data-timeline-group="view">
         <button class="tl-tool-btn" id="playheadModeBtn" data-action="togglePlayheadMode" title="Playhead Mode: Page Scroll / Center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="22"/><polyline points="8 6 12 2 16 6"/><polyline points="8 18 12 22 16 18"/></svg></button>
         <button class="tl-snap-btn active" id="snapBtn" data-action="toggleSnap" title="Snap (J)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 3L3 21"/><path d="M21 3v7"/><path d="M21 3h-7"/></svg></button>
         <button class="tl-tool-btn" id="warpToolBtn" data-action="toggleWarp" title="Warp Tool (W)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h2c2 0 3-2 5-2s3 2 5 2 3-2 5-2"/><path d="M4 6h2c2 0 3 2 5 2s3 2 5 2 3-2 5-2"/><path d="M4 18h2c2 0 3-2 5-2s3 2 5 2 3-2 5-2"/></svg></button>
         <button class="tl-tool-btn hitpoint-tool-btn" id="hitpointBtn" data-action="openHitpoints" title="Calculate Hitpoints"><span class="ui-icon icon-leading" data-icon="hitpoints" aria-hidden="true"></span>HP</button>
         <button class="tl-tool-btn" data-action="showQuantize" title="Quantize"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg></button>
-        <div class="color-tool-group">
+         </div>
+         <div class="tl-tool-group tl-color-group" data-timeline-group="color">
+         <div class="color-tool-group">
           <button class="color-tool-btn" id="colorBrushBtn" data-action="toggleColorTool" data-value="brush" title="Paint Brush (C)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg></button>
           <button class="color-tool-btn" id="colorEyedropperBtn" data-action="toggleColorTool" data-value="eyedropper" title="Eyedropper (Alt+C)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 22l1-1h3l9-9"/><path d="M3 21v-3l9-9"/><path d="M14.5 5.5l4 4"/><path d="M18.5 1.5l4 4-3 3-4-4 3-3z"/><path d="M11 13l-1.5-7.5"/></svg></button>
           <input type="color" id="colorPickerInput" data-action="selectColor" value="#3FB8AF" style="width:22px;height:26px;padding:1px;border:1px solid #4B5563;border-radius:3px;background:transparent;cursor:pointer;" title="انتخاب رنگ سفارشی">
         </div>
-        <div class="color-quick-bar" id="colorQuickBar">
-          <!-- quick swatches populated by JS -->
-        </div>
+         <div class="color-quick-bar" id="colorQuickBar">
+           <!-- quick swatches populated by JS -->
+         </div>
+         </div>
+         <div class="tl-tool-group tl-utility-group" data-timeline-group="utility">
         <button class="tl-tool-btn" id="mixerBtn" data-action="toggleMixer" title="باز/بستن میکسر صدا"><span class="ui-icon icon-leading" data-icon="mixer" aria-hidden="true"></span>میکسر</button>
         <button class="tl-tool-btn" data-action="openSettings" title="تنظیمات برنامه"><span class="ui-icon icon-leading" data-icon="settings" aria-hidden="true"></span>تنظیمات</button>
-        <div class="tl-zoom">
+         </div>
+         <div class="tl-zoom">
           <span>Zoom</span>
           <input type="range" min="5" max="260" value="70" id="zoom-range" data-action="setZoom">
         </div>

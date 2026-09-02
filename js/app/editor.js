@@ -1213,6 +1213,7 @@ function getMidiScoreController() {
 
     // ===== TOOLBAR DRAG & DOCK =====
     let editorToolbarDockService = null;
+    let edEditorZoom = 1;
     function getEditorToolbarDockService() {
       if (
         !editorToolbarDockService &&
@@ -1234,6 +1235,39 @@ function getMidiScoreController() {
     }
 
     getEditorToolbarDockService()?.bind?.();
+
+    function applyEditorZoom(value, persist = true) {
+      const numeric = Math.max(0.7, Math.min(1.5, Number(value) / 100 || 1));
+      edEditorZoom = numeric;
+      const editor = $('editor');
+      if (editor) editor.style.zoom = '';
+      const range = $('editorZoomRange');
+      if (range) range.value = String(Math.round(numeric * 100));
+      const output = $('editorZoomValue');
+      if (output) output.textContent = `${Math.round(numeric * 100)}%`;
+      if (persist) {
+        try { localStorage.setItem('akordyar.editor.zoom', String(Math.round(numeric * 100))); } catch (_) {}
+      }
+    }
+
+    function bindEditorZoom() {
+      const range = $('editorZoomRange');
+      if (!range) return;
+      let stored = 100;
+      try {
+        stored = Number(localStorage.getItem('akordyar.editor.zoom')) || 100;
+      } catch (_) {}
+      applyEditorZoom(stored, false);
+      range.oninput = () => {
+        applyEditorZoom(range.value);
+        edRenderEditor(false);
+      };
+      setTimeout(() => {
+        try { edRenderEditor(false); } catch (_) {}
+      }, 0);
+    }
+
+    bindEditorZoom();
 
 
     // ===== Ruler & Playhead =====
@@ -1544,6 +1578,7 @@ function edBlankSong() {
             printSub: $('edPrintSub'),
             statChordCount: $('statChordCount'),
             statLineCount: $('statLineCount'),
+            editorZoom: edEditorZoom,
             titleFallback: t('untitled'),
             buildArtist: song => song.artist || '',
             buildKey: song => {
@@ -1722,7 +1757,8 @@ function edBlankSong() {
           sequenceActive: edSeqChordingActive,
           sequenceModeActive: edSeqModeActive,
           sequencePoints: edSeqPoints,
-          sequenceCursor: edSeqCursor
+          sequenceCursor: edSeqCursor,
+          editorZoom: edEditorZoom
         }),
         anchorRectIn,
         attachDrag: edAttachChordDrag,

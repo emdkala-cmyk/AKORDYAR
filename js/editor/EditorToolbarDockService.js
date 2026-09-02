@@ -20,31 +20,41 @@
     '<path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>';
 
   const TOOLBAR_GROUPS = Object.freeze([
-    { label: 'گام و حالت', selector: '#edKey, #edKeyMode' },
+    { key: 'key', label: 'گام و حالت', selector: '#edOrigKeyLabel, #edKey, #edKeyMode' },
     {
+      key: 'transpose',
+      label: 'ترنسپوز و دیز/بمل',
+      selector: '#edTransDown, #edTransVal, #edTransUp, #edToggleAccidental'
+    },
+    {
+      key: 'text',
       label: 'تنظیمات متن',
       selector: '#edTextSize, #edTextFont, #edTextBold, ' +
         '#edAlignRight, #edAlignCenter, #edAlignLeft'
     },
     {
+      key: 'chord',
       label: 'تنظیمات آکورد',
-      selector: '#edChordSize, #edChordFont, #edToggleChords'
+      selector: '#edChordSize, #edChordFont, #edSizeLockBtn, ' +
+        '#edToggleChords, #edRandomTextColor, #edRandomChordColor'
     },
     {
-      label: 'ترتیبی',
+      key: 'sequence',
+      label: 'آکوردگذاری ترتیبی',
       selector: '#edSeqToggle, #edSeqStart, #edSeqPrev, #edSeqNext, ' +
-        '#edClStart, #edClUndo, #edClClear, #edClApply, #edSeqModeSeg'
+        '#edSeqModeSeg, #edSeqModeLyrics, #edSeqModeChord, ' +
+        '#edClStart, #edClUndo, #edClClear, #edClApply'
     },
+    { key: 'actions', label: 'قفل ویرایشگر', selector: '#edEditorLockBtn' },
     {
-      label: 'ترنسپوز',
-      selector: '#edTransDown, #edTransVal, #edTransUp'
+      key: 'cleanup',
+      label: 'ابزارهای پاک‌سازی',
+      selector: '#edRemoveAsterisks, #edReverseChords, #edDoBoth'
     },
-    { label: 'Undo/Redo', selector: '#edUndoBtn, #edRedoBtn' },
-    { label: 'قفل ویرایشگر', selector: '#edEditorLockBtn' },
-    { label: 'حذف ستاره', selector: '#edRemoveAsterisks' },
-    { label: 'برعکس آکورد', selector: '#edReverseChords' },
-    { label: 'حذف ستاره + برعکس', selector: '#edDoBoth' }
+    { key: 'sync', label: 'سینک کورد لاین', selector: '#edSyncChordLineBtn' }
   ]);
+
+  const PRESET_STORAGE_KEY = 'akordyar.editor.toolbar.presets.v1';
 
   function create({
     documentRef = globalScope.document,
@@ -63,6 +73,93 @@
 
     function element(id) {
       return typeof getElement === 'function' ? getElement(id) : null;
+    }
+
+    function getStorage() {
+      try {
+        return windowRef?.localStorage || globalScope.localStorage || null;
+      } catch (_) {
+        return null;
+      }
+    }
+
+    function readPresets() {
+      const storage = getStorage();
+      if (!storage) return {};
+      try {
+        const parsed = JSON.parse(storage.getItem(PRESET_STORAGE_KEY) || '{}');
+        return parsed && typeof parsed === 'object' ? parsed : {};
+      } catch (_) {
+        return {};
+      }
+    }
+
+    function writePresets(presets) {
+      const storage = getStorage();
+      if (!storage) return false;
+      try {
+        storage.setItem(PRESET_STORAGE_KEY, JSON.stringify(presets));
+        return true;
+      } catch (_) {
+        return false;
+      }
+    }
+
+    function isGroupVisible(group) {
+      const items = headerCtrl?.querySelectorAll?.(group.selector) || [];
+      return items.length > 0 && [...items].some(item => item.offsetParent !== null);
+    }
+
+    function setGroupVisible(group, visible) {
+      const items = headerCtrl?.querySelectorAll?.(group.selector) || [];
+      const containers = new Set();
+      items.forEach(target => {
+        const container =
+          target.closest?.('.ed-grp') ||
+          target.closest?.('.ed-font-tools') ||
+          target;
+        if (container) containers.add(container);
+      });
+      containers.forEach(container => {
+        container.style.display = visible ? '' : 'none';
+      });
+      return containers.size > 0;
+    }
+
+    function captureVisibility() {
+      return TOOLBAR_GROUPS.reduce((snapshot, group) => {
+        snapshot[group.key] = isGroupVisible(group);
+        return snapshot;
+      }, {});
+    }
+
+    function saveCurrentPreset(name) {
+      const normalized = String(name || '').trim();
+      if (!normalized) return false;
+      const presets = readPresets();
+      presets[normalized] = {
+        name: normalized,
+        visibility: captureVisibility(),
+        updatedAt: new Date().toISOString()
+      };
+      return writePresets(presets);
+    }
+
+    function applyPreset(preset) {
+      if (!preset?.visibility) return false;
+      TOOLBAR_GROUPS.forEach(group => {
+        if (typeof preset.visibility[group.key] === 'boolean') {
+          setGroupVisible(group, preset.visibility[group.key]);
+        }
+      });
+      return true;
+    }
+
+    function deletePreset(name) {
+      const presets = readPresets();
+      if (!Object.prototype.hasOwnProperty.call(presets, name)) return false;
+      delete presets[name];
+      return writePresets(presets);
     }
 
     function setPinIcon(icon) {
@@ -125,11 +222,10 @@
       showAllItem.className = 'ctx-item';
       showAllItem.innerHTML = '<span class="ctx-check">👁‍🗨</span>نمایش همه';
       showAllItem.onclick = () => {
+        TOOLBAR_GROUPS.forEach(group => setGroupVisible(group, true));
         headerCtrl.querySelectorAll?.(
-          '.ed-grp, .ed-sep, .toolbar-drag-handle, .toolbar-pin-btn'
-        ).forEach(item => {
-          item.style.display = '';
-        });
+          '.ed-sep, .ed-font-tools, .toolbar-drag-handle, .toolbar-pin-btn'
+        ).forEach(item => { item.style.display = ''; });
         menu.remove?.();
       };
       menu.appendChild(showAllItem);
@@ -143,10 +239,7 @@
         item.className = 'ctx-item';
         const checkSpan = documentRef.createElement('span');
         checkSpan.className = 'ctx-check';
-        const getVisible = () => {
-          const items = headerCtrl.querySelectorAll?.(group.selector) || [];
-          return items.length > 0 && items[0].offsetParent !== null;
-        };
+        const getVisible = () => isGroupVisible(group);
         const updateIcon = () => {
           checkSpan.textContent = getVisible() ? '👁' : '−';
         };
@@ -154,15 +247,63 @@
         item.appendChild(checkSpan);
         item.appendChild(documentRef.createTextNode(group.label));
         item.onclick = () => {
-          const items = headerCtrl.querySelectorAll?.(group.selector) || [];
           const currentlyVisible = getVisible();
-          items.forEach(target => {
-            const groupElement = target.closest?.('.ed-grp') || target;
-            groupElement.style.display = currentlyVisible ? 'none' : '';
-          });
+          setGroupVisible(group, !currentlyVisible);
           updateIcon();
         };
         menu.appendChild(item);
+      });
+
+      const presetSeparator = documentRef.createElement('div');
+      presetSeparator.style.cssText = 'height:1px;background:#2d3748;margin:4px 0;';
+      menu.appendChild(presetSeparator);
+
+      const presetHeading = documentRef.createElement('div');
+      presetHeading.className = 'ctx-section-title';
+      presetHeading.textContent = 'چیدمان‌های سفارشی';
+      menu.appendChild(presetHeading);
+
+      const savePresetItem = documentRef.createElement('div');
+      savePresetItem.className = 'ctx-item ctx-preset-save';
+      savePresetItem.innerHTML = '<span class="ctx-check">＋</span>ذخیره چیدمان فعلی';
+      savePresetItem.onclick = () => {
+        const prompt = windowRef?.prompt;
+        const name = typeof prompt === 'function'
+          ? prompt.call(windowRef, 'نام این چیدمان را وارد کنید:', '')
+          : '';
+        if (saveCurrentPreset(name)) {
+          showToolbarContextMenu(event);
+        } else {
+          menu.remove?.();
+        }
+      };
+      menu.appendChild(savePresetItem);
+
+      Object.entries(readPresets()).forEach(([name, preset]) => {
+        const row = documentRef.createElement('div');
+        row.className = 'ctx-preset-row';
+
+        const loadItem = documentRef.createElement('span');
+        loadItem.className = 'ctx-preset-load';
+        loadItem.textContent = name;
+        loadItem.title = 'فراخوانی چیدمان';
+        loadItem.onclick = () => {
+          applyPreset(preset);
+          menu.remove?.();
+        };
+        row.appendChild(loadItem);
+
+        const deleteItem = documentRef.createElement('button');
+        deleteItem.className = 'ctx-preset-delete';
+        deleteItem.type = 'button';
+        deleteItem.textContent = '×';
+        deleteItem.title = 'حذف چیدمان';
+        deleteItem.onclick = clickEvent => {
+          clickEvent.stopPropagation?.();
+          if (deletePreset(name)) row.remove?.();
+        };
+        row.appendChild(deleteItem);
+        menu.appendChild(row);
       });
 
       documentRef.body?.appendChild(menu);

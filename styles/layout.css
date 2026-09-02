@@ -239,6 +239,43 @@ header.topbar { grid-area: topbar; display: flex; align-items: center; justify-c
 .toolbar-context-menu .ctx-item { padding: 6px 14px; cursor: pointer; font-size: 0.85rem; color: #e2e8f0; display: flex; align-items: center; gap: 8px; }
 .toolbar-context-menu .ctx-item:hover { background: rgba(255,255,255,0.08); }
 .toolbar-context-menu .ctx-item .ctx-check { width: 16px; text-align: center; }
+.toolbar-context-menu { max-height: min(82vh, 620px); overflow-y: auto; overscroll-behavior: contain; direction: rtl; }
+.toolbar-context-menu .ctx-section-title {
+  padding: 7px 14px 4px;
+  color: #8FA3B8;
+  font-size: 0.72rem;
+  font-weight: 800;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.toolbar-context-menu .ctx-preset-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px 3px 10px;
+}
+.toolbar-context-menu .ctx-preset-load {
+  flex: 1;
+  min-width: 0;
+  padding: 5px 6px;
+  color: #DCE7F3;
+  cursor: pointer;
+  font-size: 0.82rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.toolbar-context-menu .ctx-preset-load:hover { background: rgba(255,255,255,0.08); border-radius: 4px; }
+.toolbar-context-menu .ctx-preset-delete {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  color: #FCA5A5;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.toolbar-context-menu .ctx-preset-delete:hover { color: #fff; background: #7F1D1D; border-color: #EF4444; }
 .control-pair-group { display: flex; align-items: center; gap: 8px; }
 .control-group-wrapper { display: flex; align-items: center; background: rgba(26, 32, 44, 0.6); border: 1px solid var(--ctrl-border); border-radius: 12px; padding: 6px 12px; gap: 10px; height: 46px; }
 .control-label { font-size: 0.8rem; color: var(--text-secondary); font-weight: bold; white-space: nowrap; }
