@@ -74,18 +74,18 @@ assert.deepEqual(
 );
 assert.deepEqual(
   service.buildArtistPages([
-    ...Array.from({ length: 20 }, (_, index) => ({
+    ...Array.from({ length: 22 }, (_, index) => ({
       normalizedName: `catalog-${index}`,
       displayName: `Catalog ${index}`,
       isCatalogArtist: true
     })),
-    ...Array.from({ length: 21 }, (_, index) => ({
+    ...Array.from({ length: 45 }, (_, index) => ({
       normalizedName: `custom-${index}`,
       displayName: `Custom ${index}`,
       isCatalogArtist: false
     }))
   ]).map(page => page.length),
-  [20, 20, 1]
+  [22, 22, 22, 1]
 );
 assert.equal(artists.some(artist => artist.normalizedName === 'new-artist'), false);
 service.showArtistContext({

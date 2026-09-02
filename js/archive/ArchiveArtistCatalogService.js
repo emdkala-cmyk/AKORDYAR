@@ -173,6 +173,22 @@
       aliases: ["یغمایی"],
       image: { type: "bundled", src: "./assets/artists/kourosh-yaghmaei.jpg" },
       favorite: false
+    },
+    {
+      id: "shahrokh",
+      displayName: "\u0634\u0627\u0647\u0631\u0648\u062e",
+      normalizedName: "shahrokh",
+      aliases: ["\u0634\u0627\u0647\u0631\u0648\u062e", "Shahrokh", "shahrokh"],
+      image: { type: "bundled", src: "./assets/artists/\u0634\u0627\u0647\u0631\u0648\u062e.jpg" },
+      favorite: false
+    },
+    {
+      id: "shadmehr-aghili",
+      displayName: "\u0634\u0627\u062f\u0645\u0647\u0631 \u0639\u0642\u06cc\u0644\u06cc",
+      normalizedName: "shadmehr-aghili",
+      aliases: ["\u0634\u0627\u062f\u0645\u0647\u0631 \u0639\u0642\u06cc\u0644\u06cc", "Shadmehr Aghili", "shadmehr aghili"],
+      image: { type: "bundled", src: "./assets/artists/\u0634\u0627\u062f\u0645\u0647\u0631 \u0639\u0642\u06cc\u0644\u06cc.jpg" },
+      favorite: false
     }
   ];
 

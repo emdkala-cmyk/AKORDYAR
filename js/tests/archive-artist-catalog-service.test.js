@@ -5,7 +5,9 @@ const ArchiveArtistCatalogService = require(
 
 const artists = ArchiveArtistCatalogService.getAll();
 assert.ok(Array.isArray(artists));
-assert.equal(artists.length, 21);
+assert.equal(artists.length, 23);
+assert.ok(artists.some(artist => artist.id === 'shahrokh'));
+assert.ok(artists.some(artist => artist.id === 'shadmehr-aghili'));
 assert.equal(
   artists.find(artist => artist.id === 'hayedeh').displayName,
   'هایده'

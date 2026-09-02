@@ -44,7 +44,7 @@
     } = context;
 
     let sliderAngle = 0;
-    let sliderSpeed = 0.08;
+    let sliderSpeed = 0.18;
     let sliderPaused = false;
     let sliderAnimFrame = null;
     let sliderResumeTimeout = null;
@@ -53,7 +53,7 @@
     let sliderPageCount = 1;
     let artistContextTarget = null;
     const sliderRadius = 460;
-    const artistsPerPage = 20;
+    const artistsPerPage = 22;
 
     function buildArtistList() {
       const songs = getAllSongs().filter(song => !song.deletedAt);
@@ -122,9 +122,10 @@
         const catalogArtists = artists.filter(artist => artist.isCatalogArtist);
         const customArtists = artists.filter(artist => !artist.isCatalogArtist);
         const pages = [];
-        if (catalogArtists.length) pages.push(catalogArtists.slice(0, artistsPerPage));
-        for (let index = 0; index < customArtists.length; index += artistsPerPage) {
-          pages.push(customArtists.slice(index, index + artistsPerPage));
+        for (const source of [catalogArtists, customArtists]) {
+          for (let index = 0; index < source.length; index += artistsPerPage) {
+            pages.push(source.slice(index, index + artistsPerPage));
+          }
         }
         return pages.length ? pages : [artists.slice(0, artistsPerPage)];
       }
@@ -216,6 +217,15 @@
       if (nextPageIndex === sliderPageIndex) return;
       sliderPageIndex = nextPageIndex;
       sliderAngle = 0;
+      const track = documentRef?.querySelector('.artist-slider-track');
+      if (track) {
+        track.classList.remove('is-page-changing');
+        void track.offsetWidth;
+        track.classList.add('is-page-changing');
+        globalScope.setTimeout(() => {
+          track.classList.remove('is-page-changing');
+        }, 360);
+      }
       filterArtists({ resetPage: false });
     }
 
