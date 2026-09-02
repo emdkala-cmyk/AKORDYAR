@@ -68,7 +68,7 @@
             count: 0,
             lastDate: null,
             favorite: !!defaultArtist.favorite,
-            isCatalogArtist: true
+            isCatalogArtist: defaultArtist.primaryCarousel !== false
           });
         }
       }
@@ -370,6 +370,16 @@
           if (event.key === 'Enter') card.onclick(event);
         };
         container.appendChild(card);
+      }
+      if (!query && visibleArtists.length < artistsPerPage) {
+        for (let index = visibleArtists.length; index < artistsPerPage; index++) {
+          const card = documentRef.createElement('div');
+          card.className = 'artist-card artist-card-placeholder';
+          card.tabIndex = -1;
+          card.setAttribute('aria-hidden', 'true');
+          card.innerHTML = '<div class="artist-card-avatar"></div>';
+          container.appendChild(card);
+        }
       }
 
       if (!visibleArtists.length && query) {

@@ -176,11 +176,12 @@
     },
     {
       id: "shahrokh",
-      displayName: "\u0634\u0627\u0647\u0631\u0648\u062e",
+      displayName: "\u0634\u0627\u0647\u0631\u062e",
       normalizedName: "shahrokh",
-      aliases: ["\u0634\u0627\u0647\u0631\u0648\u062e", "Shahrokh", "shahrokh"],
-      image: { type: "bundled", src: "./assets/artists/\u0634\u0627\u0647\u0631\u0648\u062e.jpg" },
-      favorite: false
+      aliases: ["\u0634\u0627\u0647\u0631\u062e", "Shahrokh", "shahrokh"],
+      image: { type: "bundled", src: "./assets/artists/\u0634\u0627\u0647\u0631\u062e.jpg" },
+      favorite: false,
+      primaryCarousel: false
     },
     {
       id: "shadmehr-aghili",
