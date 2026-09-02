@@ -52,6 +52,37 @@ vm.runInNewContext(gridSource, context);
 const grid = context.window.TimelineGrid || context.TimelineGrid;
 assert.ok(grid);
 
+const compactSpec = grid.getAdaptiveGridSpec({
+  timeSignature: '4/4',
+  bpm: 120,
+  pxPerSec: 1
+});
+const mediumSpec = grid.getAdaptiveGridSpec({
+  timeSignature: '4/4',
+  bpm: 120,
+  pxPerSec: 20
+});
+const detailedSpec = grid.getAdaptiveGridSpec({
+  timeSignature: '4/4',
+  bpm: 120,
+  pxPerSec: 70
+});
+const closeSpec = grid.getAdaptiveGridSpec({
+  timeSignature: '4/4',
+  bpm: 120,
+  pxPerSec: 260
+});
+assert.equal(compactSpec.majorBarStep, 32);
+assert.equal(compactSpec.barGridStep, 32);
+assert.equal(mediumSpec.majorBarStep, 1);
+assert.equal(mediumSpec.showBeats, true);
+assert.equal(detailedSpec.showSubdivisions, true);
+assert.equal(closeSpec.showBeatLabels, true);
+assert.ok(
+  compactSpec.majorBarStep >= mediumSpec.majorBarStep,
+  'adaptive ruler must show fewer major labels when zoomed out'
+);
+
 for (const signature of ['6/8', '7/8', '9/8', '12/8']) {
   const structure = grid.getGridStructure({
     timeSignature: signature,
@@ -89,6 +120,26 @@ assert.deepEqual(
   subBeatXs,
   [12.5, 37.5, 62.5, 87.5, 112.5, 137.5],
   '6/8 ruler must render the eighth-note sub-grid inside every beat'
+);
+
+const closeRuler = element('div');
+const closeLabels = element('div');
+grid.renderRuler({
+  total: 2,
+  timeToX: time => time * 260,
+  tempo: 120,
+  timeSignature: '4/4',
+  pxPerSec: 260,
+  rulerEl: closeRuler,
+  labelsEl: closeLabels,
+  tlInnerEl: element('div'),
+  lanesEl: element('div')
+});
+const closeLabelTexts = closeLabels.children.map(child => child.textContent);
+assert.deepEqual(
+  closeLabelTexts,
+  ['1', '1.2', '1.3', '1.4', '2'],
+  'major and beat labels must remain in timeline order at close zoom'
 );
 
 console.log('TimelineGrid tests passed');

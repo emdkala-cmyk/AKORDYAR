@@ -1,33 +1,111 @@
-﻿/**
- * TimelineGrid — grid configuration, lane grid drawing, ruler rendering.
- *
- * No dependency on Song Runtime or DAW globals.
- * All required state passed explicitly via arguments.
- */
 /**
- * TimelineGrid — grid configuration, lane grid drawing, ruler rendering.
+ * TimelineGrid — adaptive grid configuration, lane grid drawing, and ruler
+ * rendering.
  *
  * No dependency on Song Runtime or DAW globals.
- * All required state passed explicitly via arguments.
- * Math delegation: Meter.js (pure, no DOM).
+ * All required state is passed explicitly via arguments.
+ * Meter.js owns musical time-signature math.
  */
 var TimelineGrid = (function() {
+  'use strict';
+
+  var RULER_HEIGHT = 32;
+  var MAX_CANVAS_WIDTH = 20000;
+  var MAX_GRID_LINES = 6000;
+  var GRID_EPSILON = 1e-9;
+  var MIN_MAJOR_LABEL_SPACING = 42;
+  var MIN_BEAT_GRID_SPACING = 10;
+  var MIN_SUBDIVISION_GRID_SPACING = 7;
+  var BEAT_LABEL_SPACING = 56;
+  var MAJOR_BAR_STEPS = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512];
 
   function getTimeSignatureGridConfig(timeSignature, bpm) {
     return window.Meter.getMeterConfig(timeSignature, bpm);
   }
 
+  function finitePositive(value, fallback) {
+    var numeric = Number(value);
+    return Number.isFinite(numeric) && numeric > 0 ? numeric : fallback;
+  }
+
+  function chooseMajorBarStep(pxPerBar) {
+    var safePxPerBar = finitePositive(pxPerBar, 1);
+
+    // Once one bar has enough room for a readable label, show every bar.
+    if (safePxPerBar >= 18) return 1;
+
+    for (var index = 0; index < MAJOR_BAR_STEPS.length; index++) {
+      var step = MAJOR_BAR_STEPS[index];
+      if (safePxPerBar * step >= MIN_MAJOR_LABEL_SPACING) {
+        return step;
+      }
+    }
+
+    return MAJOR_BAR_STEPS[MAJOR_BAR_STEPS.length - 1];
+  }
+
+  /**
+   * Select the musical levels visible at the current horizontal zoom.
+   *
+   * The returned spec is shared by the lane renderer and the ruler renderer,
+   * so both stay visually synchronized while zooming.
+   */
+  function getAdaptiveGridSpec(opts) {
+    opts = opts || {};
+    var config =
+      opts.config ||
+      getTimeSignatureGridConfig(opts.timeSignature || '4/4', opts.tempo || 120);
+    var pxPerSec = finitePositive(opts.pxPerSec, 70);
+    var beatsPerBar = Math.max(1, Number(config.beatsPerMeasure) || 4);
+    var beatDuration = finitePositive(config.beatDuration, 0.5);
+    var barDuration = finitePositive(
+      config.measureDuration,
+      beatDuration * beatsPerBar
+    );
+    var subdivisionsPerBeat = Math.max(
+      1,
+      Math.floor(Number(config.subdivisionsPerBeat) || 1)
+    );
+    var pxPerBar = barDuration * pxPerSec;
+    var pxPerBeat = beatDuration * pxPerSec;
+    var pxPerSubdivision = pxPerBeat / subdivisionsPerBeat;
+    var majorBarStep = chooseMajorBarStep(pxPerBar);
+
+    return {
+      config: config,
+      pxPerSec: pxPerSec,
+      beatsPerBar: beatsPerBar,
+      beatDuration: beatDuration,
+      barDuration: barDuration,
+      subdivisionsPerBeat: subdivisionsPerBeat,
+      pxPerBar: pxPerBar,
+      pxPerBeat: pxPerBeat,
+      pxPerSubdivision: pxPerSubdivision,
+      majorBarStep: majorBarStep,
+      // At wide-out zoom, individual bar lines are too dense. Keep the
+      // strong lane grid on the same adaptive interval as the ruler labels.
+      barGridStep: majorBarStep,
+      showBeats: pxPerBeat >= MIN_BEAT_GRID_SPACING,
+      showSubdivisions:
+        subdivisionsPerBeat > 1 &&
+        pxPerSubdivision >= MIN_SUBDIVISION_GRID_SPACING,
+      showBeatLabels:
+        pxPerBeat >= BEAT_LABEL_SPACING && beatsPerBar <= 32
+    };
+  }
+
   /**
    * Build a complete grid structure of measures, beats, and downbeats.
-   * Pure function - no DOM or global dependency.
+   * Pure function - no DOM or global dependency beyond Meter.
    *
    * @param {{ timeSignature: string, bpm: number, durationInSeconds: number }} opts
    * @returns {{ config: object, measures: number[], beats: object[], downbeats: number[] }}
    */
   function getGridStructure(opts) {
-    var sig = opts.timeSignature || "4/4";
+    opts = opts || {};
+    var sig = opts.timeSignature || '4/4';
     var bpm = opts.bpm || 120;
-    var dur = opts.durationInSeconds || 0;
+    var dur = Math.max(0, Number(opts.durationInSeconds) || 0);
     var M = window.Meter;
     var config = M.getMeterConfig(sig, bpm);
     var beats = [];
@@ -57,207 +135,398 @@ var TimelineGrid = (function() {
       measures.push(m3);
     }
 
-    return { config: config, measures: measures, beats: beats, downbeats: downbeats };
+    return {
+      config: config,
+      measures: measures,
+      beats: beats,
+      downbeats: downbeats
+    };
   }
 
+  function getCanvasHeight(canvas) {
+    var parentLane =
+      canvas && typeof canvas.closest === 'function'
+        ? canvas.closest('.track-lane')
+        : null;
+    var laneHeight = parentLane
+      ? parseInt(getComputedStyle(parentLane).getPropertyValue('--lane-h'), 10)
+      : NaN;
+    var rootHeight = parseInt(
+      getComputedStyle(document.documentElement).getPropertyValue('--lane-h'),
+      10
+    );
+    return laneHeight || rootHeight || 64;
+  }
 
-    function drawLaneGrid(canvas, opts) {
-    const total = opts.total;
-    const timeToX = opts.timeToX;
-    const bpm = opts.tempo || 120;
-    const sig = opts.timeSignature || '4/4';
-    const pxPerSec = opts.pxPerSec || 70;
+  function drawVerticalLine(ctx, x, yStart, yEnd, strokeStyle, lineWidth) {
+    if (!Number.isFinite(x)) return;
+    var crispX = Math.round(x) + 0.5;
+    ctx.strokeStyle = strokeStyle;
+    ctx.lineWidth = lineWidth || 1;
+    ctx.beginPath();
+    ctx.moveTo(crispX, yStart);
+    ctx.lineTo(crispX, yEnd);
+    ctx.stroke();
+  }
 
-    const w = Math.min(Math.ceil(timeToX(total)), 20000);
-    const parentLane = canvas.closest('.track-lane');
-    const h = (parentLane ? parseInt(getComputedStyle(parentLane).getPropertyValue('--lane-h')) : null)
-          || parseInt(getComputedStyle(document.documentElement).getPropertyValue('--lane-h'))
-          || 64;
-    canvas.width = w; canvas.height = h;
-    canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
+  function drawLaneGrid(canvas, opts) {
+    opts = opts || {};
+    if (!canvas || typeof canvas.getContext !== 'function') return;
 
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, w, h);
+    var total = Math.max(0, Number(opts.total) || 0);
+    var timeToX =
+      typeof opts.timeToX === 'function' ? opts.timeToX : function(time) {
+        return time * finitePositive(opts.pxPerSec, 70);
+      };
+    var bpm = opts.tempo || 120;
+    var sig = opts.timeSignature || '4/4';
+    var pxPerSec = opts.pxPerSec || 70;
+    var width = Math.max(
+      1,
+      Math.min(Math.ceil(Number(timeToX(total)) || 0), MAX_CANVAS_WIDTH)
+    );
+    var height = getCanvasHeight(canvas);
 
-    const config = getTimeSignatureGridConfig(sig, bpm);
-    const beatsPerBar = config.beatsPerMeasure;
-    const beatDur = config.beatDuration;
-    const barDur = config.measureDuration;
+    canvas.width = width;
+    canvas.height = height;
+    canvas.style.width = width + 'px';
+    canvas.style.height = height + 'px';
 
-    const maxLines = 500;
+    var ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.clearRect(0, 0, width, height);
 
-    // Bar lines (strong)
-    ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+    var config = getTimeSignatureGridConfig(sig, bpm);
+    var spec = getAdaptiveGridSpec({
+      config: config,
+      pxPerSec: pxPerSec
+    });
+    var meter = window.Meter;
+    var lineCount = 0;
+
+    function drawAt(time, style, yStart, yEnd) {
+      if (lineCount >= MAX_GRID_LINES) return false;
+      var x = Number(timeToX(time));
+      if (!Number.isFinite(x)) return true;
+      if (x > width) return false;
+      if (x >= -1) {
+        drawVerticalLine(ctx, x, yStart, yEnd, style, 1);
+        lineCount++;
+      }
+      return true;
+    }
+
+    // Fine subdivisions are rendered first, so beat and bar accents remain
+    // visible on top of them.
+    if (spec.showSubdivisions) {
+      var subdivisionDuration =
+        spec.beatDuration / spec.subdivisionsPerBeat;
+      for (
+        var subdivision = 1;
+        subdivision * subdivisionDuration <= total + GRID_EPSILON &&
+        lineCount < MAX_GRID_LINES;
+        subdivision++
+      ) {
+        if (subdivision % spec.subdivisionsPerBeat === 0) continue;
+        if (
+          !drawAt(
+            subdivision * subdivisionDuration,
+            'rgba(148, 163, 184, 0.08)',
+            0,
+            height
+          )
+        ) {
+          break;
+        }
+      }
+    }
+
+    if (spec.showBeats) {
+      var beatCount = Math.ceil(total / spec.beatDuration);
+      for (
+        var beatIndex = 1;
+        beatIndex <= beatCount && lineCount < MAX_GRID_LINES;
+        beatIndex++
+      ) {
+        if (beatIndex % spec.beatsPerBar === 0) continue;
+        var beatStyle = meter.isStrongBeat(
+          (beatIndex - 1) % spec.beatsPerBar,
+          sig
+        )
+          ? 'rgba(203, 213, 225, 0.18)'
+          : 'rgba(148, 163, 184, 0.13)';
+        if (
+          !drawAt(
+            beatIndex * spec.beatDuration,
+            beatStyle,
+            0,
+            height
+          )
+        ) {
+          break;
+        }
+      }
+    }
+
+    var barCount = Math.ceil(total / spec.barDuration);
+    for (
+      var barIndex = 0;
+      barIndex <= barCount && lineCount < MAX_GRID_LINES;
+      barIndex += spec.barGridStep
+    ) {
+      if (
+        !drawAt(
+          barIndex * spec.barDuration,
+          'rgba(226, 232, 240, 0.22)',
+          0,
+          height
+        )
+      ) {
+        break;
+      }
+    }
+  }
+
+  function appendRulerLabel(labelsEl, text, x, className, fontSize, color, state) {
+    if (!labelsEl || !Number.isFinite(x)) return false;
+
+    var safeText = String(text);
+    var safeFontSize = Number(fontSize) || 10;
+    if (state && state.defer) {
+      state.pending.push({
+        text: safeText,
+        x: x,
+        className: className,
+        fontSize: safeFontSize,
+        color: color,
+        priority: className === 'major' ? 2 : 1
+      });
+      return true;
+    }
+
+    // A small estimate keeps labels readable without forcing synchronous
+    // layout measurements for every bar while the user drags the zoom slider.
+    var estimatedWidth = Math.max(
+      10,
+      safeText.length * safeFontSize * 0.62
+    );
+    var leftEdge = x - estimatedWidth / 2;
+    if (leftEdge < state.lastLabelRight + 6) return false;
+
+    var span = document.createElement('span');
+    span.className = 'ruler-tick-label' + (className ? ' ' + className : '');
+    span.style.left = x + 'px';
+    span.style.fontSize = safeFontSize + 'px';
+    span.style.direction = 'ltr';
+    if (color) span.style.color = color;
+    span.textContent = safeText;
+    labelsEl.appendChild(span);
+    state.lastLabelRight = x + estimatedWidth / 2;
+    return true;
+  }
+
+  function flushRulerLabels(labelsEl, state) {
+    state.pending
+      .sort(function(left, right) {
+        return left.x - right.x || right.priority - left.priority;
+      })
+      .forEach(function(label) {
+        appendRulerLabel(
+          labelsEl,
+          label.text,
+          label.x,
+          label.className,
+          label.fontSize,
+          label.color,
+          state
+        );
+      });
+  }
+
+  function drawRulerTick(ctx, x, yStart, style) {
+    if (!Number.isFinite(x)) return;
+    var crispX = x + 0.5;
+    ctx.strokeStyle = style;
     ctx.lineWidth = 1;
-    let barCount = 0;
-    for (let bar = 1; bar * barDur <= total && barCount < maxLines; bar++) {
-      const barTime = window.Meter.beatIndexToTime(
-        bar * beatsPerBar,
-        config
-      );
-      const x = Math.round(timeToX(barTime)) + 0.5;
-      if (x > w) break;
-      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
-      barCount++;
-    }
-
-    // Beat lines (thin)
-    if (pxPerSec > 10) {
-      ctx.strokeStyle = 'rgba(255,255,255,0.04)';
-      ctx.lineWidth = 1;
-      let beatCount = 0;
-      for (let beat = 0; beat * beatDur <= total && beatCount < maxLines; beat++) {
-        if (beat % beatsPerBar === 0) continue;
-        const beatTime = window.Meter.beatIndexToTime(beat, config);
-        const x = Math.round(timeToX(beatTime)) + 0.5;
-        if (x > w) break;
-        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
-        beatCount++;
-      }
-    }
-
-    // Sub-beat lines
-    if (pxPerSec > 40) {
-      const subBeatDur = beatDur / config.subdivisionsPerBeat;
-      ctx.strokeStyle = 'rgba(255,255,255,0.02)';
-      let subCount = 0;
-      for (let sub = 0; sub * subBeatDur <= total && subCount < maxLines; sub++) {
-        if (sub % config.subdivisionsPerBeat === 0) continue;
-        const x = Math.round(timeToX(sub * subBeatDur)) + 0.5;
-        if (x > w) break;
-        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
-        subCount++;
-      }
-    }
+    ctx.beginPath();
+    ctx.moveTo(crispX, yStart);
+    ctx.lineTo(crispX, RULER_HEIGHT);
+    ctx.stroke();
   }
 
   function renderRuler(opts) {
-    const total = opts.total;
-    const timeToX = opts.timeToX;
-    const bpm = opts.tempo || 120;
-    const sig = opts.timeSignature || '4/4';
-    const pxPerSec = opts.pxPerSec || 70;
-    const rulerEl = opts.rulerEl;
-    const labelsEl = opts.labelsEl;
-    const tlInnerEl = opts.tlInnerEl;
-    const lanesEl = opts.lanesEl;
+    opts = opts || {};
+    var total = Math.max(0, Number(opts.total) || 0);
+    var timeToX =
+      typeof opts.timeToX === 'function' ? opts.timeToX : function(time) {
+        return time * finitePositive(opts.pxPerSec, 70);
+      };
+    var bpm = opts.tempo || 120;
+    var sig = opts.timeSignature || '4/4';
+    var pxPerSec = opts.pxPerSec || 70;
+    var rulerEl = opts.rulerEl;
+    var labelsEl = opts.labelsEl;
+    var tlInnerEl = opts.tlInnerEl;
+    var lanesEl = opts.lanesEl;
 
     if (opts.onDurationChange) opts.onDurationChange(total);
 
-    const width = Math.ceil(timeToX(total));
-    tlInnerEl.style.width = width + 'px';
-    lanesEl.style.width = width + 'px';
-    rulerEl.style.width = width + 'px';
+    var width = Math.max(1, Math.ceil(Number(timeToX(total)) || 0));
+    if (tlInnerEl?.style) tlInnerEl.style.width = width + 'px';
+    if (lanesEl?.style) lanesEl.style.width = width + 'px';
+    if (rulerEl?.style) rulerEl.style.width = width + 'px';
 
-    rulerEl.querySelectorAll('canvas').forEach(function(c) { c.remove(); });
+    if (!rulerEl || !labelsEl) return;
+    if (typeof rulerEl.querySelectorAll === 'function') {
+      rulerEl.querySelectorAll('canvas').forEach(function(canvas) {
+        canvas.remove();
+      });
+    }
     labelsEl.innerHTML = '';
 
-    const config = getTimeSignatureGridConfig(sig, bpm);
-    const beatsPerBar = config.beatsPerMeasure;
-    const beatDur = config.beatDuration;
-    const barDur = config.measureDuration;
+    var config = getTimeSignatureGridConfig(sig, bpm);
+    var spec = getAdaptiveGridSpec({
+      config: config,
+      pxPerSec: pxPerSec
+    });
 
-    if (!renderRuler._lastLog || renderRuler._lastLog.sig !== sig || renderRuler._lastLog.bpm !== bpm) {
+    if (
+      !renderRuler._lastLog ||
+      renderRuler._lastLog.sig !== sig ||
+      renderRuler._lastLog.bpm !== bpm
+    ) {
       console.log('[TIME SIGNATURE TIMING]', {
-        sig: sig, bpm: bpm,
+        sig: sig,
+        bpm: bpm,
         numerator: config.numerator,
         denominator: config.denominator,
         beatDuration: config.beatDuration,
         measureDuration: config.measureDuration,
-        beatWidthPx: config.beatDuration * pxPerSec,
-        measureWidthPx: config.measureDuration * pxPerSec
+        beatWidthPx: spec.pxPerBeat,
+        measureWidthPx: spec.pxPerBar
       });
       renderRuler._lastLog = { sig: sig, bpm: bpm };
     }
 
-    const pxPerBar = barDur * pxPerSec;
-    var barStep;
-    if (pxPerBar > 120) barStep = 1;
-    else if (pxPerBar > 60) barStep = 2;
-    else if (pxPerBar > 30) barStep = 4;
-    else if (pxPerBar > 15) barStep = 8;
-    else if (pxPerBar > 8) barStep = 16;
-    else barStep = 32;
-
     var rulerCanvas = document.createElement('canvas');
-    rulerCanvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;';
+    rulerCanvas.style.cssText =
+      'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;';
     rulerEl.appendChild(rulerCanvas);
-    var cappedWidth = Math.min(width, 20000);
+    var cappedWidth = Math.max(1, Math.min(width, MAX_CANVAS_WIDTH));
     rulerCanvas.width = cappedWidth;
-    rulerCanvas.height = 32;
+    rulerCanvas.height = RULER_HEIGHT;
     var rctx = rulerCanvas.getContext('2d');
-    rctx.clearRect(0, 0, cappedWidth, 32);
+    if (!rctx) return;
+    rctx.clearRect(0, 0, cappedWidth, RULER_HEIGHT);
 
-    var showBeats = pxPerSec > 15;
-    var showSubBeats = pxPerSec > 50;
+    var labelState = {
+      lastLabelRight: -Infinity,
+      defer: true,
+      pending: []
+    };
+    var barCount = Math.ceil(total / spec.barDuration);
 
-    for (var bar = 1; (bar - 1) * barDur <= total; bar++) {
-      var barStartBeat = (bar - 1) * beatsPerBar;
-      var barStartTime = window.Meter.beatIndexToTime(barStartBeat, config);
-      var x = timeToX(barStartTime);
-      if (x > cappedWidth) break;
-
-      if ((bar - 1) % barStep === 0) {
-        var span = document.createElement('span');
-        span.className = 'ruler-tick-label major';
-        span.style.left = x + 'px';
-        span.textContent = bar;
-        labelsEl.appendChild(span);
+    // Subdivision ticks — shortest marks at the bottom of the ruler.
+    if (spec.showSubdivisions) {
+      var subdivisionDuration =
+        spec.beatDuration / spec.subdivisionsPerBeat;
+      for (
+        var subdivision = 1;
+        subdivision * subdivisionDuration <= total + GRID_EPSILON;
+        subdivision++
+      ) {
+        if (subdivision % spec.subdivisionsPerBeat === 0) continue;
+        var subdivisionX = Number(
+          timeToX(subdivision * subdivisionDuration)
+        );
+        if (subdivisionX > cappedWidth) break;
+        drawRulerTick(
+          rctx,
+          subdivisionX,
+          28,
+          'rgba(148, 163, 184, 0.38)'
+        );
       }
+    }
 
-      rctx.strokeStyle = 'rgba(74, 85, 104, 0.4)';
-      rctx.lineWidth = 1;
-      rctx.beginPath(); rctx.moveTo(x + 0.5, 22); rctx.lineTo(x + 0.5, 32); rctx.stroke();
+    // Beat ticks — medium marks. At high zoom their labels use Cubase-like
+    // bar.beat notation (for example 156.3 and 156.4).
+    if (spec.showBeats) {
+      var beatCount = Math.ceil(total / spec.beatDuration);
+      for (var beatIndex = 1; beatIndex <= beatCount; beatIndex++) {
+        if (beatIndex % spec.beatsPerBar === 0) continue;
+        var beatTime = beatIndex * spec.beatDuration;
+        var beatX = Number(timeToX(beatTime));
+        if (beatX > cappedWidth) break;
+        var beatWithinBar = (beatIndex - 1) % spec.beatsPerBar;
+        var beatStyle = window.Meter.isStrongBeat(beatWithinBar, sig)
+          ? 'rgba(203, 213, 225, 0.58)'
+          : 'rgba(148, 163, 184, 0.42)';
+        drawRulerTick(rctx, beatX, 24, beatStyle);
 
-      if (showBeats) {
-        for (var beat = 1; beat < beatsPerBar; beat++) {
-          var beatTime = window.Meter.beatIndexToTime(
-            barStartBeat + beat,
-            config
+        if (spec.showBeatLabels) {
+          var beatBar = Math.floor((beatIndex - 1) / spec.beatsPerBar) + 1;
+          appendRulerLabel(
+            labelsEl,
+            beatBar + '.' + (beatWithinBar + 2),
+            beatX,
+            'beat',
+            9,
+            '#718096',
+            labelState
           );
-          var bx = timeToX(beatTime);
-          if (bx > cappedWidth) break;
-          rctx.strokeStyle = 'rgba(55, 65, 81, 0.3)';
-          rctx.lineWidth = 1;
-          rctx.beginPath(); rctx.moveTo(bx + 0.5, 26); rctx.lineTo(bx + 0.5, 32); rctx.stroke();
-
-          if (pxPerBar > 40 && beatsPerBar <= 8) {
-            var bspan = document.createElement('span');
-            bspan.className = 'ruler-tick-label';
-            bspan.style.left = bx + 'px';
-            bspan.style.fontSize = '8px';
-            bspan.style.color = '#4B5563';
-            bspan.textContent = beat + 1;
-            labelsEl.appendChild(bspan);
-          }
-        }
-      }
-
-      if (showSubBeats) {
-        for (var beatForSub = 0; beatForSub < beatsPerBar; beatForSub++) {
-          var beatStartTime = window.Meter.beatIndexToTime(
-            barStartBeat + beatForSub,
-            config
-          );
-          for (var sub = 1; sub < config.subdivisionsPerBeat; sub++) {
-            var subTime =
-              beatStartTime +
-              sub * (beatDur / config.subdivisionsPerBeat);
-            var sx = timeToX(subTime);
-            if (sx > cappedWidth) break;
-            rctx.strokeStyle = 'rgba(45, 55, 72, 0.25)';
-            rctx.lineWidth = 1;
-            rctx.beginPath(); rctx.moveTo(sx + 0.5, 28); rctx.lineTo(sx + 0.5, 32); rctx.stroke();
-          }
         }
       }
     }
+
+    // Bar ticks and labels — strongest marks. When bars are narrower than the
+    // readable threshold, both labels and strong lines use an adaptive
+    // 1/2/4/8/... bar interval just like a DAW ruler.
+    for (
+      var barIndex = 0;
+      barIndex <= barCount;
+      barIndex += spec.barGridStep
+    ) {
+      var barStartTime = barIndex * spec.barDuration;
+      var barX = Number(timeToX(barStartTime));
+      if (barX > cappedWidth) break;
+      drawRulerTick(
+        rctx,
+        barX,
+        19,
+        'rgba(226, 232, 240, 0.72)'
+      );
+
+      if (barIndex % spec.majorBarStep === 0) {
+        appendRulerLabel(
+          labelsEl,
+          barIndex + 1,
+          barX,
+          'major',
+          10,
+          '#A0AEC0',
+          labelState
+        );
+      }
+    }
+
+    labelState.defer = false;
+    flushRulerLabels(labelsEl, labelState);
   }
 
   return {
     getTimeSignatureGridConfig: getTimeSignatureGridConfig,
+    getAdaptiveGridSpec: getAdaptiveGridSpec,
     getGridStructure: getGridStructure,
     drawLaneGrid: drawLaneGrid,
     renderRuler: renderRuler
   };
 })();
+
+if (typeof window !== 'undefined') {
+  window.TimelineGrid = TimelineGrid;
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = TimelineGrid;
+}
