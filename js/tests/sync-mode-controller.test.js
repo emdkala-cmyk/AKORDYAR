@@ -452,6 +452,31 @@ test('adjustSyncTimeFromWheel: normal wheel keeps list scrolling native', () => 
   assert.strictEqual(edCur.syncTimes[0], 1);
 });
 
+test('handleSyncPanelWheel: Ctrl+wheel prevents panel scrolling', () => {
+  const { controller, edCur, calls } = createController();
+
+  edCur.lyrics = 'line one';
+  edCur.syncTimes = [1];
+  const row = { dataset: { li: '0' } };
+  let prevented = false;
+  let stopped = false;
+
+  const changed = controller.handleSyncPanelWheel({
+    ctrlKey: true,
+    deltaY: -1,
+    target: { closest: () => row },
+    preventDefault() { prevented = true; },
+    stopPropagation() { stopped = true; }
+  });
+
+  assert.strictEqual(changed, true);
+  assert.strictEqual(prevented, true);
+  assert.strictEqual(stopped, true);
+  assert.strictEqual(edCur.syncTimes[0], 1.5);
+  assert.strictEqual(calls.startTransport, 1);
+  controller.cancelSyncPreview();
+});
+
 test('editSyncTime: double click opens keyboard input and Enter saves seconds', () => {
   const previousDocument = global.document;
   const dom = new JSDOM('<div id="syncLyrics"></div><span id="syncInfo"></span>');

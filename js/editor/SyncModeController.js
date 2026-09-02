@@ -115,6 +115,8 @@ class SyncModeController {
     this.syncTimeInput = null;
     this.syncPreviewTimer = null;
     this.syncPreviewActive = false;
+    this.syncPanelWheelTarget = null;
+    this.syncPanelWheelHandler = null;
   }
 
   _getSyncRows() {
@@ -177,9 +179,6 @@ class SyncModeController {
       event.stopPropagation?.();
       this.seekSyncLine(li);
     };
-    row.onwheel = event => {
-      if (event?.ctrlKey) this.adjustSyncTimeFromWheel(li, event);
-    };
 
     if (timeEl) {
       timeEl.ondblclick = event => {
@@ -187,10 +186,19 @@ class SyncModeController {
         event.stopPropagation?.();
         this.editSyncTime(li, event);
       };
-      timeEl.onwheel = event => {
-        if (event?.ctrlKey) this.adjustSyncTimeFromWheel(li, event);
-      };
     }
+  }
+
+  handleSyncPanelWheel(event) {
+    if (!event?.ctrlKey) return false;
+
+    const row = event.target?.closest?.('.sline');
+    const lineIndex = Number(row?.dataset?.li);
+    if (!row || !Number.isFinite(lineIndex)) return false;
+
+    event.preventDefault?.();
+    event.stopPropagation?.();
+    return this.adjustSyncTimeFromWheel(lineIndex, event);
   }
 
   _syncPopupHighlight(popup) {
@@ -906,6 +914,26 @@ class SyncModeController {
   // Wire up sync buttons
   initSyncUI() {
     const state = this.state;
+    const syncLyrics = this.$('syncLyrics');
+    if (this.syncPanelWheelTarget && this.syncPanelWheelHandler) {
+      this.syncPanelWheelTarget.removeEventListener(
+        'wheel',
+        this.syncPanelWheelHandler,
+        true
+      );
+    }
+    if (syncLyrics?.addEventListener) {
+      this.syncPanelWheelTarget = syncLyrics;
+      this.syncPanelWheelHandler = event => this.handleSyncPanelWheel(event);
+      syncLyrics.addEventListener(
+        'wheel',
+        this.syncPanelWheelHandler,
+        { capture: true, passive: false }
+      );
+    } else {
+      this.syncPanelWheelTarget = null;
+      this.syncPanelWheelHandler = null;
+    }
     if (this.$('tab-sync')) this.$('tab-sync').onclick = () => {
       const tab = this.$('tab-sync');
       if (state.active) { this.exitSyncMode(); tab.classList.remove('active-teal'); return; }
