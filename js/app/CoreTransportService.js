@@ -149,6 +149,8 @@
     getDAW = () => globalScope.RuntimeStateAdapter?.getDAW?.() || null,
     getElement = id => globalScope.document?.getElementById?.(id),
     documentRef = globalScope.document,
+    tempoMapService = globalScope.TempoMap,
+    setTempoMap = () => false,
     isTextEditingEvent: isTextEditingEventRef = null,
     getTransportState = () => ({}),
     getTimingContext = () => null,
@@ -246,7 +248,32 @@
         getElement('edTimeSig')?.value ||
         '4/4';
 
-      return { bpm, timeSignature };
+      return {
+        bpm,
+        timeSignature,
+        tempoMap: timing.tempoMap || readDAW()?.tempoMap || null
+      };
+    }
+
+    function ensureTempoMap(timing = readTimingContext()) {
+      const daw = readDAW();
+      const raw = timing?.tempoMap || daw?.tempoMap;
+      if (
+        raw?.getBeatAtOrAfter &&
+        raw?.nextBeatAfter
+      ) {
+        return raw;
+      }
+      if (typeof tempoMapService?.create !== 'function') return raw || null;
+      const map = tempoMapService.create({
+        tempo: timing?.bpm,
+        timeSignature: timing?.timeSignature,
+        tempoMap: raw
+      });
+      const serializable = map.toJSON();
+      if (daw) daw.tempoMap = serializable;
+      setTempoMap(map);
+      return map;
     }
 
     function readArrangerState() {
@@ -261,7 +288,7 @@
         : null;
     }
 
-    function resyncPlayingTransport() {
+    function resyncPlayingTransport(options = {}) {
       const daw = readDAW();
       if (!daw?.isPlaying || daw.isScrubbing) return false;
 
@@ -269,10 +296,12 @@
       if (!Number.isFinite(currentPlayhead)) return false;
 
       daw.playhead = currentPlayhead;
-      setTransportOrigin(
-        currentPlayhead,
-        getFutureTransportAudioTime()
-      );
+      if (!options.preserveOrigin) {
+        setTransportOrigin(
+          currentPlayhead,
+          getFutureTransportAudioTime()
+        );
+      }
       scheduleAllFromPlayhead();
       return true;
     }
@@ -497,6 +526,8 @@
 
     function startTransport() {
       const audioContext = ensureAudioCtx();
+      const timing = readTimingContext();
+      ensureTempoMap(timing);
       cancelCountIn();
 
       const beginPlayback = (transportStartAudioTime = null) => {
@@ -615,7 +646,7 @@
         const transportState = readTransportState();
         const countInScheduler = getCountInScheduler();
         if (transportState.countInBars > 0 && countInScheduler) {
-          const { bpm, timeSignature } = readTimingContext();
+          const { bpm, timeSignature, tempoMap } = readTimingContext();
           const config = getTimeSignatureGridConfig(timeSignature, bpm);
           alignPlayheadToNearestMeasure(config);
 
@@ -637,6 +668,8 @@
             bars: transportState.countInBars,
             bpm,
             timeSignature,
+            tempoMap,
+            timelinePosition: daw?.playhead,
             soundType: getAppSettings().metroSound || 'classic',
             onComplete: ({ endTime }) => {
               beginPlayback(endTime);

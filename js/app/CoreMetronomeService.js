@@ -44,7 +44,11 @@
         getElement('edTimeSig')?.value ||
         '4/4';
 
-      return { bpm, timeSignature };
+      return {
+        bpm,
+        timeSignature,
+        tempoMap: timing.tempoMap || getDAW()?.tempoMap || null
+      };
     }
 
     function alignPlayheadToNearestMeasure(config) {
@@ -104,11 +108,13 @@
       const state = getTransportState();
       const timing = readTimingContext();
       ensureAudioCtx();
-      const started = getSchedulingService()?.startMetronome?.({
+      const options = {
         bpm: timing.bpm,
         timeSignature: timing.timeSignature,
         sound: getMetroSound() || 'classic'
-      }) || false;
+      };
+      if (timing.tempoMap) options.tempoMap = timing.tempoMap;
+      const started = getSchedulingService()?.startMetronome?.(options) || false;
       state.metroTimer = started ? true : null;
       return started;
     }
@@ -122,9 +128,14 @@
       const state = getTransportState();
       if (!state.metroActive || !getDAW().isPlaying) return;
       const timing = readTimingContext();
+      const options = {
+        bpm: timing.bpm,
+        timeSignature: timing.timeSignature
+      };
+      if (timing.tempoMap) options.tempoMap = timing.tempoMap;
       return getSchedulingService()?.checkMetronomeTick?.(
         playheadTime,
-        timing
+        options
       ) || null;
     }
 

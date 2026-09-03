@@ -244,6 +244,9 @@ function customPrompt(message, defaultValue = '') {
       globalScope.CoreTransportService?.create?.({
         getDAW: () => coreGetRuntimeDAW(),
         getElement: id => $(id),
+        tempoMapService: globalScope.TempoMap,
+        setTempoMap: map =>
+          requireEditorSongStateService().setTempoMap(map),
         getTransportState: () => editorTransportState,
         getTimingContext: () =>
           requireEditorSongStateService().getTimingContext(),
@@ -836,6 +839,7 @@ function isHistoryApplying() {
         getSongState: () => requireEditorSongStateService(),
         getTimingContext: () =>
           requireEditorSongStateService().getTimingContext(),
+        tempoMap: globalScope.TempoMap,
         getTimelineInner: () => document.getElementById('tl-inner'),
         clamp: (value, minimum, maximum) => clamp(value, minimum, maximum),
         meter: globalScope.Meter,
@@ -860,6 +864,11 @@ function isHistoryApplying() {
         startMetronome: (...args) => startMetronome(...args),
         resyncPlayingTransport: (...args) =>
           resyncPlayingTransport(...args),
+        getTransportPlayhead: (...args) =>
+          getTransportPlayhead(...args),
+        setTempoMap: map =>
+          requireEditorSongStateService().setTempoMap(map),
+        saveSong: () => edSaveSong(),
         getIsRecordingChords: () => isRecordingChords,
         setIsRecordingChords: value => {
           isRecordingChords = value;

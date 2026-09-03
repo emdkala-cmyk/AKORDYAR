@@ -2422,7 +2422,7 @@ if ($('edDoBoth')) {
           renderTracks: () => renderTracks(),
           renderRuler: () => renderRuler(),
           renderClips: () => renderClips(),
-          onTimingChange: () => handleTimingChange(),
+          onTimingChange: (...args) => handleTimingChange(...args),
           toast: message => toast(message),
           noteNames: getEditorKeyCommandController()?.noteNames || []
         });

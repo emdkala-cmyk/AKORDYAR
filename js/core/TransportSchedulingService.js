@@ -17,6 +17,7 @@
     MetronomeEngineCtor = globalScope.MetronomeEngine,
     MetronomeSchedulerCtor = globalScope.MetronomeScheduler,
     CountInSchedulerCtor = globalScope.CountInScheduler,
+    tempoMapService = globalScope.TempoMap,
     isStrongBeat = globalScope.Meter?.isStrongBeat,
     scheduleAheadTime = 1.5,
     logger = globalScope.console
@@ -70,6 +71,7 @@
         getMeterConfig,
         getLoop,
         scheduleAheadTime,
+        tempoMapService,
         isStrongBeat: strongBeat
       });
       return metronomeScheduler;
@@ -99,26 +101,56 @@
     function startMetronome({
       bpm = 120,
       timeSignature = '4/4',
-      sound = 'classic'
+      sound = 'classic',
+      tempoMap = null
     } = {}) {
-      stopMetronome();
       soundType = sound || 'classic';
 
       const scheduler = getMetronomeScheduler();
       if (scheduler) {
         const clock = getClockSnapshot?.() || null;
+        const daw = getDAW() || {};
         const timelineZeroAudioTime = Number(clock?.timelineZeroAudioTime);
-        if (!Number.isFinite(timelineZeroAudioTime)) return false;
+        const sharedTempoMap =
+          tempoMap || daw.tempoMap || clock?.tempoMap || null;
+        const schedulerState = scheduler.getState?.() || {};
+        const sameOrigin =
+          Number.isFinite(timelineZeroAudioTime) &&
+          Number.isFinite(Number(schedulerState.startTime)) &&
+          Math.abs(
+            Number(schedulerState.startTime) - timelineZeroAudioTime
+          ) <= 1e-7;
 
-        const daw = getDAW();
-        const started = scheduler.start({
+        if (
+          schedulerState.running &&
+          sameOrigin &&
+          typeof scheduler.updateTiming === 'function'
+        ) {
+          const updated = scheduler.updateTiming({
+            bpm,
+            timeSignature,
+            tempoMap: sharedTempoMap,
+            soundType
+          });
+          if (updated) {
+            fallbackRunning = false;
+            return true;
+          }
+        }
+
+        if (schedulerState.running) scheduler.stop?.();
+        const startOptions = {
           bpm,
           timeSignature,
-          startTime: timelineZeroAudioTime,
+          startTime: Number.isFinite(timelineZeroAudioTime)
+            ? timelineZeroAudioTime
+            : null,
           playheadPosition: daw?.playhead,
           transportStartTime: clock?.transportStartAudioTime,
           soundType
-        });
+        };
+        if (sharedTempoMap) startOptions.tempoMap = sharedTempoMap;
+        const started = scheduler.start(startOptions);
         if (!started) return false;
 
         fallbackRunning = false;

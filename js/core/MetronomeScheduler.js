@@ -17,6 +17,13 @@
  * The active transport runtime consumes this scheduler through
  * `TransportSchedulingService`.
  */
+const DefaultTempoMapService =
+  typeof module !== 'undefined' && module.exports
+    ? require('./TempoMap.js')
+    : typeof globalThis !== 'undefined'
+      ? globalThis.TempoMap
+      : null;
+
 class MetronomeScheduler {
   constructor({
     audioContextService,
@@ -26,7 +33,8 @@ class MetronomeScheduler {
     getLoop = () => null,
     lookahead = 25,          // ms between scheduler ticks
     scheduleAheadTime = 0.1, // seconds of beats to reserve ahead
-    timer = null             // injectable setTimeout for tests
+    timer = null,            // injectable setTimeout for tests
+    tempoMapService = DefaultTempoMapService
   } = {}) {
     if (!audioContextService) {
       throw new TypeError('MetronomeScheduler requires audioContextService');
@@ -45,6 +53,7 @@ class MetronomeScheduler {
     this.getLoop = typeof getLoop === 'function' ? getLoop : () => null;
     this.lookahead = lookahead;
     this.scheduleAheadTime = scheduleAheadTime;
+    this.tempoMapService = tempoMapService;
 
     // Wrap setTimeout in an arrow function so it's always called with a
     // safe context (avoids "Illegal invocation" when `this._timer(...)` is
@@ -64,6 +73,9 @@ class MetronomeScheduler {
     this._soundType = 'classic';
     this._loopConfig = null;
     this._nextLoopBoundaryTime = null;
+    this._loopCycleAudioOffset = null;
+    this._tempoMap = null;
+    this._nextBeatEvent = null;
     // Affine mapping from integer beat index to AudioContext time.  The
     // anchor is reset when a loop/future transport remaps the timeline; beat
     // advancement then derives from that mapping instead of accumulating
@@ -76,6 +88,7 @@ class MetronomeScheduler {
     this._scheduleNext = this._scheduleNext.bind(this);
     this._scheduleBeat = this._scheduleBeat.bind(this);
     this._advanceBeat = this._advanceBeat.bind(this);
+    this.updateTiming = this.updateTiming.bind(this);
     this.getState = this.getState.bind(this);
   }
 
@@ -93,10 +106,11 @@ class MetronomeScheduler {
   * @param {object} opts
   * @param {number} [opts.bpm=120]
    * @param {string} [opts.timeSignature='4/4']
-   * @param {number} [opts.startTime] — AudioContext time for beat 0
-   * @param {number} [opts.playheadPosition] — legacy hint; the shared
-   *   AudioContext origin is authoritative when `transportStartTime` exists
+ * @param {number} [opts.startTime] — AudioContext time for beat 0
+   * @param {number} [opts.playheadPosition] — timeline position used only when
+   *   the caller cannot provide a transport origin
    * @param {number} [opts.transportStartTime] — AudioContext time transport starts
+   * @param {object} [opts.tempoMap] — serialized or live TempoMap
   * @param {string} [opts.soundType='classic']
   * @returns {boolean} true when started
   */
@@ -104,106 +118,100 @@ class MetronomeScheduler {
    bpm = 120,
    timeSignature = '4/4',
    startTime = null,
+   playheadPosition = null,
    transportStartTime = null,
+   tempoMap = null,
    soundType = 'classic'
  } = {}) {
    const ctx = this.audioContextService.getContext();
    if (!ctx) return false;
 
-   this._bpm = bpm;
-   this._timeSignature = timeSignature;
-   this._soundType = soundType || 'classic';
-
-   const config = this.getMeterConfig(timeSignature, bpm);
+   const requestedConfig = this.getMeterConfig(timeSignature, bpm);
    if (
-     !config ||
-     config.isValid === false ||
-     !Number.isFinite(config.beatDuration) ||
-     config.beatDuration <= 0 ||
-     !Number.isFinite(config.beatsPerMeasure) ||
-     config.beatsPerMeasure <= 0
+     !requestedConfig ||
+     requestedConfig.isValid === false ||
+     !Number.isFinite(requestedConfig.beatDuration) ||
+     requestedConfig.beatDuration <= 0 ||
+     !Number.isFinite(requestedConfig.beatsPerMeasure) ||
+     requestedConfig.beatsPerMeasure <= 0
    ) {
      return false;
    }
-   this._beatDuration = config.beatDuration;
-   this._beatsPerMeasure = config.beatsPerMeasure || 4;
 
-    // ── Accurate start-time alignment ──────────────────────────────
-    // Use the caller-supplied startTime when available; otherwise fall
-    // back to the current AudioContext time (beat 0 = now).
-    this._startTime = Number.isFinite(startTime) ? startTime : ctx.currentTime;
+   const map = this._createTempoMap({
+     bpm,
+     timeSignature,
+     tempoMap
+   });
+   if (!map) return false;
 
-    // The transport publishes one affine mapping:
-    //
-    //   audioTime = timelineZeroAudioTime + timelineTime
-    //
-    // When a future transport start is available, derive the timeline
-    // position from that mapping instead of trusting `playheadPosition`.
-    // The latter is a UI/state snapshot and can be one subdivision stale;
-    // using it as a second clock creates a fixed phase error after the first
-    // click. Every click below must remain on this one canonical grid.
-    const nowCtx = ctx.currentTime;
-    const hasTransportOrigin = Number.isFinite(transportStartTime);
-    const hasFutureTransportStart =
-      hasTransportOrigin &&
-      transportStartTime > nowCtx + 1e-9;
-    const timelineAtTransportStart = hasTransportOrigin
-      ? Math.max(0, transportStartTime - this._startTime)
-      : null;
-    const playheadNow = hasFutureTransportStart
-      ? timelineAtTransportStart
-      : Math.max(0, nowCtx - this._startTime);
-    const beatRatio = playheadNow / this._beatDuration;
-    const nearestBeat = Math.round(beatRatio);
-    const normalizedRatio = Math.abs(beatRatio - nearestBeat) <= 1e-9
-      ? nearestBeat
-      : beatRatio;
-    this._currentBeat = Math.max(0, Math.ceil(normalizedRatio));
+   const initialConfig = map.getTimingAt?.(0) || requestedConfig;
+   this._tempoMap = map;
+   this._bpm = Number(initialConfig.tempo) || Number(bpm) || 120;
+   this._timeSignature =
+     initialConfig.timeSignature || timeSignature || '4/4';
+   this._soundType = soundType || 'classic';
+   this._beatDuration =
+     Number(initialConfig.beatDuration) || requestedConfig.beatDuration;
+   this._beatsPerMeasure =
+     Number(initialConfig.beatsPerMeasure) || requestedConfig.beatsPerMeasure;
 
-    // Convert the integer beat index back through the same timeline-zero
-    // origin. Do not shift the phase to `nowCtx` or to a stale playhead
-    // snapshot. If a start is already in progress, skip historical grid
-    // points by index while preserving the exact beat phase.
-    const minimumAudioTime = hasFutureTransportStart
-      ? transportStartTime
-      : nowCtx;
-    let nextGridTime =
-      this._startTime + this._currentBeat * this._beatDuration;
-    const minimumTolerance = hasFutureTransportStart ? 1e-9 : 1e-6;
-    while (nextGridTime < minimumAudioTime - minimumTolerance) {
-      this._currentBeat += 1;
-      nextGridTime =
-        this._startTime + this._currentBeat * this._beatDuration;
-    }
-    this._nextNoteTime = nextGridTime;
-    this._loopConfig = this._readLoopConfig();
-    this._nextLoopBoundaryTime = null;
-    if (this._loopConfig) {
-      if (playheadNow >= this._loopConfig.end) {
-        const loopedTime = this._loopConfig.start +
-          ((playheadNow - this._loopConfig.start) % this._loopConfig.length);
-        const loopedRatio = loopedTime / this._beatDuration;
-        const loopedNearest = Math.round(loopedRatio);
-        const loopedNormalized = Math.abs(loopedRatio - loopedNearest) <= 1e-9
-          ? loopedNearest
-          : loopedRatio;
-        this._currentBeat = Math.max(0, Math.ceil(loopedNormalized));
-        const loopedAudioOrigin = hasFutureTransportStart
-          ? transportStartTime
-          : nowCtx;
-        this._nextNoteTime = loopedAudioOrigin + Math.max(
-          0,
-          this._currentBeat * this._beatDuration - loopedTime
-        );
-        this._nextLoopBoundaryTime = loopedAudioOrigin +
-          Math.max(0, this._loopConfig.end - loopedTime);
-      } else {
-        this._nextLoopBoundaryTime = hasFutureTransportStart
-          ? transportStartTime +
-            Math.max(0, this._loopConfig.end - playheadNow)
-          : this._startTime + this._loopConfig.end;
-      }
-    }
+   const nowCtx = Number(ctx.currentTime);
+   const safeNow = Number.isFinite(nowCtx) ? nowCtx : 0;
+   const safePlayhead = Number(playheadPosition);
+   const hasPlayhead = Number.isFinite(safePlayhead);
+   const requestedStart = Number(startTime);
+   const requestedTransportStart = Number(transportStartTime);
+   const hasTransportStart = Number.isFinite(requestedTransportStart);
+   const hasExplicitStart = Number.isFinite(requestedStart);
+
+   // `startTime` is the AudioContext timestamp for timeline time zero. If a
+   // caller only has the current playhead, derive the same origin from the
+   // AudioContext clock instead of silently making beat zero equal "now".
+   this._startTime = hasExplicitStart
+     ? requestedStart
+     : hasTransportStart && hasPlayhead
+       ? requestedTransportStart - safePlayhead
+       : hasPlayhead
+         ? safeNow - safePlayhead
+         : safeNow;
+
+   const hasFutureTransportStart =
+     hasTransportStart &&
+     requestedTransportStart > safeNow + 1e-9;
+   const timelineAtStart = hasFutureTransportStart
+     ? Math.max(0, requestedTransportStart - this._startTime)
+     : Math.max(0, safeNow - this._startTime);
+
+   this._loopConfig = this._readLoopConfig();
+   this._nextLoopBoundaryTime = null;
+   this._loopCycleAudioOffset = null;
+   this._nextBeatEvent = null;
+
+   let timelineForNextBeat = timelineAtStart;
+   if (this._loopConfig && timelineForNextBeat >= this._loopConfig.end) {
+     timelineForNextBeat =
+       this._loopConfig.start +
+       ((timelineForNextBeat - this._loopConfig.start) %
+         this._loopConfig.length);
+     const cycleAudioTime = hasFutureTransportStart
+       ? requestedTransportStart
+       : safeNow;
+     this._loopCycleAudioOffset =
+       cycleAudioTime - this._loopConfig.start;
+     this._nextLoopBoundaryTime =
+       cycleAudioTime +
+       Math.max(0, this._loopConfig.end - timelineForNextBeat);
+   } else if (this._loopConfig) {
+     this._loopCycleAudioOffset = this._startTime;
+     this._nextLoopBoundaryTime =
+       this._startTime + this._loopConfig.end;
+   }
+
+   this._nextBeatEvent = this._getNextBeatEvent(timelineForNextBeat);
+   if (!this._nextBeatEvent) return false;
+   this._currentBeat = this._nextBeatEvent.beatIndex;
+   this._nextNoteTime = this._audioTimeForEvent(this._nextBeatEvent);
     this._noteTimeAnchor = {
       beat: this._currentBeat,
       audioTime: this._nextNoteTime
@@ -215,6 +223,63 @@ class MetronomeScheduler {
 
     this._scheduleNext();
     return true;
+  }
+
+  _createTempoMap({ bpm, timeSignature, tempoMap }) {
+    if (tempoMap?.getBeatAtOrAfter && tempoMap?.nextBeatAfter) {
+      return tempoMap;
+    }
+    if (typeof this.tempoMapService?.create !== 'function') return null;
+    return this.tempoMapService.create({
+      tempo: bpm,
+      timeSignature,
+      tempoMap
+    });
+  }
+
+  _getNextBeatEvent(timelineTime, options = {}) {
+    if (this._tempoMap?.getBeatAtOrAfter) {
+      return this._tempoMap.getBeatAtOrAfter(
+        Math.max(0, Number(timelineTime) || 0),
+        options
+      );
+    }
+
+    const ratio =
+      Math.max(0, Number(timelineTime) || 0) / this._beatDuration;
+    const beatIndex =
+      options.includeCurrent === false
+        ? Math.floor(ratio) + 1
+        : Math.ceil(ratio - 1e-9);
+    const safeBeat = Math.max(0, beatIndex);
+    return {
+      time: safeBeat * this._beatDuration,
+      quarter: safeBeat,
+      beatIndex: safeBeat,
+      beatInMeasure: safeBeat % this._beatsPerMeasure,
+      bar: Math.floor(safeBeat / this._beatsPerMeasure) + 1,
+      isBarStart: safeBeat % this._beatsPerMeasure === 0,
+      isAccent: this.isStrongBeat(
+        safeBeat % this._beatsPerMeasure,
+        this._timeSignature
+      ),
+      bpm: this._bpm,
+      tempo: this._bpm,
+      timeSignature: this._timeSignature
+    };
+  }
+
+  _audioTimeForEvent(event) {
+    if (
+      this._loopConfig &&
+      Number.isFinite(this._loopCycleAudioOffset) &&
+      event &&
+      event.time >= this._loopConfig.start - 1e-9 &&
+      event.time < this._loopConfig.end + 1e-9
+    ) {
+      return this._loopCycleAudioOffset + event.time;
+    }
+    return this._startTime + Number(event?.time || 0);
   }
 
   /**
@@ -233,6 +298,84 @@ class MetronomeScheduler {
     if (this.audioContextService && typeof this.audioContextService.stopAll === 'function') {
       this.audioContextService.stopAll();
     }
+    this._nextBeatEvent = null;
+    this._tempoMap = null;
+  }
+
+  /**
+   * Replace the shared timing map while preserving the existing transport
+   * origin. Already-reserved click nodes are cancelled; the next click is
+   * found from the current AudioContext position on the new map.
+   */
+  updateTiming({
+    bpm = this._bpm,
+    timeSignature = this._timeSignature,
+    tempoMap = null,
+    soundType = this._soundType
+  } = {}) {
+    if (!this.running) return false;
+    const context = this.audioContextService.getContext();
+    if (!context) return false;
+
+    const now = Number(context.currentTime);
+    if (!Number.isFinite(now)) return false;
+    const currentTimeline = this._timelineTimeAtAudio(now);
+    const nextMap = this._createTempoMap({
+      bpm,
+      timeSignature,
+      tempoMap
+    });
+    if (!nextMap) return false;
+
+    if (this._timerID !== null) {
+      this._clearTimer(this._timerID);
+      this._timerID = null;
+    }
+    this.audioContextService.stopAll?.();
+    if (this.metronomeEngine) this.metronomeEngine.stop();
+
+    this._tempoMap = nextMap;
+    this._bpm = Number(bpm) || this._bpm;
+    this._timeSignature = timeSignature || this._timeSignature;
+    this._soundType = soundType || this._soundType;
+    const config = nextMap.getTimingAt?.(currentTimeline) ||
+      this.getMeterConfig(this._timeSignature, this._bpm);
+    this._beatDuration = Number(config?.beatDuration) || this._beatDuration;
+    this._beatsPerMeasure =
+      Number(config?.beatsPerMeasure) || this._beatsPerMeasure;
+    this._nextBeatEvent = this._getNextBeatEvent(currentTimeline, {
+      includeCurrent: false
+    });
+    if (!this._nextBeatEvent) return false;
+    this._currentBeat = this._nextBeatEvent.beatIndex;
+    this._nextNoteTime = this._audioTimeForEvent(this._nextBeatEvent);
+    this._noteTimeAnchor = {
+      beat: this._currentBeat,
+      audioTime: this._nextNoteTime
+    };
+    if (this.metronomeEngine) this.metronomeEngine.start();
+    this.running = true;
+    this._scheduleNext();
+    return true;
+  }
+
+  _timelineTimeAtAudio(audioTime) {
+    const safeAudio = Number(audioTime);
+    if (!Number.isFinite(safeAudio)) return 0;
+    if (!this._loopConfig) {
+      return Math.max(0, safeAudio - this._startTime);
+    }
+
+    const cycleOffset = Number(this._loopCycleAudioOffset);
+    if (
+      Number.isFinite(cycleOffset) &&
+      safeAudio >= cycleOffset + this._loopConfig.start - 1e-9
+    ) {
+      return this._loopConfig.start +
+        ((safeAudio - (cycleOffset + this._loopConfig.start)) %
+          this._loopConfig.length);
+    }
+    return Math.max(0, safeAudio - this._startTime);
   }
 
  /**
@@ -261,7 +404,10 @@ class MetronomeScheduler {
     // Reserve every beat that is within the look-ahead window.
     while (this._nextNoteTime < nowCtx + this.scheduleAheadTime) {
       if (this._advanceLoopBoundaryIfNeeded()) continue;
-      this._scheduleBeat(this._currentBeat, this._nextNoteTime);
+      this._scheduleBeat(
+        this._nextBeatEvent || this._currentBeat,
+        this._nextNoteTime
+      );
       this._advanceBeat();
       this._advanceLoopBoundaryIfNeeded();
     }
@@ -278,18 +424,27 @@ class MetronomeScheduler {
   * @param {number} beatNumber
   * @param {number} time — AudioContext time (seconds)
   */
- _scheduleBeat(beatNumber, time) {
-      const beatInMeasure = beatNumber % this._beatsPerMeasure;
-      let isAccent = this.isStrongBeat(beatInMeasure, this._timeSignature);
+ _scheduleBeat(beatValue, time) {
+      const event = beatValue && typeof beatValue === 'object'
+        ? beatValue
+        : null;
+      const beatNumber = event?.beatIndex ??
+        (Number(beatValue) || 0);
+      const beatInMeasure = event?.beatInMeasure ??
+        beatNumber % this._beatsPerMeasure;
+      const eventSignature = event?.timeSignature || this._timeSignature;
+      let isAccent = event?.isAccent ??
+        this.isStrongBeat(beatInMeasure, eventSignature);
       if (this.metronomeEngine) {
-        const beatEvent = this.metronomeEngine.nextBeat(
-          beatNumber * this._beatDuration,
+        // Keep the legacy engine's observable state warm for integrations,
+        // but do not use its independent clock to decide accent or timing.
+        this.metronomeEngine.nextBeat(
+          event?.time ?? beatNumber * this._beatDuration,
           {
-            bpm: this._bpm,
-            timeSignature: this._timeSignature
+            bpm: event?.bpm || this._bpm,
+            timeSignature: eventSignature
           }
         );
-        if (beatEvent) isAccent = beatEvent.isAccent;
       }
       this.audioContextService.playClickAt(isAccent, this._soundType, time);
   }
@@ -298,6 +453,27 @@ class MetronomeScheduler {
    * Advance the beat clock to the next note time.
    */
   _advanceBeat() {
+    const expectedBeat = Number(this._nextBeatEvent?.beatIndex);
+    if (
+      this._tempoMap &&
+      this._nextBeatEvent &&
+      Number.isFinite(expectedBeat) &&
+      this._currentBeat === expectedBeat
+    ) {
+      const next = this._tempoMap.nextBeatAfter(this._nextBeatEvent);
+      if (next) {
+        this._nextBeatEvent = next;
+        this._currentBeat = next.beatIndex;
+        this._nextNoteTime = this._audioTimeForEvent(next);
+        return;
+      }
+    } else if (this._tempoMap && this._nextBeatEvent) {
+      // A few existing integrations inspect and adjust `_currentBeat`
+      // directly. Preserve their deterministic affine fallback rather than
+      // silently ignoring that explicit state change.
+      this._nextBeatEvent = null;
+    }
+
     this._currentBeat++;
     if (
       this._noteTimeAnchor &&
@@ -351,15 +527,17 @@ class MetronomeScheduler {
       return;
     }
 
-    const timelineNow = Math.max(0, nowCtx - this._startTime);
+    const timelineNow = this._timelineTimeAtAudio(nowCtx);
     if (timelineNow < next.end) {
+      this._loopCycleAudioOffset = this._startTime;
       this._nextLoopBoundaryTime = this._startTime + next.end;
       return;
     }
     const loopedTime = next.start +
       ((timelineNow - next.start) % next.length);
-    this._nextLoopBoundaryTime = nowCtx +
-      Math.max(0, next.end - loopedTime);
+    this._loopCycleAudioOffset = nowCtx - loopedTime;
+    this._nextLoopBoundaryTime =
+      nowCtx + Math.max(0, next.end - loopedTime);
   }
 
   _advanceLoopBoundaryIfNeeded() {
@@ -374,16 +552,15 @@ class MetronomeScheduler {
 
     let guard = 0;
     while (guard++ < 1000) {
-      const firstBeatRatio = loop.start / this._beatDuration;
-      const firstNearest = Math.round(firstBeatRatio);
-      const firstNormalized = Math.abs(firstBeatRatio - firstNearest) <= 1e-9
-        ? firstNearest
-        : firstBeatRatio;
-      const firstBeat = Math.max(0, Math.ceil(firstNormalized));
-      const firstBeatTime = firstBeat * this._beatDuration;
       const boundary = this._nextLoopBoundaryTime;
-      this._currentBeat = firstBeat;
-      this._nextNoteTime = boundary + Math.max(0, firstBeatTime - loop.start);
+      const firstBeat = this._getNextBeatEvent(loop.start);
+      if (!firstBeat || firstBeat.time >= loop.end - 1e-9) {
+        return true;
+      }
+      this._loopCycleAudioOffset = boundary - loop.start;
+      this._nextBeatEvent = firstBeat;
+      this._currentBeat = firstBeat.beatIndex;
+      this._nextNoteTime = this._audioTimeForEvent(firstBeat);
       this._noteTimeAnchor = {
         beat: this._currentBeat,
         audioTime: this._nextNoteTime

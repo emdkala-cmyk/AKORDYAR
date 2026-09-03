@@ -6,6 +6,13 @@
  * The service owns no project playback state; the transport decides when
  * layers, chords, and the score are allowed to start.
  */
+const DefaultCountInTempoMap =
+  typeof module !== 'undefined' && module.exports
+    ? require('./TempoMap.js')
+    : typeof globalThis !== 'undefined'
+      ? globalThis.TempoMap
+      : null;
+
 class CountInScheduler {
   constructor({
     audioContextService,
@@ -13,7 +20,8 @@ class CountInScheduler {
     isStrongBeat,
     timer = null,
     clearTimer = null,
-    leadTime = 0.08
+    leadTime = 0.08,
+    tempoMapService = DefaultCountInTempoMap
   } = {}) {
     if (!audioContextService || typeof audioContextService.getContext !== 'function') {
       throw new TypeError('CountInScheduler requires audioContextService');
@@ -31,6 +39,7 @@ class CountInScheduler {
     this._timer = timer || ((fn, ms) => setTimeout(fn, ms));
     this._clearTimer = clearTimer || (id => clearTimeout(id));
     this._leadTime = Math.max(0, Number(leadTime) || 0);
+    this.tempoMapService = tempoMapService;
 
     this.running = false;
     this._timerID = null;
@@ -43,6 +52,7 @@ class CountInScheduler {
     this._bpm = 120;
     this._timeSignature = '4/4';
     this._soundType = 'classic';
+    this._tempoMap = null;
     this._onComplete = null;
 
     this.start = this.start.bind(this);
@@ -54,6 +64,8 @@ class CountInScheduler {
     bars = 0,
     bpm = 120,
     timeSignature = '4/4',
+    tempoMap = null,
+    timelinePosition = 0,
     soundType = 'classic',
     onComplete = null
   } = {}) {
@@ -77,19 +89,34 @@ class CountInScheduler {
       return null;
     }
 
-    const totalBeats = countInBars * config.beatsPerMeasure;
+    const map =
+      tempoMap?.getTimingAt
+        ? tempoMap
+        : typeof this.tempoMapService?.create === 'function'
+          ? this.tempoMapService.create({
+              bpm,
+              timeSignature,
+              tempoMap
+            })
+          : null;
+    const mappedConfig = map?.getTimingAt?.(
+      Number(timelinePosition) || 0
+    );
+    const effectiveConfig = mappedConfig || config;
+    const totalBeats = countInBars * effectiveConfig.beatsPerMeasure;
     const now = Number(context.currentTime);
     const startTime = now + this._leadTime;
-    const endTime = startTime + totalBeats * config.beatDuration;
+    const endTime =
+      startTime + totalBeats * effectiveConfig.beatDuration;
     let scheduledClicks = 0;
 
     for (let beat = 0; beat < totalBeats; beat += 1) {
-      const beatInMeasure = beat % config.beatsPerMeasure;
+      const beatInMeasure = beat % effectiveConfig.beatsPerMeasure;
       const accent = this.isStrongBeat(beatInMeasure, timeSignature);
       const scheduled = this.audioContextService.playClickAt(
         accent,
         soundType || 'classic',
-        startTime + beat * config.beatDuration
+        startTime + beat * effectiveConfig.beatDuration
       );
       if (scheduled) scheduledClicks += 1;
     }
@@ -107,10 +134,11 @@ class CountInScheduler {
     this._endTime = endTime;
     this._bars = countInBars;
     this._totalBeats = totalBeats;
-    this._beatDuration = config.beatDuration;
-    this._beatsPerMeasure = config.beatsPerMeasure;
-    this._bpm = Number(bpm) || 120;
-    this._timeSignature = timeSignature;
+    this._beatDuration = effectiveConfig.beatDuration;
+    this._beatsPerMeasure = effectiveConfig.beatsPerMeasure;
+    this._bpm = Number(effectiveConfig.tempo) || Number(bpm) || 120;
+    this._timeSignature = effectiveConfig.timeSignature || timeSignature;
+    this._tempoMap = map;
     this._soundType = soundType || 'classic';
     this._onComplete = typeof onComplete === 'function' ? onComplete : null;
 

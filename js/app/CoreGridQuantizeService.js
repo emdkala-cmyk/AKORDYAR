@@ -15,6 +15,7 @@
     getDAW = () => globalScope.RuntimeStateAdapter?.getDAW?.() || null,
     timelineGrid = globalScope.TimelineGrid,
     meter = globalScope.Meter,
+    tempoMap = globalScope.TempoMap,
     quantizer = globalScope.EditorChordQuantizeService,
     saveState = () => {},
     renderClips = () => {},
@@ -50,10 +51,28 @@
       return getTransportState().snapEnabled === true;
     }
 
+    function getSharedTempoMap(timing) {
+      const raw = timing?.tempoMap || getDAW()?.tempoMap;
+      if (!raw || typeof tempoMap?.create !== 'function') return null;
+      if (raw.getGridPoints && raw.snapTimeToGrid) return raw;
+      return tempoMap.create({
+        tempo: timing?.tempo,
+        timeSignature: timing?.timeSignature,
+        tempoMap: raw
+      });
+    }
+
     function snapTime(time) {
       const state = getTransportState();
       if (!isSnapEnabled()) return time;
       const timing = getSongState()?.getTimingContext?.() || {};
+      const sharedMap = getSharedTempoMap(timing);
+      if (sharedMap?.snapTimeToGrid) {
+        return sharedMap.snapTimeToGrid(
+          time,
+          state.snapPreset || '1/4'
+        );
+      }
       const config = getTimeSignatureGridConfig(
         timing.timeSignature,
         timing.tempo
