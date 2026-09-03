@@ -32,6 +32,14 @@
     const normalized = repaired && typeof repaired === 'object' ? repaired : song;
 
     ensureSongParsed?.(normalized);
+    if (globalScope.ProjectPerformanceSettingsService?.normalize) {
+      normalized.performanceSettings =
+        globalScope.ProjectPerformanceSettingsService.normalize(
+          normalized.performanceSettings ||
+          normalized.projectPerformanceSettings ||
+          normalized.performance
+        );
+    }
     if (normalized.midiScore && globalScope.MidiScoreModel?.normalize) {
       try {
         normalized.midiScore = globalScope.MidiScoreModel.serialize(
@@ -157,12 +165,17 @@
       migratedSections: [],
       loopState: null,
       arrangerMarkers: { enabled: false, start: 0, end: 0 },
-      tempoMap: null
+      tempoMap: null,
+      performanceSettings: null
     };
 
     // Tempo changes belong to the loaded song. Clear the previous song's
     // runtime map before restoring the next song's map.
     daw.tempoMap = song?.tempoMap ? clone(song.tempoMap) : null;
+    daw.performanceSettings =
+      globalScope.ProjectPerformanceSettingsService?.normalize?.(
+        song?.performanceSettings
+      ) || song?.performanceSettings || null;
 
     if (song?._dawTracks) {
       daw.tracks = cloneTracks ? clone(song._dawTracks) : song._dawTracks;
@@ -202,7 +215,8 @@
       migratedSections,
       loopState,
       arrangerMarkers,
-      tempoMap: daw.tempoMap
+      tempoMap: daw.tempoMap,
+      performanceSettings: daw.performanceSettings
     };
   }
 

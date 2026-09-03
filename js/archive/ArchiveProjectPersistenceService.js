@@ -59,11 +59,27 @@
       saveCurrentVersion,
       getAllSongs,
       setAllSongs,
+      performanceSettingsService = globalScope.ProjectPerformanceSettingsService,
       getIsElectron = () => false,
       generateId = () =>
         `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`,
       global = globalScope
     } = context;
+
+    function normalizePerformanceSettings(song, daw = getDAW?.()) {
+      if (!song || typeof song !== 'object') return null;
+      const normalized =
+        performanceSettingsService?.normalize?.(
+          song.performanceSettings ||
+          song.projectPerformanceSettings ||
+          song.performance
+        ) || song.performanceSettings || null;
+      if (normalized) {
+        song.performanceSettings = normalized;
+        if (daw) daw.performanceSettings = clone(normalized);
+      }
+      return normalized;
+    }
 
     async function load(data, options = {}) {
       const daw = getDAW();
@@ -84,6 +100,7 @@
       setSong(clone(data));
       const song = getSong();
       if (song && !song.id) song.id = String(generateId());
+      normalizePerformanceSettings(song, daw);
       if (!song.styles) song.styles = {};
       const defaults = {
         tSize: 38,
@@ -276,6 +293,7 @@
       const song = getSongOrNull();
       if (!song) return;
       if (!song.id) song.id = String(generateId());
+      normalizePerformanceSettings(song, daw);
       syncMetadata(song);
       song.artistKey = artistKey(song.artist);
       song._dawTracks = daw.tracks.map(track => ({

@@ -67,6 +67,9 @@
     ensureAudioCtx = () => {},
     getAudioContextService = () =>
       globalScope.audioContextServiceBridge || null,
+    getProjectPerformanceSettings = () => null,
+    setProjectPerformanceSettings = () => null,
+    getAudioRoutingState = () => null,
     toggleMetronome = () => {},
     stopMetronome = () => {},
     startMetronome = () => {},
@@ -101,6 +104,150 @@
       try {
         storage?.setItem(settingsKey, JSON.stringify(settings));
       } catch (_) {}
+    }
+
+    function readProjectSettings() {
+      return getProjectPerformanceSettings?.() ||
+        globalScope.ProjectPerformanceSettingsService?.defaultSettings?.() ||
+        {};
+    }
+
+    function updateProjectRoutingStatus() {
+      const status = getElement('projectAudioRoutingStatus');
+      if (!status) return;
+      const routingState = getAudioRoutingState?.() || {};
+      const layout = routingState.layout;
+      if (!layout) {
+        status.textContent = 'خروجی پروژه هنوز فعال نشده است.';
+        return;
+      }
+      const modeLabels = {
+        stereo: 'استریو',
+        'multi-channel': 'چندکاناله',
+        'mono-split': 'مونو-اسپلیت',
+        muted: 'بی‌صدا'
+      };
+      const effective = modeLabels[layout.mode] || layout.mode;
+      const suffix = layout.degraded ? ' — حالت اضطراری/کاهش‌یافته' : '';
+      status.textContent = `حالت مؤثر خروجی: ${effective}${suffix}`;
+    }
+
+    function syncProjectSettingsControls() {
+      const project = readProjectSettings();
+      const audio = project.audioRouting || {};
+      const group = project.group || {};
+      const values = {
+        setProjectAudioMode: audio.mode || 'stereo',
+        setProjectAudioFallback: audio.fallbackMode || 'mono-split',
+        setProjectClickIsolation: Boolean(audio.clickIsolation),
+        setProjectClickEnabled: group.clickEnabled !== false,
+        setProjectCueEnabled: group.cueEnabled !== false,
+        setProjectGroupMode: group.mode || 'rehearsal',
+        setProjectControllerRole: group.controllerRole || 'leader',
+        setProjectCountInBars: String(group.countInBars || 0)
+      };
+      Object.entries(values).forEach(([id, value]) => {
+        const element = getElement(id);
+        if (!element) return;
+        if (element.type === 'checkbox') element.checked = Boolean(value);
+        else element.value = value;
+      });
+      updateProjectRoutingStatus();
+    }
+
+    function updateProjectSetting(section, key, value) {
+      const project = readProjectSettings();
+      const next = {
+        ...project,
+        audioRouting: { ...(project.audioRouting || {}) },
+        group: { ...(project.group || {}) }
+      };
+      next[section][key] = value;
+      return setProjectPerformanceSettings(next, {
+        save: true,
+        render: false
+      });
+    }
+
+    function applyProjectAudioMode(value) {
+      const result = updateProjectSetting(
+        'audioRouting',
+        'mode',
+        value || 'stereo'
+      );
+      updateProjectRoutingStatus();
+      return result;
+    }
+
+    function applyProjectAudioFallback(value) {
+      const result = updateProjectSetting(
+        'audioRouting',
+        'fallbackMode',
+        value || 'mono-split'
+      );
+      updateProjectRoutingStatus();
+      return result;
+    }
+
+    function applyProjectClickIsolation(value) {
+      const result = updateProjectSetting(
+        'audioRouting',
+        'clickIsolation',
+        Boolean(value)
+      );
+      updateProjectRoutingStatus();
+      return result;
+    }
+
+    function applyProjectGroupMode(value) {
+      return updateProjectSetting('group', 'mode', value || 'rehearsal');
+    }
+
+    function applyProjectControllerRole(value) {
+      return updateProjectSetting(
+        'group',
+        'controllerRole',
+        value || 'leader'
+      );
+    }
+
+    function applyProjectClickEnabled(value) {
+      return updateProjectSetting('group', 'clickEnabled', Boolean(value));
+    }
+
+    function applyProjectCueEnabled(value) {
+      return updateProjectSetting('group', 'cueEnabled', Boolean(value));
+    }
+
+    function applyProjectCountInBars(value) {
+      const bars = Math.max(0, Math.min(16, Math.round(Number(value) || 0)));
+      return updateProjectSetting('group', 'countInBars', bars);
+    }
+
+    function saveProjectPreset(kind) {
+      const service = globalScope.ProjectPerformanceSettingsService;
+      if (
+        !service?.createPreset ||
+        !service?.upsertPreset ||
+        typeof setProjectPerformanceSettings !== 'function'
+      ) {
+        return null;
+      }
+      const project = readProjectSettings();
+      const normalizedKind = kind === 'group' ? 'group' : 'audio';
+      const existing = project.presets?.[normalizedKind] || [];
+      const label = normalizedKind === 'group' ? 'گروه' : 'خروجی';
+      const preset = service.createPreset(
+        normalizedKind,
+        normalizedKind === 'group'
+          ? project.group
+          : project.audioRouting,
+        { name: `${label} ${existing.length + 1}` }
+      );
+      const next = service.upsertPreset(project, preset);
+      setProjectPerformanceSettings(next, { save: true, render: false });
+      toast(`پریست ${label} ذخیره شد`);
+      return preset;
     }
 
     function applyThemeVars(vars) {
@@ -231,6 +378,7 @@
       }
       const sizeLock = getElement('setSizeLock');
       if (sizeLock) sizeLock.checked = !!getSizeLocked();
+      syncProjectSettingsControls();
       const langSelect = getElement('setLanguage');
       if (langSelect) langSelect.value = globalScope.currentLang || 'fa';
       const modal = getElement('settingsModal');
@@ -280,6 +428,16 @@
       applyOutputDevice,
       applyMetroSound,
       previewMetronomeSound,
+      syncProjectSettingsControls,
+      applyProjectAudioMode,
+      applyProjectAudioFallback,
+      applyProjectClickIsolation,
+      applyProjectGroupMode,
+      applyProjectControllerRole,
+      applyProjectClickEnabled,
+      applyProjectCueEnabled,
+      applyProjectCountInBars,
+      saveProjectPreset,
       applySettingsToggles,
       openSettings,
       closeSettings,

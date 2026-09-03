@@ -1177,9 +1177,16 @@ function archUpdateActiveFilters() {
       }
       archiveEditorClearProjectFilePath();
       archivePauseTransport();
-archiveStopAllVoices();
+    archiveStopAllVoices();
 
-setArchiveSong(archiveEditorCreateBlankSong());
+const newSong = archiveEditorCreateBlankSong();
+if (window.ProjectPerformanceSettingsService?.normalize) {
+  newSong.performanceSettings =
+    window.ProjectPerformanceSettingsService.normalize(
+      newSong.performanceSettings
+    );
+}
+setArchiveSong(newSong);
 
 archiveResetHistory();
 resetPerformanceSerialization();
@@ -1194,6 +1201,9 @@ daw.loopEnabled = false;
 daw.loopA = 0;
 daw.loopB = 10;
 daw.tempoMap = null;
+daw.performanceSettings = newSong.performanceSettings || null;
+daw.audioRouting = null;
+daw.panicMuted = false;
       archiveResetRecordingState();
 
 // Reset tracks to defaults

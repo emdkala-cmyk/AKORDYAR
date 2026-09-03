@@ -62,6 +62,7 @@
       saveState = () => {},
       saveSong = () => {},
       renderAll = () => {},
+      performanceSettingsService = globalScope.ProjectPerformanceSettingsService,
       toast = () => {},
       logError = (...args) => console.error(...args),
       getGlobal = () => globalScope
@@ -91,6 +92,21 @@
       throw new Error('ArchiveProjectAudioRecoveryService is not loaded. Check script order.');
     }
 
+    function normalizePerformanceSettings(song, daw = getDAW?.()) {
+      if (!song || typeof song !== 'object') return null;
+      const normalized =
+        performanceSettingsService?.normalize?.(
+          song.performanceSettings ||
+          song.projectPerformanceSettings ||
+          song.performance
+        ) || song.performanceSettings || null;
+      if (normalized) {
+        song.performanceSettings = normalized;
+        if (daw) daw.performanceSettings = clone(normalized);
+      }
+      return normalized;
+    }
+
     async function importSingle(file) {
       try {
         if (file?._projectFilePath) setProjectFilePath(file._projectFilePath);
@@ -115,6 +131,7 @@
         setSong(data);
         const song = getSong();
         if (song && !song.id) song.id = String(generateId());
+        normalizePerformanceSettings(song, daw);
         if (!song.styles) song.styles = {};
         Object.keys(DEFAULT_STYLES).forEach(key => {
           if (song.styles[key] === undefined) song.styles[key] = DEFAULT_STYLES[key];

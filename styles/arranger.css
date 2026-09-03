@@ -127,6 +127,16 @@
   display: flex; align-items: center; justify-content: center; transition: 0.15s;
 }
 .arr-perf-panel .arr-perf-panel-header .perf-controls button:hover { background: #2D3748; border-color: var(--accent-teal); }
+.arr-perf-panel .arr-perf-panel-header .perf-controls .perf-panic {
+  border-color: #f59e0b;
+  color: #fbbf24;
+}
+.arr-perf-panel .arr-perf-panel-header .perf-controls .perf-panic:hover,
+.arr-perf-panel .arr-perf-panel-header .perf-controls .perf-panic.active {
+  background: #b91c1c;
+  border-color: #ef4444;
+  color: #fff;
+}
 .arr-perf-panel .arr-perf-panel-header .perf-controls .perf-stop { border-color: var(--accent-neon-pink); color: var(--accent-neon-pink); }
 
 .arr-perf-panel .arr-perf-song-info { text-align: center; padding: 12px 14px 8px; }

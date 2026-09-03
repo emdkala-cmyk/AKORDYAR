@@ -88,10 +88,21 @@ const {
   applyOutputDevice,
   applyMetroSound,
   previewMetronomeSound,
+  syncProjectSettingsControls,
+  applyProjectAudioMode,
+  applyProjectAudioFallback,
+  applyProjectClickIsolation,
+  applyProjectGroupMode,
+  applyProjectControllerRole,
+  applyProjectClickEnabled,
+  applyProjectCueEnabled,
+  applyProjectCountInBars,
+  saveProjectPreset,
   applySettingsToggles,
   openSettings,
   closeSettings,
   resetSettings,
+  togglePanicAudio: editorTogglePanicAudio,
   setHighlightEffect,
   initHighlightEffect,
   getPerformanceState,
@@ -1486,7 +1497,8 @@ function edBlankSong() {
 
       return { id: Date.now(), artist:'', title:'', key:'C', keyMode:'maj', originalKey:'C', originalKeyMode:'maj', baseChordNames:[], transpose:0, lyrics:'', chords:[], syncTimes:[], syncWords:[], trackId:null, trackPath:null, seqPoints:[],
         timeSignature:'4/4', tempo:120, genre:'', lineColors:[], chordVersions:[], activeChordVersion:0,
-        styles:{ tSize:38,tColor:'#0fa966',tFont:'Vazirmatn',tBold:true,align:'center', cSize:38,cColor:'#e6aa28',cFont:'JetBrains Mono' } };
+        styles:{ tSize:38,tColor:'#0fa966',tFont:'Vazirmatn',tBold:true,align:'center', cSize:38,cColor:'#e6aa28',cFont:'JetBrains Mono' },
+        performanceSettings: window.ProjectPerformanceSettingsService?.defaultSettings?.() || null };
     }
 
     let edSongInitializationService = null;
@@ -2835,6 +2847,7 @@ if ($('edDoBoth')) {
       setZoom: (_, element) => setZoom(Number(element.value), null),
       perfPause: () => perfTogglePauseMode(),
       perfStop: () => perfStop(),
+      perfPanic: () => editorTogglePanicAudio(),
       perfNext: () => perfNextSong(),
       perfRestart: () => perfRestartSong(),
       perfPlay: () => perfTogglePlay(),
@@ -2850,6 +2863,24 @@ if ($('edDoBoth')) {
       applyOutputDevice: (_, element) => applyOutputDevice(element.value),
       applyMetroSound: (_, element) => applyMetroSound(element.value),
       previewMetroSound: () => previewMetronomeSound(),
+      applyProjectAudioMode: (_, element) =>
+        applyProjectAudioMode(element.value),
+      applyProjectAudioFallback: (_, element) =>
+        applyProjectAudioFallback(element.value),
+      applyProjectClickIsolation: (_, element) =>
+        applyProjectClickIsolation(element.checked),
+      applyProjectGroupMode: (_, element) =>
+        applyProjectGroupMode(element.value),
+      applyProjectControllerRole: (_, element) =>
+        applyProjectControllerRole(element.value),
+      applyProjectClickEnabled: (_, element) =>
+        applyProjectClickEnabled(element.checked),
+      applyProjectCueEnabled: (_, element) =>
+        applyProjectCueEnabled(element.checked),
+      applyProjectCountInBars: (_, element) =>
+        applyProjectCountInBars(element.value),
+      saveProjectAudioPreset: () => saveProjectPreset('audio'),
+      saveProjectGroupPreset: () => saveProjectPreset('group'),
       applyLanguage: (_, element) => {
         window.setCurrentLang?.(element.value);
         window.applyI18n?.();

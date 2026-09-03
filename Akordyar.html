@@ -578,6 +578,45 @@
               <button class="settings-btn" type="button" data-action="previewMetroSound" title="پخش آزمایشی صدای مترونوم">▶ تست</button>
             </div>
           </div>
+          <div class="settings-group project-performance-settings">
+            <div class="settings-group-title">🎚 اجرای گروه در پروژه</div>
+            <label class="settings-label">حالت مسیردهی خروجی</label>
+            <select id="setProjectAudioMode" data-action="applyProjectAudioMode">
+              <option value="stereo">استریو — همه در خروجی اصلی</option>
+              <option value="multi-channel">چندکاناله — موزیک ۱/۲، کلیک ۳/۴</option>
+              <option value="mono-split">مونو-اسپلیت — موزیک چپ، کلیک راست</option>
+              <option value="auto">خودکار — انتخاب بهترین حالت</option>
+            </select>
+            <label class="settings-label">حالت جایگزین در نبود خروجی چندکاناله</label>
+            <select id="setProjectAudioFallback" data-action="applyProjectAudioFallback">
+              <option value="mono-split">مونو-اسپلیت</option>
+              <option value="stereo">استریو</option>
+              <option value="muted">بی‌صدا</option>
+            </select>
+            <label class="settings-row"><input type="checkbox" id="setProjectClickIsolation" data-action="applyProjectClickIsolation"> جداسازی کلیک برای درامر</label>
+            <label class="settings-row"><input type="checkbox" id="setProjectClickEnabled" data-action="applyProjectClickEnabled"> ارسال مترونوم</label>
+            <label class="settings-row"><input type="checkbox" id="setProjectCueEnabled" data-action="applyProjectCueEnabled"> ارسال Cue / راهنما</label>
+            <label class="settings-label">حالت گروه‌نوازی</label>
+            <select id="setProjectGroupMode" data-action="applyProjectGroupMode">
+              <option value="rehearsal">تمرین</option>
+              <option value="live">اجرای زنده</option>
+              <option value="recording">ضبط</option>
+            </select>
+            <label class="settings-label">کنترل‌کننده اصلی</label>
+            <select id="setProjectControllerRole" data-action="applyProjectControllerRole">
+              <option value="leader">سرپرست گروه</option>
+              <option value="drummer">درامر</option>
+              <option value="keyboardist">کیبوردیست</option>
+              <option value="sound-engineer">صدابردار</option>
+            </select>
+            <label class="settings-label">تعداد میزان Count-in</label>
+            <input id="setProjectCountInBars" type="number" min="0" max="16" step="1" value="0" data-action="applyProjectCountInBars">
+            <div id="projectAudioRoutingStatus" class="settings-status" role="status"></div>
+            <div class="settings-preset-actions">
+              <button class="settings-btn" type="button" data-action="saveProjectAudioPreset">💾 ذخیره پریست خروجی</button>
+              <button class="settings-btn" type="button" data-action="saveProjectGroupPreset">💾 ذخیره پریست گروه</button>
+            </div>
+          </div>
           <div class="settings-group">
             <div class="settings-group-title">🎛 عمومی</div>
             <label class="settings-row"><input type="checkbox" id="setMetronome" data-action="applySettingsToggles"> مترونوم هنگام پخش</label>
@@ -1072,6 +1111,7 @@
     <div class="arr-perf-panel-header" id="arrPerfDragHandle">
       <span class="perf-title" id="perfArrangerName">🎤 حالت اجرا</span>
       <div class="perf-controls">
+        <button data-action="perfPanic" id="perfPanicBtn" class="perf-panic" title="قطع اضطراری همه خروجی‌ها" aria-pressed="false">⚠</button>
         <button data-action="perfPause" id="perfPauseModeBtn" title="توقف خودکار">⏸</button>
         <button data-action="perfStop" class="perf-stop" title="توقف">⏹</button>
       </div>
@@ -1129,6 +1169,7 @@
   <!-- Performance Architecture v2: shared core + renderers -->
     <script src="js/songDocumentModel.js"></script>
     <script src="js/core/PerformanceRuntimeState.js"></script>
+    <script src="js/core/ProjectPerformanceSettingsService.js"></script>
     <script src="js/core/DAWRuntimeState.js"></script>
     <script src="js/core/PerformanceRuntimeAdapter.js"></script>
     <script src="js/core/DAWRuntimeAdapter.js"></script>
@@ -1205,6 +1246,7 @@
 <script src="js/core/MusicTheory.js"></script>
 <script src="js/core/MetronomeEngine.js"></script>
 <script src="js/core/AudioContextService.js"></script>
+<script src="js/core/AudioOutputRoutingService.js"></script>
 <script src="js/core/AudioCompressionService.js"></script>
 <script src="js/core/TransportClockService.js"></script>
 <script src="js/core/CountInScheduler.js"></script>

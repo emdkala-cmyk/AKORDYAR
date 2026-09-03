@@ -98,6 +98,18 @@
       return audioContextService?.setContext?.(context) || null;
     }
 
+    function setDestination(destination = null) {
+      return audioContextService?.setDestination?.(destination) || null;
+    }
+
+    function panic() {
+      return audioContextService?.panic?.() || false;
+    }
+
+    function releasePanic() {
+      return audioContextService?.releasePanic?.() || false;
+    }
+
     function startMetronome({
       bpm = 120,
       timeSignature = '4/4',
@@ -250,6 +262,9 @@
       getMetronomeScheduler,
       getCountInScheduler,
       setContext,
+      setDestination,
+      panic,
+      releasePanic,
       startMetronome,
       stopMetronome,
       playClick,

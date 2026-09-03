@@ -149,6 +149,7 @@ function customPrompt(message, defaultValue = '') {
     const editorTransportState = globalScope.EditorTransportStateService.create();
     let transportSchedulingService = null;
     let audioContextServiceBridge = null;
+    let audioOutputRoutingRuntime = null;
     let countInSchedulerBridge = null;
     const coreGridQuantizeRuntime =
       globalScope.CoreGridQuantizeService?.create?.({
@@ -544,14 +545,56 @@ const requestRenderSyncLyrics = debounce(() => { renderSyncLyrics(); }, 120);
       clearTimeout(toast._tm); toast._tm = setTimeout(() => t.classList.remove('show'), 1700);
     }
 
+    function getProjectPerformanceSettings() {
+      const service = globalScope.ProjectPerformanceSettingsService;
+      const daw = coreGetRuntimeDAW();
+      const song = coreEditorRuntime.getSong?.();
+      const source = song?.performanceSettings || daw.performanceSettings || null;
+      const normalized = typeof service?.normalize === 'function'
+        ? service.normalize(source)
+        : source || {};
+      if (song) song.performanceSettings = normalized;
+      daw.performanceSettings = normalized;
+      return normalized;
+    }
+
     function ensureAudioCtx() {
       const daw = coreGetRuntimeDAW();
       if (!daw.audioCtx) {
         const Ctx = window.AudioContext || window.webkitAudioContext;
-        daw.audioCtx = new Ctx(); daw.masterGain = daw.audioCtx.createGain();
-        daw.masterGain.gain.value = 1; daw.masterGain.connect(daw.audioCtx.destination);
+        if (typeof Ctx !== 'function') return null;
+        daw.audioCtx = new Ctx();
+        daw.masterGain = daw.audioCtx.createGain();
+        daw.masterGain.gain.value = 1;
       }
-      if (daw.audioCtx.state === 'suspended') daw.audioCtx.resume().catch(() => {});
+
+      if (audioOutputRoutingRuntime) {
+        if (!daw.panicMuted) {
+          audioOutputRoutingRuntime.releasePanic?.();
+          audioContextServiceBridge?.releasePanic?.();
+        }
+        const routingState = audioOutputRoutingRuntime.attachContext(
+          daw.audioCtx,
+          {
+            masterInput: daw.masterGain,
+            settings: getProjectPerformanceSettings()
+          }
+        );
+        daw.audioRouting = routingState;
+        const clickDestination =
+          audioOutputRoutingRuntime.getBusDestination('click');
+        if (audioContextServiceBridge?.setDestination) {
+          audioContextServiceBridge.setDestination(clickDestination);
+        }
+      } else if (daw.masterGain && daw.audioCtx.destination) {
+        // Compatibility path for a partial/legacy load where the routing
+        // service was not present in the document.
+        try { daw.masterGain.connect(daw.audioCtx.destination); } catch (_) {}
+      }
+
+      if (daw.audioCtx.state === 'suspended') {
+        daw.audioCtx.resume().catch(() => {});
+      }
       if (audioContextServiceBridge?.setContext) {
         audioContextServiceBridge.setContext(daw.audioCtx);
       }
@@ -593,6 +636,11 @@ const requestRenderSyncLyrics = debounce(() => { renderSyncLyrics(); }, 120);
     transportSchedulingService = editorTransportRuntimeService.schedulingService;
     audioContextServiceBridge = editorTransportRuntimeService.audioContextService;
     countInSchedulerBridge = editorTransportRuntimeService.countInScheduler;
+    audioOutputRoutingRuntime =
+      globalScope.AudioOutputRoutingService?.create?.({
+        settingsService: globalScope.ProjectPerformanceSettingsService,
+        logger: console
+      }) || null;
 
     const playbackTimelineController =
       globalScope.PlaybackTimelineController?.create({
@@ -1098,6 +1146,80 @@ function applyState(stateStr) {
       coreGetRuntimeDAW().voices.clear();
     }
 
+    function syncPanicButton() {
+      const button = $('perfPanicBtn');
+      if (!button) return;
+      const active = Boolean(coreGetRuntimeDAW().panicMuted);
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-pressed', String(active));
+      button.textContent = active ? '🔊' : '⚠';
+      button.title = active
+        ? 'بازگردانی صدای خروجی'
+        : 'قطع اضطراری همه خروجی‌ها';
+    }
+
+    function panicAudio() {
+      const daw = coreGetRuntimeDAW();
+      ensureAudioCtx();
+      stopAllVoices();
+      try { stopMetronome?.(); } catch (_) {}
+      audioContextServiceBridge?.panic?.();
+      audioOutputRoutingRuntime?.panic?.();
+      daw.panicMuted = true;
+      syncPanicButton();
+      return true;
+    }
+
+    function releasePanicAudio() {
+      const daw = coreGetRuntimeDAW();
+      audioOutputRoutingRuntime?.releasePanic?.();
+      audioContextServiceBridge?.releasePanic?.();
+      daw.panicMuted = false;
+      syncPanicButton();
+      return true;
+    }
+
+    function togglePanicAudio() {
+      return coreGetRuntimeDAW().panicMuted
+        ? releasePanicAudio()
+        : panicAudio();
+    }
+
+    function setProjectPerformanceSettings(value, {
+      save = true,
+      render = false
+    } = {}) {
+      const service = globalScope.ProjectPerformanceSettingsService;
+      const normalized = typeof service?.normalize === 'function'
+        ? service.normalize(value)
+        : value || {};
+      const song = coreEditorRuntime.getSong?.();
+      const daw = coreGetRuntimeDAW();
+      if (song) song.performanceSettings = normalized;
+      daw.performanceSettings = normalized;
+
+      if (daw.audioCtx && audioOutputRoutingRuntime) {
+        daw.audioRouting = audioOutputRoutingRuntime.configure(normalized);
+        audioContextServiceBridge?.setDestination?.(
+          audioOutputRoutingRuntime.getBusDestination('click')
+        );
+      }
+      if (save) saveState();
+      if (render) renderAll();
+      return normalized;
+    }
+
+    function getAudioRoutingState() {
+      return audioOutputRoutingRuntime?.getState?.() || {
+        hasContext: false,
+        hasMasterInput: false,
+        panicMuted: Boolean(coreGetRuntimeDAW().panicMuted),
+        layout: null,
+        buses: { backing: false, click: false, cue: false },
+        outputDeviceId: 'default'
+      };
+    }
+
     function renderAll(options = {}) {
       renderTracks(); renderRuler(); renderClips(options); renderLoopRegion(); renderArrangerMarkers(); updatePlayheadUI(); updateHud();
       edRenderClMarkers();
@@ -1393,6 +1515,11 @@ function applyState(stateStr) {
         getTransportState: () => editorTransportState,
         ensureAudioCtx: (...args) => ensureAudioCtx(...args),
         getAudioContextService: () => audioContextServiceBridge,
+        getProjectPerformanceSettings: () =>
+          getProjectPerformanceSettings(),
+        setProjectPerformanceSettings: (...args) =>
+          setProjectPerformanceSettings(...args),
+        getAudioRoutingState: () => getAudioRoutingState(),
         toggleMetronome: (...args) => toggleMetronome(...args),
         stopMetronome: (...args) => stopMetronome(...args),
         startMetronome: (...args) => startMetronome(...args),
@@ -2113,6 +2240,12 @@ let syncTapKeyHandler = null;
       saveState,
       applyState,
       stopAllVoices,
+      panicAudio,
+      releasePanicAudio,
+      togglePanicAudio,
+      getProjectPerformanceSettings,
+      setProjectPerformanceSettings,
+      getAudioRoutingState,
       renderAll,
       resetRecordingState,
       resetHistory,

@@ -27,6 +27,10 @@
       playOriginAudio: null,
       // Serializable piecewise timing map shared by grid and metronome.
       tempoMap: null,
+      // Serializable project-level group-performance configuration.
+      performanceSettings: null,
+      audioRouting: null,
+      panicMuted: false,
       audioCtx: null,
       masterGain: null,
       voices: new Map(),

@@ -23,6 +23,8 @@ class AudioContextService {
 
     this._ctx = null;
     this._masterGain = null;
+    this._panicMuted = false;
+    this._normalGain = 1;
 
     // Track all active audio source nodes so we can stop them on demand
     // (e.g. when the metronome is stopped mid-playback).
@@ -66,13 +68,40 @@ class AudioContextService {
   }
 
   /**
+   * Route metronome output to a logical bus without creating a second
+   * AudioContext. Passing null restores the native context destination.
+   *
+   * @param {AudioNode|null} destination
+   * @returns {AudioNode|null}
+   */
+  setDestination(destination = null) {
+    this._externalDestination = destination || null;
+    if (this._masterGain) {
+      try {
+        if (typeof this._masterGain.disconnect === 'function') {
+          this._masterGain.disconnect();
+        }
+      } catch (_) { /* noop */ }
+      try {
+        const nextDestination = this._destination();
+        if (nextDestination && typeof this._masterGain.connect === 'function') {
+          this._masterGain.connect(nextDestination);
+        }
+      } catch (err) {
+        console.warn('[AudioContextService] Failed to change destination:', err);
+      }
+    }
+    return this._externalDestination;
+  }
+
+  /**
    * Create the optional master gain after a context is available.
    */
   _ensureMasterGain() {
     if (!this._ctx || this._masterGain) return;
     try {
       this._masterGain = this._ctx.createGain();
-      this._masterGain.gain.value = 1;
+      this._masterGain.gain.value = this._panicMuted ? 0 : this._normalGain;
       const dest = this._externalDestination || this._ctx.destination;
       this._masterGain.connect(dest);
     } catch (err) {
@@ -149,7 +178,7 @@ class AudioContextService {
    */
   playClickAt(isAccent, soundType = 'classic', when) {
     const ctx = this.getContext();
-    if (!ctx) return false;
+    if (!ctx || this._panicMuted) return false;
 
     const t = Number.isFinite(when) ? when : ctx.currentTime;
     const type = soundType || 'classic';
@@ -246,13 +275,65 @@ class AudioContextService {
   }
 
   /**
+   * Stop pending clicks and mute the click bus immediately. The surrounding
+   * output router may mute the backing/cue buses as well.
+   */
+  panic() {
+    this.stopAll();
+    this._panicMuted = true;
+    const gain = this._masterGain?.gain;
+    const now = Number.isFinite(Number(this._ctx?.currentTime))
+      ? Number(this._ctx.currentTime)
+      : 0;
+    try {
+      if (typeof gain?.cancelScheduledValues === 'function') {
+        gain.cancelScheduledValues(now);
+      }
+      if (typeof gain?.setValueAtTime === 'function') {
+        gain.setValueAtTime(0, now);
+      } else if (gain) {
+        gain.value = 0;
+      }
+    } catch (_) {
+      try { if (gain) gain.value = 0; } catch (_) {}
+    }
+    return true;
+  }
+
+  /**
+   * Release the click mute after a panic action.
+   */
+  releasePanic() {
+    this._panicMuted = false;
+    const gain = this._masterGain?.gain;
+    const now = Number.isFinite(Number(this._ctx?.currentTime))
+      ? Number(this._ctx.currentTime)
+      : 0;
+    try {
+      if (typeof gain?.cancelScheduledValues === 'function') {
+        gain.cancelScheduledValues(now);
+      }
+      if (typeof gain?.setValueAtTime === 'function') {
+        gain.setValueAtTime(this._normalGain, now);
+      } else if (gain) {
+        gain.value = this._normalGain;
+      }
+    } catch (_) {
+      try { if (gain) gain.value = this._normalGain; } catch (_) {}
+    }
+    return true;
+  }
+
+  /**
    * Return a snapshot of the internal state (useful for tests / diagnostics).
    */
   getState() {
     return {
       hasContext: !!this._ctx,
       ctxState: this._ctx ? this._ctx.state : null,
-      hasMasterGain: !!this._masterGain
+      hasMasterGain: !!this._masterGain,
+      hasDestination: !!this._destination(),
+      panicMuted: this._panicMuted
     };
   }
 }
