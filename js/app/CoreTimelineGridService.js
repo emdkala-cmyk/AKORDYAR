@@ -131,7 +131,8 @@
       });
     }
 
-    function handleTimingChange(change = {}) {
+    function handleTimingChange() {
+      const change = arguments[0] || {};
       const timing = getTimingContext() || {};
       const daw = getDAW() || {};
       syncTempoMapForTimingChange(change, timing, daw);
