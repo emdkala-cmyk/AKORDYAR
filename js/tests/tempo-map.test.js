@@ -65,5 +65,15 @@ assert.equal(
   2,
   'the boundary lookup must retain the correct bar number'
 );
+assert.equal(
+  tempoChanged.getBeatAtOrAfter(1.9, { includeCurrent: false }).time,
+  2,
+  'a future beat on a tempo boundary must not be skipped'
+);
+assert.equal(
+  tempoChanged.nextBeatAfter(tempoChanged.getBeatAtOrAfter(1.5)).time,
+  2,
+  'advancing across a segment boundary must keep the boundary beat'
+);
 
 console.log('TempoMap tests passed');

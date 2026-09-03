@@ -383,6 +383,7 @@
         const event = events[index];
         const config = configFor(event);
         const unit = 4 / Math.max(1, Number(config.denominator) || 4);
+        const isInitialSegment = index === firstIndex;
         const segmentStart = index === firstIndex
           ? safeTime
           : event.time;
@@ -390,7 +391,13 @@
         const quarterAtStart = timelineToBeat(segmentStart);
         const ratio =
           (quarterAtStart - event.gridOriginQuarter) / unit;
-        let beatIndex = includeCurrent
+        // If the candidate from the previous segment lands exactly on this
+        // segment's start, it is still the first beat after the original
+        // query. Only a query that starts on this segment may exclude its
+        // current beat.
+        const includeSegmentStart =
+          !isInitialSegment || includeCurrent !== false;
+        let beatIndex = includeSegmentStart
           ? Math.ceil(ratio - EPSILON)
           : Math.floor(ratio + EPSILON) + 1;
         beatIndex = Math.max(0, beatIndex);
