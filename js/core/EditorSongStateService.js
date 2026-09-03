@@ -11,11 +11,12 @@
     }
 
     function getTimingContext(song = currentSong()) {
-      return {
+      const timing = {
         tempo: Number(song?.tempo) > 0 ? Number(song.tempo) : 120,
-        timeSignature: song?.timeSignature || '4/4',
-        tempoMap: song?.tempoMap || null
+        timeSignature: song?.timeSignature || '4/4'
       };
+      if (song?.tempoMap) timing.tempoMap = song.tempoMap;
+      return timing;
     }
 
     function getTempo(song = currentSong()) {
