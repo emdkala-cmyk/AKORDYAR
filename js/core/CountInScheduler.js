@@ -112,7 +112,10 @@ class CountInScheduler {
 
     for (let beat = 0; beat < totalBeats; beat += 1) {
       const beatInMeasure = beat % effectiveConfig.beatsPerMeasure;
-      const accent = this.isStrongBeat(beatInMeasure, timeSignature);
+      const accent = this.isStrongBeat(
+        beatInMeasure,
+        effectiveConfig.timeSignature || timeSignature
+      );
       const scheduled = this.audioContextService.playClickAt(
         accent,
         soundType || 'classic',

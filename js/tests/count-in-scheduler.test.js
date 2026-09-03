@@ -1,5 +1,6 @@
 const assert = require('node:assert/strict');
 const CountInScheduler = require('../core/CountInScheduler.js');
+const TempoMap = require('../core/TempoMap.js');
 
 function meterConfig(timeSignature, bpm) {
   const [numerator, denominator] = String(timeSignature).split('/').map(Number);
@@ -141,6 +142,48 @@ function createFakeAudioService() {
   assert.equal(scheduler.start({ bars: 1, bpm: 120, timeSignature: '4/4' }), null);
   assert.equal(timer.calls.length, 0);
   assert.equal(audio.stopAllCalls, 1);
+}
+
+// The shared TempoMap supplies the effective meter and tempo at the
+// requested timeline position. Accents must use that effective signature,
+// not a stale caller-side signature.
+{
+  const timer = createFakeTimer();
+  const audio = createFakeAudioService();
+  const tempoMap = TempoMap.create({
+    tempo: 120,
+    timeSignature: '4/4'
+  }).changeAt(0, {
+    tempo: 150,
+    timeSignature: '9/8'
+  });
+  const scheduler = new CountInScheduler({
+    audioContextService: audio,
+    getMeterConfig: meterConfig,
+    isStrongBeat: (beat, signature) =>
+      require('../core/Meter.js').isStrongBeat(beat, signature),
+    timer: timer.set,
+    clearTimer: timer.clear
+  });
+
+  const result = scheduler.start({
+    bars: 1,
+    bpm: 120,
+    timeSignature: '4/4',
+    tempoMap,
+    timelinePosition: 0
+  });
+
+  assert.equal(result.totalBeats, 9);
+  assert.equal(result.beatDuration, 0.2);
+  assert.deepEqual(
+    audio.clicks.map(click => click.accent),
+    [true, false, false, true, false, false, true, false, false]
+  );
+  assert.deepEqual(
+    audio.clicks.map(click => Number(click.when.toFixed(9))),
+    [10.08, 10.28, 10.48, 10.68, 10.88, 11.08, 11.28, 11.48, 11.68]
+  );
 }
 
 console.log('CountInScheduler tests passed');
