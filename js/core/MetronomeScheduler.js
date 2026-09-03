@@ -23,6 +23,7 @@ const DefaultTempoMapService =
     : typeof globalThis !== 'undefined'
       ? globalThis.TempoMap
       : null;
+const MAX_LOOP_TRANSITIONS_PER_TICK = 64;
 
 class MetronomeScheduler {
   constructor({
@@ -394,22 +395,34 @@ class MetronomeScheduler {
     // boundaries stable without intentionally playing late clicks.
     const nowCtx = ctx.currentTime;
     this._refreshLoopConfig(nowCtx);
-    this._advanceLoopBoundaryIfNeeded();
+    let loopTransitions = 0;
+    const advanceLoopBoundary = () => {
+      const advanced = this._advanceLoopBoundaryIfNeeded();
+      if (advanced) loopTransitions += 1;
+      return advanced;
+    };
+    advanceLoopBoundary();
     const pastTolerance = 1e-6;
-    while (this._nextNoteTime < nowCtx - pastTolerance) {
+    while (
+      this._nextNoteTime < nowCtx - pastTolerance &&
+      loopTransitions < MAX_LOOP_TRANSITIONS_PER_TICK
+    ) {
       this._advanceBeat();
-      this._advanceLoopBoundaryIfNeeded();
+      advanceLoopBoundary();
     }
 
     // Reserve every beat that is within the look-ahead window.
-    while (this._nextNoteTime < nowCtx + this.scheduleAheadTime) {
-      if (this._advanceLoopBoundaryIfNeeded()) continue;
+    while (
+      this._nextNoteTime < nowCtx + this.scheduleAheadTime &&
+      loopTransitions < MAX_LOOP_TRANSITIONS_PER_TICK
+    ) {
+      if (advanceLoopBoundary()) continue;
       this._scheduleBeat(
         this._nextBeatEvent || this._currentBeat,
         this._nextNoteTime
       );
       this._advanceBeat();
-      this._advanceLoopBoundaryIfNeeded();
+      advanceLoopBoundary();
     }
 
     this._timerID = this._timer(() => this._scheduleNext(), this.lookahead);
