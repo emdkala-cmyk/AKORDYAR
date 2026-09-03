@@ -34,6 +34,7 @@
     scheduleAllFromPlayhead = () => {},
     saveArrangers = () => {},
     getSongState = () => null,
+    getTimingContext = () => getSongState?.()?.getTimingContext?.() || {},
     saveSong = () => {},
     handleTimingChange = () => {},
     startPointerDrag = () => {},
@@ -278,9 +279,21 @@
       const nextTempo = clamp(currentTempo + delta, 20, 300);
       if (tempoElement) tempoElement.value = nextTempo;
 
+      const previousTiming = getTimingContext?.() || {
+        tempo: currentTempo,
+        timeSignature:
+          getSongState()?.currentSong?.()?.timeSignature || '4/4'
+      };
       if (getSongState()?.setTempo?.(nextTempo)) {
         saveSong();
-        handleTimingChange();
+        handleTimingChange({
+          field: 'tempo',
+          previousTiming,
+          nextTiming: {
+            ...previousTiming,
+            tempo: nextTempo
+          }
+        });
       }
       renderPerfUI();
     }

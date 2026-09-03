@@ -42,7 +42,11 @@
     resyncPlayingTransport = () => false,
     getTransportPlayhead = () => 0,
     setTempoMap = map => getSongState?.()?.setTempoMap?.(map) || false,
+    setSongBaseTiming = () => {},
     saveSong = () => {},
+    formatTime = value => String(value),
+    formatTimeSignature = value => String(value || '4/4'),
+    isPerforming = () => false,
     getIsRecordingChords = () => false,
     setIsRecordingChords = () => {},
     getIconRegistry = () => globalScope.IconRegistry,
@@ -223,7 +227,13 @@
       refreshPopupTimeline,
       getTransportPlayhead,
       setTempoMap,
-      saveSong
+      setSongBaseTiming,
+      saveSong,
+      saveState,
+      toast,
+      formatTime,
+      formatTimeSignature,
+      isPerforming
     });
 
     const sectionBridge = requireService(
@@ -299,6 +309,10 @@
       drawLaneGrid: grid.drawLaneGrid,
       renderRuler: grid.renderRuler,
       handleTimingChange: grid.handleTimingChange,
+      renderTempoMarkers: grid.renderTempoMarkers,
+      removeTempoMarker: grid.removeTempoMarker,
+      getTimingContextAtPlayhead: grid.getTimingContextAtPlayhead,
+      syncTimingControlsAt: grid.syncTimingControlsAt,
       getTimelineSectionRendererService:
         sectionBridge.getTimelineSectionRendererService,
       refreshClipGeometry: (...args) =>

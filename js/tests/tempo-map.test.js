@@ -76,4 +76,17 @@ assert.equal(
   'advancing across a segment boundary must keep the boundary beat'
 );
 
+const tempoMarkerRemoved = tempoChanged.removeAt(2);
+assert.ok(tempoMarkerRemoved, 'a non-base tempo change must be removable');
+assert.deepEqual(
+  tempoMarkerRemoved.getSegments().map(event => Number(event.time.toFixed(9))),
+  [0],
+  'removing a tempo marker must remove its segment'
+);
+assert.equal(
+  tempoChanged.removeAt(0),
+  null,
+  'the base tempo must remain after attempting to remove time zero'
+);
+
 console.log('TempoMap tests passed');

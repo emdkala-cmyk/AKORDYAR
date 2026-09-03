@@ -156,8 +156,13 @@
     if (!daw) return {
       migratedSections: [],
       loopState: null,
-      arrangerMarkers: { enabled: false, start: 0, end: 0 }
+      arrangerMarkers: { enabled: false, start: 0, end: 0 },
+      tempoMap: null
     };
+
+    // Tempo changes belong to the loaded song. Clear the previous song's
+    // runtime map before restoring the next song's map.
+    daw.tempoMap = song?.tempoMap ? clone(song.tempoMap) : null;
 
     if (song?._dawTracks) {
       daw.tracks = cloneTracks ? clone(song._dawTracks) : song._dawTracks;
@@ -193,7 +198,12 @@
     };
     daw.arrangerMarkers = arrangerMarkers;
 
-    return { migratedSections, loopState, arrangerMarkers };
+    return {
+      migratedSections,
+      loopState,
+      arrangerMarkers,
+      tempoMap: daw.tempoMap
+    };
   }
 
   function initializeAudioTracks(daw, {

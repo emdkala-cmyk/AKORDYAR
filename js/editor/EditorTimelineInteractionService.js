@@ -73,6 +73,13 @@
     }
 
     function beginScrub(event) {
+      if (
+        event.target?.closest?.(
+          '.timing-marker-remove, .tempo-marker-remove'
+        )
+      ) {
+        return;
+      }
       const daw = getDAW();
       if (daw.isRecording) {
         toast('در حال ضبط — برای جابه‌جایی پلی‌هد ابتدا توقف کنید');

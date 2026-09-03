@@ -604,6 +604,9 @@ const requestRenderSyncLyrics = debounce(() => { renderSyncLyrics(); }, 120);
         timeToX: t => t * coreGetRuntimeDAW().pxPerSecond,
         formatTime,
         onPlayheadTime: displayTime => {
+          try {
+            coreTimelineRuntime?.syncTimingControlsAt?.(displayTime);
+          } catch (_) {}
           try { window.__midiScorePlayhead?.(displayTime); } catch (_) {}
         }
       });
@@ -831,6 +834,52 @@ function historyLength() {
 function isHistoryApplying() {
   return getHistoryService().isApplying();
 }
+
+function formatTimelineTimeSignature(value, context = {}) {
+  const preset =
+    context?.timeSignaturePreset ||
+    context?.baseTimeSignaturePreset ||
+    '';
+  if (
+    String(value || '') === '2/4' &&
+    preset === '2/4-feel-6/8'
+  ) {
+    return '2/4 (حس 6/8)';
+  }
+  return String(value || '4/4');
+}
+
+function setTimelineSongBaseTiming(baseTiming = {}) {
+  const songState = requireEditorSongStateService();
+  const song = songState?.currentSong?.();
+  if (!song) return false;
+
+  const tempo = Number(baseTiming.tempo);
+  if (Number.isFinite(tempo) && tempo > 0) {
+    songState.setTempo?.(tempo);
+  }
+
+  const timeSignature = baseTiming.timeSignature;
+  if (timeSignature) {
+    const preset =
+      baseTiming.timeSignaturePreset ||
+      baseTiming.baseTimeSignaturePreset ||
+      '';
+    const displayValue =
+      preset === '2/4-feel-6/8'
+        ? '2/4 (حس 6/8)'
+        : timeSignature;
+    if (typeof window.SongMetadata?.setTimeSignature === 'function') {
+      window.SongMetadata.setTimeSignature(song, displayValue);
+    } else {
+      song.timeSignature = timeSignature;
+      if (preset) song.timeSignaturePreset = preset;
+      else delete song.timeSignaturePreset;
+    }
+  }
+  return true;
+}
+
     coreTimelineRuntime =
       globalScope.CoreTimelineRuntimeService?.create?.({
         documentRef: document,
@@ -868,7 +917,13 @@ function isHistoryApplying() {
           getTransportPlayhead(...args),
         setTempoMap: map =>
           requireEditorSongStateService().setTempoMap(map),
+        setSongBaseTiming: baseTiming =>
+          setTimelineSongBaseTiming(baseTiming),
         saveSong: () => edSaveSong(),
+        formatTime: value => formatTime(value),
+        formatTimeSignature: (value, context) =>
+          formatTimelineTimeSignature(value, context),
+        isPerforming: () => coreGetPerformanceState()?.active || false,
         getIsRecordingChords: () => isRecordingChords,
         setIsRecordingChords: value => {
           isRecordingChords = value;
@@ -933,6 +988,10 @@ function isHistoryApplying() {
       drawLaneGrid,
       renderRuler,
       handleTimingChange,
+      renderTempoMarkers,
+      removeTempoMarker,
+      getTimingContextAtPlayhead,
+      syncTimingControlsAt,
       getTimelineSectionRendererService,
       renderClips: renderTimelineClips,
       refreshClipGeometry,
@@ -964,6 +1023,10 @@ function isHistoryApplying() {
       drawLaneGrid,
       renderRuler,
       handleTimingChange,
+      renderTempoMarkers,
+      removeTempoMarker,
+      getTimingContextAtPlayhead,
+      syncTimingControlsAt,
       getTimelineSectionRendererService,
       refreshClipGeometry
     });
@@ -1960,6 +2023,9 @@ let syncTapKeyHandler = null;
             scheduleAllFromPlayhead(...args),
           saveArrangers: (...args) => saveArrangers(...args),
           getSongState: () => requireEditorSongStateService(),
+          getTimingContext: () =>
+            coreTimelineRuntime?.getTimingContextAtPlayhead?.() ||
+            requireEditorSongStateService().getTimingContext(),
           saveSong: (...args) => edSaveSong(...args),
           handleTimingChange: (...args) => handleTimingChange(...args),
           getArrangerEnd: (...args) => getArrangerEnd(...args),

@@ -15,6 +15,9 @@
         tempo: Number(song?.tempo) > 0 ? Number(song.tempo) : 120,
         timeSignature: song?.timeSignature || '4/4'
       };
+      if (song?.timeSignaturePreset) {
+        timing.timeSignaturePreset = song.timeSignaturePreset;
+      }
       if (song?.tempoMap) timing.tempoMap = song.tempoMap;
       return timing;
     }

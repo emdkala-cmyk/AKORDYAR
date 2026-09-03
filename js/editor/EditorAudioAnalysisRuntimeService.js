@@ -28,6 +28,7 @@
     getDAW = () => globalScope.RuntimeStateAdapter?.getDAW?.() || null,
     getSong = () => null,
     getSongState = () => globalScope.requireEditorSongStateService?.() || null,
+    getTimingContext = () => getSongState?.()?.getTimingContext?.() || {},
     getElement = id => globalScope.document?.getElementById?.(id),
     legacyRuntime = null,
     restoreAudio = async () => ({ loaded: 0 }),
@@ -168,9 +169,21 @@
       const songState = getSongState();
       const input = getElement('edTempo');
       if (input) input.value = Math.round(tempo.bpm);
+      const previousTiming = getTimingContext?.() || {
+        tempo: Number(songState?.currentSong?.()?.tempo) || 120,
+        timeSignature:
+          songState?.currentSong?.()?.timeSignature || '4/4'
+      };
       if (songState?.setTempo?.(Math.round(tempo.bpm))) {
         saveSong();
-        handleTimingChange();
+        handleTimingChange({
+          field: 'tempo',
+          previousTiming,
+          nextTiming: {
+            ...previousTiming,
+            tempo: Math.round(tempo.bpm)
+          }
+        });
       }
     }
 

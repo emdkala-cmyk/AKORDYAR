@@ -65,6 +65,8 @@
       scheduleAllFromPlayhead = () => {},
       saveArrangers = () => {},
       getSongState = () => null,
+      getTimingContext = () =>
+        getSongState?.()?.getTimingContext?.() || {},
       saveSong = () => {},
       handleTimingChange = () => {},
       getArrangerEnd = () => 0,
@@ -160,6 +162,7 @@
       scheduleAllFromPlayhead,
       saveArrangers,
       getSongState,
+      getTimingContext,
       saveSong,
       handleTimingChange,
       startPointerDrag,

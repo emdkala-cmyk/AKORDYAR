@@ -10,6 +10,7 @@
   function create({
     analysis = globalScope.SyncAnalysis,
     getSongState = () => globalScope.requireEditorSongStateService?.(),
+    getTimingContext = () => getSongState?.()?.getTimingContext?.() || {},
     performanceRef = globalScope.performance,
     getElement = id => globalScope.document?.getElementById?.(id),
     saveSong = () => {},
@@ -20,6 +21,21 @@
     toast = () => {}
   } = {}) {
     let tapTimes = [];
+
+    function timingBeforeChange(songState) {
+      const timing = getTimingContext?.() || {};
+      return {
+        ...timing,
+        tempo:
+          Number(timing.tempo) > 0
+            ? Number(timing.tempo)
+            : Number(songState?.currentSong?.()?.tempo) || 120,
+        timeSignature:
+          timing.timeSignature ||
+          songState?.currentSong?.()?.timeSignature ||
+          '4/4'
+      };
+    }
 
     function tapTempo() {
       const songState = getSongState();
@@ -38,9 +54,17 @@
         if (bpm >= 20 && bpm <= 300) {
           const tempo = getElement('edTempo');
           if (tempo) tempo.value = bpm;
+          const previousTiming = timingBeforeChange(songState);
           if (songState.setTempo(bpm)) {
             saveSong();
-            handleTimingChange();
+            handleTimingChange({
+              field: 'tempo',
+              previousTiming,
+              nextTiming: {
+                ...previousTiming,
+                tempo: bpm
+              }
+            });
           }
           toast(`تمپو: ${bpm} BPM`);
         }
@@ -75,9 +99,17 @@
 
       const tempo = getElement('edTempo');
       if (tempo) tempo.value = result.bpm;
+      const previousTiming = timingBeforeChange(songState);
       if (songState.setTempo(result.bpm)) {
         saveSong();
-        handleTimingChange();
+        handleTimingChange({
+          field: 'tempo',
+          previousTiming,
+          nextTiming: {
+            ...previousTiming,
+            tempo: result.bpm
+          }
+        });
       }
       toast(
         `تمپوی تشخیص داده شده: ${result.bpm} BPM (از ${result.intervals.length} لاین سینک)`

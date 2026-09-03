@@ -16,6 +16,8 @@
   const EPSILON = 1e-9;
   const DEFAULT_TEMPO = 120;
   const DEFAULT_TIME_SIGNATURE = '4/4';
+  const FEEL_6_8_LABEL = '2/4 (حس 6/8)';
+  const FEEL_6_8_ID = '2/4-feel-6/8';
 
   function finitePositive(value, fallback) {
     const numeric = Number(value);
@@ -25,6 +27,24 @@
   function finiteNonNegative(value, fallback = 0) {
     const numeric = Number(value);
     return Number.isFinite(numeric) && numeric >= 0 ? numeric : fallback;
+  }
+
+  function resolveTimeSignaturePreset(timing = {}, fallback = {}) {
+    const rawValue = String(
+      timing.timeSignature ?? fallback.timeSignature ?? ''
+    ).trim();
+    const explicit =
+      timing.timeSignaturePreset ||
+      fallback.timeSignaturePreset ||
+      '';
+    if (
+      explicit === FEEL_6_8_ID ||
+      rawValue === FEEL_6_8_ID ||
+      rawValue === FEEL_6_8_LABEL
+    ) {
+      return FEEL_6_8_ID;
+    }
+    return explicit ? String(explicit) : '';
   }
 
   function normalizeTiming(timing = {}, fallback = {}) {
@@ -48,6 +68,7 @@
     return {
       tempo,
       timeSignature: config.timeSignature || String(timeSignature),
+      timeSignaturePreset: resolveTimeSignaturePreset(timing, fallback),
       config
     };
   }
@@ -65,6 +86,9 @@
       quarter: event.quarter,
       tempo: event.tempo,
       timeSignature: event.timeSignature,
+      timeSignaturePreset: event.timeSignaturePreset || '',
+      tempoMarker: event.tempoMarker === true,
+      signatureMarker: event.signatureMarker === true,
       gridOriginQuarter: event.gridOriginQuarter,
       barStartQuarter: event.barStartQuarter,
       barNumber: event.barNumber
@@ -91,7 +115,9 @@
       {
         tempo: rawMap?.baseTempo ?? input.tempo ?? input.bpm,
         timeSignature:
-          rawMap?.baseTimeSignature ?? input.timeSignature
+          rawMap?.baseTimeSignature ?? input.timeSignature,
+        timeSignaturePreset: rawMap?.baseTimeSignaturePreset ||
+          input.timeSignaturePreset
       }
     );
     const source = Array.isArray(rawMap?.events) ? rawMap.events : [];
@@ -105,6 +131,15 @@
             : null,
           tempo: timing.tempo,
           timeSignature: timing.timeSignature,
+          timeSignaturePreset: timing.timeSignaturePreset,
+          tempoMarker:
+            event?.tempoMarker === undefined
+              ? null
+              : event.tempoMarker === true,
+          signatureMarker:
+            event?.signatureMarker === undefined
+              ? null
+              : event.signatureMarker === true,
           gridOriginQuarter: Number.isFinite(
             Number(event?.gridOriginQuarter)
           )
@@ -127,6 +162,9 @@
         quarter: 0,
         tempo: fallback.tempo,
         timeSignature: fallback.timeSignature,
+        timeSignaturePreset: fallback.timeSignaturePreset,
+        tempoMarker: false,
+        signatureMarker: false,
         gridOriginQuarter: 0,
         barStartQuarter: 0,
         barNumber: 1
@@ -149,6 +187,9 @@
         quarter: 0,
         tempo: fallback.tempo,
         timeSignature: fallback.timeSignature,
+        timeSignaturePreset: fallback.timeSignaturePreset,
+        tempoMarker: false,
+        signatureMarker: false,
         gridOriginQuarter: 0,
         barStartQuarter: 0,
         barNumber: 1
@@ -160,6 +201,8 @@
       if (index === 0) {
         event.time = 0;
         event.quarter = 0;
+        event.tempoMarker = false;
+        event.signatureMarker = false;
         event.gridOriginQuarter = Number.isFinite(event.gridOriginQuarter)
           ? event.gridOriginQuarter
           : 0;
@@ -170,38 +213,48 @@
         return;
       }
 
-      if (!Number.isFinite(event.quarter)) {
-        event.quarter =
-          previous.quarter +
-          (event.time - previous.time) * previous.tempo / 60;
+      if (event.tempoMarker === null) {
+        event.tempoMarker =
+          Math.abs(event.tempo - previous.tempo) > EPSILON;
       }
+      if (event.signatureMarker === null) {
+        event.signatureMarker =
+          event.timeSignature !== previous.timeSignature ||
+          (event.timeSignaturePreset || '') !==
+            (previous.timeSignaturePreset || '');
+      }
+      if (!event.tempoMarker) {
+        event.tempo = previous.tempo;
+      }
+      if (!event.signatureMarker) {
+        event.timeSignature = previous.timeSignature;
+        event.timeSignaturePreset = previous.timeSignaturePreset || '';
+      }
+
+      event.quarter =
+        previous.quarter +
+        (event.time - previous.time) * previous.tempo / 60;
 
       const previousConfig = meter?.getMeterConfig?.(
         previous.timeSignature,
         previous.tempo
       );
-      const signatureChanged =
-        event.timeSignature !== previous.timeSignature;
-      event.gridOriginQuarter = Number.isFinite(event.gridOriginQuarter)
-        ? event.gridOriginQuarter
-        : signatureChanged
-          ? event.quarter
-          : previous.gridOriginQuarter;
-      event.barStartQuarter = Number.isFinite(event.barStartQuarter)
-        ? event.barStartQuarter
-        : signatureChanged
-          ? event.quarter
-          : previous.barStartQuarter;
+      const signatureChanged = event.signatureMarker === true;
+      event.gridOriginQuarter = signatureChanged
+        ? event.quarter
+        : previous.gridOriginQuarter;
+      event.barStartQuarter = signatureChanged
+        ? event.quarter
+        : previous.barStartQuarter;
       event.barNumber = Math.max(
         1,
-        event.barNumber ||
-          (signatureChanged
-            ? getBarNumberAtQuarter(
-                previous,
-                event.quarter,
-                previousConfig
-              )
-            : previous.barNumber)
+        signatureChanged
+          ? getBarNumberAtQuarter(
+              previous,
+              event.quarter,
+              previousConfig
+            )
+          : previous.barNumber
       );
     });
 
@@ -300,6 +353,7 @@
         tempo: event.tempo,
         bpm: event.tempo,
         timeSignature: event.timeSignature,
+        timeSignaturePreset: event.timeSignaturePreset || '',
         timelineTime: Math.max(0, Number(time) || 0)
       };
     }
@@ -341,6 +395,7 @@
         tempo: event.tempo,
         bpm: event.tempo,
         timeSignature: event.timeSignature,
+        timeSignaturePreset: event.timeSignaturePreset || '',
         config,
         segmentIndex: index
       };
@@ -636,6 +691,7 @@
         version: 1,
         baseTempo: events[0].tempo,
         baseTimeSignature: events[0].timeSignature,
+        baseTimeSignaturePreset: events[0].timeSignaturePreset || '',
         events: events.map(cloneEvent)
       };
     }
@@ -645,7 +701,27 @@
       const current = getBeatInfoAtTime(safeTime);
       const next = normalizeTiming(timing, current);
       const currentEvent = events[current.segmentIndex];
-      const signatureChanged =
+      const existingIndex = safeTime > EPSILON
+        ? events.findIndex(
+            event => Math.abs(Number(event.time) - safeTime) <= EPSILON
+          )
+        : 0;
+      const leftEvent = safeTime <= EPSILON
+        ? null
+        : existingIndex >= 0
+          ? events[existingIndex - 1] || currentEvent
+          : currentEvent;
+      const tempoMarker =
+        safeTime > EPSILON &&
+        Math.abs(next.tempo - Number(leftEvent?.tempo)) > EPSILON;
+      const signatureMarker =
+        safeTime > EPSILON &&
+        (
+          next.timeSignature !== leftEvent?.timeSignature ||
+          next.timeSignaturePreset !==
+            (leftEvent?.timeSignaturePreset || '')
+        );
+      const meterChanged =
         next.timeSignature !== currentEvent.timeSignature;
       const nextRaw = toJSON();
       const nextEvent = {
@@ -653,13 +729,16 @@
         quarter: timelineToBeat(safeTime),
         tempo: next.tempo,
         timeSignature: next.timeSignature,
-        gridOriginQuarter: signatureChanged
+        timeSignaturePreset: next.timeSignaturePreset,
+        tempoMarker,
+        signatureMarker,
+        gridOriginQuarter: meterChanged
           ? timelineToBeat(safeTime)
           : currentEvent.gridOriginQuarter,
-        barStartQuarter: signatureChanged
+        barStartQuarter: meterChanged
           ? timelineToBeat(safeTime)
           : currentEvent.barStartQuarter,
-        barNumber: signatureChanged
+        barNumber: meterChanged
           ? current.bar
           : currentEvent.barNumber
       };
@@ -667,16 +746,119 @@
       if (safeTime <= EPSILON) {
         nextRaw.baseTempo = next.tempo;
         nextRaw.baseTimeSignature = next.timeSignature;
+        nextRaw.baseTimeSignaturePreset = next.timeSignaturePreset;
         nextRaw.events[0] = nextEvent;
       } else {
-        const index = nextRaw.events.findIndex(
-          event => Math.abs(Number(event.time) - safeTime) <= EPSILON
-        );
-        if (index >= 0) nextRaw.events[index] = nextEvent;
-        else nextRaw.events.push(nextEvent);
+        if (existingIndex >= 0) {
+          if (!tempoMarker && !signatureMarker) {
+            nextRaw.events.splice(existingIndex, 1);
+          } else {
+            nextRaw.events[existingIndex] = nextEvent;
+          }
+        } else if (tempoMarker || signatureMarker) {
+          nextRaw.events.push(nextEvent);
+        }
       }
 
       return create({ tempoMap: nextRaw });
+    }
+
+    function removeAtIndex(index) {
+      const safeIndex = Math.trunc(Number(index));
+      if (
+        !Number.isInteger(safeIndex) ||
+        safeIndex <= 0 ||
+        safeIndex >= events.length
+      ) {
+        return null;
+      }
+      const nextRaw = toJSON();
+      nextRaw.events.splice(safeIndex, 1);
+      return create({ tempoMap: nextRaw });
+    }
+
+    function removeAt(time) {
+      const safeTime = Number(time);
+      if (!Number.isFinite(safeTime)) return null;
+      let index = -1;
+      let distance = Number.POSITIVE_INFINITY;
+      events.forEach((event, eventIndex) => {
+        const nextDistance = Math.abs(Number(event.time) - safeTime);
+        if (nextDistance < distance) {
+          distance = nextDistance;
+          index = eventIndex;
+        }
+      });
+
+      // Marker positions are generated from these same event times. The
+      // small tolerance also keeps deletion reliable after serialization.
+      if (distance > Math.max(EPSILON, 1e-6)) return null;
+      return removeAtIndex(index);
+    }
+
+    function removeFieldAtIndex(index, field) {
+      const safeIndex = Math.trunc(Number(index));
+      if (
+        !Number.isInteger(safeIndex) ||
+        safeIndex <= 0 ||
+        safeIndex >= events.length ||
+        !['tempo', 'timeSignature'].includes(field)
+      ) {
+        return null;
+      }
+
+      const previous = events[safeIndex - 1];
+      const current = cloneEvent(events[safeIndex]);
+      const signatureChanged =
+        current.timeSignature !== previous.timeSignature ||
+        (current.timeSignaturePreset || '') !==
+          (previous.timeSignaturePreset || '');
+      const tempoChanged =
+        Math.abs(current.tempo - previous.tempo) > EPSILON;
+
+      if (field === 'tempo') {
+        if (!tempoChanged) return null;
+        current.tempo = previous.tempo;
+        current.tempoMarker = false;
+      } else {
+        if (!signatureChanged) return null;
+        current.timeSignature = previous.timeSignature;
+        current.timeSignaturePreset = previous.timeSignaturePreset || '';
+        current.signatureMarker = false;
+        current.gridOriginQuarter = previous.gridOriginQuarter;
+        current.barStartQuarter = previous.barStartQuarter;
+        current.barNumber = previous.barNumber;
+      }
+
+      const stillTempoChanged =
+        Math.abs(current.tempo - previous.tempo) > EPSILON;
+      const stillSignatureChanged =
+        current.timeSignature !== previous.timeSignature ||
+        (current.timeSignaturePreset || '') !==
+          (previous.timeSignaturePreset || '');
+      const nextRaw = toJSON();
+      if (!stillTempoChanged && !stillSignatureChanged) {
+        nextRaw.events.splice(safeIndex, 1);
+      } else {
+        nextRaw.events[safeIndex] = current;
+      }
+      return create({ tempoMap: nextRaw });
+    }
+
+    function removeFieldAt(time, field) {
+      const safeTime = Number(time);
+      if (!Number.isFinite(safeTime)) return null;
+      let index = -1;
+      let distance = Number.POSITIVE_INFINITY;
+      events.forEach((event, eventIndex) => {
+        const nextDistance = Math.abs(Number(event.time) - safeTime);
+        if (nextDistance < distance) {
+          distance = nextDistance;
+          index = eventIndex;
+        }
+      });
+      if (distance > Math.max(EPSILON, 1e-6)) return null;
+      return removeFieldAtIndex(index, field);
     }
 
     return Object.freeze({
@@ -697,7 +879,11 @@
       snapTimeToGrid,
       timeToBarBeat,
       barBeatToTime,
-      changeAt
+      changeAt,
+      removeAt,
+      removeAtIndex,
+      removeFieldAt,
+      removeFieldAtIndex
     });
   }
 

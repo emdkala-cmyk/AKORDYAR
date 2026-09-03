@@ -106,6 +106,7 @@
 
       const nextSong = repairSong(song) || song;
       setSong(nextSong);
+      daw.tempoMap = nextSong.tempoMap ? clone(nextSong.tempoMap) : null;
       initializeAudioTracks(daw);
 
       return {
@@ -135,6 +136,7 @@
       const clonedSong = clone(song);
       const nextSong = repairSong(clonedSong) || clonedSong;
       setSong(nextSong);
+      daw.tempoMap = nextSong.tempoMap ? clone(nextSong.tempoMap) : null;
 
       hydrationService?.hydrateSong?.(nextSong, {
         daw,

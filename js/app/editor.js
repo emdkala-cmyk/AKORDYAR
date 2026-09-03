@@ -115,6 +115,10 @@ const editorSyncAnalysisRuntime =
   window.EditorSyncAnalysisRuntimeService?.create?.({
     analysis: window.SyncAnalysis,
     getSongState: () => getEditorSongStateService(),
+    getTimingContext: () =>
+      editorCoreApi.getTimingContextAtPlayhead?.() ||
+      getEditorSongStateService()?.getTimingContext?.() ||
+      {},
     performanceRef: window.performance,
     getElement: id => $(id),
     saveSong: (...args) => edSaveSong(...args),
@@ -137,6 +141,10 @@ const editorAudioAnalysisRuntime =
     getDAW: () => editorGetRuntimeDAW(),
     getSong: getCurrentEditorSong,
     getSongState: () => getEditorSongStateService(),
+    getTimingContext: () =>
+      editorCoreApi.getTimingContextAtPlayhead?.() ||
+      getEditorSongStateService()?.getTimingContext?.() ||
+      {},
     getElement: id => $(id),
     legacyRuntime: editorSyncAnalysisRuntime,
     restoreAudio: async () =>
@@ -931,8 +939,20 @@ function getMidiScoreController() {
       onTempoChange: newBPM => {
         const tempoInput = $('edTempo');
         if (tempoInput) tempoInput.value = newBPM;
+        const previousTiming =
+          editorCoreApi.getTimingContextAtPlayhead?.() ||
+          getEditorSongStateService()?.getTimingContext?.() ||
+          {};
         if (getEditorSongStateService()?.setTempo?.(newBPM)) {
           edSaveSong();
+          handleTimingChange({
+            field: 'tempo',
+            previousTiming,
+            nextTiming: {
+              ...previousTiming,
+              tempo: newBPM
+            }
+          });
         }
         toast(`تمپوی کیوبیس: ${newBPM} BPM`);
       },
@@ -2423,6 +2443,10 @@ if ($('edDoBoth')) {
           renderRuler: () => renderRuler(),
           renderClips: () => renderClips(),
           onTimingChange: (...args) => handleTimingChange(...args),
+          getTimingContext: () =>
+            editorCoreApi.getTimingContextAtPlayhead?.() ||
+            getEditorSongStateService()?.getTimingContext?.() ||
+            {},
           toast: message => toast(message),
           noteNames: getEditorKeyCommandController()?.noteNames || []
         });

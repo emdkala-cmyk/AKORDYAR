@@ -1193,6 +1193,7 @@ daw.waveCache.clear();
 daw.loopEnabled = false;
 daw.loopA = 0;
 daw.loopB = 10;
+daw.tempoMap = null;
       archiveResetRecordingState();
 
 // Reset tracks to defaults

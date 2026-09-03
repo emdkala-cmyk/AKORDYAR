@@ -389,6 +389,25 @@
 .arranger-marker-line { position: absolute; top: 0; bottom: 0; width: 0; border-left: 2px dashed currentColor; opacity: 0.35; filter: drop-shadow(0 0 3px currentColor); }
 .arranger-marker-line-a { color: #7CFFB2; }
 .arranger-marker-line-b { color: #FFB86B; }
+.tempo-markers-overlay { position: absolute; inset: 0; z-index: 14; pointer-events: none; }
+.timing-marker { position: absolute; top: 0; bottom: 0; width: 0; pointer-events: none; }
+.timing-marker-stem { position: absolute; top: 0; bottom: 0; left: 0; border-left: 2px solid; opacity: 0.9; pointer-events: none; }
+.tempo-marker-stem { color: #FBBF24; filter: drop-shadow(0 0 4px rgba(251,191,36,0.7)); }
+.signature-marker-stem { color: #38BDF8; filter: drop-shadow(0 0 4px rgba(56,189,248,0.7)); }
+.timing-marker-badges { position: absolute; top: 2px; left: 5px; transform: translateX(-50%); display: inline-flex; align-items: center; gap: 3px; pointer-events: auto; }
+.timing-marker-entry { display: inline-flex; align-items: center; gap: 2px; }
+.timing-marker-badge { display: inline-flex; align-items: center; min-width: 34px; height: 17px; padding: 0 4px; border: 1px solid; border-radius: 4px; font: 800 9px/1 'JetBrains Mono', monospace; white-space: nowrap; pointer-events: auto; cursor: pointer; }
+.tempo-marker-badge { border-color: #FBBF24; background: #422006; color: #FDE68A; box-shadow: 0 0 8px rgba(251,191,36,0.35); }
+.signature-marker-badge { border-color: #38BDF8; background: #082F49; color: #BAE6FD; box-shadow: 0 0 8px rgba(56,189,248,0.35); }
+.timing-marker-remove { position: static; width: 14px; height: 14px; flex: 0 0 14px; padding: 0; border: 1px solid #FCA5A5; border-radius: 50%; background: #450A0A; color: #FECACA; font: 900 11px/11px Arial, sans-serif; pointer-events: auto; cursor: pointer; opacity: 0.78; transition: opacity 0.12s, transform 0.12s; }
+.timing-marker:hover .timing-marker-remove, .timing-marker-remove:focus-visible { opacity: 1; transform: scale(1.05); }
+.timing-marker-remove:hover { background: #B91C1C; color: #fff; border-color: #F87171; }
+.tempo-markers-timeline-overlay { position: absolute; inset: 0; z-index: 23; pointer-events: none; }
+.timing-marker-line { position: absolute; top: 0; bottom: 0; width: 0; border-left: 2px solid; opacity: 0.45; pointer-events: none; }
+.tempo-marker-line { color: #FBBF24; filter: drop-shadow(0 0 3px rgba(251,191,36,0.65)); }
+.signature-marker-line { color: #38BDF8; filter: drop-shadow(0 0 3px rgba(56,189,248,0.65)); }
+.timing-marker.is-active .timing-marker-badge { transform: translateY(-1px); filter: brightness(1.2); }
+.timing-marker-line.is-active { opacity: 0.9; filter: brightness(1.35) drop-shadow(0 0 5px currentColor); }
 .tl-tool-btn.ph-center { background: #5B21B6; color: #fff; border-color: #8B5CF6; }
 .tl-tool-btn.ph-center:hover { background: #6D28D9; }
 

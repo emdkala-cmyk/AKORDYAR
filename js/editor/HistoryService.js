@@ -277,8 +277,12 @@
             : state.song;
           this.setSong(repairedSong);
           if (keepId != null && this.getSong()) this.getSong().id = keepId;
+          DAW.tempoMap = this.getSong()?.tempoMap
+            ? JSON.parse(JSON.stringify(this.getSong().tempoMap))
+            : null;
         } else {
           this.setSong(null);
+          DAW.tempoMap = null;
         }
 
         ctx.setEdSeqPoints(

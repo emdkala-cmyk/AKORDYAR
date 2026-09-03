@@ -37,6 +37,7 @@ const daw = {
   selectedSectionIds: new Set(),
   bufferCache: new Map(),
   waveCache: new Map([['old', {}]]),
+  tempoMap: { baseTempo: 140, events: [{ time: 0, tempo: 140 }] },
   audioCtx: audioContext,
   masterGain: { connect() {} }
 };
@@ -84,6 +85,7 @@ const service = transitionModule.create({
   assert.equal(daw.loopA, 2);
   assert.equal(daw.loopB, 8);
   assert.deepEqual(daw.arrangerMarkers, { enabled: true, start: 4, end: 12 });
+  assert.equal(daw.tempoMap, null);
   assert.equal(preparedTrack.transpose, 0);
   assert.ok(preparedTrack._pannerNode);
   assert.ok(preparedTrack._gainNode);
@@ -92,6 +94,10 @@ const service = transitionModule.create({
 
   const loaded = await service.loadSong({
     id: 'loaded',
+    tempoMap: {
+      baseTempo: 110,
+      events: [{ time: 0, tempo: 110 }, { time: 3, tempo: 150 }]
+    },
     _dawTracks: [{ id: 'loaded-audio', type: 'audio' }],
     _dawClips: [{ id: 'loaded-clip', type: 'audio', bufferKey: 'loaded' }],
     _dawSections: []
@@ -103,6 +109,10 @@ const service = transitionModule.create({
   assert.equal(daw.tracks[0].transpose, 2);
   assert.equal(daw.clips[0].id, 'loaded-clip');
   assert.equal(daw.waveCache.size, 0);
+  assert.deepEqual(daw.tempoMap, {
+    baseTempo: 110,
+    events: [{ time: 0, tempo: 110 }, { time: 3, tempo: 150 }]
+  });
   assert.equal(restoredProjectId, 'loaded');
   assert.equal(loaded.restoreResult.loaded, 1);
   assert.ok(audioContextEnsured >= 2);

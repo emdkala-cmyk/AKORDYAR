@@ -58,6 +58,7 @@
     renderRuler = () => {},
     renderClips = () => {},
     onTimingChange = null,
+    getTimingContext = () => null,
     toast = () => {},
     noteNames = []
   } = {}) {
@@ -267,10 +268,27 @@
       if (timeSignature) timeSignature.onchange = () => {
         const song = getSong();
         if (!song) return;
+        const previousTiming = getTimingContext?.() || {
+          tempo: Number(song.tempo) > 0 ? Number(song.tempo) : 120,
+          timeSignature: song.timeSignature || '4/4'
+        };
         setTimeSignature(song, timeSignature.value);
-        save();
-        if (typeof onTimingChange === 'function') onTimingChange();
-        else {
+        const nextTiming = {
+          ...previousTiming,
+          tempo: Number(previousTiming.tempo) > 0
+            ? Number(previousTiming.tempo)
+            : 120,
+          timeSignature: song.timeSignature || '4/4',
+          timeSignaturePreset: song.timeSignaturePreset || ''
+        };
+        if (typeof onTimingChange === 'function') {
+          onTimingChange({
+            field: 'timeSignature',
+            previousTiming,
+            nextTiming
+          });
+        } else {
+          save();
           renderTracks();
           renderRuler();
           renderClips();
@@ -281,9 +299,32 @@
       if (tempo) tempo.oninput = () => {
         const song = getSong();
         if (!song) return;
-        song.tempo = Number.parseInt(tempo.value, 10) || 120;
-        save();
-        if (typeof onTimingChange === 'function') onTimingChange();
+        const previousTiming = getTimingContext?.() || {
+          tempo: Number(song.tempo) > 0 ? Number(song.tempo) : 120,
+          timeSignature: song.timeSignature || '4/4'
+        };
+        const nextTempo = Number.parseInt(tempo.value, 10) || 120;
+        song.tempo = nextTempo;
+        const nextTiming = {
+          ...previousTiming,
+          tempo: nextTempo,
+          timeSignature: previousTiming.timeSignature ||
+            song.timeSignature ||
+            '4/4',
+          timeSignaturePreset:
+            previousTiming.timeSignaturePreset ||
+            song.timeSignaturePreset ||
+            ''
+        };
+        if (typeof onTimingChange === 'function') {
+          onTimingChange({
+            field: 'tempo',
+            previousTiming,
+            nextTiming
+          });
+        } else {
+          save();
+        }
       };
 
       const genre = element('edGenre');
