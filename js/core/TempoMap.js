@@ -449,7 +449,15 @@
         );
         const segmentStart = Math.max(start, event.time);
         const segmentEnd = Math.min(end, nextSegmentTime(index, end));
-        if (segmentStart > segmentEnd + EPSILON) continue;
+        const hasNextSegment =
+          index + 1 < events.length &&
+          events[index + 1].time <= end + EPSILON;
+        if (
+          segmentStart > segmentEnd + EPSILON ||
+          (hasNextSegment && segmentEnd <= segmentStart + EPSILON)
+        ) {
+          continue;
+        }
 
         const qStart = timelineToBeat(segmentStart);
         const qEnd = timelineToBeat(segmentEnd);
@@ -469,7 +477,11 @@
           beatIndex++
         ) {
           const beat = createBeatEvent(event, index, beatIndex);
-          if (beat.time < start - EPSILON || beat.time > end + EPSILON) {
+          if (
+            beat.time < start - EPSILON ||
+            beat.time > end + EPSILON ||
+            (hasNextSegment && beat.time >= segmentEnd - EPSILON)
+          ) {
             continue;
           }
           const key = beat.time.toFixed(9);
@@ -495,7 +507,8 @@
             const subdivisionTime = beatToTimeline(quarter);
             if (
               subdivisionTime < start - EPSILON ||
-              subdivisionTime > end + EPSILON
+              subdivisionTime > end + EPSILON ||
+              (hasNextSegment && subdivisionTime >= segmentEnd - EPSILON)
             ) {
               continue;
             }
@@ -639,7 +652,9 @@
         barStartQuarter: signatureChanged
           ? timelineToBeat(safeTime)
           : currentEvent.barStartQuarter,
-        barNumber: signatureChanged ? current.bar : current.bar
+        barNumber: signatureChanged
+          ? current.bar
+          : currentEvent.barNumber
       };
 
       if (safeTime <= EPSILON) {
