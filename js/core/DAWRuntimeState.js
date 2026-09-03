@@ -25,6 +25,8 @@
       playOriginPerf: 0,
       playOriginTime: 0,
       playOriginAudio: null,
+      // Serializable piecewise timing map shared by grid and metronome.
+      tempoMap: null,
       audioCtx: null,
       masterGain: null,
       voices: new Map(),

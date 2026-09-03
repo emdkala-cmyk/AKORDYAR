@@ -12,13 +12,18 @@
 
     function getTimingContext(song = currentSong()) {
       return {
-        tempo: song?.tempo || 120,
-        timeSignature: song?.timeSignature || '4/4'
+        tempo: Number(song?.tempo) > 0 ? Number(song.tempo) : 120,
+        timeSignature: song?.timeSignature || '4/4',
+        tempoMap: song?.tempoMap || null
       };
     }
 
     function getTempo(song = currentSong()) {
       return song?.tempo || 120;
+    }
+
+    function getTempoMap(song = currentSong()) {
+      return song?.tempoMap || null;
     }
 
     function getTranspose(song = currentSong()) {
@@ -87,6 +92,29 @@
     function setTempo(value, song = currentSong()) {
       if (!song) return false;
       song.tempo = value;
+      return true;
+    }
+
+    function setTempoMap(value, song = currentSong()) {
+      if (!song) return false;
+      if (!value) {
+        delete song.tempoMap;
+        return true;
+      }
+
+      let serializable = value;
+      if (typeof value.toJSON === 'function') {
+        try {
+          serializable = value.toJSON();
+        } catch (_) {
+          return false;
+        }
+      }
+      try {
+        song.tempoMap = JSON.parse(JSON.stringify(serializable));
+      } catch (_) {
+        return false;
+      }
       return true;
     }
 
@@ -245,6 +273,7 @@
       currentSong,
       getTimingContext,
       getTempo,
+      getTempoMap,
       getTranspose,
       getTimeSignature,
       getSyncTimes,
@@ -256,6 +285,7 @@
       getChordLineClips,
       getPresentationSnapshot,
       setTempo,
+      setTempoMap,
       setLyrics,
       ensureStyles,
       setTextColor,

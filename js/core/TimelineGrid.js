@@ -19,6 +19,17 @@ var TimelineGrid = (function() {
   var BEAT_LABEL_SPACING = 72;
   var MAJOR_BAR_STEPS = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512];
 
+  function resolveTempoMap(opts, bpm, sig) {
+    var raw = opts && opts.tempoMap;
+    if (raw && typeof raw.getGridPoints === 'function') return raw;
+    if (!raw || !window.TempoMap?.create) return null;
+    return window.TempoMap.create({
+      tempo: bpm,
+      timeSignature: sig,
+      tempoMap: raw
+    });
+  }
+
   function getTimeSignatureGridConfig(timeSignature, bpm) {
     return window.Meter.getMeterConfig(timeSignature, bpm);
   }
@@ -49,8 +60,14 @@ var TimelineGrid = (function() {
    */
   function getAdaptiveGridSpec(opts) {
     opts = opts || {};
+    var map = resolveTempoMap(
+      opts,
+      opts.tempo || 120,
+      opts.timeSignature || '4/4'
+    );
     var config =
       opts.config ||
+      map?.getTimingAt?.(0) ||
       getTimeSignatureGridConfig(opts.timeSignature || '4/4', opts.tempo || 120);
     var pxPerSec = finitePositive(opts.pxPerSec, 70);
     var beatsPerBar = Math.max(1, Number(config.beatsPerMeasure) || 4);
@@ -104,6 +121,29 @@ var TimelineGrid = (function() {
     var bpm = opts.bpm || 120;
     var dur = Math.max(0, Number(opts.durationInSeconds) || 0);
     var M = window.Meter;
+    var map = resolveTempoMap(opts, bpm, sig);
+    if (map) {
+      var mapped = map.getGridPoints(0, dur, {
+        maxPoints: MAX_GRID_LINES * 2
+      });
+      var mappedBars = mapped.bars.map(function(bar) {
+        return bar.time;
+      });
+      return {
+        config: map.getTimingAt(0),
+        measures: mapped.bars.map(function(bar) {
+          return Math.max(0, Number(bar.bar) - 1);
+        }),
+        beats: mapped.beats.map(function(beat) {
+          return {
+            measure: Math.max(0, Number(beat.bar) - 1),
+            beat: Math.max(0, Number(beat.beatInMeasure) || 0),
+            time: beat.time
+          };
+        }),
+        downbeats: mappedBars
+      };
+    }
     var config = M.getMeterConfig(sig, bpm);
     var beats = [];
     var downbeats = [];
@@ -232,6 +272,7 @@ var TimelineGrid = (function() {
       pxPerSec: pxPerSec
     });
     var meter = window.Meter;
+    var map = resolveTempoMap(opts, bpm, sig);
     var lineCount = 0;
 
     function drawBatch(xValues, style) {
@@ -246,6 +287,47 @@ var TimelineGrid = (function() {
       );
       lineCount += drawn;
       return drawn;
+    }
+
+    if (map) {
+      var mapped = map.getGridPoints(0, total, {
+        maxPoints: MAX_GRID_LINES * 2
+      });
+
+      if (detail && spec.showSubdivisions) {
+        drawBatch(
+          mapped.subdivisions.map(function(point) {
+            return Number(timeToX(point.time));
+          }),
+          'rgba(148, 163, 184, 0.08)'
+        );
+      }
+
+      if (detail && spec.showBeats) {
+        var mappedWeakBeatXs = [];
+        var mappedStrongBeatXs = [];
+        mapped.beats.forEach(function(beat) {
+          if (beat.isBarStart) return;
+          var target = beat.isAccent
+            ? mappedStrongBeatXs
+            : mappedWeakBeatXs;
+          target.push(Number(timeToX(beat.time)));
+        });
+        drawBatch(mappedWeakBeatXs, 'rgba(148, 163, 184, 0.13)');
+        drawBatch(mappedStrongBeatXs, 'rgba(203, 213, 225, 0.18)');
+      }
+
+      var mappedBarXs = [];
+      mapped.bars.forEach(function(bar) {
+        if (
+          ((Number(bar.bar) || 1) - 1) % spec.barGridStep !== 0
+        ) {
+          return;
+        }
+        mappedBarXs.push(Number(timeToX(bar.time)));
+      });
+      drawBatch(mappedBarXs, 'rgba(226, 232, 240, 0.22)');
+      return;
     }
 
     // Fine subdivisions are rendered first, so beat and bar accents remain
@@ -446,7 +528,102 @@ var TimelineGrid = (function() {
       defer: true,
       pending: []
     };
+    var map = resolveTempoMap(opts, bpm, sig);
     var barCount = Math.ceil(total / spec.barDuration);
+
+    if (map) {
+      var mapped = map.getGridPoints(0, total, {
+        maxPoints: MAX_GRID_LINES * 2
+      });
+
+      if (detail && spec.showSubdivisions) {
+        drawVerticalLines(
+          rctx,
+          cappedWidth,
+          mapped.subdivisions.map(function(point) {
+            return Number(timeToX(point.time));
+          }),
+          'rgba(148, 163, 184, 0.38)',
+          28,
+          RULER_HEIGHT,
+          MAX_GRID_LINES
+        );
+      }
+
+      if (detail && spec.showBeats) {
+        var mappedStrongBeatXs = [];
+        var mappedWeakBeatXs = [];
+        mapped.beats.forEach(function(beat) {
+          if (beat.isBarStart) return;
+          var beatX = Number(timeToX(beat.time));
+          var target = beat.isAccent
+            ? mappedStrongBeatXs
+            : mappedWeakBeatXs;
+          target.push(beatX);
+
+          if (spec.showBeatLabels) {
+            appendRulerLabel(
+              labelsEl,
+              beat.bar + '.' + (beat.beatInMeasure + 1),
+              Math.round(beatX) + 0.5,
+              'beat',
+              9,
+              '#718096',
+              labelState
+            );
+          }
+        });
+        drawVerticalLines(
+          rctx,
+          cappedWidth,
+          mappedWeakBeatXs,
+          'rgba(148, 163, 184, 0.42)',
+          24,
+          RULER_HEIGHT,
+          MAX_GRID_LINES
+        );
+        drawVerticalLines(
+          rctx,
+          cappedWidth,
+          mappedStrongBeatXs,
+          'rgba(203, 213, 225, 0.58)',
+          24,
+          RULER_HEIGHT,
+          MAX_GRID_LINES
+        );
+      }
+
+      var mappedBarXs = [];
+      mapped.bars.forEach(function(bar) {
+        var barNumber = Math.max(1, Number(bar.bar) || 1);
+        if ((barNumber - 1) % spec.barGridStep !== 0) return;
+        var barX = Number(timeToX(bar.time));
+        mappedBarXs.push(barX);
+        if ((barNumber - 1) % spec.majorBarStep === 0) {
+          appendRulerLabel(
+            labelsEl,
+            barNumber,
+            Math.round(barX) + 0.5,
+            'major',
+            10,
+            '#A0AEC0',
+            labelState
+          );
+        }
+      });
+      drawVerticalLines(
+        rctx,
+        cappedWidth,
+        mappedBarXs,
+        'rgba(226, 232, 240, 0.72)',
+        19,
+        RULER_HEIGHT,
+        MAX_GRID_LINES
+      );
+      labelState.defer = false;
+      flushRulerLabels(labelsEl, labelState);
+      return;
+    }
 
     // Subdivision ticks — shortest marks at the bottom of the ruler.
     if (detail && spec.showSubdivisions) {

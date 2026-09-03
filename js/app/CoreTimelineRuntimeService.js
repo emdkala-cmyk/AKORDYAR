@@ -21,6 +21,7 @@
     getDAW = () => globalScope.RuntimeStateAdapter?.getDAW?.() || null,
     getSongState = () => globalScope.requireEditorSongStateService?.(),
     getTimingContext = () => getSongState?.()?.getTimingContext?.() || {},
+    tempoMap = globalScope.TempoMap,
     getTimelineInner = () =>
       documentRef?.getElementById?.('tl-inner'),
     clamp = (value, minimum, maximum) =>
@@ -39,6 +40,9 @@
     updatePlayheadUI = () => {},
     startMetronome = () => {},
     resyncPlayingTransport = () => false,
+    getTransportPlayhead = () => 0,
+    setTempoMap = map => getSongState?.()?.setTempoMap?.(map) || false,
+    saveSong = () => {},
     getIsRecordingChords = () => false,
     setIsRecordingChords = () => {},
     getIconRegistry = () => globalScope.IconRegistry,
@@ -81,6 +85,7 @@
       clamp,
       getTimingContext,
       meter,
+      tempoMap,
       syncTimelineViewportToPlayhead
     });
 
@@ -203,6 +208,7 @@
       timelineGrid,
       getDAW,
       getTimingContext,
+      tempoMap,
       getProjectEnd: geometry.getProjectEnd,
       timeToX: value => geometry.timeToX(value),
       getElement,
@@ -214,7 +220,10 @@
       updatePlayheadUI,
       startMetronome,
       resyncPlayingTransport,
-      refreshPopupTimeline
+      refreshPopupTimeline,
+      getTransportPlayhead,
+      setTempoMap,
+      saveSong
     });
 
     const sectionBridge = requireService(

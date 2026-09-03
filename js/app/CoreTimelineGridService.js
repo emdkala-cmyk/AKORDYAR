@@ -14,6 +14,7 @@
     getTimingContext = () =>
       globalScope.requireEditorSongStateService?.()?.getTimingContext?.() ||
       {},
+    tempoMap = globalScope.TempoMap,
     getProjectEnd = () => 0,
     timeToX = () => 0,
     getElement = id => documentRef?.getElementById?.(id),
@@ -25,8 +26,69 @@
     updatePlayheadUI = () => {},
     startMetronome = () => {},
     resyncPlayingTransport = () => false,
-    refreshPopupTimeline = () => {}
+    refreshPopupTimeline = () => {},
+    getTransportPlayhead = () => 0,
+    setTempoMap = () => false,
+    saveSong = () => {}
   } = {}) {
+    function createTempoMap(timing, daw) {
+      if (!tempoMap?.create) return null;
+      const raw = timing?.tempoMap || daw?.tempoMap;
+      if (raw?.getGridPoints && raw?.changeAt) return raw;
+      return tempoMap.create({
+        tempo: timing?.tempo,
+        timeSignature: timing?.timeSignature,
+        tempoMap: raw
+      });
+    }
+
+    function getSharedTempoMap(timing, daw) {
+      if (!tempoMap?.create) return null;
+      if (daw?.tempoMap?.getGridPoints && daw?.tempoMap?.changeAt) {
+        return daw.tempoMap;
+      }
+      const map = createTempoMap(timing, daw);
+      if (!map) return null;
+      if (daw) daw.tempoMap = map.toJSON();
+      return map;
+    }
+
+    function syncTempoMapForTimingChange(change, timing, daw) {
+      const map = createTempoMap(timing, daw);
+      if (!map) return null;
+
+      const currentTime = daw?.isPlaying
+        ? Number(getTransportPlayhead())
+        : Number(daw?.playhead);
+      const timelineTime = Number.isFinite(currentTime)
+        ? Math.max(0, currentTime)
+        : 0;
+      const previousTiming = change?.previousTiming;
+      const sourceMap =
+        timing?.tempoMap ||
+        daw?.tempoMap ||
+        (previousTiming
+          ? tempoMap.create(previousTiming).toJSON()
+          : null);
+      const source = sourceMap
+        ? tempoMap.create({
+            tempo: previousTiming?.tempo || timing?.tempo,
+            timeSignature:
+              previousTiming?.timeSignature || timing?.timeSignature,
+            tempoMap: sourceMap
+          })
+        : map;
+      const changed = source.changeAt(timelineTime, {
+        tempo: timing?.tempo,
+        timeSignature: timing?.timeSignature
+      });
+      const serializable = changed.toJSON();
+      if (daw) daw.tempoMap = serializable;
+      setTempoMap(changed);
+      saveSong();
+      return changed;
+    }
+
     function drawLaneGrid(canvas) {
       const options = arguments[1] || {};
       if (!canvas || typeof timelineGrid?.drawLaneGrid !== 'function') {
@@ -39,6 +101,7 @@
         timeToX,
         tempo: timing.tempo,
         timeSignature: timing.timeSignature,
+        tempoMap: getSharedTempoMap(timing, daw),
         pxPerSec: daw.pxPerSecond,
         detail: options.detail !== false
       });
@@ -55,6 +118,7 @@
         timeToX,
         tempo: timing.tempo,
         timeSignature: timing.timeSignature,
+        tempoMap: getSharedTempoMap(timing, daw),
         pxPerSec: daw.pxPerSecond,
         detail: options.detail !== false,
         rulerEl: getElement('timeline-ruler'),
@@ -67,8 +131,10 @@
       });
     }
 
-    function handleTimingChange() {
+    function handleTimingChange(change = {}) {
       const timing = getTimingContext() || {};
+      const daw = getDAW() || {};
+      syncTempoMapForTimingChange(change, timing, daw);
       const config = getTimeSignatureGridConfig(
         timing.timeSignature,
         timing.tempo
@@ -81,7 +147,7 @@
       updatePlayheadUI();
       refreshPopupTimeline();
       if (transportState.metroActive && getDAW()?.isPlaying) {
-        resyncPlayingTransport();
+        resyncPlayingTransport({ preserveOrigin: true, timingChange: true });
         startMetronome();
       }
     }

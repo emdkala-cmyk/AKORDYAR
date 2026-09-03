@@ -16,6 +16,7 @@
       Math.max(minimum, Math.min(maximum, value)),
     getTimingContext = () => ({}),
     meter = globalScope.Meter,
+    tempoMap = globalScope.TempoMap,
     syncTimelineViewportToPlayhead = () => {}
   } = {}) {
     function pixelsPerSecond() {
@@ -32,6 +33,16 @@
 
     function timeToBarBeat(seconds) {
       const timing = getTimingContext() || {};
+      const map = tempoMap?.create && (
+        timing.tempoMap || getDAW()?.tempoMap
+      )
+        ? tempoMap.create({
+            tempo: timing.tempo,
+            timeSignature: timing.timeSignature,
+            tempoMap: timing.tempoMap || getDAW()?.tempoMap
+          })
+        : null;
+      if (map?.timeToBarBeat) return map.timeToBarBeat(seconds);
       return meter?.timeToBarBeat?.(
         seconds,
         timing.timeSignature,
@@ -41,6 +52,16 @@
 
     function barBeatToTime(bar, beat) {
       const timing = getTimingContext() || {};
+      const map = tempoMap?.create && (
+        timing.tempoMap || getDAW()?.tempoMap
+      )
+        ? tempoMap.create({
+            tempo: timing.tempo,
+            timeSignature: timing.timeSignature,
+            tempoMap: timing.tempoMap || getDAW()?.tempoMap
+          })
+        : null;
+      if (map?.barBeatToTime) return map.barBeatToTime(bar, beat);
       return meter?.barBeatToTime?.(
         bar,
         beat,
